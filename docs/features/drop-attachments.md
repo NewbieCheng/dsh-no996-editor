@@ -2,7 +2,7 @@
 id: features-drop-attachments
 reader: 改对话区投放、或排查"拖不进去"的人
 fact-source: src/host-paths.mjs、assets/shell-ui.js、patches/010-App.patch、patches/070-ProjectStarters.patch、patches/180-desktop-attachments.patch
-checked: 0.15.13
+checked: 0.15.14
 rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST_PATHS__ 桥改名
 -->
 

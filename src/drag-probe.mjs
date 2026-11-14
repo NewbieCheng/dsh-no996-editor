@@ -10,8 +10,9 @@
  * the frame that holds the official UI.
  */
 const SEEN_LIMIT = 3;
+const DEFAULT_ENDPOINT = '/api/no996-openfilm/drag-probe';
 
-export function installDragProbe({ window: view = globalThis.window, layer, fetch: send = globalThis.fetch, endpoint = '/__dsh/official-rpc' } = {}) {
+export function installDragProbe({ window: view = globalThis.window, layer, fetch: send = globalThis.fetch, endpoint = DEFAULT_ENDPOINT } = {}) {
   if (!view || typeof view.addEventListener !== 'function' || typeof send !== 'function') return () => {};
   const seen = new Map();
   const report = (type, event) => {
@@ -24,10 +25,8 @@ export function installDragProbe({ window: view = globalThis.window, layer, fetc
     if (count > SEEN_LIMIT) return;
     const target = event?.target;
     const tag = target && target.tagName ? String(target.tagName).slice(0, 20) : '';
-    const body = {
-      channel: 'probe:drag',
-      payload: { layer, type, types, files: data && data.files ? data.files.length : 0, target: tag },
-    };
+    // Plain body: this endpoint belongs to the DSH web origin, not the editor proxy.
+    const body = { layer, type, types, files: data && data.files ? data.files.length : 0, target: tag };
     try {
       const result = send(endpoint, {
         method: 'POST', credentials: 'same-origin',

@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。115 个模块、15996 行。
+> 生成命令：`npm run docs:gen`。115 个模块、16031 行。
 > 没有测试直接 import 的模块：22 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -83,6 +83,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/theme.mjs` | 82 | THEME_SURFACES, createTheme, theme, themeSurfaceFor | `theme.test.mjs` |
 | `src/preset-report.mjs` | 80 | reportPresetStatus | `preset-report.test.mjs` |
 | `src/project-trash.mjs` | 79 | TRASH_DIR, createProjectTrash | `project-trash.test.mjs` |
+| `src/studio-controller/routes/diagnostics.mjs` | 79 | createDiagnosticsRoutes | `client-log-route.test.mjs`、`drag-probe-route.test.mjs` |
 | `src/studio-controller/routes/bootstrap.mjs` | 76 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/studio-proxy-auth.mjs` | 76 | createStudioProxyAuth | **无** |
 | `src/drop-catcher.mjs` | 74 | installDropCatcher | `drop-catcher.test.mjs` |
@@ -101,15 +102,14 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio-proxy/websocket.mjs` | 58 | MAX_FRAME, WS_GUID, frames, wsFrame | **无** |
 | `src/project-instructions.mjs` | 57 | INSTRUCTIONS, ensureProjectInstructions | `project-instructions.test.mjs` |
 | `src/workspace-create.mjs` | 57 | createWorkspaceFlow | **无** |
-| `src/drag-probe.mjs` | 52 | installDragProbe | `drag-probe.test.mjs` |
 | `src/shell-extras.mjs` | 52 | shellUiInjection, shellUiVersion | `shell-extras.test.mjs`、`shell-ui-asi.test.mjs` |
+| `src/drag-probe.mjs` | 51 | installDragProbe | `drag-probe.test.mjs` |
 | `src/openfilm-prompt.mjs` | 51 | apply, inject | `pinned-scope-integration.test.mjs` |
 | `src/template-bridge.mjs` | 50 | registerTemplateBridge | `template-bridge.test.mjs` |
 | `src/studio-controller/router.mjs` | 47 | createRouter | `route-registration-order.test.mjs` |
 | `src/editing-project-delete.mjs` | 44 | createEditingProjectDelete | `editing-project-delete.test.mjs` |
 | `src/studio-controller/routes/chat.mjs` | 44 | createChatRoutes | `chat-route.test.mjs` |
 | `src/official-event-hub.mjs` | 43 | createOfficialEventHub | `official-event-stream.test.mjs`、`panel-sse-e2e.test.mjs` |
-| `src/studio-controller/routes/diagnostics.mjs` | 43 | createDiagnosticsRoutes | `client-log-route.test.mjs` |
 | `src/project-markers.mjs` | 41 | OPENED_MARKER, markProjectOpened | `project-markers.test.mjs` |
 | `src/official-shell.mjs` | 40 | resolveOfficialShell | **无** |
 | `src/draft-tool.mjs` | 38 | createDraftTool | `draft-tool.test.mjs`、`tool-schema.test.mjs` |

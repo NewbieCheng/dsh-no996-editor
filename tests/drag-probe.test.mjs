@@ -30,9 +30,11 @@ test('a file drag is reported once per type with what the layer saw', () => {
   const files = [{ name: 'a.mp4' }];
   emit('dragover', { dataTransfer: { types: ['Files'], files }, target: { tagName: 'DIV' } });
   emit('dragover', { dataTransfer: { types: ['Files'], files }, target: { tagName: 'DIV' } });
-  const probes = sent.filter(entry => entry.payload.type !== 'boot');
+  const probes = sent.filter(entry => entry.type !== 'boot');
   assert.equal(probes.length, 2, 'both sightings within the limit are kept');
-  assert.deepEqual(probes[0].payload, { layer: 'host', type: 'dragover', types: 'Files', files: 1, target: 'DIV' });
+  assert.deepEqual(probes[0], { layer: 'host', type: 'dragover', types: 'Files', files: 1, target: 'DIV' });
+  // the DSH page's own endpoint, not the editor proxy's channel wrapper
+  assert.equal(sent[0].channel, undefined);
 });
 
 test('non-file drags are ignored, and a failing report cannot break the page', () => {
@@ -47,6 +49,6 @@ test('non-file drags are ignored, and a failing report cannot break the page', (
 test('the probe reports its boot even before any drag', () => {
   const { view, sent, send } = harness();
   installDragProbe({ window: view, layer: 'shell', fetch: send });
-  assert.equal(sent[0].payload.type, 'boot');
-  assert.equal(sent[0].payload.layer, 'shell');
+  assert.equal(sent[0].type, 'boot');
+  assert.equal(sent[0].layer, 'shell');
 });

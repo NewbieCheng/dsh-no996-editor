@@ -1600,7 +1600,8 @@
 
   // src/drag-probe.mjs
   var SEEN_LIMIT = 3;
-  function installDragProbe({ window: view = globalThis.window, layer, fetch: send = globalThis.fetch, endpoint = "/__dsh/official-rpc" } = {}) {
+  var DEFAULT_ENDPOINT = "/api/no996-openfilm/drag-probe";
+  function installDragProbe({ window: view = globalThis.window, layer, fetch: send = globalThis.fetch, endpoint = DEFAULT_ENDPOINT } = {}) {
     if (!view || typeof view.addEventListener !== "function" || typeof send !== "function") return () => {
     };
     const seen = /* @__PURE__ */ new Map();
@@ -1614,10 +1615,7 @@
       if (count > SEEN_LIMIT) return;
       const target = event?.target;
       const tag = target && target.tagName ? String(target.tagName).slice(0, 20) : "";
-      const body = {
-        channel: "probe:drag",
-        payload: { layer, type, types, files: data && data.files ? data.files.length : 0, target: tag }
-      };
+      const body = { layer, type, types, files: data && data.files ? data.files.length : 0, target: tag };
       try {
         const result = send(endpoint, {
           method: "POST",

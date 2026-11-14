@@ -7,6 +7,25 @@
   if(typeof window.__dshEsSetShortcut!=='function'){
     window.__dshEsSetShortcut=function(){ return false; };
   }
+  // A drop may be refused by the window; a paste is not. Explorer's "copy" then
+  // Ctrl+V in the composer gives the same File objects, so keep that door open.
+  window.addEventListener('paste',function(event){
+    var dt=event.clipboardData;
+    if(!dt)return;
+    var files=[];
+    try{ files=dt.files&&dt.files.length?Array.prototype.slice.call(dt.files):[]; }catch(e){ files=[]; }
+    if(!files.length){
+      try{
+        Array.prototype.forEach.call(dt.items||[],function(item){
+          if(item.kind!=='file')return;
+          var f=item.getAsFile&&item.getAsFile();
+          if(f)files.push(f);
+        });
+      }catch(e){}
+    }
+    if(!files.length)return;
+    try{ if(typeof window.__no996AttachFiles==='function'){ event.preventDefault(); window.__no996AttachFiles(files); } }catch(e){}
+  },true);
   // The host page catches a file drag when this frame cannot see one (a cross-origin
   // frame may be skipped by the OS drag path) and hands the files here.
   window.addEventListener('message',function(event){

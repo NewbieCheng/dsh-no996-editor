@@ -8,7 +8,7 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 
 # HTTP 路由（自动生成）
 
-> 生成命令：`npm run docs:gen`。共 **17** 条。**不要手改**——改了也会被 `--check` 判为过期。
+> 生成命令：`npm run docs:gen`。共 **18** 条。**不要手改**——改了也会被 `--check` 判为过期。
 > 方法列来自 handler 里的 `request.method` 判断，可能不完整；镜像路由（如代理）不在此表。
 
 ## /api/no996-openfilm/
@@ -23,6 +23,7 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 | POST | `/api/no996-openfilm/client-log` | exact | `src/studio-controller/routes/diagnostics.mjs:11` |
 | POST | `/api/no996-openfilm/debug-url` | exact | `src/studio-controller/routes/debug-url.mjs:22` |
 | POST | `/api/no996-openfilm/diagnose` | exact | `src/studio-controller/routes/diagnose.mjs:22` |
+| POST | `/api/no996-openfilm/drag-probe` | exact | `src/studio-controller/routes/diagnostics.mjs:47` |
 | POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio-controller/routes/editing.mjs:141` |
 | POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio-controller/routes/editing.mjs:186` |
 | POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio-controller/routes/editing.mjs:231` |
