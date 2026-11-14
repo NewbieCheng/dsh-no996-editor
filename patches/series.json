@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "089d17d88839141eef6611a70e5140cbba373179bd3550edda7ce7ef89ae3ca5"
+    "sha256": "a9f5f126b7545fd611ac84375e6a36d5955c8838e48ae5a0ccecf2ca87a9b26b"
   },
   "patches": [
     {
@@ -13,8 +13,8 @@
       "file": "010-App.patch",
       "source": "apps/desktop/chat/src/App.tsx",
       "group": "chat",
-      "sha256": "0242abe047eda194f359fd54a95e0560988ab3431e533d3c5083df84fb79fae1",
-      "bytes": 12107
+      "sha256": "6e173a7acc6554d4b8119a6d2c6e39a5e983b2a4c6ddfecedc3e567a2053502f",
+      "bytes": 12105
     },
     {
       "id": "020-AgentActivityRow",

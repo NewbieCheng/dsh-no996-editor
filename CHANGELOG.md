@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.15.17 —— 橙色投放提示不再显示原始键名
+
+0.15.10 的整页投放把文案写成 `t('composer.dropActive')`，而这个键属于 `editor` 命名空间，
+于是提示框里直接渲染出 `composer.dropActive`（在浏览器里拖文件就能看到）。改为
+`t('editor.dropActive')`：中文「松手即可附上」，英文 "Release to attach"。
+
 ## 0.15.16 —— 找到真因：DSH 以管理员权限运行，UIPI 拦掉了所有文件拖放
 
 实测这台机器：DSH 主窗口进程 `pid=9684` 的令牌是 **high(elevated)**（`elevationType=full`），

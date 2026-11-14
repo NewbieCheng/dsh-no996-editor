@@ -98,10 +98,10 @@
     "source/package.json": "5e2d01f0720784a5af2350a00b77477c3d00acb4404f874810fd9dc48583907a",
     "source/pnpm-lock.yaml": "3fe58d8c7e4d51afff7debb50b35cfd3d6c8c961b1214bf782a68d3b6c5c4b4a",
     "source/pnpm-workspace.yaml": "af261372097773546d4000a74b771c8c09c4114ca5e9dd715c95018b44e1fbe3",
-    "ui/assets/CanvasView-BGSfN_ZZ.js": "52bcb976ffc7dd171d6d777865bf758df1b401bb3389fd10ad8a9e7d2baab947",
+    "ui/assets/CanvasView-DXvbV6Km.js": "91da3c4a15b86fd898573341dacb88c0fa70acf37fcda3af27d925865fcc9f3e",
     "ui/assets/CanvasView-D_Y2VtPX.css": "738392246b7fcccf3b45c490c3ecc7b7107623505cc835d3ccf44730f107a77d",
     "ui/assets/index-BLYAAI_l.css": "466df17e1d2661ba1e91b1a30849a55046f85aeda68b0e5abf55e2038907d5bd",
-    "ui/assets/index-Dy5nBrXL.js": "c732a64590dadc996240c65d4c88fe3869879ccfca114ba50c0c9ba1229548b4",
+    "ui/assets/index-CtmZ0Bgf.js": "ea26f3b1b17eda66933ea10d786484617d07eae4cd71870b8cad952c080cade2",
     "ui/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2": "ca157063339ac4ad418f214f3abfed119b0798ab4d377386ce5c9e5a7a435ebd",
     "ui/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2": "71d5ee93cc1e9f1d520a3a8b66456de18c7879d8df09d57fcd2eaff75fef0075",
     "ui/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2": "6e9e020a25f9b56d418f2c085b1d3c09725a4da23fe693a5b463064606732190",
@@ -109,7 +109,7 @@
     "ui/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2": "34b9c504cab7a73e37b746343a449132e56cf7b5481af2cb81dc74dcff25c956",
     "ui/assets/inter-latin-wght-normal-Dx4kXJAl.woff2": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62",
     "ui/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2": "5c66f9e07e90c6d4ac4922cc68d60de26c17b1858e677fb5e603fce3952b3ff2",
-    "ui/index.html": "765649430ad26a13c57b5608eff25c232fc086f2ffcd379a88cbc864a4e155ef",
+    "ui/index.html": "604fb04600a57873b47e6e6c77bc12c87b111068bde9dc84ca1bd81a2c279fcb",
     "ui/assets/no996-theme.css": "4a51337709214925c437940401e861eb574d16779732b4d2217a9c1f7f2ffb9b"
   },
   "overrides": {

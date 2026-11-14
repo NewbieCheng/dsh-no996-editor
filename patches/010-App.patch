@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..0c7baa4 100644
+index 9c7041b..81373c0 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -10,6 +10,7 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
@@ -174,7 +174,7 @@ index 9c7041b..0c7baa4 100644
 +            className="rounded-xl border-2 border-dashed px-6 py-4 text-[13px] font-medium"
 +            style={{ borderColor: '#FF6400', color: '#FF6400', background: 'var(--bg-raised)' }}
 +          >
-+            {t('composer.dropActive')}
++            {t('editor.dropActive')}
 +          </div>
 +        </div>
 +      ) : null}
