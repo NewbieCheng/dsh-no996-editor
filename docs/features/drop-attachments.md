@@ -2,7 +2,7 @@
 id: features-drop-attachments
 reader: 改对话区投放、或排查"拖不进去"的人
 fact-source: src/host-paths.mjs、assets/shell-ui.js、patches/010-App.patch、patches/070-ProjectStarters.patch、patches/180-desktop-attachments.patch
-checked: 0.15.10
+checked: 0.15.11
 rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST_PATHS__ 桥改名
 -->
 
@@ -41,6 +41,14 @@ rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST
 
 所以：**有路径就只引用、不复制；没有路径就复制入库**。大视频建议路径分支命中（同一台机器、
 文件没被删时都会命中）。
+
+## 面板 iframe 不能带 sandbox
+
+`src/studio-panel.mjs` 里那个承载官方壳的 `<iframe>` **不能**写 `sandbox` 属性：Chromium 对沙箱
+frame 直接拒绝桌面文件拖入，连 `dragover` 都不派发（光标一路"禁止"），页面上写再多 handler
+也收不到。0.15.10 的整页投放因此完全没生效，0.15.11 去掉了这个属性。
+
+壳页是我们自己 vendored 的界面、只接受校验过的回环来源；URL 校验与 `allow` 列表保留。
 
 ## 边界
 

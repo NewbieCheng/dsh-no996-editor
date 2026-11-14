@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 值班的人、排查 bug 的人
 fact-source: 真实故障记录（2026-11）、%TEMP%/dsh-openfilm/plugin.log、docs/architecture
-checked: 0.15.10
+checked: 0.15.11
 rot-if: 出现新的故障类别，或某个根因被结构性消除
 -->
 
@@ -58,8 +58,16 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 后推翻：DSH 前端自己在文档级监听 `dragenter/dragover/drop` 并读 `dataTransfer.files`，preload 还
 暴露了 `__DSH_HOST_PATHS__.pathFor`（`webUtils.getPathForFile`）——**事件到得了渲染进程**。
 
-**改法**：两个 A1 补丁把整页变成投放区；路径由 DSH 页面代答（跨源 iframe 拿不到桌面桥），
-拿不到就回落到复制入库。
+**改法（两步，第一步不够）**：
+1. 两个 A1 补丁把整页变成投放区；路径由 DSH 页面代答，拿不到就回落到复制入库。**发布后仍然"禁止"** ——
+   因为事件根本没进那个 frame。
+2. 真因在承载官方壳的 `<iframe>`：`src/studio-panel.mjs` 给它加了 `sandbox` 属性。**Chromium 拒绝把
+   桌面文件拖进带 sandbox 的 frame**，连 `dragover` 都不派发，所以第一步的 handler 一次也没执行
+   （对照：Atlassian Forge 的沙箱 iframe 有同一症状，页内拖拽却正常）。0.15.11 去掉 `sandbox`，
+   保留 URL 校验与 `allow` 列表。
+
+**教训**：页面里写对了 handler 不等于事件会到——先确认事件有没有到这一层，再改处理逻辑。
+iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型。
 
 ### 2026-11-14 · 左删右还在：两边读同一份记录，但只有一边会重读
 

@@ -321,7 +321,12 @@
           title: t("studioTitle"),
           src: state.url,
           onLoad: () => watchNavigationRef.current?.(),
-          sandbox: "allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-modals",
+          // No `sandbox` attribute: Chromium refuses file drops from the desktop
+          // into a sandboxed frame (the cursor stays at "no entry" and the page gets
+          // no dragover at all), which broke dropping a video onto the chat. The
+          // shell page is our own vendored UI on a validated loopback origin, not
+          // untrusted content — the check that matters is the URL guard below, and
+          // it still runs on every navigation.
           allow: "clipboard-read; clipboard-write",
           referrerPolicy: "no-referrer",
           style: { display: "block", width: "100%", height: "100%", border: 0, background: "var(--dsw-alias-bg-base)" }
