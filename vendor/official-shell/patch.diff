@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..2efbdc3 100644
+index 9c7041b..95b4c05 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -10,6 +10,7 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
@@ -59,7 +59,56 @@ index 9c7041b..2efbdc3 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -964,6 +993,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -352,6 +381,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   const [openedFile, setOpenedFile] = React.useState<AttachmentPreviewItem | null>(null);
+   const attachInputRef = React.useRef<HTMLInputElement>(null);
+   const [dropping, setDropping] = React.useState(false);
++  /* dsh-openfilm: files may be let go anywhere in the page, not only on the composer card */
++  const [pageDropping, setPageDropping] = React.useState(false);
+   /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
+   const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
+   const followUpFilled = followUp.trim().length > 0;
+@@ -382,6 +413,39 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+     (data: DataTransfer) => transferHasStudioRefs(data) || [...data.types].includes('Files'),
+     [],
+   );
++  /* dsh-openfilm: take a file anywhere in this page.
++     Embedded in a host window there is often no drop target but this composer, and the "素材丢这里" box was text
++     that accepted nothing — every other pixel showed the system's "no entry" cursor. The composer keeps its own
++     handler (it knows where the caret is); this one catches the rest and puts the pill at the pointer. */
++  React.useEffect(() => {
++    const carriesFiles = (data: DataTransfer | null) => Boolean(data && [...data.types].includes('Files'));
++    const over = (event: DragEvent) => {
++      if (!carriesFiles(event.dataTransfer)) return;
++      event.preventDefault();
++      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
++      setPageDropping(true);
++    };
++    const leave = (event: DragEvent) => {
++      /* only when the pointer leaves the window: a drag between children also fires dragleave */
++      if (event.relatedTarget) return;
++      setPageDropping(false);
++    };
++    const letGo = (event: DragEvent) => {
++      setPageDropping(false);
++      if (!carriesFiles(event.dataTransfer) || event.defaultPrevented) return;
++      event.preventDefault();
++      attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
++      composerRef.current?.focus();
++    };
++    document.addEventListener('dragover', over);
++    document.addEventListener('dragleave', leave);
++    document.addEventListener('drop', letGo);
++    return () => {
++      document.removeEventListener('dragover', over);
++      document.removeEventListener('dragleave', leave);
++      document.removeEventListener('drop', letGo);
++    };
++  }, [attachFiles]);
+ 
+   /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
+   const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
+@@ -964,6 +1028,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -73,7 +122,7 @@ index 9c7041b..2efbdc3 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -996,6 +1032,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -996,6 +1067,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -85,7 +134,7 @@ index 9c7041b..2efbdc3 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1028,9 +1069,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1028,9 +1104,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -98,7 +147,24 @@ index 9c7041b..2efbdc3 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1 py-2.5 pl-3.5 pr-2">
-@@ -1132,6 +1174,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1115,6 +1192,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+ 
+   return (
+     <ChatProjectContext.Provider value={projectKey}>
++      {pageDropping ? (
++        <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(0,0,0,.32)]">
++          <div
++            className="rounded-xl border-2 border-dashed px-6 py-4 text-[13px] font-medium"
++            style={{ borderColor: '#FF6400', color: '#FF6400', background: 'var(--bg-raised)' }}
++          >
++            {t('composer.dropActive')}
++          </div>
++        </div>
++      ) : null}
+       <PromptPillHoverContext.Provider value={pillHover.hover}>
+         <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
+           <StickToBottomContext.Provider value={thread}>
+@@ -1132,6 +1219,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -106,6 +172,15 @@ index 9c7041b..2efbdc3 100644
                  />
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
+@@ -1143,7 +1231,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+                   >
+                     {blank ? (
+                       <div ref={thread.contentRef}>
+-                        <ProjectStarters onSkill={pickSkill} />
++                        <ProjectStarters onSkill={pickSkill} onAddFiles={(files) => attachFiles(files)} />
+                       </div>
+                     ) : (
+                       <div ref={thread.contentRef} className="min-w-0 shrink-0">
 diff --git a/apps/desktop/chat/src/components/AgentActivityRow.tsx b/apps/desktop/chat/src/components/AgentActivityRow.tsx
 index 69c82b6..3c278ed 100644
 --- a/apps/desktop/chat/src/components/AgentActivityRow.tsx
@@ -1066,10 +1141,10 @@ index 0000000..ec02cbf
 +  window.dispatchEvent(new Event(REOPEN));
 +}
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..32c32d4 100644
+index 640dfe1..d728643 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
-@@ -1,23 +1,22 @@
+@@ -1,32 +1,39 @@
  'use client';
  
  /**
@@ -1094,12 +1169,22 @@ index 640dfe1..32c32d4 100644
  /** the cards as read last: another empty conversation shows them at once, read again behind them */
  let lastRead: StarterSkill[] | null = null;
 +const ONBOARDING_KEY = 'no996.openfilm.onboarding';
-+
-+type NextSteps = { title?: string; steps?: string[]; uploadHint?: string };
  
- export function ProjectStarters({ onSkill }: {
+-export function ProjectStarters({ onSkill }: {
++type NextSteps = { title?: string; steps?: string[]; uploadHint?: string };
++
++export function ProjectStarters({ onSkill, onAddFiles }: {
    /** Names the skill in the composer (unsent) and focuses it. */
-@@ -27,6 +26,7 @@ export function ProjectStarters({ onSkill }: {
+   onSkill: (skill: { name: string; description: string; title: string }) => void;
++  /** dsh-openfilm: files let go on the drop box (or picked from it) go into the composer as pills. */
++  onAddFiles?: (files: File[]) => void;
+ }) {
+   const t = useT();
++  const [dropHot, setDropHot] = React.useState(false);
++  const takeFiles = (list: FileList | null | undefined) => {
++    const files = list ? [...list] : [];
++    if (files.length) onAddFiles?.(files);
++  };
    const locale = useUiLocale();
    /* null until read: the cards' places are kept meanwhile, so nothing below them moves when they arrive */
    const [skills, setSkills] = React.useState<StarterSkill[] | null>(lastRead);
@@ -1107,7 +1192,7 @@ index 640dfe1..32c32d4 100644
    React.useEffect(() => {
      let live = true;
      void app.starterSkills().then((list) => {
-@@ -35,6 +35,17 @@ export function ProjectStarters({ onSkill }: {
+@@ -35,6 +42,17 @@ export function ProjectStarters({ onSkill }: {
      }, () => { if (live) setSkills((was) => was ?? []); });
      return () => { live = false; };
    }, []);
@@ -1125,7 +1210,7 @@ index 640dfe1..32c32d4 100644
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +53,47 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +60,75 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -1161,12 +1246,40 @@ index 640dfe1..32c32d4 100644
 +        </div>
 +      ) : null}
 +
-+      <div
-+        className="mt-4 rounded-lg border border-dashed px-3 py-2.5 text-[12.5px] leading-snug text-[var(--text-muted)]"
-+        style={{ borderColor: 'color-mix(in srgb, var(--border) 80%, transparent)' }}
++      {/* dsh-openfilm: this box said "素材丢这里" and accepted nothing. It is a real drop target now, and
++          clicking it opens the same picker as the composer's +. */}
++      <label
++        onDragOver={(event) => {
++          if (![...event.dataTransfer.types].includes('Files')) return;
++          event.preventDefault();
++          event.dataTransfer.dropEffect = 'copy';
++          setDropHot(true);
++        }}
++        onDragLeave={() => setDropHot(false)}
++        onDrop={(event) => {
++          setDropHot(false);
++          if (![...event.dataTransfer.types].includes('Files')) return;
++          event.preventDefault();
++          event.stopPropagation();
++          takeFiles(event.dataTransfer.files);
++        }}
++        className="mt-4 block cursor-pointer rounded-lg border border-dashed px-3 py-2.5 text-[12.5px] leading-snug transition-colors"
++        style={{
++          borderColor: dropHot ? '#FF6400' : 'color-mix(in srgb, var(--border) 80%, transparent)',
++          color: dropHot ? '#FF6400' : 'var(--text-muted)',
++        }}
 +      >
 +        {t('editor.dropHint')}
-+      </div>
++        <input
++          type="file"
++          multiple
++          className="hidden"
++          onChange={(event) => {
++            takeFiles(event.target.files);
++            event.target.value = '';
++          }}
++        />
++      </label>
 +
 +      <TemplatePicker />
 +
@@ -1177,7 +1290,7 @@ index 640dfe1..32c32d4 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +101,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +136,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}
@@ -1728,6 +1841,66 @@ index 9134f7a..6380e31 100644
  export const lastSession = (project: string): string | null => record(project).last;
  export function setLastSession(project: string, id: string) {
    const chat = record(project);
+diff --git a/apps/desktop/chat/src/lib/desktop-attachments.ts b/apps/desktop/chat/src/lib/desktop-attachments.ts
+index 4f7aa72..25eeb92 100644
+--- a/apps/desktop/chat/src/lib/desktop-attachments.ts
++++ b/apps/desktop/chat/src/lib/desktop-attachments.ts
+@@ -64,6 +64,10 @@ export function useDesktopAttachments(project: string) {
+   /** Takes the files in; their records come back at once, for their pills to go into the sentence. */
+   const add = React.useCallback((incoming: File[]): DesktopAttachment[] => {
+     const bridge = (window as unknown as { openfilmDesktop?: { pathForFile?: (f: File) => string } }).openfilmDesktop;
++    /* dsh-openfilm: embedded in a host window there is no openfilmDesktop bridge, but that window can still
++       resolve a dropped file's real path (Electron's webUtils). Without it every drop would be copied into the
++       project; with it the message names the file where it already sits, as the desktop app's does. */
++    const hostPath = (window as unknown as { __no996HostPath?: (file: File) => Promise<string> }).__no996HostPath;
+     const items = incoming.map((file) => {
+       const image = isImageAttachment(file);
+       const item: DesktopAttachment = {
+@@ -88,8 +92,8 @@ export function useDesktopAttachments(project: string) {
+       }
+     }
+     /* from the disk: its path, once the app has said whether it is a file or a folder (nothing is copied) */
+-    const onDisk = items.filter(({ path }) => path);
+-    if (onDisk.length) {
++    const settleOnDisk = (onDisk: Array<{ item: DesktopAttachment; path: string }>) => {
++      if (!onDisk.length) return;
+       void app.chat.describePaths(onDisk.map(({ path }) => path))
+         .then((found) => onDisk.forEach(({ item }, i) => {
+           const one = found[i];
+@@ -100,15 +104,30 @@ export function useDesktopAttachments(project: string) {
+           } else patch(item.id, { state: 'ready', path: one.path, size: one.size ?? item.size });
+         }))
+         .catch((error: unknown) => onDisk.forEach(({ item }) => patch(item.id, { state: 'failed', error: error instanceof Error ? error.message : String(error) })));
+-    }
++    };
+     /* pasted: no path of its own, so its bytes are kept in the project */
+-    for (const { item, file, path } of items) {
+-      if (path) continue;
++    const keepBytes = (item: DesktopAttachment, file: File) => {
+       void file.arrayBuffer()
+         .then((bytes) => app.chat.saveAttachment(project, item.name, bytes))
+         .then((r) => patch(item.id, { state: 'ready', path: r.path }))
+         .catch((error: unknown) => patch(item.id, { state: 'failed', error: error instanceof Error ? error.message : String(error) }));
++    };
++    settleOnDisk(items.filter(({ path }) => path).map(({ item, path }) => ({ item, path })));
++    const unknown = items.filter(({ path }) => !path);
++    if (!unknown.length) return items.map(({ item }) => item);
++    if (!hostPath) {
++      for (const { item, file } of unknown) keepBytes(item, file);
++      return items.map(({ item }) => item);
+     }
++    /* the host answers late, so nothing waits on it: a resolve that fails is a paste, handled the old way */
++    void Promise.all(unknown.map(({ item, file }) => hostPath(file)
++      .then((path) => ({ item, file, path: typeof path === 'string' ? path : '' }))
++      .catch(() => ({ item, file, path: '' }))))
++      .then((found) => {
++        settleOnDisk(found.filter(({ path }) => path).map(({ item, path }) => ({ item, path })));
++        for (const { item, file, path } of found) if (!path) keepBytes(item, file);
++      })
++      .catch(() => { for (const { item, file } of unknown) keepBytes(item, file); });
+     return items.map(({ item }) => item);
+   }, [project, thumbnail]);
+ 
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
 index 0ef8753..1fb2036 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts

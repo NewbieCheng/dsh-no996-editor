@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 值班的人、排查 bug 的人
 fact-source: 真实故障记录（2026-11）、%TEMP%/dsh-openfilm/plugin.log、docs/architecture
-checked: 0.15.9
+checked: 0.15.10
 rot-if: 出现新的故障类别，或某个根因被结构性消除
 -->
 
@@ -46,6 +46,20 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 而隐藏只在挂载那一刻做过一次。现在 `syncHeaderActions()` 每趟都藏（跳过自己的），并删掉重复开关。
 
 **边界**：改的是注入层（B2），不是官方壳；真机复现前只能说"按代码条件修掉了已知的两种路径"。
+
+### 2026-11-15 · 拖文件显示"禁止"：不是壳禁止，是页面没接
+
+**现象**：从资源管理器拖视频进面板，光标一路"禁止"；同一个编辑页在 Chrome 里打开却能拖。
+
+**根因**：官方对话页只在输入框卡片上挂了 `onDragOver`/`onDrop`，其余区域没有 handler（"素材丢这里"
+那块是静态 div）。浏览器对没有 `preventDefault` 的区域就显示"禁止"。
+
+**误判与纠正**：先怀疑 DSH 桌面端（Electron）的 `dragDropEnabled` 默认值吞掉了事件。查 `app.asar`
+后推翻：DSH 前端自己在文档级监听 `dragenter/dragover/drop` 并读 `dataTransfer.files`，preload 还
+暴露了 `__DSH_HOST_PATHS__.pathFor`（`webUtils.getPathForFile`）——**事件到得了渲染进程**。
+
+**改法**：两个 A1 补丁把整页变成投放区；路径由 DSH 页面代答（跨源 iframe 拿不到桌面桥），
+拿不到就回落到复制入库。
 
 ### 2026-11-14 · 左删右还在：两边读同一份记录，但只有一边会重读
 

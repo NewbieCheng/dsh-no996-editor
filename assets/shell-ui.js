@@ -7,6 +7,33 @@
   if(typeof window.__dshEsSetShortcut!=='function'){
     window.__dshEsSetShortcut=function(){ return false; };
   }
+  // A dropped file's real path lives with the desktop window (Electron's webUtils),
+  // and this frame is cross-origin to it: ask the page that has it, and treat no
+  // answer as "no path" — the project copy is the fallback, as for a pasted file.
+  if(typeof window.__no996HostPath!=='function'){
+    var hostPathSeq=0, hostPathPending={};
+    window.addEventListener('message',function(event){
+      var data=event.data;
+      if(!data||data.type!=='no996:path-for-file:reply'||typeof data.id!=='string')return;
+      var settle=hostPathPending[data.id];
+      if(settle){ delete hostPathPending[data.id]; settle(typeof data.path==='string'?data.path:''); }
+    });
+    window.__no996HostPath=function(file){
+      return new Promise(function(resolve){
+        var direct=globalThis.__DSH_HOST_PATHS__;
+        if(direct&&typeof direct.pathFor==='function'){
+          try{ resolve(String(direct.pathFor(file)||'')); return; }catch(e){ /* fall through */ }
+        }
+        if(window.parent===window){ resolve(''); return; }
+        var id='p'+(++hostPathSeq).toString(36), settled=false;
+        var finish=function(path){ if(settled)return; settled=true; resolve(path); };
+        hostPathPending[id]=finish;
+        try{ window.parent.postMessage({type:'no996:path-for-file',id:id,file:file},'*'); }
+        catch(e){ delete hostPathPending[id]; finish(''); return; }
+        setTimeout(function(){ delete hostPathPending[id]; finish(''); },2000);
+      });
+    };
+  }
   function rpc(channel,payload){
     return fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel:channel,payload:payload})})
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});

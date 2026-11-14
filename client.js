@@ -1559,6 +1559,34 @@
     };
   }
 
+  // src/host-paths.mjs
+  function installHostPathBridge({ window: view = globalThis.window } = {}) {
+    if (!view || typeof view.addEventListener !== "function") return () => {
+    };
+    const bridge = view.__DSH_HOST_PATHS__;
+    const reply = (event) => {
+      const data = event?.data;
+      if (!data || data.type !== "no996:path-for-file" || typeof data.id !== "string") return;
+      let path = "";
+      try {
+        path = typeof bridge?.pathFor === "function" ? String(bridge.pathFor(data.file) ?? "") : "";
+      } catch {
+        path = "";
+      }
+      try {
+        event.source?.postMessage({ type: "no996:path-for-file:reply", id: data.id, path }, "*");
+      } catch {
+      }
+    };
+    view.addEventListener("message", reply);
+    return () => {
+      try {
+        view.removeEventListener("message", reply);
+      } catch {
+      }
+    };
+  }
+
   // src/studio-entry.js
   window.__ModuleLoader__.load({
     id: "dsh-openfilm",
@@ -1706,6 +1734,7 @@
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
+          if (typeof window !== "undefined") ctx.effect(() => installHostPathBridge({ window }), "openfilm: host paths");
           if (typeof document !== "undefined" && typeof window !== "undefined") {
             const install = () => {
               try {

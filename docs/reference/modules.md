@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。112 个模块、15809 行。
+> 生成命令：`npm run docs:gen`。113 个模块、15837 行。
 > 没有测试直接 import 的模块：22 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -34,8 +34,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/tool-call-act.mjs` | 197 | describeToolCall, parseArguments, planFromTodoWrite | `tool-call-act.test.mjs` |
 | `src/official-chat-store.mjs` | 181 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
 | `src/cli-tool.mjs` | 180 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
+| `src/studio-entry.js` | 172 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/studio-runtime.mjs` | 170 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
-| `src/studio-entry.js` | 169 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/studio-debug-redirect.mjs` | 168 | startLocalConsole | `studio-debug-redirect.test.mjs` |
 | `src/clip-tool.mjs` | 167 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/transcribe-tool.mjs` | 167 | createTranscribeTool | `transcribe-tool.test.mjs` |
@@ -121,6 +121,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/auth-client.mjs` | 32 | authAction, authEndpoint | **无** |
 | `src/dsh-ai.mjs` | 29 | createDshAskAgent | **无** |
 | `src/editing-sessions.mjs` | 29 | buildEditingProjects | `editing-sessions.test.mjs` |
+| `src/host-paths.mjs` | 25 | installHostPathBridge | `host-paths.test.mjs` |
 | `src/draft-session.mjs` | 24 | MAX_DRAFT_OPERATIONS, appendDraft, startDraft, undoDraft | `draft-session.test.mjs` |
 | `src/official-attachment.mjs` | 20 | officialUploadSource | `official-attachment.test.mjs` |
 | `src/studio-controller/http-body.mjs` | 15 | readJsonBody | **无** |

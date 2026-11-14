@@ -1,6 +1,7 @@
 import { createStudioPanel } from './studio-panel.mjs';
 import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from './sidebar-editing.mjs';
+import { installHostPathBridge } from './host-paths.mjs';
 
 window.__ModuleLoader__.load({
   id: 'dsh-openfilm',
@@ -132,6 +133,8 @@ window.__ModuleLoader__.load({
         // The Workspace header becomes a two-way switch (工作区 / 剪辑区).
         // It is installed outside React on purpose: the sidebar belongs to DSH,
         // and this is a narrow, reversible append that only hides one label.
+        // A drop inside the shell iframe cannot name its own path; this frame can.
+        if (typeof window !== 'undefined') ctx.effect(() => installHostPathBridge({ window }), 'openfilm: host paths');
         if (typeof document !== 'undefined' && typeof window !== 'undefined') {
           const install = () => {
             try {

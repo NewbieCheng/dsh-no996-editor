@@ -45,6 +45,8 @@ function main() {
     'packages/openfilm/studio/ui/src/components/ProjectView.tsx',
     'apps/desktop/chat/src/App.tsx',
     'apps/desktop/chat/src/lib/chat-store.ts',
+    'apps/desktop/chat/src/lib/desktop-attachments.ts',
+    'apps/desktop/chat/src/components/ProjectStarters.tsx',
     'apps/desktop/chat/src/state/local-agent-store.ts',
     'apps/desktop/chat/src/lib/agent-transcript.ts',
     'apps/desktop/chat/src/lib/local-agent-run.ts',
