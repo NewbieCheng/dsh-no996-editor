@@ -1158,7 +1158,7 @@ index 0000000..ec02cbf
 +  window.dispatchEvent(new Event(REOPEN));
 +}
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..38e8a52 100644
+index 640dfe1..82de700 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
 @@ -1,32 +1,39 @@
@@ -1227,7 +1227,7 @@ index 640dfe1..38e8a52 100644
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +60,77 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +60,80 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -1289,6 +1289,9 @@ index 640dfe1..38e8a52 100644
 +        }}
 +      >
 +        {t('editor.dropHint')}
++        {/* The desktop window can refuse OS file drags outright (paste still works),
++            so the working intake has to be visible where people try to drop. */}
++        <span className="mt-1 block text-[11px] opacity-70">拖不进？Ctrl+V 粘贴，或点这里选择文件</span>
 +        <input
 +          type="file"
 +          multiple
@@ -1309,7 +1312,7 @@ index 640dfe1..38e8a52 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +138,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +141,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}

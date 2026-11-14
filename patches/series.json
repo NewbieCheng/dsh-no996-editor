@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "2f25331bc7f74fd7912302f6f7da56bf177bba39ca4e9919bcbfb9a1023a2b23"
+    "sha256": "089d17d88839141eef6611a70e5140cbba373179bd3550edda7ce7ef89ae3ca5"
   },
   "patches": [
     {
@@ -61,8 +61,8 @@
       "file": "070-ProjectStarters.patch",
       "source": "apps/desktop/chat/src/components/ProjectStarters.tsx",
       "group": "onboarding",
-      "sha256": "0047c79d5809182eddd46ca4175488850d61c06a70bbb86b486b14fc7d89f7c1",
-      "bytes": 8151
+      "sha256": "43ce2b6c7d1e8514df9e038a35531a5d37b8017f7da8e188a0814fc87c8b0aca",
+      "bytes": 8442
     },
     {
       "id": "080-TemplatePicker",

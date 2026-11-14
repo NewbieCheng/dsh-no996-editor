@@ -141,6 +141,7 @@ window.__ModuleLoader__.load({
         if (typeof window !== 'undefined') {
           ctx.effect(() => installDropCatcher({
             window, document, isActive: () => activation.isActive(), frame: () => window.__no996ShellFrame ?? null,
+            elementOf: () => window.__no996ShellFrameElement ?? null,
           }), 'openfilm: drop catcher');
         }
         // A drop inside the shell iframe cannot name its own path; this frame can.

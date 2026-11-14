@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。115 个模块、16031 行。
+> 生成命令：`npm run docs:gen`。115 个模块、16057 行。
 > 没有测试直接 import 的模块：22 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -22,7 +22,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/official-facade.mjs` | 506 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/login-page.mjs` | 440 | createLoginPage | **无** |
 | `src/workbench-auth.mjs` | 392 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth.test.mjs` |
-| `src/studio-panel.mjs` | 379 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
+| `src/studio-panel.mjs` | 382 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
 | `src/preferences.mjs` | 263 | balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch, createPreferencesStore, onboardingCopy, productMeta | `preferences-custom.test.mjs`、`preferences.test.mjs` |
 | `src/studio-controller/routes/editing.mjs` | 258 | createEditingRoutes | `editing-routes.test.mjs` |
 | `src/tool-installer.mjs` | 256 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
@@ -32,7 +32,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/captcha-challenge.mjs` | 236 | createCaptchaChallenge | **无** |
 | `src/client-entry.js` | 197 | — | 排除：浏览器端打包入口：与 src/studio-*.js 一起被 esbuild 打进 client.js，只能由面板端到端测试覆盖 |
 | `src/tool-call-act.mjs` | 197 | describeToolCall, parseArguments, planFromTodoWrite | `tool-call-act.test.mjs` |
-| `src/studio-entry.js` | 182 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
+| `src/studio-entry.js` | 183 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/official-chat-store.mjs` | 181 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
 | `src/cli-tool.mjs` | 180 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/studio-runtime.mjs` | 170 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
@@ -76,6 +76,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/brand.mjs` | 96 | brandCssVars, brandVersion, getBrand, replaceTitle, validateBrand | `brand.test.mjs` |
 | `src/host-components.mjs` | 96 | createHostComponentDetector | `host-components.test.mjs` |
 | `src/asr-segments.mjs` | 95 | SEGMENT_LIMITS, normalizeSegments, planSegments | `asr-segments.test.mjs` |
+| `src/drop-catcher.mjs` | 93 | installDropCatcher | `drop-catcher.test.mjs` |
 | `src/asr-sensevoice.mjs` | 89 | createSenseVoiceRecognizer, loadSherpa | **无** |
 | `src/download-sources.mjs` | 89 | MODEL_BASES, MODEL_REPO, TOOL_SOURCES, augmentPath, knownBinaryDirs, modelBases… | `download-sources.test.mjs` |
 | `src/studio-controller/routes/diagnose.mjs` | 88 | createDiagnoseRoute | `diagnose-route.test.mjs` |
@@ -86,7 +87,6 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio-controller/routes/diagnostics.mjs` | 79 | createDiagnosticsRoutes | `client-log-route.test.mjs`、`drag-probe-route.test.mjs` |
 | `src/studio-controller/routes/bootstrap.mjs` | 76 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/studio-proxy-auth.mjs` | 76 | createStudioProxyAuth | **无** |
-| `src/drop-catcher.mjs` | 74 | installDropCatcher | `drop-catcher.test.mjs` |
 | `src/library-tool.mjs` | 74 | LIBRARY_KINDS, createLibraryTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/timeline-layout.mjs` | 71 | layoutTimeline | `timeline-layout.test.mjs` |
 | `src/session-save.mjs` | 66 | saveSessionFilm | `session-save.test.mjs` |
@@ -102,8 +102,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio-proxy/websocket.mjs` | 58 | MAX_FRAME, WS_GUID, frames, wsFrame | **无** |
 | `src/project-instructions.mjs` | 57 | INSTRUCTIONS, ensureProjectInstructions | `project-instructions.test.mjs` |
 | `src/workspace-create.mjs` | 57 | createWorkspaceFlow | **无** |
+| `src/drag-probe.mjs` | 54 | installDragProbe | `drag-probe.test.mjs` |
 | `src/shell-extras.mjs` | 52 | shellUiInjection, shellUiVersion | `shell-extras.test.mjs`、`shell-ui-asi.test.mjs` |
-| `src/drag-probe.mjs` | 51 | installDragProbe | `drag-probe.test.mjs` |
 | `src/openfilm-prompt.mjs` | 51 | apply, inject | `pinned-scope-integration.test.mjs` |
 | `src/template-bridge.mjs` | 50 | registerTemplateBridge | `template-bridge.test.mjs` |
 | `src/studio-controller/router.mjs` | 47 | createRouter | `route-registration-order.test.mjs` |

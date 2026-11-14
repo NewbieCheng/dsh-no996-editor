@@ -13,20 +13,39 @@ export function installDropCatcher({
   document: doc = globalThis.document,
   isActive = () => false,
   frame = () => null,
+  elementOf = () => null,
   attachType = 'no996:attach-files',
 } = {}) {
   if (!view || !doc || typeof view.addEventListener !== 'function') return () => {};
 
   let overlay = null;
+  const boxOf = () => {
+    const element = typeof elementOf === 'function' ? elementOf() : null;
+    const rect = element && typeof element.getBoundingClientRect === 'function' ? element.getBoundingClientRect() : null;
+    if (rect && rect.width > 0 && rect.height > 0) return rect;
+    const width = view.innerWidth || 0;
+    const height = view.innerHeight || 0;
+    return { left: 0, top: 0, width, height };
+  };
   const remove = () => { if (overlay) { overlay.remove(); overlay = null; } };
-  const hasFiles = data => Boolean(data && (data.files?.length || [...data.types].includes('Files')));
+  /* `types` can be empty for a drag that started outside the app, so the overlay
+     must not wait for it: any drag entering the page while the panel is on screen
+     is treated as a candidate, and the drop decides by what actually arrived. */
+  const looksLikeDrag = data => Boolean(data);
 
   const show = () => {
     if (overlay || !isActive()) return;
     overlay = doc.createElement('div');
     overlay.setAttribute('data-no996-drop-catcher', '');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;' +
+    overlay.style.cssText = 'position:fixed;z-index:2147483001;display:flex;align-items:center;justify-content:center;' +
       'background:rgba(0,0,0,.32);font:13px/1.5 system-ui,sans-serif;color:#FF6400;';
+    // Sit exactly on the panel, not over the whole window: the sidebar must not
+    // look broken just because a file is in the air.
+    const box = boxOf();
+    overlay.style.left = `${Math.round(box.left)}px`;
+    overlay.style.top = `${Math.round(box.top)}px`;
+    overlay.style.width = `${Math.round(box.width)}px`;
+    overlay.style.height = `${Math.round(box.height)}px`;
     const hint = doc.createElement('div');
     hint.textContent = '松手即可附上';
     hint.style.cssText = 'padding:16px 24px;border:2px dashed #FF6400;border-radius:12px;background:var(--dsw-alias-bg-elevated,#232325);pointer-events:none;';
@@ -53,7 +72,7 @@ export function installDropCatcher({
   };
 
   const onEnter = event => {
-    if (!hasFiles(event.dataTransfer)) return;
+    if (!looksLikeDrag(event.dataTransfer)) return;
     show();
   };
   /* the overlay can be dismissed by a drag that ends anywhere */

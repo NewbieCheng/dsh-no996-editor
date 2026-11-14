@@ -323,6 +323,7 @@
           onLoad: () => {
             try {
               window.__no996ShellFrame = iframeRef.current?.contentWindow ?? null;
+              window.__no996ShellFrameElement = iframeRef.current ?? null;
             } catch {
             }
             watchNavigationRef.current?.();
@@ -1608,7 +1609,8 @@
     const report = (type, event) => {
       const data = event?.dataTransfer;
       const types = data && typeof data.types !== "undefined" ? [...data.types].join(",").slice(0, 60) : "";
-      if (type !== "boot" && !types.includes("Files") && type !== "drop") return;
+      if (type === "boot" && !data) {
+      }
       const key = `${type}|${types}`;
       const count = (seen.get(key) ?? 0) + 1;
       seen.set(key, count);
@@ -1651,23 +1653,37 @@
     document: doc = globalThis.document,
     isActive = () => false,
     frame = () => null,
+    elementOf = () => null,
     attachType = "no996:attach-files"
   } = {}) {
     if (!view || !doc || typeof view.addEventListener !== "function") return () => {
     };
     let overlay = null;
+    const boxOf = () => {
+      const element = typeof elementOf === "function" ? elementOf() : null;
+      const rect = element && typeof element.getBoundingClientRect === "function" ? element.getBoundingClientRect() : null;
+      if (rect && rect.width > 0 && rect.height > 0) return rect;
+      const width = view.innerWidth || 0;
+      const height = view.innerHeight || 0;
+      return { left: 0, top: 0, width, height };
+    };
     const remove = () => {
       if (overlay) {
         overlay.remove();
         overlay = null;
       }
     };
-    const hasFiles = (data) => Boolean(data && (data.files?.length || [...data.types].includes("Files")));
+    const looksLikeDrag = (data) => Boolean(data);
     const show = () => {
       if (overlay || !isActive()) return;
       overlay = doc.createElement("div");
       overlay.setAttribute("data-no996-drop-catcher", "");
-      overlay.style.cssText = "position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.32);font:13px/1.5 system-ui,sans-serif;color:#FF6400;";
+      overlay.style.cssText = "position:fixed;z-index:2147483001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.32);font:13px/1.5 system-ui,sans-serif;color:#FF6400;";
+      const box = boxOf();
+      overlay.style.left = `${Math.round(box.left)}px`;
+      overlay.style.top = `${Math.round(box.top)}px`;
+      overlay.style.width = `${Math.round(box.width)}px`;
+      overlay.style.height = `${Math.round(box.height)}px`;
       const hint = doc.createElement("div");
       hint.textContent = "\u677E\u624B\u5373\u53EF\u9644\u4E0A";
       hint.style.cssText = "padding:16px 24px;border:2px dashed #FF6400;border-radius:12px;background:var(--dsw-alias-bg-elevated,#232325);pointer-events:none;";
@@ -1697,7 +1713,7 @@
       }
     };
     const onEnter = (event) => {
-      if (!hasFiles(event.dataTransfer)) return;
+      if (!looksLikeDrag(event.dataTransfer)) return;
       show();
     };
     const onEnd = () => remove();
@@ -1870,7 +1886,8 @@
               window,
               document,
               isActive: () => activation.isActive(),
-              frame: () => window.__no996ShellFrame ?? null
+              frame: () => window.__no996ShellFrame ?? null,
+              elementOf: () => window.__no996ShellFrameElement ?? null
             }), "openfilm: drop catcher");
           }
           if (typeof window !== "undefined") ctx.effect(() => installHostPathBridge({ window }), "openfilm: host paths");

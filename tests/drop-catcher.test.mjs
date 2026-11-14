@@ -53,13 +53,16 @@ test('nothing is caught while the panel is not the page on screen', () => {
   assert.equal(posted.length, 0);
 });
 
-test('a drag that is not a file, or that ends outside, leaves nothing behind', () => {
+test('a drag with an empty type list still gets an overlay, and one that ends outside cleans up', () => {
   const { nodes, handlers } = harness();
-  handlers.get('dragenter')({ dataTransfer: { types: ['text/plain'], files: [] } });
-  assert.equal(nodes.length, 0);
-  handlers.get('dragenter')(fileDrag());
+  // the OS may hover with no types; refusing to show here is what made the panel silent
+  handlers.get('dragenter')({ dataTransfer: { types: [], files: [] } });
+  assert.equal(nodes.length, 1);
+  const overlay = nodes[0];
+  handlers.get('dragenter')({ dataTransfer: undefined });
+  assert.equal(nodes.length, 1, 'one overlay, not one per event');
   handlers.get('dragend')();
-  assert.equal(nodes[0].removed, true);
+  assert.equal(overlay.removed, true);
 });
 
 test('a missing frame does not throw on drop', () => {

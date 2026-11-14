@@ -37,13 +37,15 @@ test('a file drag is reported once per type with what the layer saw', () => {
   assert.equal(sent[0].channel, undefined);
 });
 
-test('non-file drags are ignored, and a failing report cannot break the page', () => {
-  const { view, sent, emit } = harness();
-  installDragProbe({ window: view, layer: 'shell', fetch: () => { throw new Error('offline'); } });
-  emit('dragover', { dataTransfer: { types: ['text/plain'], files: [] } });
-  assert.equal(sent.length, 0);
+test('every drag shape is reported, including the one with an empty types list', () => {
+  const { view, sent, send, emit } = harness();
+  installDragProbe({ window: view, layer: 'shell', fetch: send });
+  // an OS drag can hover with no types at all — that is exactly the case to see
+  emit('dragover', { dataTransfer: { types: [], files: [] }, target: { tagName: 'DIV' } });
+  assert.equal(sent.length, 2, 'boot plus the hover');
+  assert.equal(sent[1].types, '');
   emit('drop', { dataTransfer: { types: ['Files'], files: [] }, target: null });
-  assert.equal(sent.length, 0);
+  assert.equal(sent.length, 3);
 });
 
 test('the probe reports its boot even before any drag', () => {
@@ -51,4 +53,10 @@ test('the probe reports its boot even before any drag', () => {
   installDragProbe({ window: view, layer: 'shell', fetch: send });
   assert.equal(sent[0].type, 'boot');
   assert.equal(sent[0].layer, 'shell');
+});
+
+test('a reporter that throws cannot break the page', () => {
+  const { view, emit } = harness();
+  installDragProbe({ window: view, layer: 'host', fetch: () => { throw new Error('offline'); } });
+  assert.doesNotThrow(() => emit('dragenter', { dataTransfer: { types: ['Files'], files: [{}] } }));
 });

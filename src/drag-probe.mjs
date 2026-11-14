@@ -18,7 +18,10 @@ export function installDragProbe({ window: view = globalThis.window, layer, fetc
   const report = (type, event) => {
     const data = event?.dataTransfer;
     const types = data && typeof data.types !== 'undefined' ? [...data.types].join(',').slice(0, 60) : '';
-    if (type !== 'boot' && !types.includes('Files') && type !== 'drop') return;
+    /* No type filter: an OS file drag can arrive with an empty `types`, and a
+       probe that hides those would report "no drag" for the very case it exists
+       to find. Everything is capped at SEEN_LIMIT per shape instead. */
+    if (type === 'boot' && !data) { /* the load marker still reports */ }
     const key = `${type}|${types}`;
     const count = (seen.get(key) ?? 0) + 1;
     seen.set(key, count);

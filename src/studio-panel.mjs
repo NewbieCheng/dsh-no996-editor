@@ -280,7 +280,10 @@ export function createStudioPanel(React) {
         ref: iframeRef, title: t('studioTitle'), src: state.url,
         onLoad: () => {
           // The DSH page catches drops the frame cannot see; it needs the frame.
-          try { window.__no996ShellFrame = iframeRef.current?.contentWindow ?? null; } catch { /* gone */ }
+          try {
+            window.__no996ShellFrame = iframeRef.current?.contentWindow ?? null;
+            window.__no996ShellFrameElement = iframeRef.current ?? null;
+          } catch { /* gone */ }
           watchNavigationRef.current?.();
         },
         // No `sandbox` attribute: Chromium refuses file drops from the desktop
