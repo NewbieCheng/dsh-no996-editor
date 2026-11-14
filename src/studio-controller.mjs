@@ -342,6 +342,18 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       log.info('agent-trace', { projectId, seen: Number(payload?.seen) || 0, kinds: summary });
       return { ok: bridgeTrace.panel(projectId, { seen: payload?.seen, kinds: payload?.kinds }) };
     }
+    if (channel === 'probe:drag') {
+      // Evidence, not behaviour: which frame saw the drag at all.
+      const clean = (value, size) => (typeof value === 'string' ? value.slice(0, size) : '');
+      log.info('drag-probe', {
+        layer: clean(payload?.layer, 8),
+        type: clean(payload?.type, 16),
+        types: clean(payload?.types, 60),
+        files: Number(payload?.files) || 0,
+        target: clean(payload?.target, 20),
+      });
+      return { ok: true };
+    }
     if (channel === 'client:log') {
       const event = typeof payload?.event === 'string' ? payload.event : '';
       if (!CLIENT_EVENTS.has(event)) throw Object.assign(new Error('unknown client event'), { code: 'CLIENT_EVENT_UNKNOWN' });

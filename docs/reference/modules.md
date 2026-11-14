@@ -8,16 +8,16 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。113 个模块、15842 行。
+> 生成命令：`npm run docs:gen`。114 个模块、15911 行。
 > 没有测试直接 import 的模块：22 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
-| `src/studio-controller.mjs` | 1095 | createStudioController | 读源码：`acp-profile-models.test.mjs`、`declaration-order.test.mjs`、`mcp-endpoint-path.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/studio-controller.mjs` | 1107 | createStudioController | 读源码：`acp-profile-models.test.mjs`、`declaration-order.test.mjs`、`mcp-endpoint-path.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/sidebar-editing.mjs` | 1064 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
-| `src/studio-proxy.mjs` | 852 | startStudioProxy | `panel-sse-e2e.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
+| `src/studio-proxy.mjs` | 854 | startStudioProxy | `panel-sse-e2e.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
 | `src/acp-agent-service.mjs` | 574 | catalogFromConfigOptions, createAcpAgentService | `acp-agent-service.test.mjs`、`acp-catalog.test.mjs`、`acp-rpc-round-trip.test.mjs`、`panel-sse-e2e.test.mjs` |
 | `src/official-facade.mjs` | 506 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/login-page.mjs` | 440 | createLoginPage | **无** |
@@ -34,7 +34,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/tool-call-act.mjs` | 197 | describeToolCall, parseArguments, planFromTodoWrite | `tool-call-act.test.mjs` |
 | `src/official-chat-store.mjs` | 181 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
 | `src/cli-tool.mjs` | 180 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
-| `src/studio-entry.js` | 172 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
+| `src/studio-entry.js` | 175 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/studio-runtime.mjs` | 170 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
 | `src/studio-debug-redirect.mjs` | 168 | startLocalConsole | `studio-debug-redirect.test.mjs` |
 | `src/clip-tool.mjs` | 167 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`tool-schema.test.mjs` |
@@ -100,6 +100,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio-proxy/websocket.mjs` | 58 | MAX_FRAME, WS_GUID, frames, wsFrame | **无** |
 | `src/project-instructions.mjs` | 57 | INSTRUCTIONS, ensureProjectInstructions | `project-instructions.test.mjs` |
 | `src/workspace-create.mjs` | 57 | createWorkspaceFlow | **无** |
+| `src/drag-probe.mjs` | 52 | installDragProbe | `drag-probe.test.mjs` |
 | `src/shell-extras.mjs` | 52 | shellUiInjection, shellUiVersion | `shell-extras.test.mjs`、`shell-ui-asi.test.mjs` |
 | `src/openfilm-prompt.mjs` | 51 | apply, inject | `pinned-scope-integration.test.mjs` |
 | `src/template-bridge.mjs` | 50 | registerTemplateBridge | `template-bridge.test.mjs` |

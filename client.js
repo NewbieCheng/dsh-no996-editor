@@ -1592,6 +1592,55 @@
     };
   }
 
+  // src/drag-probe.mjs
+  var SEEN_LIMIT = 3;
+  function installDragProbe({ window: view = globalThis.window, layer, fetch: send = globalThis.fetch, endpoint = "/__dsh/official-rpc" } = {}) {
+    if (!view || typeof view.addEventListener !== "function" || typeof send !== "function") return () => {
+    };
+    const seen = /* @__PURE__ */ new Map();
+    const report = (type, event) => {
+      const data = event?.dataTransfer;
+      const types = data && typeof data.types !== "undefined" ? [...data.types].join(",").slice(0, 60) : "";
+      if (type !== "boot" && !types.includes("Files") && type !== "drop") return;
+      const key = `${type}|${types}`;
+      const count = (seen.get(key) ?? 0) + 1;
+      seen.set(key, count);
+      if (count > SEEN_LIMIT) return;
+      const target = event?.target;
+      const tag = target && target.tagName ? String(target.tagName).slice(0, 20) : "";
+      const body = {
+        channel: "probe:drag",
+        payload: { layer, type, types, files: data && data.files ? data.files.length : 0, target: tag }
+      };
+      try {
+        const result = send(endpoint, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (result && typeof result.catch === "function") result.catch(() => {
+        });
+      } catch {
+      }
+    };
+    const handlers = {
+      dragenter: (event) => report("dragenter", event),
+      dragover: (event) => report("dragover", event),
+      drop: (event) => report("drop", event)
+    };
+    for (const [type, handler] of Object.entries(handlers)) view.addEventListener(type, handler, true);
+    report("boot", null);
+    return () => {
+      for (const [type, handler] of Object.entries(handlers)) {
+        try {
+          view.removeEventListener(type, handler, true);
+        } catch {
+        }
+      }
+    };
+  }
+
   // src/studio-entry.js
   window.__ModuleLoader__.load({
     id: "dsh-openfilm",
@@ -1739,6 +1788,7 @@
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
+          if (typeof window !== "undefined") ctx.effect(() => installDragProbe({ window, layer: "host" }), "openfilm: drag probe");
           if (typeof window !== "undefined") ctx.effect(() => installHostPathBridge({ window }), "openfilm: host paths");
           if (typeof document !== "undefined" && typeof window !== "undefined") {
             const install = () => {

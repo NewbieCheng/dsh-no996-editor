@@ -2,6 +2,7 @@ import { createStudioPanel } from './studio-panel.mjs';
 import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from './sidebar-editing.mjs';
 import { installHostPathBridge } from './host-paths.mjs';
+import { installDragProbe } from './drag-probe.mjs';
 
 window.__ModuleLoader__.load({
   id: 'dsh-openfilm',
@@ -133,6 +134,8 @@ window.__ModuleLoader__.load({
         // The Workspace header becomes a two-way switch (工作区 / 剪辑区).
         // It is installed outside React on purpose: the sidebar belongs to DSH,
         // and this is a narrow, reversible append that only hides one label.
+        // Evidence for the drop that never arrives: report this layer, once per drag.
+        if (typeof window !== 'undefined') ctx.effect(() => installDragProbe({ window, layer: 'host' }), 'openfilm: drag probe');
         // A drop inside the shell iframe cannot name its own path; this frame can.
         if (typeof window !== 'undefined') ctx.effect(() => installHostPathBridge({ window }), 'openfilm: host paths');
         if (typeof document !== 'undefined' && typeof window !== 'undefined') {

@@ -39,6 +39,25 @@
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
   }
 
+  // Evidence for "the drop is refused": this frame reports the first few drag
+  // sightings to the Host log, so one reproduction shows which layer sees them.
+  (function dragProbe(){
+    var seen={};
+    ['dragenter','dragover','drop'].forEach(function(type){
+      document.addEventListener(type,function(event){
+        var dt=event.dataTransfer;
+        var types=dt&&dt.types?Array.prototype.slice.call(dt.types).join(','):'';
+        if(types.indexOf('Files')<0&&type!=='drop')return;
+        var key=type+'|'+types;
+        seen[key]=(seen[key]||0)+1;
+        if(seen[key]>3)return;
+        try{
+          rpc('probe:drag',{layer:'shell',type:type,types:types.slice(0,60),files:dt&&dt.files?dt.files.length:0,target:event.target&&event.target.tagName?String(event.target.tagName).slice(0,20):''});
+        }catch(e){}
+      },true);
+    });
+    try{ rpc('probe:drag',{layer:'shell',type:'boot',types:'',files:0,target:''}); }catch(e){}
+  })();
   // Account chip + page reload live in OpenFilm React (WorkbenchAccountControls),
   // not DOM injection — see packages/openfilm/studio/ui/.../WorkbenchAccount.tsx.
 

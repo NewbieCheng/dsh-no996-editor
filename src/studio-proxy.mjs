@@ -562,6 +562,8 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           && value.channel !== 'project:create-blank'
           && value.channel !== 'prefs:get' && value.channel !== 'prefs:set'
           && value.channel !== 'environment:check' && value.channel !== 'client:log'
+          // Evidence about a drag this page is handling: no project, no data.
+          && value.channel !== 'probe:drag'
           && value.channel !== 'auth:status' && value.channel !== 'auth:logout' && value.channel !== 'auth:action'
           && value.channel !== 'account:balance'
           && value.channel !== 'auth:remember-get' && value.channel !== 'auth:remember-set' && value.channel !== 'auth:remember-clear'
