@@ -1,5 +1,48 @@
 # 更新记录
 
+## 0.15.14 —— 探针落到 DSH 页面自己身上，另开一条 Ctrl+V 的门
+
+- 0.15.13 真机日志证明：官方壳 frame 只有 `boot`，拖拽时**没有任何 `dragenter`**——那个框架确实
+  收不到文件拖放事件。
+- 上一版的 host 探针发错了端点（编辑器代理的 `/__dsh/official-rpc`，DSH 页面没有这个路由），
+  所以第一次拖拽只看到半个证据链。现在有 `POST /api/no996-openfilm/drag-probe`（准入、上限、字段
+  与 `client-log` 同级），探针直接发它。
+- 新增 **Ctrl+V 入口**：资源管理器里复制文件，在对话区粘贴，同样走 `attachFiles`。拖放一天没修好，
+  这条路一天可用。
+
+## 0.15.13 —— 父页面接住拖放：iframe 收不到也能放进对话
+
+- 证据（DSH 自己的源码）：`dataTransfer.dropEffect = canAcceptDrop ? 'copy' : 'none'`——它自己的
+  输入框显示"禁止"是**选择不接受**，不是窗口收不到事件。
+- `src/drop-catcher.mjs`：面板可见时由 DSH 页面接管文件拖拽，盖「松手即可附上」，松手把 `File[]`
+  交给官方壳，走同一个 `attachFiles`。不依赖跨源 iframe 的拖放事件。
+- 对话页与「素材丢这里」虚线框不再在 `dragover` 阶段依赖 `dataTransfer.types`（部分 OS 拖拽 hover
+  阶段为空），改为先接受、`drop` 时按实际文件数决定。
+- 诊断上报失败不再冒泡成页面红框（旧 Host 对未知通道回 403）。
+
+## 0.15.12 —— 诊断版：拖放事件到底卡在哪一层
+
+- DSH 页面与官方壳各自在捕获阶段监听 `dragenter`/`dragover`/`drop`，把层名、事件、`types`、文件数、
+  命中标签写进 `plugin.log` 的 `drag-probe`；页面加载各写一条 `boot`。
+- 新 RPC 通道 `probe:drag`（不读项目数据）。判读规则写在发布说明里。
+
+## 0.15.11 —— 面板 iframe 不能带 sandbox
+
+- `src/studio-panel.mjs` 的 `<iframe>` 去掉 `sandbox` 属性：Chromium 拒绝把桌面文件拖进沙箱框架，
+  连 `dragover` 都不派发。URL 校验与 `allow` 列表保留。
+- 真机复测仍然"禁止"——这一版只是排除掉一个原因，没有修好。
+
+## 0.15.10 —— 整页都能拖文件进对话
+
+- A1 补丁：对话页整页接收 `dragover`/`drop`（整页橙色高亮「松手即可附上」），空态虚线框变成真投放区
+  （也能点击选文件），路径由 DSH 页面代答（跨源 iframe 拿不到桌面桥），拿不到才回落成复制入库。
+
+## 0.15.9 —— 侧栏头部只剩一个「工作区」
+
+## 0.15.8 —— 工作区/剪辑区开关不再无故消失，也不会把人困在剪辑区
+
+## 0.15.7 —— 右侧自刷新的测试改读已提交的补丁系列（CI 没有 `.upstream`）
+
 ## 0.15.6 —— 思考过程看得见；删除不再只认 Studio 的列表；事件可落盘
 
 - **思考显示（A1 源码补丁）**：官方 `buildRuns` 把 `kind:'thought'` 直接丢掉，导致 `ThoughtRow`
