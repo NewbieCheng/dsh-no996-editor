@@ -75,6 +75,10 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 - 修法：**用普通权限启动 DSH**（不要"以管理员身份运行"）。插件层无解——`ChangeWindowMessageFilterEx`
   只放行旧的 `WM_DROPFILES`，对 Chromium 的 OLE 拖放无效。
 
+**完整的取证方法**已整理进规范仓库 `dsh-harness-remix`：
+[CASE-drop-refused](https://github.com/NewbieCheng/dsh-harness-remix/blob/main/docs/CASE-drop-refused.md)
+（五处拦截点、三层探针与判读表、探针纪律、UIPI 与 sandbox 两个真凶、兜底顺序）。
+
 **教训**：页面里写对了 handler 不等于事件会到——先确认事件有没有到这一层，再改处理逻辑。
 iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型；**进程完整性级别**是更早、更彻底的一种。
 

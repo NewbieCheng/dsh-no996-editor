@@ -51,6 +51,12 @@ rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST
 
 这条路径**不依赖 iframe 的拖放事件**，也不依赖 DSH 自己的输入框接受与否。
 
+## 排查
+
+拖不进时先取证再改代码（阳台见 `%TEMP%\dsh-openfilm\plugin.log` 的 `drag-probe` 与 `host-start.elevated`）。
+完整方法在 `dsh-harness-remix` 仓库：
+[CASE-drop-refused](https://github.com/NewbieCheng/dsh-harness-remix/blob/main/docs/CASE-drop-refused.md)。
+
 ## 前提：DSH 必须以普通权限运行
 
 Windows 的 UIPI 禁止把文件从较低完整性进程（资源管理器、微信，medium）拖进较高完整性窗口。
