@@ -3,6 +3,7 @@ import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from './sidebar-editing.mjs';
 import { installHostPathBridge } from './host-paths.mjs';
 import { installDragProbe } from './drag-probe.mjs';
+import { installDropCatcher } from './drop-catcher.mjs';
 
 window.__ModuleLoader__.load({
   id: 'dsh-openfilm',
@@ -136,6 +137,12 @@ window.__ModuleLoader__.load({
         // and this is a narrow, reversible append that only hides one label.
         // Evidence for the drop that never arrives: report this layer, once per drag.
         if (typeof window !== 'undefined') ctx.effect(() => installDragProbe({ window, layer: 'host' }), 'openfilm: drag probe');
+        // A drag over the panel belongs to the panel even if its frame never hears it.
+        if (typeof window !== 'undefined') {
+          ctx.effect(() => installDropCatcher({
+            window, document, isActive: () => activation.isActive(), frame: () => window.__no996ShellFrame ?? null,
+          }), 'openfilm: drop catcher');
+        }
         // A drop inside the shell iframe cannot name its own path; this frame can.
         if (typeof window !== 'undefined') ctx.effect(() => installHostPathBridge({ window }), 'openfilm: host paths');
         if (typeof document !== 'undefined' && typeof window !== 'undefined') {

@@ -320,7 +320,13 @@
           ref: iframeRef,
           title: t("studioTitle"),
           src: state.url,
-          onLoad: () => watchNavigationRef.current?.(),
+          onLoad: () => {
+            try {
+              window.__no996ShellFrame = iframeRef.current?.contentWindow ?? null;
+            } catch {
+            }
+            watchNavigationRef.current?.();
+          },
           // No `sandbox` attribute: Chromium refuses file drops from the desktop
           // into a sandboxed frame (the cursor stays at "no entry" and the page gets
           // no dragover at all), which broke dropping a video onto the chat. The
@@ -1641,6 +1647,78 @@
     };
   }
 
+  // src/drop-catcher.mjs
+  function installDropCatcher({
+    window: view = globalThis.window,
+    document: doc = globalThis.document,
+    isActive = () => false,
+    frame = () => null,
+    attachType = "no996:attach-files"
+  } = {}) {
+    if (!view || !doc || typeof view.addEventListener !== "function") return () => {
+    };
+    let overlay = null;
+    const remove = () => {
+      if (overlay) {
+        overlay.remove();
+        overlay = null;
+      }
+    };
+    const hasFiles = (data) => Boolean(data && (data.files?.length || [...data.types].includes("Files")));
+    const show = () => {
+      if (overlay || !isActive()) return;
+      overlay = doc.createElement("div");
+      overlay.setAttribute("data-no996-drop-catcher", "");
+      overlay.style.cssText = "position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.32);font:13px/1.5 system-ui,sans-serif;color:#FF6400;";
+      const hint = doc.createElement("div");
+      hint.textContent = "\u677E\u624B\u5373\u53EF\u9644\u4E0A";
+      hint.style.cssText = "padding:16px 24px;border:2px dashed #FF6400;border-radius:12px;background:var(--dsw-alias-bg-elevated,#232325);pointer-events:none;";
+      overlay.append(hint);
+      overlay.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      });
+      overlay.addEventListener("dragleave", (event) => {
+        if (!event.relatedTarget) remove();
+      });
+      overlay.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const files = [...event.dataTransfer?.files ?? []];
+        remove();
+        hand(files);
+      });
+      doc.body.append(overlay);
+    };
+    const hand = (files) => {
+      if (!files.length) return;
+      const target = frame();
+      if (!target || typeof target.postMessage !== "function") return;
+      try {
+        target.postMessage({ type: attachType, files }, "*");
+      } catch {
+      }
+    };
+    const onEnter = (event) => {
+      if (!hasFiles(event.dataTransfer)) return;
+      show();
+    };
+    const onEnd = () => remove();
+    view.addEventListener("dragenter", onEnter, true);
+    view.addEventListener("dragleave", onEnd, true);
+    view.addEventListener("drop", onEnd, true);
+    view.addEventListener("dragend", onEnd, true);
+    return () => {
+      remove();
+      try {
+        view.removeEventListener("dragenter", onEnter, true);
+        view.removeEventListener("dragleave", onEnd, true);
+        view.removeEventListener("drop", onEnd, true);
+        view.removeEventListener("dragend", onEnd, true);
+      } catch {
+      }
+    };
+  }
+
   // src/studio-entry.js
   window.__ModuleLoader__.load({
     id: "dsh-openfilm",
@@ -1789,6 +1867,14 @@
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
           if (typeof window !== "undefined") ctx.effect(() => installDragProbe({ window, layer: "host" }), "openfilm: drag probe");
+          if (typeof window !== "undefined") {
+            ctx.effect(() => installDropCatcher({
+              window,
+              document,
+              isActive: () => activation.isActive(),
+              frame: () => window.__no996ShellFrame ?? null
+            }), "openfilm: drop catcher");
+          }
           if (typeof window !== "undefined") ctx.effect(() => installHostPathBridge({ window }), "openfilm: host paths");
           if (typeof document !== "undefined" && typeof window !== "undefined") {
             const install = () => {

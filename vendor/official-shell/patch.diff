@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..95b4c05 100644
+index 9c7041b..0c7baa4 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -10,6 +10,7 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
@@ -68,7 +68,19 @@ index 9c7041b..95b4c05 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -382,6 +413,39 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -378,10 +409,56 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   }, [attachmentOf]);
+   const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
+   /** what the card takes from a drag: files from the disk, Studio's things */
++  /* dsh-openfilm: the host page catches drops the frame cannot see and hands the
++     files over; this is where they join the composer. */
++  React.useEffect(() => {
++    const host = window as unknown as { __no996AttachFiles?: (files: File[]) => void };
++    host.__no996AttachFiles = (files: File[]) => { if (files?.length) attachFiles(files); };
++    return () => { host.__no996AttachFiles = undefined; };
++  }, [attachFiles]);
++
+   const showsDropCaret = React.useCallback(
      (data: DataTransfer) => transferHasStudioRefs(data) || [...data.types].includes('Files'),
      [],
    );
@@ -77,11 +89,16 @@ index 9c7041b..95b4c05 100644
 +     that accepted nothing — every other pixel showed the system's "no entry" cursor. The composer keeps its own
 +     handler (it knows where the caret is); this one catches the rest and puts the pill at the pointer. */
 +  React.useEffect(() => {
-+    const carriesFiles = (data: DataTransfer | null) => Boolean(data && [...data.types].includes('Files'));
++    /* dsh-openfilm: `types` is not reliable for a drag that starts outside the
++       app (an OS file drag can reach `dragover` with an empty list), and a page
++       that does not preventDefault on dragover is refused outright — the cursor
++       stays at "no entry" and no drop follows. So accept the hover, then decide
++       on drop by what actually arrived. */
++    const hasFiles = (data: DataTransfer | null) => Boolean(data && (data.files?.length || [...data.types].includes('Files')));
 +    const over = (event: DragEvent) => {
-+      if (!carriesFiles(event.dataTransfer)) return;
++      if (!event.dataTransfer) return;
 +      event.preventDefault();
-+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
++      event.dataTransfer.dropEffect = 'copy';
 +      setPageDropping(true);
 +    };
 +    const leave = (event: DragEvent) => {
@@ -91,7 +108,7 @@ index 9c7041b..95b4c05 100644
 +    };
 +    const letGo = (event: DragEvent) => {
 +      setPageDropping(false);
-+      if (!carriesFiles(event.dataTransfer) || event.defaultPrevented) return;
++      if (!hasFiles(event.dataTransfer) || event.defaultPrevented) return;
 +      event.preventDefault();
 +      attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
 +      composerRef.current?.focus();
@@ -108,7 +125,7 @@ index 9c7041b..95b4c05 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -964,6 +1028,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -964,6 +1041,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -122,7 +139,7 @@ index 9c7041b..95b4c05 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -996,6 +1067,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -996,6 +1080,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -134,7 +151,7 @@ index 9c7041b..95b4c05 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1028,9 +1104,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1028,9 +1117,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -147,7 +164,7 @@ index 9c7041b..95b4c05 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1 py-2.5 pl-3.5 pr-2">
-@@ -1115,6 +1192,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1115,6 +1205,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -164,7 +181,7 @@ index 9c7041b..95b4c05 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1132,6 +1219,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1132,6 +1232,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -172,7 +189,7 @@ index 9c7041b..95b4c05 100644
                  />
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
-@@ -1143,7 +1231,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1143,7 +1244,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    >
                      {blank ? (
                        <div ref={thread.contentRef}>
@@ -1141,7 +1158,7 @@ index 0000000..ec02cbf
 +  window.dispatchEvent(new Event(REOPEN));
 +}
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..d728643 100644
+index 640dfe1..38e8a52 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
 @@ -1,32 +1,39 @@
@@ -1210,7 +1227,7 @@ index 640dfe1..d728643 100644
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +60,75 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +60,77 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -1250,7 +1267,8 @@ index 640dfe1..d728643 100644
 +          clicking it opens the same picker as the composer's +. */}
 +      <label
 +        onDragOver={(event) => {
-+          if (![...event.dataTransfer.types].includes('Files')) return;
++          /* types is empty for some OS drags; refusing the hover is what turns the
++             cursor into "no entry", so accept first and check files on drop */
 +          event.preventDefault();
 +          event.dataTransfer.dropEffect = 'copy';
 +          setDropHot(true);
@@ -1258,10 +1276,11 @@ index 640dfe1..d728643 100644
 +        onDragLeave={() => setDropHot(false)}
 +        onDrop={(event) => {
 +          setDropHot(false);
-+          if (![...event.dataTransfer.types].includes('Files')) return;
++          const files = event.dataTransfer.files;
++          if (!files || !files.length) return;
 +          event.preventDefault();
 +          event.stopPropagation();
-+          takeFiles(event.dataTransfer.files);
++          takeFiles(files);
 +        }}
 +        className="mt-4 block cursor-pointer rounded-lg border border-dashed px-3 py-2.5 text-[12.5px] leading-snug transition-colors"
 +        style={{
@@ -1290,7 +1309,7 @@ index 640dfe1..d728643 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +136,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +138,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}

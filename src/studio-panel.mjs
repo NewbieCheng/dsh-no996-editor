@@ -278,7 +278,11 @@ export function createStudioPanel(React) {
     } else {
       studio = h('iframe', {
         ref: iframeRef, title: t('studioTitle'), src: state.url,
-        onLoad: () => watchNavigationRef.current?.(),
+        onLoad: () => {
+          // The DSH page catches drops the frame cannot see; it needs the frame.
+          try { window.__no996ShellFrame = iframeRef.current?.contentWindow ?? null; } catch { /* gone */ }
+          watchNavigationRef.current?.();
+        },
         // No `sandbox` attribute: Chromium refuses file drops from the desktop
         // into a sandboxed frame (the cursor stays at "no entry" and the page gets
         // no dragover at all), which broke dropping a video onto the chat. The

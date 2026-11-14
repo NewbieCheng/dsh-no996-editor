@@ -7,6 +7,16 @@
   if(typeof window.__dshEsSetShortcut!=='function'){
     window.__dshEsSetShortcut=function(){ return false; };
   }
+  // The host page catches a file drag when this frame cannot see one (a cross-origin
+  // frame may be skipped by the OS drag path) and hands the files here.
+  window.addEventListener('message',function(event){
+    var data=event.data;
+    if(!data||data.type!=='no996:attach-files'||!data.files)return;
+    var files=[];
+    try{ files=Array.prototype.slice.call(data.files); }catch(e){ return; }
+    if(!files.length)return;
+    try{ if(typeof window.__no996AttachFiles==='function') window.__no996AttachFiles(files); }catch(e){}
+  });
   // A dropped file's real path lives with the desktop window (Electron's webUtils),
   // and this frame is cross-origin to it: ask the page that has it, and treat no
   // answer as "no path" — the project copy is the fallback, as for a pasted file.
@@ -52,11 +62,16 @@
         seen[key]=(seen[key]||0)+1;
         if(seen[key]>3)return;
         try{
-          rpc('probe:drag',{layer:'shell',type:type,types:types.slice(0,60),files:dt&&dt.files?dt.files.length:0,target:event.target&&event.target.tagName?String(event.target.tagName).slice(0,20):''});
+          var sent=rpc('probe:drag',{layer:'shell',type:type,types:types.slice(0,60),files:dt&&dt.files?dt.files.length:0,target:event.target&&event.target.tagName?String(event.target.tagName).slice(0,20):''});
+          // A diagnostic must never surface as an error: an old Host answers 403.
+          if(sent&&typeof sent.catch==='function')sent.catch(function(){});
         }catch(e){}
       },true);
     });
-    try{ rpc('probe:drag',{layer:'shell',type:'boot',types:'',files:0,target:''}); }catch(e){}
+    try{
+      var boot=rpc('probe:drag',{layer:'shell',type:'boot',types:'',files:0,target:''});
+      if(boot&&typeof boot.catch==='function')boot.catch(function(){});
+    }catch(e){}
   })();
   // Account chip + page reload live in OpenFilm React (WorkbenchAccountControls),
   // not DOM injection — see packages/openfilm/studio/ui/.../WorkbenchAccount.tsx.

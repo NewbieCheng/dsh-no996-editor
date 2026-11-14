@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..d728643 100644
+index 640dfe1..38e8a52 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
 @@ -1,32 +1,39 @@
@@ -68,7 +68,7 @@ index 640dfe1..d728643 100644
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +60,75 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +60,77 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -108,7 +108,8 @@ index 640dfe1..d728643 100644
 +          clicking it opens the same picker as the composer's +. */}
 +      <label
 +        onDragOver={(event) => {
-+          if (![...event.dataTransfer.types].includes('Files')) return;
++          /* types is empty for some OS drags; refusing the hover is what turns the
++             cursor into "no entry", so accept first and check files on drop */
 +          event.preventDefault();
 +          event.dataTransfer.dropEffect = 'copy';
 +          setDropHot(true);
@@ -116,10 +117,11 @@ index 640dfe1..d728643 100644
 +        onDragLeave={() => setDropHot(false)}
 +        onDrop={(event) => {
 +          setDropHot(false);
-+          if (![...event.dataTransfer.types].includes('Files')) return;
++          const files = event.dataTransfer.files;
++          if (!files || !files.length) return;
 +          event.preventDefault();
 +          event.stopPropagation();
-+          takeFiles(event.dataTransfer.files);
++          takeFiles(files);
 +        }}
 +        className="mt-4 block cursor-pointer rounded-lg border border-dashed px-3 py-2.5 text-[12.5px] leading-snug transition-colors"
 +        style={{
@@ -148,7 +150,7 @@ index 640dfe1..d728643 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +136,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +138,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}

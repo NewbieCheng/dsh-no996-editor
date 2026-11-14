@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。114 个模块、15911 行。
+> 生成命令：`npm run docs:gen`。115 个模块、15996 行。
 > 没有测试直接 import 的模块：22 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -22,7 +22,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/official-facade.mjs` | 506 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/login-page.mjs` | 440 | createLoginPage | **无** |
 | `src/workbench-auth.mjs` | 392 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth.test.mjs` |
-| `src/studio-panel.mjs` | 375 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
+| `src/studio-panel.mjs` | 379 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
 | `src/preferences.mjs` | 263 | balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch, createPreferencesStore, onboardingCopy, productMeta | `preferences-custom.test.mjs`、`preferences.test.mjs` |
 | `src/studio-controller/routes/editing.mjs` | 258 | createEditingRoutes | `editing-routes.test.mjs` |
 | `src/tool-installer.mjs` | 256 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
@@ -32,9 +32,9 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/captcha-challenge.mjs` | 236 | createCaptchaChallenge | **无** |
 | `src/client-entry.js` | 197 | — | 排除：浏览器端打包入口：与 src/studio-*.js 一起被 esbuild 打进 client.js，只能由面板端到端测试覆盖 |
 | `src/tool-call-act.mjs` | 197 | describeToolCall, parseArguments, planFromTodoWrite | `tool-call-act.test.mjs` |
+| `src/studio-entry.js` | 182 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/official-chat-store.mjs` | 181 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
 | `src/cli-tool.mjs` | 180 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
-| `src/studio-entry.js` | 175 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/studio-runtime.mjs` | 170 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
 | `src/studio-debug-redirect.mjs` | 168 | startLocalConsole | `studio-debug-redirect.test.mjs` |
 | `src/clip-tool.mjs` | 167 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`tool-schema.test.mjs` |
@@ -85,6 +85,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/project-trash.mjs` | 79 | TRASH_DIR, createProjectTrash | `project-trash.test.mjs` |
 | `src/studio-controller/routes/bootstrap.mjs` | 76 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/studio-proxy-auth.mjs` | 76 | createStudioProxyAuth | **无** |
+| `src/drop-catcher.mjs` | 74 | installDropCatcher | `drop-catcher.test.mjs` |
 | `src/library-tool.mjs` | 74 | LIBRARY_KINDS, createLibraryTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/timeline-layout.mjs` | 71 | layoutTimeline | `timeline-layout.test.mjs` |
 | `src/session-save.mjs` | 66 | saveSessionFilm | `session-save.test.mjs` |

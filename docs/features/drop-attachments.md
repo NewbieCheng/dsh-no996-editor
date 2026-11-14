@@ -2,7 +2,7 @@
 id: features-drop-attachments
 reader: 改对话区投放、或排查"拖不进去"的人
 fact-source: src/host-paths.mjs、assets/shell-ui.js、patches/010-App.patch、patches/070-ProjectStarters.patch、patches/180-desktop-attachments.patch
-checked: 0.15.11
+checked: 0.15.13
 rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST_PATHS__ 桥改名
 -->
 
@@ -41,6 +41,15 @@ rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST
 
 所以：**有路径就只引用、不复制；没有路径就复制入库**。大视频建议路径分支命中（同一台机器、
 文件没被删时都会命中）。
+
+## 父页面兜底：iframe 收不到时也能放
+
+跨源 iframe 在部分环境里收不到 OS 文件拖拽（连 `dragover` 都没有），这时页面上写什么 handler 都没用。
+所以 DSH 页面自己接管：面板可见时，`src/drop-catcher.mjs` 在 `dragenter` 出现文件时盖一层覆盖层，
+`drop` 时把 `File[]` 用 `postMessage` 交给官方壳，壳里调 `window.__no996AttachFiles`（App.tsx 暴露）
+走同一个 `attachFiles`。
+
+这条路径**不依赖 iframe 的拖放事件**，也不依赖 DSH 自己的输入框接受与否。
 
 ## 面板 iframe 不能带 sandbox
 
