@@ -8,14 +8,14 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。115 个模块、16057 行。
+> 生成命令：`npm run docs:gen`。116 个模块、16091 行。
 > 没有测试直接 import 的模块：22 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
-| `src/studio-controller.mjs` | 1107 | createStudioController | 读源码：`acp-profile-models.test.mjs`、`declaration-order.test.mjs`、`mcp-endpoint-path.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/studio-controller.mjs` | 1115 | createStudioController | 读源码：`acp-profile-models.test.mjs`、`declaration-order.test.mjs`、`mcp-endpoint-path.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/sidebar-editing.mjs` | 1064 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
 | `src/studio-proxy.mjs` | 854 | startStudioProxy | `panel-sse-e2e.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
 | `src/acp-agent-service.mjs` | 574 | catalogFromConfigOptions, createAcpAgentService | `acp-agent-service.test.mjs`、`acp-catalog.test.mjs`、`acp-rpc-round-trip.test.mjs`、`panel-sse-e2e.test.mjs` |
@@ -123,6 +123,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/auth-client.mjs` | 32 | authAction, authEndpoint | **无** |
 | `src/dsh-ai.mjs` | 29 | createDshAskAgent | **无** |
 | `src/editing-sessions.mjs` | 29 | buildEditingProjects | `editing-sessions.test.mjs` |
+| `src/elevation.mjs` | 26 | createElevationProbe | `elevation.test.mjs` |
 | `src/host-paths.mjs` | 25 | installHostPathBridge | `host-paths.test.mjs` |
 | `src/draft-session.mjs` | 24 | MAX_DRAFT_OPERATIONS, appendDraft, startDraft, undoDraft | `draft-session.test.mjs` |
 | `src/official-attachment.mjs` | 20 | officialUploadSource | `official-attachment.test.mjs` |

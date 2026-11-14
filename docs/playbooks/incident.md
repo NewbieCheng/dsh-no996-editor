@@ -66,8 +66,17 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
    （对照：Atlassian Forge 的沙箱 iframe 有同一症状，页内拖拽却正常）。0.15.11 去掉 `sandbox`，
    保留 URL 校验与 `allow` 列表。
 
+**真因（2026-11-15，实测确定）**：这台机器上的 DSH 是**以管理员权限**运行的。
+
+- DSH 主窗口进程令牌 `integrity=high(elevated)`、`elevationType=full`；`explorer.exe` 是 `medium`。
+- Windows 的 **UIPI** 默认禁止较低完整性进程向较高完整性窗口投递拖放通知，所以窗口一条事件都收不到：
+  DSH 自带输入框、内置浏览器、我们面板全部"禁止"，而 Chrome（medium）里同一页面拖放正常。
+- 判据：`npm run check` 之外，看 `plugin.log` 的 `host-start.elevated`；为 `true` 就是这个原因。
+- 修法：**用普通权限启动 DSH**（不要"以管理员身份运行"）。插件层无解——`ChangeWindowMessageFilterEx`
+  只放行旧的 `WM_DROPFILES`，对 Chromium 的 OLE 拖放无效。
+
 **教训**：页面里写对了 handler 不等于事件会到——先确认事件有没有到这一层，再改处理逻辑。
-iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型。
+iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型；**进程完整性级别**是更早、更彻底的一种。
 
 ### 2026-11-14 · 左删右还在：两边读同一份记录，但只有一边会重读
 

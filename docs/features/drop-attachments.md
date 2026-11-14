@@ -2,7 +2,7 @@
 id: features-drop-attachments
 reader: 改对话区投放、或排查"拖不进去"的人
 fact-source: src/host-paths.mjs、assets/shell-ui.js、patches/010-App.patch、patches/070-ProjectStarters.patch、patches/180-desktop-attachments.patch
-checked: 0.15.15
+checked: 0.15.16
 rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST_PATHS__ 桥改名
 -->
 
@@ -50,6 +50,13 @@ rot-if: 官方 attachFiles / describePaths 形状变化、或 DSH 的 __DSH_HOST
 走同一个 `attachFiles`。
 
 这条路径**不依赖 iframe 的拖放事件**，也不依赖 DSH 自己的输入框接受与否。
+
+## 前提：DSH 必须以普通权限运行
+
+Windows 的 UIPI 禁止把文件从较低完整性进程（资源管理器、微信，medium）拖进较高完整性窗口。
+DSH 若以管理员身份启动，**整窗收不到任何拖放事件**——本页所有 handler 都不会被调用，
+DSH 自带输入框与内置浏览器同样"禁止"。`host-start.elevated=true` 就是这个状态。
+用普通权限启动后，下面的整页投放与覆盖层才会工作。
 
 ## 面板 iframe 不能带 sandbox
 

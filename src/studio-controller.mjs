@@ -1,3 +1,4 @@
+import { createElevationProbe } from './elevation.mjs';
 import { createStudioRuntime } from './studio-runtime.mjs';
 import { createHostComponentDetector } from './host-components.mjs';
 import { installTemplate, listTemplates } from './official-templates.mjs';
@@ -94,6 +95,8 @@ import { createTurnLog } from './studio-controller/turns.mjs';
  * The proxy must enforce its own cookie, Host, Origin and WebSocket checks.
  * This is a localhost integration, not an OS or network sandbox.
  */
+const isElevated = createElevationProbe();
+
 export function createStudioController(ctx, createProxy, { officialShell = false } = {}) {
   const log = createPluginLog();
   // What the bridge actually published to the panel, and what the page reported
@@ -1039,7 +1042,12 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     rollbackRoutes();
     throw error;
   }
-  log.info('host-start', { version: HOST_VERSION, officialShell, editorPort: Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822) });
+  // Elevated means Windows will refuse every file drop into this window (UIPI);
+  // recording it here turns a mystery "禁止" into one line of evidence.
+  log.info('host-start', {
+    version: HOST_VERSION, officialShell, editorPort: Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822),
+    elevated: isElevated(),
+  });
   // Warm the editor port at assembly. Otherwise the proxy only exists after the
   // first bootstrap, so opening http://<host>:47822 directly (or pasting the
   // address from the docs) reads as a dead port even though the plugin is fine.
