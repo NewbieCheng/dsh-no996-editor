@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 值班的人、排查 bug 的人
 fact-source: 真实故障记录（2026-11）、%TEMP%/dsh-openfilm/plugin.log、docs/architecture
-checked: 0.15.8
+checked: 0.15.9
 rot-if: 出现新的故障类别，或某个根因被结构性消除
 -->
 
@@ -41,6 +41,9 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 保持节点并 1 秒重试（可见时），`resize`/`focus` 也重试；连续 3 次失败自动退回工作区并把官方列表还回去；
 恢复写 `page-switch-remounted` / 丢失写 `page-switch-lost`（detail: no-header / reverted-workspaces）。
 自动跳转只认 `findPanelEntry()` 找到的那个导航条目。
+
+**补记（0.15.9）**：修完自愈后出现「工作区 ⌄ 工作区」并排——官方标签的 span 被 React 重建，
+而隐藏只在挂载那一刻做过一次。现在 `syncHeaderActions()` 每趟都藏（跳过自己的），并删掉重复开关。
 
 **边界**：改的是注入层（B2），不是官方壳；真机复现前只能说"按代码条件修掉了已知的两种路径"。
 

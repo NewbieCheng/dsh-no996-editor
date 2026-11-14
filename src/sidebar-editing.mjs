@@ -802,6 +802,18 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
   const syncHeaderActions = () => {
     if (!mounted) return;
     const { header, actions } = mounted;
+    // Our chip carries the section name in both modes, so the shipped label must stay
+    // hidden — but React recreates that label without telling anyone, and a fresh
+    // node is visible again. Hide it on every pass (not once at mount), and drop any
+    // duplicate chip an earlier mount may have left behind: two "工作区" side by side
+    // is what a stale label looks like.
+    for (const span of header.querySelectorAll('span')) {
+      if (trigger?.contains(span)) continue;
+      if (LABELS.has(text(span.textContent))) span.style.display = 'none';
+    }
+    for (const chip of header.querySelectorAll(`[${SWITCH}]`)) {
+      if (chip !== trigger) chip.remove();
+    }
     // Query the input each pass: React may replace the search element.
     let searchRoot = header.querySelector('input');
     while (searchRoot?.parentElement && searchRoot.parentElement !== header) {
@@ -972,9 +984,10 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
       lostReason = ''; lostTicks = 0;
       stopRetry();
     }
-    if (mounted && mounted.header === found.header && mounted.span === found.span
-      && trigger?.isConnected && list?.isConnected) {
-      // A re-render may recreate a header button; keep the editing header trimmed.
+    if (mounted && mounted.header === found.header && trigger?.isConnected && list?.isConnected) {
+      // A re-render may recreate the label span or a header button; follow the new
+      // span (it is the one to hide now) instead of tearing the whole chip down.
+      if (found.span) mounted.span = found.span;
       syncHeaderActions();
       return;
     }

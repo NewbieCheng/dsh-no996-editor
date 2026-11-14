@@ -1321,6 +1321,13 @@
     const syncHeaderActions = () => {
       if (!mounted) return;
       const { header, actions } = mounted;
+      for (const span of header.querySelectorAll("span")) {
+        if (trigger?.contains(span)) continue;
+        if (LABELS.has(text(span.textContent))) span.style.display = "none";
+      }
+      for (const chip of header.querySelectorAll(`[${SWITCH}]`)) {
+        if (chip !== trigger) chip.remove();
+      }
       let searchRoot = header.querySelector("input");
       while (searchRoot?.parentElement && searchRoot.parentElement !== header) {
         searchRoot = searchRoot.parentElement;
@@ -1484,7 +1491,8 @@
         lostTicks = 0;
         stopRetry();
       }
-      if (mounted && mounted.header === found.header && mounted.span === found.span && trigger?.isConnected && list?.isConnected) {
+      if (mounted && mounted.header === found.header && trigger?.isConnected && list?.isConnected) {
+        if (found.span) mounted.span = found.span;
         syncHeaderActions();
         return;
       }

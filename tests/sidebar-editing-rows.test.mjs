@@ -103,3 +103,13 @@ test('a replaced label span still gets the switch, and a lost header stays finda
   assert.ok(source.includes('else header.insertBefore(trigger, header.firstChild);'));
   assert.ok(source.includes('for (const header of doc.querySelectorAll(`[${SWITCH_HOST}]`))'));
 });
+
+test('the shipped label is hidden on every pass, so a recreated label cannot show twice', () => {
+  // React recreates the label span; hiding it once at mount left "工作区 ⌄ 工作区".
+  assert.ok(source.includes('if (LABELS.has(text(span.textContent))) span.style.display = \'none\';'));
+  assert.ok(source.includes('if (trigger?.contains(span)) continue;'));
+  assert.ok(source.includes('if (chip !== trigger) chip.remove();'));
+  // A replaced span is followed, not treated as a reason to rebuild.
+  assert.ok(source.includes('if (found.span) mounted.span = found.span;'));
+  assert.equal(source.includes('mounted.span === found.span'), false);
+});
