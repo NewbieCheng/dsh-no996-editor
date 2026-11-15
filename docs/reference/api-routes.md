@@ -22,7 +22,7 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 | POST | `/api/no996-openfilm/bootstrap` | exact | `src/studio-controller/routes/bootstrap.mjs:21` |
 | POST | `/api/no996-openfilm/client-log` | exact | `src/studio-controller/routes/diagnostics.mjs:11` |
 | POST | `/api/no996-openfilm/debug-url` | exact | `src/studio-controller/routes/debug-url.mjs:22` |
-| POST | `/api/no996-openfilm/diagnose` | exact | `src/studio-controller/routes/diagnose.mjs:22` |
+| POST | `/api/no996-openfilm/diagnose` | exact | `src/studio-controller/routes/diagnose.mjs:27` |
 | POST | `/api/no996-openfilm/drag-probe` | exact | `src/studio-controller/routes/diagnostics.mjs:47` |
 | POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio-controller/routes/editing.mjs:141` |
 | POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio-controller/routes/editing.mjs:186` |

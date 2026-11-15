@@ -20,6 +20,8 @@ const TOOL_NAME = /^[A-Za-z0-9_.:-]{1,128}$/;
 // ACP resumes ids it issued at session/new (uuids). `session/list` also shows
 // DSH-side ids that ACP answers "invalid params" for, so only ours are resumed.
 const RESUMABLE = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/;
+// The panel's conversation ids (`s<base36><base36>`); '' is the project's default.
+const CONVERSATION = /^[A-Za-z0-9_-]{1,64}$/;
 const failure = (code, detail) => Object.assign(new Error(detail ? `${code}: ${detail}` : code), { code });
 const text = value => typeof value === 'string' && value.length > 0;
 
@@ -141,43 +143,108 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
   if (typeof verifier !== 'function' || typeof emit !== 'function' || !store || typeof store.get !== 'function' || typeof store.set !== 'function') {
     throw new TypeError('verifier, store and emit are required');
   }
-  const projects = new Map();
+  // A project owns one child; the child owns one ACP Session per conversation.
+  //
+  // The page keeps several conversations per project (its session bar) and each is
+  // its own DSH Session — one child per conversation would multiply processes and
+  // revoke the others' MCP tokens, so the split is inside the child. Everything
+  // session-scoped (the id, the model menu, the running turn, the live-frame
+  // counters) lives on `session`; everything process-scoped (the client, image
+  // support, the tap handshake) stays on `child`.
+  const children = new Map();
   // A child that was replaced on purpose must not report an exit as news: its
   // handler would delete the entry and revoke the MCP token of its successor.
   const retired = new WeakSet();
   let closed = false;
 
-  const entryOf = projectId => {
+  const childOf = projectId => {
     if (!PROJECT_ID.test(projectId)) throw failure('OFFICIAL_AGENT_INPUT', 'invalid project');
-    let entry = projects.get(projectId);
-    if (entry) return entry;
-    entry = {
+    let child = children.get(projectId);
+    if (child) return child;
+    child = {
       projectId,
       client: undefined,
+      imageEnabled: false,
+      // The child a session is opening on, so an update that arrives before the
+      // session id is known still reaches it instead of being dropped.
+      pending: undefined,
+      // The session whose turn is running: a permission request carries no session
+      // id, so it is answered under the turn that asked for it.
+      running: undefined,
+      // The model overlay was refused once: do not offer it again, or every
+      // conversation would pay for the same failed spawn.
+      modelRejected: false,
+      ready: undefined,
+      lastUsed: Date.now(),
+      // Live-frame health of the child (the tap says hello once it is admitted).
+      streamConnected: false,
+      streamLastAt: 0,
+      sessions: new Map(),
+    };
+    children.set(projectId, child);
+    return child;
+  };
+
+  /** One conversation's ACP Session inside a child. `''` is the default conversation. */
+  const sessionOf = (child, conversation) => {
+    const id = typeof conversation === 'string' && CONVERSATION.test(conversation) ? conversation : '';
+    let session = child.sessions.get(id);
+    if (session) return session;
+    session = {
+      conversation: id,
       sessionId: undefined,
       configOptions: [],
       key: undefined,
-      imageEnabled: false,
       inflight: undefined,
       ready: undefined,
+      reopened: false,
       lastUsed: Date.now(),
+      // Counters are per turn and reset by send().
+      turnStats: { deltas: 0, seals: 0, syncs: 0, textCommits: 0 },
     };
-    projects.set(projectId, entry);
-    return entry;
+    child.sessions.set(id, session);
+    return session;
   };
 
-  function attach(entry) {
-    const { client, projectId } = entry;
+  const sessionById = (child, sessionId) => {
+    if (!text(sessionId)) return child.pending;
+    for (const session of child.sessions.values()) if (session.sessionId === sessionId) return session;
+    return child.pending;
+  };
+
+  function attach(child) {
+    const { client, projectId } = child;
     client.onUpdate(params => {
+      const session = sessionById(child, params?.sessionId);
+      if (!session) return;
       const update = params?.update;
-      if (entry.sessionId && params?.sessionId !== entry.sessionId) return;
-      if (update && update.sessionUpdate === 'config_option_update' && Array.isArray(update.configOptions)) entry.configOptions = update.configOptions;
-      void Promise.resolve(emit(projectId, { key: entry.key ?? 'acp', kind: 'update', update })).catch(() => {});
+      if (update && update.sessionUpdate === 'config_option_update' && Array.isArray(update.configOptions)) session.configOptions = update.configOptions;
+      // How many committed paragraphs this turn produced: the other half of "did the
+      // live frames arrive at all" (see the acp-stream line logged at the end of a turn).
+      if (update?.sessionUpdate === 'agent_message_chunk' && update.content?.type === 'text' && text(update.content.text)) {
+        session.turnStats.textCommits += 1;
+      }
+      void Promise.resolve(emit(projectId, { key: session.key ?? 'acp', kind: 'update', update })).catch(() => {});
     });
+    // The live tokens the child sees but ACP does not carry (see src/acp-stream-tap.mjs):
+    // they ride beside the committed updates, keyed to the same turn. A subagent streams in
+    // the same process under its own Session, so only this child's Sessions are forwarded.
+    client.on('stream', frame => {
+      const session = sessionById(child, frame?.sessionId);
+      if (!session) return;
+      child.streamLastAt = Date.now();
+      if (frame?.sync === true) session.turnStats.syncs += 1;
+      else if (frame?.seal === true) session.turnStats.seals += 1;
+      else session.turnStats.deltas += 1;
+      void Promise.resolve(emit(projectId, { key: session.key ?? 'acp', kind: 'stream', stream: frame })).catch(() => {});
+    });
+    // The tap says hello once it is admitted; a child that never says it has no tap
+    // (or could not load it), which is exactly the state this module must name.
+    client.on('hello', () => { child.streamConnected = true; });
     client.on('exit', ({ code }) => {
       void log?.('acp-exited', { projectId, code });
       if (retired.has(client)) return;
-      if (projects.get(projectId) === entry) projects.delete(projectId);
+      if (children.get(projectId) === child) children.delete(projectId);
       try { onClosed?.(projectId); } catch { /* nothing left to clean */ }
     });
   }
@@ -190,113 +257,165 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
     } catch { return undefined; }
   }
 
-  async function ensure(projectId) {
-    if (closed) throw failure('OFFICIAL_AGENT_CLOSED');
-    const entry = entryOf(projectId);
-    if (entry.ready) return entry.ready;
-    entry.ready = (async () => {
-      const project = await verifier(projectId);
-      if (!project || !text(project.path)) throw failure('OFFICIAL_AGENT_UNAVAILABLE', 'project has no folder');
-      // The ACP agent gets its editing instructions from the project folder, not
-      // from our preset. Best effort: a project that cannot be written stays usable.
-      try { await prepareProject?.(projectId, project.path); } catch (error) { void log?.('prepare-project-failed', { projectId, reason: String(error?.code ?? error).slice(0, 60) }); }
-      // The approval preset is the child's sandbox + approval policy too, so it is
-      // chosen at spawn: DSH itself reads DSH_PERMISSION_MODE.
+  /**
+   * The child process, spawned once per project.
+   *
+   * The two overlays stay apart on purpose: the model one may be refused (a provider
+   * the profile has no adapter for) and is dropped on retry, while the tap overlay is
+   * what makes the answer stream at all. Sharing one array is how a model fallback
+   * silently turned every answer back into committed paragraphs (ADR-0010 §2.5).
+   */
+  async function ensureChild(child, projectId, project, overlays) {
+    if (child.client) return child;
+    if (child.ready) return await child.ready;
+    child.ready = (async () => {
       const mode = await modeOf(projectId);
-      // Flags that must be in place *before* initialize (the acp profile's own
-      // model decides whether images may be sent at all), so they are computed
-      // per spawn rather than per session.
-      let extraArgs = [];
-      try { extraArgs = (await spawnArgs?.()) ?? []; } catch (error) { void log?.('acp-spawn-args-failed', { projectId, reason: String(error?.code ?? error).slice(0, 60) }); }
+      const modelArgs = Array.isArray(overlays) ? [...overlays] : (text(overlays?.model) ? ['--patch', overlays.model] : []);
+      // Never dropped: the tap makes the answer stream, the instructions decide who the
+      // agent is and where its instruction chain stops. Only the model overlay is optional.
+      const tapArgs = Array.isArray(overlays) ? [] : [
+        ...(text(overlays?.instructions) ? ['--patch', overlays.instructions] : []),
+        ...(text(overlays?.tap) ? ['--patch', overlays.tap] : []),
+      ];
       // A fresh process means fresh MCP credentials: the endpoint is this Host,
       // and only the child holding the token may call the film tools.
       const servers = typeof mcpServers === 'function' ? await mcpServers(projectId, project.path) : undefined;
       const wiring = Array.isArray(servers) && servers.length > 0 ? { mcpServers: servers } : {};
       const startChild = async args => {
-        // The client's own diagnostics (stderr, a rejected request) must reach the
-        // log: without this a child that refuses a Session is silent.
-        entry.client = createClient({ env: { ...process.env, ...(mode ? { DSH_PERMISSION_MODE: mode } : {}) }, log, ...(args.length > 0 ? { args } : {}) });
-        attach(entry);
-        const capabilities = await entry.client.start();
-        entry.imageEnabled = capabilities?.agentCapabilities?.promptCapabilities?.image === true;
-        entry.client.setPermissionHandler(params => askPermission(entry, params));
+        child.pending = undefined;
+        child.client = createClient({ env: { ...process.env, ...(mode ? { DSH_PERMISSION_MODE: mode } : {}) }, log, ...(args.length > 0 ? { args } : {}) });
+        attach(child);
+        const capabilities = await child.client.start();
+        child.imageEnabled = capabilities?.agentCapabilities?.promptCapabilities?.image === true;
+        child.client.setPermissionHandler(params => askPermission(child, params));
       };
-      // Opening a Session can fail on the model alone: the DSH selection may belong
-      // to a provider the acp profile has no adapter for, and then both resume and
-      // new are refused before a Session exists. One retry without that overlay
-      // (the profile's own default model, which the menu can change later) is the
-      // difference between a conversation and a dead panel.
-      const openWith = async args => {
-        await startChild(args);
-        const known = store.get(projectId);
-        if (known?.sessionId && RESUMABLE.test(known.sessionId)) {
-          try {
-            const resumed = await entry.client.resumeSession({ sessionId: known.sessionId, cwd: project.path, ...wiring });
-            return { sessionId: known.sessionId, resumed };
-          } catch (error) {
-            void log?.('acp-resume-failed', { projectId, reason: String(error?.code ?? error).slice(0, 80) });
-          }
-        }
-        return { created: await entry.client.newSession({ cwd: project.path, ...wiring }) };
-      };
-      let opened;
+      const offered = child.modelRejected ? tapArgs : [...modelArgs, ...tapArgs];
       try {
-        opened = await openWith(extraArgs);
+        await startChild(offered);
       } catch (error) {
-        if (extraArgs.length === 0) throw error;
+        if (offered.length === 0 || child.modelRejected) {
+          const dead = child.client;
+          child.client = undefined;
+          if (dead) { try { await dead.close(); } catch { /* already gone */ } }
+          throw error;
+        }
         void log?.('acp-model-fallback', { projectId, reason: String(error?.code ?? error).slice(0, 60) });
-        const previous = entry.client;
+        const previous = child.client;
         retired.add(previous);
         try { await previous.close(); } catch { /* already gone */ }
-        opened = await openWith([]);
+        child.modelRejected = true;
+        // Only the model overlay goes: the tap stays, or this child would answer in
+        // committed paragraphs for the rest of its life.
+        await startChild(tapArgs);
       }
-      if (opened.resumed) {
-        entry.sessionId = opened.sessionId;
-        entry.reopened = true;
-        entry.configOptions = opened.resumed?.configOptions ?? [];
-        logSessionModel(log, entry, 'resumed');
-        // No default on resume: ACP keeps the model the person chose for this
-        // Session, and re-applying the DSH default would silently undo it.
-        return entry;
-      }
-      const created = opened.created;
-      if (!created || !text(created.sessionId)) throw failure('OFFICIAL_AGENT_UNAVAILABLE', 'agent returned no session');
-      entry.sessionId = created.sessionId;
-      entry.reopened = false;
-      entry.configOptions = created.configOptions ?? [];
-      logSessionModel(log, entry, 'created');
-      store.set(projectId, { sessionId: created.sessionId, cwd: project.path });
-      void log?.('acp-session', { projectId, created: true });
-      await adoptDefaultSelection(entry);
-      return entry;
+      child.wiring = wiring;
+      return child;
     })();
     try {
-      return await entry.ready;
+      return await child.ready;
     } catch (error) {
-      // A half-open child (spawned but failed to announce a session) must not be
-      // orphaned: the retry builds a new one, and the old process would linger.
-      entry.ready = undefined;
-      // Which stage failed matters more than the panel's generic bubble: spawn,
-      // initialize, resume and session/new all surface here.
-      void log?.('acp-session-failed', { projectId, reason: String(error?.message ?? error?.code ?? error).slice(0, 120) });
-      const dead = entry.client;
-      entry.client = undefined;
-      entry.sessionId = undefined;
+      child.ready = undefined;
+      const dead = child.client;
+      child.client = undefined;
       if (dead) { try { await dead.close(); } catch { /* already gone */ } }
       throw error;
     }
   }
 
-  async function discover(entry, projectPath) {
-    // Discovery cannot resume (those ids are DSH-side), but it can tell us the
-    // folder already holds conversations, which is worth a line in the log.
-
+  /**
+   * One conversation's Session: resumed from its own stored id, or created.
+   *
+   * The id is per conversation, so a new chat in the same project starts a new DSH
+   * Session instead of continuing the previous one — the bug where a fresh
+   * conversation answered with the old one's history.
+   */
+  async function openSession(child, session, project) {
+    const { projectId } = child;
+    const wiring = child.wiring ?? {};
+    child.pending = session;
     try {
-      const list = await entry.client.listSessions();
-      const matches = (list?.sessions ?? []).filter(item => samePath(item?.cwd, projectPath));
-      if (matches.length > 0) void log?.('acp-folder-has-sessions', { projectId: entry.projectId, count: matches.length });
-      return undefined;
-    } catch { return undefined; }
+      const known = (typeof store.getSession === 'function' ? store.getSession(projectId, session.conversation) : undefined)
+        ?? (session.conversation === '' ? store.get(projectId) : undefined);
+      if (known?.sessionId && RESUMABLE.test(known.sessionId)) {
+        try {
+          const resumed = await child.client.resumeSession({ sessionId: known.sessionId, cwd: project.path, ...wiring });
+          session.sessionId = known.sessionId;
+          session.reopened = true;
+          session.configOptions = resumed?.configOptions ?? [];
+          logSessionModel(log, child, session, 'resumed');
+          // No default on resume: ACP keeps the model the person chose for this
+          // Session, and re-applying the DSH default would silently undo it.
+          return session;
+        } catch (error) {
+          void log?.('acp-resume-failed', { projectId, conversation: session.conversation, reason: String(error?.code ?? error).slice(0, 80) });
+        }
+      }
+      const created = await child.client.newSession({ cwd: project.path, ...wiring });
+      if (!created || !text(created.sessionId)) throw failure('OFFICIAL_AGENT_UNAVAILABLE', 'agent returned no session');
+      session.sessionId = created.sessionId;
+      session.reopened = false;
+      session.configOptions = created.configOptions ?? [];
+      logSessionModel(log, child, session, 'created');
+      if (typeof store.setSession === 'function') store.setSession(projectId, session.conversation, { sessionId: created.sessionId, cwd: project.path });
+      else store.set(projectId, { sessionId: created.sessionId, cwd: project.path });
+      void log?.('acp-session', { projectId, conversation: session.conversation, created: true });
+      await adoptDefaultSelection(child, session);
+      return session;
+    } finally {
+      child.pending = undefined;
+    }
+  }
+
+  async function ensure(projectId, conversation) {
+    if (closed) throw failure('OFFICIAL_AGENT_CLOSED');
+    const child = childOf(projectId);
+    const session = sessionOf(child, conversation);
+    if (session.ready) return await session.ready;
+    session.ready = (async () => {
+      const project = await verifier(projectId);
+      if (!project || !text(project.path)) throw failure('OFFICIAL_AGENT_UNAVAILABLE', 'project has no folder');
+      // The ACP agent gets its editing instructions from the project folder, not
+      // from our preset. Best effort: a project that cannot be written stays usable.
+      try { await prepareProject?.(projectId, project.path); } catch (error) { void log?.('prepare-project-failed', { projectId, reason: String(error?.code ?? error).slice(0, 60) }); }
+      // Flags that must be in place *before* initialize (the acp profile's own
+      // model decides whether images may be sent at all), so they are computed
+      // per spawn rather than per session.
+      let overlays = {};
+      try { overlays = (await spawnArgs?.()) ?? {}; } catch (error) { void log?.('acp-spawn-args-failed', { projectId, reason: String(error?.code ?? error).slice(0, 60) }); }
+      await ensureChild(child, projectId, project, overlays);
+      try {
+        return await openSession(child, session, project);
+      } catch (error) {
+        // Opening a Session can fail on the model alone: the DSH selection may belong
+        // to a provider the acp profile has no adapter for, and then both resume and
+        // new are refused before a Session exists. One retry on a child without that
+        // overlay (the profile's own default model) is the difference between a
+        // conversation and a dead panel. Only the first Session of a child can be
+        // affected: no other conversation exists on it yet.
+        if (child.modelRejected) throw error;
+        void log?.('acp-model-fallback', { projectId, reason: String(error?.code ?? error).slice(0, 60) });
+        const previous = child.client;
+        retired.add(previous);
+        child.client = undefined;
+        child.ready = undefined;
+        child.modelRejected = true;
+        try { await previous?.close(); } catch { /* already gone */ }
+        await ensureChild(child, projectId, project, overlays);
+        return await openSession(child, session, project);
+      }
+    })();
+    try {
+      return await session.ready;
+    } catch (error) {
+      // A half-open child (spawned but failed to announce a session) must not be
+      // orphaned: the retry builds a new one, and the old process would linger.
+      session.ready = undefined;
+      // Which stage failed matters more than the panel's generic bubble: spawn,
+      // initialize, resume and session/new all surface here.
+      void log?.('acp-session-failed', { projectId, conversation: session.conversation, reason: String(error?.message ?? error?.code ?? error).slice(0, 120) });
+      session.sessionId = undefined;
+      throw error;
+    }
   }
 
   /**
@@ -304,10 +423,10 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
    * a resumed Session keeps the model it was created with, and providers differ
    * in whether they return reasoning content at all.
    */
-  function logSessionModel(logger, entry, how) {
-    const pick = (category, id) => entry.configOptions.find(item => item && (item.category === category || item.id === id));
+  function logSessionModel(logger, child, session, how) {
+    const pick = (category, id) => session.configOptions.find(item => item && (item.category === category || item.id === id));
     const value = option => { try { const parsed = JSON.parse(option?.currentValue ?? '""'); return Array.isArray(parsed) ? parsed.join('/') : String(parsed ?? ''); } catch { return String(option?.currentValue ?? ''); } };
-    void logger?.('acp-session-model', { projectId: entry.projectId, how, model: value(pick('model', 'model')).slice(0, 60), effort: value(pick('thought_level', 'reasoning_effort')).slice(0, 20) });
+    void logger?.('acp-session-model', { projectId: child.projectId, conversation: session.conversation, how, model: value(pick('model', 'model')).slice(0, 60), effort: value(pick('thought_level', 'reasoning_effort')).slice(0, 20) });
   }
 
   /**
@@ -315,10 +434,10 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
    * its own default, so the Host's current selection is applied right after the
    * Session opens (best effort: a stale or unadvertised selection is ignored).
    */
-  async function adoptDefaultSelection(entry) {
+  async function adoptDefaultSelection(child, session) {
     let selection;
     try { selection = defaultSelection(); } catch { selection = undefined; }
-    const catalog = catalogFromConfigOptions(entry.configOptions);
+    const catalog = catalogFromConfigOptions(session.configOptions);
     let target = selection && text(selection.provider) && text(selection.model)
       && catalog.groups.some(group => group.id === selection.provider && group.models.some(item => item.id === selection.model))
       ? selection
@@ -327,7 +446,7 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
       // The child's own default is the retired V4. When the person's selection
       // cannot be applied, move it to the official V4.1 Flash rather than leave
       // the first turn on a model the menu no longer offers.
-      const option = entry.configOptions.find(item => item && (item.category === 'model' || item.id === 'model'));
+      const option = session.configOptions.find(item => item && (item.category === 'model' || item.id === 'model'));
       let current;
       try {
         const parsed = JSON.parse(option?.currentValue ?? '');
@@ -339,49 +458,83 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
       }
     }
     if (!target) return;
-    const option = entry.configOptions.find(item => item && (item.category === 'model' || item.id === 'model'));
-    if (option && option.currentValue !== valueForChoice(entry.configOptions, target)) {
+    const option = session.configOptions.find(item => item && (item.category === 'model' || item.id === 'model'));
+    if (option && option.currentValue !== valueForChoice(session.configOptions, target)) {
       try {
-        const updated = await entry.client.setConfigOption({
-          sessionId: entry.sessionId,
+        const updated = await child.client.setConfigOption({
+          sessionId: session.sessionId,
           configId: option.id ?? 'model',
-          value: valueForChoice(entry.configOptions, target),
+          value: valueForChoice(session.configOptions, target),
         });
-        if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) entry.configOptions = updated.configOptions;
-        void log?.('acp-default-model', { projectId: entry.projectId, provider: target.provider, model: target.model });
+        if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) session.configOptions = updated.configOptions;
+        void log?.('acp-default-model', { projectId: child.projectId, conversation: session.conversation, provider: target.provider, model: target.model });
       } catch (error) {
-        void log?.('acp-default-model-failed', { projectId: entry.projectId, reason: String(error?.code ?? error).slice(0, 80) });
+        void log?.('acp-default-model-failed', { projectId: child.projectId, conversation: session.conversation, reason: String(error?.code ?? error).slice(0, 80) });
       }
     }
     // Match the DSH-side thinking intensity too, so the first turn of the panel
     // runs at the level the person already uses in the sidebar.
     if (!selection) return;
     const effort = selection.reasoningEffort ?? selection.effort;
-    const thinkingOptionId = entry.configOptions.find(item => item && (item.category === 'thought_level' || item.id === 'reasoning_effort'));
+    const thinkingOptionId = session.configOptions.find(item => item && (item.category === 'thought_level' || item.id === 'reasoning_effort'));
     if (!text(effort) || !thinkingOptionId || thinkingOptionId.currentValue === effort) return;
     if (!Array.isArray(thinkingOptionId.options) || !thinkingOptionId.options.some(item => item?.value === effort)) return;
     try {
-      const updated = await entry.client.setConfigOption({ sessionId: entry.sessionId, configId: thinkingOptionId.id ?? 'reasoning_effort', value: effort });
-      if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) entry.configOptions = updated.configOptions;
-      void log?.('acp-default-effort', { projectId: entry.projectId, value: effort });
+      const updated = await child.client.setConfigOption({ sessionId: session.sessionId, configId: thinkingOptionId.id ?? 'reasoning_effort', value: effort });
+      if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) session.configOptions = updated.configOptions;
+      void log?.('acp-default-effort', { projectId: child.projectId, conversation: session.conversation, value: effort });
     } catch (error) {
-      void log?.('acp-default-effort-failed', { projectId: entry.projectId, reason: String(error?.code ?? error).slice(0, 80) });
+      void log?.('acp-default-effort-failed', { projectId: child.projectId, conversation: session.conversation, reason: String(error?.code ?? error).slice(0, 80) });
     }
   }
 
-  async function askPermission(entry, params) {
+  /**
+   * What the live channel actually delivered this turn.
+   *
+   * The panel degrades honestly without frames (committed paragraphs still arrive), which is
+   * exactly why the failure is invisible: a turn that commits text and receives zero deltas
+   * must say so, or the next release ships the same bug again (ADR-0010 §2.5).
+   *
+   * Logged one tick later on purpose: the child writes its last frames on another socket, so
+   * at the moment the prompt result arrives they may still be in the kernel buffer. Counting
+   * before that drain would report "0 deltas" for a turn that streamed fine.
+   */
+  function reportStream(child, session) {
+    // The object reference is the turn: send() replaces it, so a later turn cannot
+    // rewrite the numbers read below while this turn's socket data drains.
+    const stats = session.turnStats ?? { deltas: 0, seals: 0, syncs: 0, textCommits: 0 };
+    const timer = setTimeout(() => {
+      const connected = child.streamConnected === true;
+      void log?.('acp-stream', {
+        projectId: child.projectId,
+        conversation: session.conversation,
+        deltas: stats.deltas,
+        seals: stats.seals,
+        syncs: stats.syncs,
+        textCommits: stats.textCommits,
+        connected,
+      });
+      if (stats.textCommits > 0 && stats.deltas === 0) {
+        void log?.('acp-stream-silent', { projectId: child.projectId, reason: connected ? 'connected-no-frames' : 'tap-absent' });
+      }
+    }, 50);
+    timer.unref?.();
+  }
+
+  async function askPermission(child, params) {
     // No approvals coordinator means the Host cannot show the permission row, so
     // the only safe answer is to refuse: silently allowing would contradict the
     // promise that a tool never runs without the person seeing the request.
     if (!approvals || typeof approvals.request !== 'function') {
-      void log?.('acp-permission-unavailable', { projectId: entry.projectId });
+      void log?.('acp-permission-unavailable', { projectId: child.projectId });
       return null;
     }
+    const session = child.running ?? child.pending;
     const title = text(params?.toolCall?.title) && TOOL_NAME.test(params.toolCall.title) ? params.toolCall.title : 'tool';
     const outcome = await approvals.request({
-      projectId: entry.projectId,
-      key: entry.key ?? 'acp',
-      agentId: entry.sessionId,
+      projectId: child.projectId,
+      key: session?.key ?? 'acp',
+      agentId: session?.sessionId,
       toolName: title,
       ...(typeof params?.toolCall?.toolCallId === 'string' && params.toolCall.toolCallId.length > 0 ? { callId: params.toolCall.toolCallId.slice(0, 200) } : {}),
     });
@@ -409,37 +562,43 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
 
   return Object.freeze({
     /** Adopt the panel's key and send one turn. `emit` carries every update. */
-    async send(projectId, { key, turnId, text: promptText, images } = {}) {
+    async send(projectId, { conversation, key, turnId, text: promptText, images } = {}) {
       if (typeof promptText !== 'string' || promptText.length > 200000) throw failure('OFFICIAL_AGENT_INPUT', 'bad prompt');
-      const entry = await ensure(projectId);
-      if (entry.inflight) {
+      const child = childOf(projectId);
+      const session = await ensure(projectId, conversation);
+      if (session.inflight) {
         // One active turn per Session, as ACP allows. The panel names this state
         // instead of hanging; the person can cancel and resend.
         throw failure('OFFICIAL_AGENT_BUSY', 'a turn is already running');
       }
-      entry.key = typeof key === 'string' && key ? key : entry.key;
-      entry.lastUsed = Date.now();
+      session.key = typeof key === 'string' && key ? key : session.key;
+      child.lastUsed = Date.now();
+      session.lastUsed = child.lastUsed;
+      // One turn's live-frame budget. A turn that commits text but receives no delta is
+      // reported by name at the end (acp-stream-silent), not left to be guessed from the UI.
+      session.turnStats = { deltas: 0, seals: 0, syncs: 0, textCommits: 0 };
       const blocks = [];
       const pictures = (Array.isArray(images) ? images : []).slice(0, 8);
-      if (entry.imageEnabled) {
+      if (child.imageEnabled) {
         for (const image of pictures) {
           if (typeof image?.data === 'string' && typeof image?.mediaType === 'string' && image.mediaType.startsWith('image/')) {
             blocks.push({ type: 'image', mimeType: image.mediaType, data: image.data });
           }
         }
       }
-      const references = entry.imageEnabled ? [] : materialise(projectId, pictures);
+      const references = child.imageEnabled ? [] : materialise(projectId, pictures);
       const body = [promptText, ...references.map(file => `[reference image] ${file}`)].filter(part => typeof part === 'string' && part.trim()).join('\n\n');
       if (body) blocks.push({ type: 'text', text: body });
       if (blocks.length === 0) throw failure('OFFICIAL_AGENT_INPUT', 'empty prompt');
-      entry.inflight = { turnId, cancelled: false };
+      session.inflight = { turnId, cancelled: false };
+      child.running = session;
       try {
         let result;
         try {
-          result = await entry.client.prompt({ sessionId: entry.sessionId, blocks });
+          result = await child.client.prompt({ sessionId: session.sessionId, blocks });
         } catch (error) {
           const saidImage = /image|content/i.test(String(error?.message ?? ''));
-          if (!entry.imageEnabled || !saidImage || !blocks.some(block => block.type === 'image')) throw error;
+          if (!child.imageEnabled || !saidImage || !blocks.some(block => block.type === 'image')) throw error;
           // The route advertised pictures but the turn still failed on them: fall
           // back to paths so the conversation continues instead of dying.
           const retryBlocks = [];
@@ -448,70 +607,79 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
             .filter(part => typeof part === 'string' && part.trim()).join('\n\n');
           if (retryBody) retryBlocks.push({ type: 'text', text: retryBody });
           void log?.('acp-image-fallback', { projectId });
-          result = await entry.client.prompt({ sessionId: entry.sessionId, blocks: retryBlocks });
+          result = await child.client.prompt({ sessionId: session.sessionId, blocks: retryBlocks });
         }
         const stopReason = result?.stopReason === 'cancelled' ? 'cancelled' : 'end_turn';
+        reportStream(child, session);
         // The page ends the visible turn only on this terminal event; without a
         // live stream the honest answer is a named failure, not a 15 s silence.
-        if (await emit(projectId, { key: entry.key, kind: 'done', turnId, ok: true, stopReason }) === false) {
+        if (await emit(projectId, { key: session.key, kind: 'done', turnId, ok: true, stopReason }) === false) {
           throw failure('OFFICIAL_AGENT_STREAM_LOST', 'no live event stream accepted the terminal event');
         }
         return { ok: true, stopReason };
       } catch (error) {
         const reason = String(error?.code ?? error?.message ?? error).slice(0, 120);
+        reportStream(child, session);
         void log?.('acp-prompt-failed', { projectId, reason });
-        await emit(projectId, { key: entry.key, kind: 'done', turnId, ok: false, error: reason }).catch(() => {});
+        await emit(projectId, { key: session.key, kind: 'done', turnId, ok: false, error: reason }).catch(() => {});
         throw failure('OFFICIAL_AGENT_FAILED', reason);
       } finally {
-        entry.inflight = undefined;
+        session.inflight = undefined;
+        if (child.running === session) child.running = undefined;
       }
     },
 
-    async cancel(projectId) {
-      const entry = projects.get(projectId);
-      if (!entry || !entry.sessionId || !entry.inflight) throw failure('OFFICIAL_AGENT_NOT_RUNNING');
-      entry.inflight.cancelled = true;
-      entry.client.cancel(entry.sessionId);
+    async cancel(projectId, conversation) {
+      const child = children.get(projectId);
+      const session = child ? sessionOf(child, conversation) : undefined;
+      if (!child || !session || !session.sessionId || !session.inflight) throw failure('OFFICIAL_AGENT_NOT_RUNNING');
+      session.inflight.cancelled = true;
+      child.client.cancel(session.sessionId);
       return { ok: true };
     },
 
-    async modelCatalog(projectId) {
-      const entry = await ensure(projectId);
-      const catalog = catalogFromConfigOptions(entry.configOptions);
+    async modelCatalog(projectId, conversation) {
+      const session = await ensure(projectId, conversation);
+      const catalog = catalogFromConfigOptions(session.configOptions);
       if (catalog.groups.length === 0) throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'agent advertised no models');
       return catalog;
     },
 
-    async selectModel(projectId, selection) {
-      const entry = await ensure(projectId);
+    async selectModel(projectId, selection, conversation) {
+      const child = childOf(projectId);
+      const session = await ensure(projectId, conversation);
       const provider = selection?.provider;
       const model = selection?.model;
-      if (!text(provider) || !text(model)) throw failure('OFFICIAL_AGENT_INPUT', 'provider and model are required');
-      const catalog = catalogFromConfigOptions(entry.configOptions);
-      const listed = catalog.groups.some(group => group.id === provider && group.models.some(item => item.id === model));
-      if (!listed) throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'model is not advertised by the agent');
-      const value = valueForChoice(entry.configOptions, { provider, model });
-      const updated = await entry.client.setConfigOption({ sessionId: entry.sessionId, configId: entry.configOptions.find(item => item.category === 'model' || item.id === 'model')?.id ?? 'model', value });
-      if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) entry.configOptions = updated.configOptions;
-      store.set(projectId, { sessionId: entry.sessionId, model: value });
-      return { ok: true, currentValue: value };
-    },
-
-    async thinkingOption(projectId) {
-      const entry = await ensure(projectId);
-      return thinkingFromConfigOptions(entry.configOptions);
-    },
-
-    async selectThinking(projectId, value) {
-      const entry = await ensure(projectId);
-      const option = entry.configOptions.find(item => item && (item.category === 'thought_level' || item.id === 'reasoning_effort'));
-      if (!option) throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'model declares no reasoning levels');
-      if (!Array.isArray(option.options) || !option.options.some(entryOption => entryOption?.value === value)) {
-        throw failure('OFFICIAL_AGENT_INPUT', 'unknown reasoning level');
+      const catalog = catalogFromConfigOptions(session.configOptions);
+      if (!catalog.groups.some(group => group.id === provider && group.models.some(item => item.id === model))) {
+        throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'model not offered');
       }
-      const updated = await entry.client.setConfigOption({ sessionId: entry.sessionId, configId: option.id, value });
-      if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) entry.configOptions = updated.configOptions;
-      return { ok: true, currentValue: value };
+      const value = valueForChoice(session.configOptions, { provider, model });
+      const updated = await child.client.setConfigOption({ sessionId: session.sessionId, configId: session.configOptions.find(item => item.category === 'model' || item.id === 'model')?.id ?? 'model', value });
+      if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) session.configOptions = updated.configOptions;
+      if (typeof store.setSession === 'function') store.setSession(projectId, session.conversation, { sessionId: session.sessionId, model: value });
+      else store.set(projectId, { sessionId: session.sessionId, model: value });
+      return { ok: true, currentValue: text(updated?.currentValue) ? updated.currentValue : value };
+    },
+
+    async thinkingOption(projectId, conversation) {
+      const session = await ensure(projectId, conversation);
+      return thinkingFromConfigOptions(session.configOptions);
+    },
+
+    async selectThinking(projectId, value, conversation) {
+      const child = childOf(projectId);
+      const session = await ensure(projectId, conversation);
+      const option = session.configOptions.find(item => item && (item.category === 'thought_level' || item.id === 'reasoning_effort'));
+      if (!option || typeof value !== 'string') throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'no thinking option');
+      // Only a value the menu was shown may be applied: the page names a choice, it
+      // does not get to invent one.
+      if (Array.isArray(option.options) && option.options.length > 0 && !option.options.some(item => item?.value === value)) {
+        throw failure('OFFICIAL_AGENT_INPUT', 'thinking level not offered');
+      }
+      const updated = await child.client.setConfigOption({ sessionId: session.sessionId, configId: option.id, value });
+      if (Array.isArray(updated?.configOptions) && updated.configOptions.length > 0) session.configOptions = updated.configOptions;
+      return { ok: true };
     },
 
     answerPermission(projectId, { key, requestId, optionId } = {}) {
@@ -526,34 +694,54 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
      * cannot be changed inside a running child.
      */
     async reset(projectId) {
-      const entry = projects.get(projectId);
-      if (!entry) return { ok: true };
-      projects.delete(projectId);
-      try { await entry.client?.close?.(); } catch { /* already gone */ }
+      const child = children.get(projectId);
+      if (!child) return { ok: true };
+      children.delete(projectId);
+      try { await child.client?.close?.(); } catch { /* already gone */ }
       try { onClosed?.(projectId); } catch { /* nothing left to clean */ }
       return { ok: true };
     },
 
-    activeKey(projectId) {
-      return projects.get(projectId)?.key ?? null;
+    activeKey(projectId, conversation) {
+      const child = children.get(projectId);
+      if (!child) return null;
+      return sessionOf(child, conversation).key ?? null;
     },
 
-    diagnose(projectId) {
-      const entry = projects.get(projectId);
+    diagnose(projectId, conversation) {
+      const child = children.get(projectId);
+      const session = child ? sessionOf(child, conversation) : undefined;
       return {
-        sessionId: entry?.sessionId ?? null,
-        key: entry?.key ?? null,
-        inflight: Boolean(entry?.inflight),
-        imageEnabled: entry?.imageEnabled === true,
-        configOptions: entry ? entry.configOptions.map(option => ({ id: option.id, category: option.category, options: Array.isArray(option.options) ? option.options.length : 0 })) : [],
+        sessionId: session?.sessionId ?? null,
+        key: session?.key ?? null,
+        inflight: Boolean(session?.inflight),
+        imageEnabled: child?.imageEnabled === true,
+        // Whether this child ever said hello on the live channel, and what the last
+        // turn received: the two facts that separate "no tap" from "no frames".
+        stream: {
+          connected: child?.streamConnected === true,
+          deltas: session?.turnStats?.deltas ?? 0,
+          textCommits: session?.turnStats?.textCommits ?? 0,
+          lastAt: child?.streamLastAt ?? 0,
+        },
+        configOptions: session ? session.configOptions.map(option => ({ id: option.id, category: option.category, options: Array.isArray(option.options) ? option.options.length : 0 })) : [],
+        // Every conversation this child holds, so "is this project really several
+        // Sessions?" is answerable without reading the store file.
+        sessions: child ? [...child.sessions.values()].map(item => ({
+          conversation: item.conversation,
+          sessionId: item.sessionId ?? null,
+          resumed: item.reopened === true,
+          inflight: Boolean(item.inflight),
+          lastUsed: item.lastUsed,
+        })) : [],
       };
     },
 
     async close() {
       closed = true;
-      const entries = [...projects.values()];
-      projects.clear();
-      await Promise.allSettled(entries.map(entry => entry.client?.close?.()));
+      const entries = [...children.values()];
+      children.clear();
+      await Promise.allSettled(entries.map(child => child.client?.close?.()));
       approvals?.close?.();
     },
 
@@ -562,13 +750,18 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
      * from "a brand-new Session was opened": the shell shows a hand-over notice
      * when it believes the previous Session could not be reopened.
      */
-    sessionState(projectId) {
-      const entry = projects.get(projectId);
-      if (!entry) return undefined;
-      return { sessionId: entry.sessionId ?? null, resumed: entry.reopened === true };
+    sessionState(projectId, conversation) {
+      const child = children.get(projectId);
+      if (!child) return undefined;
+      const session = sessionOf(child, conversation);
+      if (!session.sessionId) return undefined;
+      return { sessionId: session.sessionId, resumed: session.reopened === true };
     },
-    /** Test seam: the ACP session id chosen for a project, once ensured. */
-    sessionOf(projectId) { return projects.get(projectId)?.sessionId; },
+    /** Test seam: the ACP session id chosen for a conversation, once ensured. */
+    sessionOf(projectId, conversation) {
+      const child = children.get(projectId);
+      return child ? sessionOf(child, conversation).sessionId : undefined;
+    },
     randomId: () => randomUUID(),
   });
 }

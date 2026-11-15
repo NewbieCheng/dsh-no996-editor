@@ -341,12 +341,16 @@
     }
     // A picture written as a link (markdown with alt text) is drawn beside it, and
     // the original link stays as the fallback when the Host cannot read the file.
+    // The button is remembered per link: a re-render that keeps the link and rebuilds
+    // its neighbours must not draw the picture again, which is what stacked copies.
+    var drawnButtons=new WeakMap();
     function drawPicture(anchor,pid,rel){
       anchor.setAttribute('data-no996-picture','1');
       var name=nameOf(rel);
       var button=document.createElement('button');
       button.type='button';
       button.setAttribute('data-no996-picture-btn','1');
+      button.setAttribute('data-no996-picture-for',rel);
       button.setAttribute('aria-label','查看大图：'+name);
       button.style.cssText='display:block;max-width:100%;margin:8px 0;padding:0;border:0;background:none;text-align:left;cursor:zoom-in';
       var picture=document.createElement('img');
@@ -360,10 +364,10 @@
       });
       picture.addEventListener('load',function(){
         anchor.style.display='none';
-        anchor.setAttribute('data-no996-picture','shown');
       });
       button.appendChild(picture);
       button.addEventListener('click',function(){ showLightbox(pid,rel); });
+      drawnButtons.set(anchor,button);
       if(anchor.parentNode)anchor.parentNode.insertBefore(button,anchor.nextSibling);
     }
     function upgrade(){
@@ -379,14 +383,16 @@
         if(!rel||!IMAGE.test(rel))continue;
         // The picture is a sibling of the link, not inside it: an upstream re-render
         // can drop the sibling while the link survives, so a marker alone is not
-        // enough to call this done.
-        var sibling=anchor.nextElementSibling;
-        var drawn=!!(sibling&&sibling.getAttribute&&sibling.getAttribute('data-no996-picture-btn')==='1');
+        // enough to call this done — and the link object is the identity that does not
+        // change, so the button it was drawn with is remembered against it.
+        var known=drawnButtons.get(anchor);
+        var drawn=!!(known&&known.isConnected&&known.getAttribute('data-no996-picture-for')===rel);
+        if(!drawn&&known&&known.parentNode)known.parentNode.removeChild(known);
         if(anchor.getAttribute('data-no996-picture')==='1'&&!drawn){
           anchor.removeAttribute('data-no996-picture');
           try{ anchor.style.display=''; }catch(e){}
         }
-        if(anchor.getAttribute('data-no996-picture')==='1')continue;
+        if(drawn)continue;
         drawPicture(anchor,pid,rel);
       }
       var images;

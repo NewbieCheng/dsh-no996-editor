@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..6380e31 100644
+index 9134f7a..cef07dd 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
-@@ -82,12 +82,49 @@ async function readAgain(project: string): Promise<void> {
+@@ -82,12 +82,55 @@ async function readAgain(project: string): Promise<void> {
    joinKept(record(project), kept);
  }
  
@@ -17,10 +17,16 @@ index 9134f7a..6380e31 100644
 + * poll can skip the re-render.
 + */
 +export async function refreshChatSessions(project: string): Promise<boolean> {
-+  let kept: { sessions?: ProjectSessionItem[] } | null = null;
++  // The bridge's load result is only loosely typed (`sessions: unknown[]`), so narrow it
++  // here instead of declaring the precise list and failing the typecheck.
++  let kept: { sessions?: unknown[] } | null = null;
 +  try { kept = await app.chat.load(project); } catch { return false; }
 +  const next = (Array.isArray(kept?.sessions) ? kept.sessions : [])
-+    .filter((entry): entry is ProjectSessionItem => Boolean(entry && typeof entry.id === 'string' && typeof entry.createdAt === 'string'));
++    .filter((entry: unknown): entry is ProjectSessionItem => {
++      if (!entry || typeof entry !== 'object') return false;
++      const row = entry as { id?: unknown; createdAt?: unknown };
++      return typeof row.id === 'string' && typeof row.createdAt === 'string';
++    });
 +  const current = record(project).sessions;
 +  const stamp = (list: ProjectSessionItem[]) => list.map(entry => `${entry.id}\u0000${entry.updatedAt ?? ''}\u0000${entry.title ?? ''}`).join('\u0001');
 +  if (stamp(next) === stamp(current)) return false;

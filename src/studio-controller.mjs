@@ -16,7 +16,7 @@ import { applyStudioLibraryPatch } from './studio-library-patch.mjs';
 import { applyAcpModelProviders } from './acp-profile-models.mjs';
 import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -37,6 +37,10 @@ import { startLocalConsole } from './studio-debug-redirect.mjs';
 import { createDshAskAgent } from './dsh-ai.mjs';
 import { reportPresetStatus } from './preset-report.mjs';
 import { createGuideTool } from './guide-tool.mjs';
+import { createStoryboardTool } from './storyboard-tool.mjs';
+import { templateCatalog } from './template-catalog.mjs';
+import { writeOverlay, PERSONA } from './agent-overlays.mjs';
+import { instructionChain } from './instruction-inventory.mjs';
 import { createStudioHttp } from './studio-http.mjs';
 import { createFrameTool } from './frame-tool.mjs';
 import { createFilmTool } from './film-tool.mjs';
@@ -60,7 +64,7 @@ import { createEditingPrefs } from './editing-prefs.mjs';
 import { createProjectTrash } from './project-trash.mjs';
 import { createEditingProjectDelete } from './editing-project-delete.mjs';
 import { buildEditingProjects } from './editing-sessions.mjs';
-import { ensureProjectInstructions } from './project-instructions.mjs';
+import { ensureProjectInstructions, upgradeProjectInstructions } from './project-instructions.mjs';
 import { createMcpEndpoint, createMcpTokens, mcpServerEntry } from './mcp-server.mjs';
 import { attachOfficialEventStream } from './official-event-stream.mjs';
 import { z } from 'zod';
@@ -226,7 +230,15 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   const preferences = createPreferencesStore();
   const projectParentDir = async (proxy) => {
     const projects = await proxy.listProjects().catch(() => []);
-    return projects.length ? dirname(projects[0].path) : join(homedir(), 'OpenFilm');
+    if (projects.length) return dirname(projects[0].path);
+    // Studio's own library location. It used to be `~/OpenFilm`, which on a
+    // developer's machine sat next to a checkout of this plugin — and a film
+    // folder inside this repository makes the repository's AGENTS.md part of the
+    // film conversation's instructions (see src/agent-overlays.mjs). Videos/OpenFilm
+    // is where Studio itself puts projects, so the default follows it.
+    return process.platform === 'win32'
+      ? join(homedir(), 'Videos', 'OpenFilm', 'Projects')
+      : join(homedir(), 'OpenFilm', 'Projects');
   };
   const createBlankOfficialProject = async (proxy) => {
     const parentDir = await projectParentDir(proxy);
@@ -270,13 +282,18 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     if (disposed) throw new Error('Studio disposed');
     if (channel === 'agent:prompt') {
       if (!agentService) throw new Error('Agent bridge unavailable');
-      return agentService.send(payload?.projectId, { key: payload?.key, turnId: payload?.turnId, text: payload?.text, images: payload?.images });
+      // The conversation is what the page's chat is: without it the Host would send
+      // every project's turns into one DSH Session (the "new chat continues the old
+      // one" bug). '' is the project's default conversation.
+      const conversation = typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '';
+      return agentService.send(payload?.projectId, { conversation, key: payload?.key, turnId: payload?.turnId, text: payload?.text, images: payload?.images });
     }
     if (channel === 'agent:session') {
       // Read-only: never opens a Session just to answer a question about one.
       const projectId = typeof payload?.projectId === 'string' ? payload.projectId : '';
       if (!/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) throw Object.assign(new Error('unknown project'), { code: 'PERMISSION_INPUT' });
-      const state = agentService?.sessionState?.(projectId);
+      const conversation = typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '';
+      const state = agentService?.sessionState?.(projectId, conversation);
       return state ? { ok: true, ...state } : { ok: true, sessionId: null, resumed: false };
     }
     if (channel === 'agent:permission') {
@@ -329,7 +346,8 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     }
     if (channel === 'agent:cancel') {
       if (!agentService) throw new Error('Agent bridge unavailable');
-      return agentService.cancel(payload?.projectId);
+      const conversation = typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '';
+      return agentService.cancel(payload?.projectId, conversation);
     }
     if (channel === 'agent:trace') {
       // The page's own count of what it received. Counters only: no text, no
@@ -684,17 +702,42 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     // "may this session carry images?" from it at initialize. Overlay the
     // person's current DSH model so a vision route is not silently downgraded
     // to a text-only one before the first turn.
+    // Two overlays with two different lifetimes, so they must not share one array:
+    // the model overlay may be refused by the child (a provider the acp profile has
+    // no adapter for) and is dropped on the retry, while the tap is what makes the
+    // answer stream at all and must survive every spawn (ADR-0010 §2.5).
     spawnArgs: async () => {
+      const overlays = {};
       try {
         const selection = ctx.agentDefaultModel?.currentSelection?.();
         const provider = typeof selection?.provider === 'string' ? selection.provider : '';
         const model = typeof selection?.model === 'string' ? selection.model : '';
-        if (!provider || !model) return [];
-        const safe = value => value.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60);
-        const file = join(tmpdir(), `dsh-openfilm-acp-${safe(provider)}-${safe(model)}.yml`);
-        await writeFile(file, `- id: acp\n  config:\n    provider: ${JSON.stringify(provider)}\n    model: ${JSON.stringify(model)}\n`, 'utf8');
-        return ['--patch', file];
-      } catch { return []; }
+        if (provider && model) {
+          const safe = value => value.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60);
+          const file = join(tmpdir(), `dsh-openfilm-acp-${safe(provider)}-${safe(model)}.yml`);
+          await writeFile(file, `- id: acp\n  config:\n    provider: ${JSON.stringify(provider)}\n    model: ${JSON.stringify(model)}\n`, 'utf8');
+          overlays.model = file;
+        }
+      } catch { /* the profile's own model stays */ }
+      // The panel's words arrive as ACP chunks only after the message is committed, so the
+      // child also carries the tap that forwards the provider deltas it sees (see
+      // src/acp-stream-tap.mjs). Loaded by absolute URL: the acp profile has no dependency
+      // on this package, and a tap that cannot load must not take the child down with it.
+      try {
+        const tap = fileURLToPath(new URL('./acp-stream-tap.mjs', import.meta.url));
+        const overlay = join(tmpdir(), 'dsh-openfilm-acp-stream-tap.yml');
+        // `insert` is the patch form that appends an entry (`- id: … name: …` alone only
+        // overrides an entry that already exists).
+        await writeFile(overlay, `- insert:\n    - id: no996-openfilm-stream-tap\n      name: ${JSON.stringify(pathToFileURL(tap).href)}\n`, 'utf8');
+        overlays.tap = overlay;
+      } catch { /* streaming falls back to the committed message */ }
+      // Who the agent is, and where its instruction chain stops: a film folder is its
+      // own instruction root, so a repository above it cannot inject its manual into
+      // a film chat (see src/agent-overlays.mjs). Never dropped on a model fallback.
+      try {
+        overlays.instructions = await writeOverlay();
+      } catch { /* the profile's own persona stays */ }
+      return overlays;
     },
     permissionMode: async projectId => {
       // A project with no recorded decision starts the way the bridge always
@@ -729,6 +772,13 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     prepareProject: async (projectId, projectPath) => {
       const result = ensureProjectInstructions({ root: projectPath });
       if (result.created) void log.info('project-instructions', { projectId });
+      // A project written by an earlier version still has the old protocol (no
+      // storyboard step). Upgrading is safe only while the file is byte-identical to
+      // what we wrote; a person's edit is never touched.
+      else {
+        const upgraded = upgradeProjectInstructions({ root: projectPath });
+        if (upgraded.upgraded) void log.info('project-instructions-upgraded', { projectId });
+      }
     },
     onClosed: projectId => {
       mcpTokens.revokeProject(projectId);
@@ -781,7 +831,10 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   const filmTools = [
     createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: ctx.llm }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
-    createLibraryTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createLibraryTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, templates: () => templateCatalog(templatesRoot) }),
+    // Plan before cutting: the storyboard is the contract the timeline follows, and
+    // "from-script" turns a transcript into shots on sentence boundaries.
+    createStoryboardTool({ isProjectAgent, projectOf: projectOfAgent }),
     createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createClipTool({ isProjectAgent, projectOf: projectOfAgent }),
     createAssetsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
@@ -923,6 +976,29 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     permissions,
     agentService,
     getLastProxy: () => lastProxy,
+    // Who the film agent is told to be, and which instruction files it reads. The
+    // chain is computed here (not in the route) so the route stays about evidence.
+    instructions: path => {
+      const chain = instructionChain({
+        cwd: path,
+        dshHome: process.env.DSH_HOME || join(homedir(), '.dsh'),
+        agentsHome: join(homedir(), '.agents'),
+      });
+      // The resident budget: identity + instruction files. Everything else (guides,
+      // skills, library, templates) is read on demand, so this number is the one that
+      // must not grow with the number of styles or templates (agent-plan §7).
+      const persona = Buffer.byteLength(PERSONA, 'utf8');
+      const files = chain.files.reduce((sum, entry) => sum + entry.bytes, 0);
+      const total = persona + files;
+      return {
+        persona,
+        ...chain,
+        budget: { persona, files, total, limit: 6144, ok: total <= 6144 },
+      };
+    },
+    projectPathOf: async projectId => {
+      try { return (await verifyOfficialProject(projectId))?.path ?? null; } catch { return null; }
+    },
   });
   const [unregisterDiagnose] = diagnose.disposers;
 

@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "a9f5f126b7545fd611ac84375e6a36d5955c8838e48ae5a0ccecf2ca87a9b26b"
+    "sha256": "f2458321493aa3ae07f8a1c863d493d28560f06d1e22a12f6e77397d6001bbfd"
   },
   "patches": [
     {
@@ -21,8 +21,8 @@
       "file": "020-AgentActivityRow.patch",
       "source": "apps/desktop/chat/src/components/AgentActivityRow.tsx",
       "group": "chat",
-      "sha256": "a9ec3d177653d0f5fd753b3d91f213054290933ef6e6fbb7bf769e4e8be791d6",
-      "bytes": 4507
+      "sha256": "d23b4a2b9c170409679f28203d7bd16201b7b206bbeb26d2b1e3103c4beb2c32",
+      "bytes": 7346
     },
     {
       "id": "030-ConversationSessionBar",
@@ -133,16 +133,16 @@
       "file": "160-agent-transcript.patch",
       "source": "apps/desktop/chat/src/lib/agent-transcript.ts",
       "group": "chat",
-      "sha256": "29a81f226d12d82c722fb35b4a9b0253710c65fc576d424c757033d306f9d10a",
-      "bytes": 3811
+      "sha256": "18fa6838a520537308e923d16bbde8896fc45c2faab1bc9aa590b19526f66e1c",
+      "bytes": 4927
     },
     {
       "id": "170-chat-store",
       "file": "170-chat-store.patch",
       "source": "apps/desktop/chat/src/lib/chat-store.ts",
       "group": "chat",
-      "sha256": "af828c7313279b061785c42005cb318bc3b939a395bb583b2ed937daa50ca990",
-      "bytes": 2606
+      "sha256": "e3cc20b9d3e8348257c5f2c9226daf9f6f7b76ed499a15418205a5334da6f850",
+      "bytes": 2902
     },
     {
       "id": "180-desktop-attachments",
@@ -157,8 +157,8 @@
       "file": "190-local-agent-run.patch",
       "source": "apps/desktop/chat/src/lib/local-agent-run.ts",
       "group": "chat",
-      "sha256": "803b17356a469b68aa226629e6f32c13d043f4b73755b03e26007dd0bedbcb8a",
-      "bytes": 1796
+      "sha256": "952c89e3a34490cb53aafcb4bfadc2ad537b46c7e8cc2ef241c1fa035eb2f141",
+      "bytes": 12306
     },
     {
       "id": "200-local-agent-store",
@@ -245,8 +245,8 @@
       "file": "300-contract.patch",
       "source": "packages/shared/src/contract.ts",
       "group": "shared",
-      "sha256": "29ff9533aabfbc2373810234ae762e4f856b5e052dfc748ec0d1873ef24edb84",
-      "bytes": 1729
+      "sha256": "0880e0f80c0eb13b79da614571395dc1408af490b2410adaf24823bdc62296ae",
+      "bytes": 2640
     },
     {
       "id": "310-markdown-blocks",

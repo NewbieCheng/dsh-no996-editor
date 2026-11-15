@@ -8,7 +8,7 @@
 
 ## 0. 一句话
 
-把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起官方 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，官方对话由 Host 交给 `dsh --profile acp` 子进程（会话、模型、审批、思考、续聊都是 DSH 的）。当前 `0.15.17`。仓库 `NewbieCheng/dsh-openfilm`，分支 `main`。
+把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起官方 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，官方对话由 Host 交给 `dsh --profile acp` 子进程（会话、模型、审批、思考、续聊都是 DSH 的）。**一个项目一个子进程，一条对话一条 ACP 会话。** 当前 `0.15.21`。仓库 `NewbieCheng/dsh-openfilm`，分支 `main`。
 
 ---
 
@@ -43,14 +43,27 @@
 
 ---
 
+## 2.1 对话边界与注入链（改对话行为前必读，决策见 [ADR-0011](docs/decisions/ADR-0011-director-contract.md)）
+
+三条不变量，破了就是用户看得见的 bug：
+
+1. **页面的对话 id 必须一路到 Host。** 一个项目一个 `dsh --profile acp` 子进程（MCP 令牌、tap、模型菜单是进程级的），**会话按对话分开**（`session/new` / `session/resume`，id 存 `~/.dsh/no996-openfilm/acp-sessions.json` v2，v1 读成默认对话）。任何新加的 agent RPC 都要带 `conversation`，否则新建对话就是接着上一轮聊——这是已经发生过一次的真 bug。
+2. **影片文件夹是指令链的根。** `src/agent-overlays.mjs` 用 `--patch` 覆盖 `agent-instructions.projectRootMarkers = [.git, .film, film.html]`，所以仓库/单仓上层的 `AGENTS.md` 不会进入影片对话。改注入链前先看 `/diagnose.instructions`（persona、逐文件字节、`outside` 被排除的文件、`budget ≤ 6 KB`）。
+3. **知识按需读，不进系统提示。** persona ≤ 400 字节，只说"你是剪辑导演、交付能播的片"；手册走 `openfilm_guide`，风格/镜头卡走 `skill('openfilm-motion')`，模板走 `openfilm_library kind=template`（`take=<id>` 才返回它的 `prompt.md`）。往系统提示里塞 14 种风格 / 124 张镜头卡 / 模板全文是返工的开始。
+
+**剪辑的契约是分镜**：`.film/storyboard.json`（`openfilm_storyboard` 的 read/write/plan/from-script/subtitles）。先有分镜再动时间轴；丢视频先 `openfilm_transcribe` 再 `from-script` 按句切镜。`openfilm_clip` 加不了片段，`plan` 的 `missing` 就是这条路的出口——不要假装能加。
+
+**已有项目的 `AGENTS.md` 从不覆盖**，只有字节完全等于我们写过的版本才升级（sha256 白名单，见 `src/project-instructions.mjs`）。
+
 ## 3. 仓库地图
 
 | 层 | 位置 |
 |---|---|
 | Host | `index.js`、`cordis.patch.yml`、`src/studio-controller.mjs` |
 | 运行时/代理 | `src/studio-runtime.mjs`、`src/studio-proxy.mjs`、`src/official-shell.mjs` |
-| 对话桥 | `src/acp-*.mjs`、`mcp-server.mjs`、`project-instructions.mjs`（ACP）+ `official-chat-*`、`official-event-*`、`official-facade.mjs`、`official-permission.mjs` |
-| 影片工具 | `src/film-*`、`draft-*`、`timeline-*`、`*-tool.mjs` |
+| 对话桥 | `src/acp-*.mjs`、`project-instructions.mjs`（项目协议）+ `official-chat-*`、`official-event-*`、`official-facade.mjs`、`official-permission.mjs`；`src/agent-overlays.mjs`（persona + 指令边界）、`src/instruction-inventory.mjs`（/diagnose 的注入清单） |
+| 影片工具 | `src/film-*`、`draft-*`、`timeline-*`、`*-tool.mjs`；`src/storyboard*.mjs`（分镜契约）、`src/script-plan.mjs`（口播→句子→镜头→字幕）、`src/template-catalog.mjs`（模板目录） |
+| 技能 | `skills/<name>/SKILL.md`（`node scripts/install-skills.mjs` 镜像到 `~/.dsh/skills`） |
 | 模板/动效 | `vendor/templates/**`、`vendor/motion/**` |
 | 界面注入 | `src/shell-extras.mjs` + `assets/shell-ui.js` / `shell-login.js` / `login-city.js` |
 | 主题/品牌 | `src/theme.mjs`、`assets/theme/*.css`、`brand/brand.json`、`src/brand.mjs` |
@@ -87,6 +100,9 @@ npm run check                      # 提交前：lint + test + docs/brand/templa
 | `vendor/templates/**` | 否 | 下一次请求即生效 | 无 |
 | `vendor/official-shell/ui/**` | 是（上游） | 部署产物后重启 Studio | 清单不匹配 → `OFFICIAL_SHELL_UNAVAILABLE` |
 | `cordis.patch.yml` | 否 | 重新 `install_bundle` 或重启 Host | 已有会话不迁移 |
+| `src/agent-overlays.mjs`（persona / 根标记） | 否 | 重载插件 + 刷新（下一次 spawn 生效） | 已开的子进程仍用旧 persona，直到它重启 |
+| `skills/**` | 否 | `node scripts/install-skills.mjs`（`--force` 覆盖） | 只影响新会话加载的技能 |
+| `vendor/templates/<id>/prompt.md` | 否 | 下一次 `openfilm_library take=` 即生效 | 无 |
 
 **重载前先 `touch index.js src/*.mjs`**：加载器只重新求值 mtime 变了的模块，没 touch 的引入方继续用旧 import（症状：改了没生效）。`npm run dev` 会替你 touch。
 
@@ -120,7 +136,7 @@ npm run check                      # 提交前：lint + test + docs/brand/templa
 
 **出事了先看 [`docs/playbooks/incident.md`](docs/playbooks/incident.md)**：症状 → 根因 → 怎么一眼分辨 → 现在靠什么挡住。
 
-`POST /api/no996-openfilm/diagnose {projectId}`（面板静默 20 秒后自动贴出）；`%TEMP%\dsh-openfilm\plugin.log`（JSON Lines，自动脱敏）；`%TEMP%\dsh-openfilm-frames.jsonl`（每轮覆盖）；`%TEMP%\dsh-openfilm-preset.json`；`%TEMP%\dsh-openfilm-host.json`（重载后 `startedAt` 必须更新）。
+`POST /api/no996-openfilm/diagnose {projectId, conversation}`（面板静默 20 秒后自动贴出）：`turns` 是流式与逐会话证据（`turns.sessions` 列出该项目每条 ACP 会话），`instructions` 是 persona + 指令文件 + 常驻预算 + 被排除的上层文件；`%TEMP%\dsh-openfilm\plugin.log`（JSON Lines，自动脱敏）；`%TEMP%\dsh-openfilm-frames.jsonl`（每轮覆盖）；`%TEMP%\dsh-openfilm-preset.json`；`%TEMP%\dsh-openfilm-host.json`（重载后 `startedAt` 必须更新）。
 
 **不要靠猜形状**：ACP 字段以 `fake-acp-agent.mjs` 或真机日志为准。
 
@@ -152,4 +168,6 @@ npm run check                      # 提交前：lint + test + docs/brand/templa
 - 不要在浏览器侧接受任意 URL 当编辑器来源。
 - 不要声称预览、导出、渲染已接通——没接通。
 - 不要在注入层承载权限、凭据、业务写操作。
+- 不要让一条 ACP 会话服务多个对话：新的 agent RPC 必须带 `conversation`（ADR-0011 §2）。
+- 不要把风格库、镜头卡、模板全文塞进 persona 或系统提示：常驻预算 ≤ 6 KB，其余按需读（ADR-0011 §3–4）。
 - 不要把"已实现"的计划文档留在 `docs/`；已完成的删，未完成的并进 `ROADMAP`。

@@ -63,6 +63,7 @@ rot-if: 什么变了这篇就该重写
 | [`MOTION.md`](MOTION.md) | 动效生产 + 风格库/镜头卡（后两节由 catalog 生成） |
 | [`reference/kit.md`](reference/kit.md) | 模板、单元、风格、镜头卡的数量与清单（生成；正文不写数） |
 | [`topics/ui-plan.md`](topics/ui-plan.md) | 界面改造方案（人话版，含批次与验收） |
+| [`topics/agent-plan.md`](topics/agent-plan.md) | 注入链现状与"剪辑导演"升级方案（人话版，含批次与验收） |
 | [`TRANSCRIBE.md`](TRANSCRIBE.md) | 本地口播转写 |
 | [`BRAND.md`](BRAND.md) | 品牌替换与法务边界 |
 | [`DSH-SHELL-INTEGRATION.md`](DSH-SHELL-INTEGRATION.md) | DSH 三栏外壳改造案例（插槽细节见 `dsh-ui-extension` skill） |

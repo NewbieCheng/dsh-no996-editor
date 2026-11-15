@@ -17,7 +17,8 @@ rot-if: 进程模型、对话边界、面板宿主方式变化
 |---|---|
 | 官方 chat 的 agent 是"子进程 + ACP over stdio"，客户端做 `initialize → session/new（或 session/resume）→ session/prompt`，`session/update` 驱动界面，`session/request_permission` 弹权限 | `apps/desktop/src/agents.mjs` 文件头 |
 | "DeepSeek Harness" 是官方内置 agent：`args: ['--profile','acp']`，无登录命令 | `apps/desktop/src/agents.mjs:100` |
-| 思考、工具调用、工具结果、上下文用量、重试都是 ACP 的 session/update，**流式** | `agents.mjs` 注释、`chat/src/lib/desktop-bridge.ts` 的 `LocalAgentEvent`、`chat/src/lib/local-agent-run.ts` |
+| 工具调用、工具结果、上下文用量、重试都是 ACP 的 `session/update` | `agents.mjs` 注释、`chat/src/lib/desktop-bridge.ts` 的 `LocalAgentEvent`、`chat/src/lib/local-agent-run.ts` |
+| **文本与思考不是 ACP 流式的**：DSH 的 ACP 在消息**提交之后**整段发（`dsh-acp/src/updates.ts` 跑在 `assistant/message` 上），`known-event-types.ts` 里没有 partial/delta 事件；token 级增量只存在于子进程内的 `agent/assistant-stream` 帧（`start`/`chunk`/`end`，`text-delta`、`reasoning-delta`，带 `attemptId`/`index`） | `dsh-acp/src/updates.ts`、`dsh-agent/src/runtime-types.ts:156`、`dsh-agent-loop/src/agent.ts`（`live.push(chunk)`） |
 | 会话可续：`session/resume`（capabilities 支持时），否则 `session/load` | `agents.mjs:1394` |
 | 附件可走**引用**：ACP `resource_link`（`file://` 路径）进 prompt，不搬运文件 | `apps/desktop/src/pi-agent.mjs:293` |
 | 拖放由界面自己处理（`App.tsx` 的 `onDrop`） | `chat/src/App.tsx:1029` |
@@ -56,6 +57,10 @@ rot-if: 进程模型、对话边界、面板宿主方式变化
 
 - **单一会话真相**：面板里的对话就是侧栏里那条 DSH 会话（同一个 session id）。续聊、思考、工具、审批全部由 DSH 产生，两边都只是渲染。
 - **边界是 ACP**：Host 不再手工映射"回合"，只做 ACP 客户端（`initialize/session.new|resume/session.prompt/cancel`，转发 `session/update`、`request_permission`、模型与 effort 选项）。
+- **一条对话一条 ACP 会话（0.15.21，见 [ADR-0011](decisions/ADR-0011-director-contract.md)）**：一个项目一个 `dsh --profile acp` 子进程（MCP 令牌、tap、模型菜单是进程级的），子进程内按页面的对话 id `session/new` / `session/resume`，会话 id 按对话存在 `~/.dsh/no996-openfilm/acp-sessions.json`（v2；v1 读成默认对话）。帧与提交按 `sessionId` 路由回各自的对话；权限请求不带 sessionId，按当前跑着的会话回答。**没有这个键，新建对话就是接着上一轮聊**——这是修掉的真 bug，不是观感。
+- **身份与指令边界写在子进程配置里**：`--patch` 覆盖 `system-prompt.personaPrefix`（"你是 No996 Studio 的剪辑导演…"）与 `agent-instructions.projectRootMarkers`（加 `.film`、`film.html`）。影片文件夹因此成为指令链的根，仓库/单仓上层的 `AGENTS.md` 不再进入影片对话；`/diagnose.instructions` 会列出实际注入的文件、字节与常驻预算（≤ 6 KB），并把被排除的上层文件列在 `outside`。
+- **分镜是契约**：`.film/storyboard.json`（`src/storyboard.mjs`）由 `openfilm_storyboard` 读/写/校验；`plan` 把分镜翻成 `openfilm_clip` 的 trim/move 并列出缺片段的镜头；口播优先（`src/script-plan.mjs`：句子 → 按句切镜 → 字幕 SRT）是纯函数，同一份转写永远给同一条切法。
+- **token 级流式另走一条通道（0.15.19，见 [ADR-0010](decisions/ADR-0010-live-streaming.md)）**：ACP 只发提交后的整段消息，而面板要"边写边出"。子进程里本来就看得见 provider 增量，所以 `src/acp-stream-tap.mjs` 以 `--patch` 覆盖层（`- insert:` + 绝对文件 URL）注入进 `dsh --profile acp`，订阅 `agent/assistant-stream`，把 `text-delta`/`reasoning-delta` 通过 loopback TCP（端口 + 一次性 token 由 env 下发）写回 Host。帧带 `attempt`（DSH 的 attemptId）、`index` 与 `turn`，**且全部走同一条队列**——快照插队会让同一段话写两遍（0.15.20 的教训）；页面按 attempt 认领行，`sync`（约 250 ms 的快照）与 `seal`（attempt 结束的整段）只覆盖、绝不拼接（`preferLonger`），比当前轮更旧的帧直接丢弃。覆盖层按用途分开：模型覆盖层被拒时只丢它，tap 永远随每个存活子进程注入。ACP 路径完全不变，tap 起不来就退回"整段到达"，并记 `acp-stream-silent`（每轮另记 `acp-stream` 的 delta/seal/sync 计数）。思考行默认收起，展开后最高 280px 内部滚动。
 - **引用优先**：对话里的媒体是 `resource_link`（路径 + 可选缩略图），不复制、不上传；只有"导入项目素材"这个显式动作才写盘。
 - **工作区是承载，不是产品**：每个项目目录一个工作区，命名固定，复用优先，绝不重复创建。
 

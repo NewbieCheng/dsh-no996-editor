@@ -9,6 +9,8 @@
  * Search deliberately runs without a model: it scores the library by tags, so it
  * answers in milliseconds and costs nothing.
  */
+import { searchTemplates, catalogText } from './template-catalog.mjs';
+
 const KINDS = ['transition', 'effect', 'filter', 'sticker', 'text', 'template', 'music', 'sound', 'sfx'];
 const MAX_LINES = 40;
 
@@ -20,7 +22,7 @@ function normaliseKind(value) {
   return KINDS.includes(kind) ? kind : 'transition';
 }
 
-export function createLibraryTool({ isProjectAgent, projectOf, http }) {
+export function createLibraryTool({ isProjectAgent, projectOf, http, templates = null }) {
   return {
     name: 'openfilm_library',
     description: 'Search OpenFilm\'s built-in free library (transitions, effects, filters, stickers, text styles, music, sounds, templates) by what you want it to feel like, then take the one you want into the project. Free, offline, no service needed. Use `take` with an id from a previous search to make that item part of the project.',
@@ -43,6 +45,24 @@ export function createLibraryTool({ isProjectAgent, projectOf, http }) {
       const project = projectOf?.(exec.agent);
       if (!project?.projectId || !project.path) throw new Error('This conversation is not bound to an OpenFilm project.');
       const kind = normaliseKind(args?.kind);
+
+      // Templates are this Host's own catalog (vendor/templates), not Studio's
+      // library: the agent can see what the app can make without opening Studio.
+      if (kind === 'template' && typeof templates === 'function') {
+        const take = text(args?.take);
+        const catalog = await templates().catch(() => []);
+        if (take) {
+          const chosen = catalog.find(item => item.id === take);
+          if (!chosen) throw new Error(`没有这个模板：${take}（先搜一次拿 id）。`);
+          return { text: `模板 ${chosen.id} —— ${chosen.title}${chosen.description ? `：${chosen.description}` : ''}\n\n${chosen.prompt || '（这个模板没有额外说明。）'}` };
+        }
+        const query = text(args?.query) ?? '';
+        const hits = searchTemplates(catalog, query, Math.min(8, Math.max(1, Number(args?.limit) || 5)));
+        if (hits.length === 0) return { text: `没有匹配「${query}」的模板。现有模板：\n${catalogText(catalog)}` };
+        return {
+          text: `模板 ${hits.length} 个：\n${catalogText(hits)}\n\n选中一个：用 openfilm_library 传 take=<id>，会返回这个模板的使用说明（不要整份复制进 film.html）。`,
+        };
+      }
 
       if (text(args?.take)) {
         // `take` lands the item in the project; the receipt says what to reference.

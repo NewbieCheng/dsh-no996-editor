@@ -19,11 +19,15 @@
 ## 用起来
 
 - 侧边栏「视频创作」打开工作台；官方界面的对话列由 Host 通过 ACP 驱动一个 DSH 子进程，会话与侧边栏是同一份。
-- 一个项目 = 一条对话（工作目录就是项目文件夹）；归档与 DSH 侧边栏是同一份集合。
+- **一条对话 = 一条 ACP 会话**：同一个项目里新建对话就是新会话，不会带上上一轮；回到旧对话还在原处。工作目录就是项目文件夹，归档与 DSH 侧边栏是同一份集合。
 - 对话里能看到思考、工具调用（真名 + 参数 + 结果摘要）、内联图片；审批走 DSH 自己的界面，不会被静默放行。
 - 图片：当前模型支持看图时内联发送；不支持时落成临时文件并以绝对路径引用。上传兜底单文件上限 256 MiB；更大的视频请先剪辑或转码。
 - 项目首次被面板打开时，Host 会在项目文件夹写一份 `AGENTS.md`（编辑指令，已存在则绝不覆盖）。
 - 本地口播转写：`openfilm_transcribe`，视频/音频 → 带时间码文稿；首次下载 228 MB 权重。
+- **剪辑导演**：子进程的 persona 是"剪辑导演"而不是"编码 agent"；影片文件夹是指令链的根，仓库/单仓上层的手册不会进入影片对话。
+- **分镜契约**：`openfilm_storyboard` 读写 `.film/storyboard.json`，`from-script` 把口播按句切成镜头、`subtitles` 出 SRT，`plan` 把分镜翻成 `openfilm_clip` 的操作并说清还缺哪个片段。
+- **模板可发现**：`openfilm_library kind=template` 列出内置模板，选中才读它的使用说明（`vendor/templates/<id>/prompt.md`）。
+- 常驻上下文有预算（persona + 指令文件 ≤ 6 KB），风格库/镜头卡/模板全文都按需读。
 
 ## 文档
 
@@ -42,12 +46,12 @@
 | [docs/playbooks/upstream-bump.md](docs/playbooks/upstream-bump.md) | 维护者 | 三处 pin、补丁系列、升级与冲突 |
 | [docs/playbooks/manual-acceptance.md](docs/playbooks/manual-acceptance.md) | 验收者 | 真机验收清单 |
 
-专题：[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)、[DSH 外壳改造案例](docs/DSH-SHELL-INTEGRATION.md)。
+专题：[注入链与剪辑导演方案](docs/topics/agent-plan.md)、[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)、[DSH 外壳改造案例](docs/DSH-SHELL-INTEGRATION.md)。
 通用 skill（独立仓库）：[dsh-harness-remix](https://github.com/NewbieCheng/dsh-harness-remix)（DSH UI 改造 + 后端衔接）。
 
 ## 能力与边界
 
-- 已接通：项目/对话/模型/审批/取消、思考与工具行、内联图片、归档、模板安装、抽帧、时间轴落盘编辑、导出、CLI 兜底、本地转写。
+- 已接通：项目/对话（按对话隔离会话）/模型/审批/取消、思考与工具行、内联图片、归档、模板安装与检索、抽帧、时间轴落盘编辑、导出、CLI 兜底、本地转写、分镜与字幕。
 - 未完成：余额展示、官方输入框在部分场景只读、默认权限不是完全访问、技能卡、预览/渲染沙箱、macOS/Linux 真机验收。
 - 账号：接工作台账号（不是 OpenFilm 站点账号）；未登录由壳内登录页挡住剪辑。`NO996_OPENFILM_DEV=1` 可跳过账号门做开发。
 

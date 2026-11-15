@@ -11,10 +11,10 @@ import { createAcpClient, resolveAcpCommand } from '../src/acp-client.mjs';
 
 const fixture = fileURLToPath(new URL('./fixtures/fake-acp-agent.mjs', import.meta.url));
 
-function startClient({ mode, timeoutMs = 5000, promptTimeoutMs = timeoutMs } = {}) {
+function startClient({ mode, timeoutMs = 5000, promptTimeoutMs = timeoutMs, stream = false } = {}) {
   const client = createAcpClient({
     resolve: () => ({ command: process.execPath, args: [fixture] }),
-    env: { ...process.env, ...(mode ? { FAKE_ACP_MODE: mode } : {}) },
+    env: { ...process.env, ...(mode ? { FAKE_ACP_MODE: mode } : {}), ...(stream ? { FAKE_ACP_STREAM: '1' } : {}) },
     requestTimeoutMs: timeoutMs,
     promptTimeoutMs,
     spawnChild: (command, args, options) => spawn(command, args, options),
@@ -95,6 +95,36 @@ test('cancel is a notification the agent can hear', async () => {
   assert.equal(client.cancel('session-fake-1'), true);
   await new Promise(resolve => setTimeout(resolve, 80));
   assert.equal(seen.length, 1);
+  await client.close();
+});
+
+test('live frames keep their attempt identity, and hello proves the tap is in the child', async () => {
+  const client = startClient({ stream: true });
+  const frames = [];
+  const hellos = [];
+  client.on('stream', frame => frames.push(frame));
+  client.on('hello', hello => hellos.push(hello));
+  await client.start();
+  await client.newSession({ cwd: 'C:\\fake' });
+  await client.prompt({ sessionId: 'session-fake-1', blocks: [{ type: 'text', text: 'hi' }] });
+  // The frames are written before the committed update, but they arrive on another
+  // socket; give the loopback a turn to drain.
+  await new Promise(resolve => setTimeout(resolve, 120));
+  assert.equal(hellos.length, 1, 'the tap announced itself');
+  assert.equal(hellos[0].v, 1);
+  const deltas = frames.filter(frame => frame.seal !== true && frame.sync !== true);
+  // The real attemptId is a string (`<session>:<n>`), so the transport must not require an integer.
+  const attempt = 'session-fake-1:1';
+  assert.deepEqual(deltas.map(frame => [frame.kind, frame.text, frame.attempt, frame.index]), [
+    ['thought', 'think', attempt, 0],
+    ['text', 'a', attempt, 1],
+    ['text', 'b', attempt, 2],
+  ]);
+  // A snapshot and a seal are whole-value replacements, not appends: the page must be
+  // able to tell them apart from a delta (ADR-0010 §3.2).
+  assert.equal(frames.find(frame => frame.sync === true)?.text, 'ab');
+  assert.equal(frames.find(frame => frame.seal === true)?.text, 'abc');
+  assert.equal(frames.every(frame => frame.sessionId === 'session-fake-1'), true);
   await client.close();
 });
 

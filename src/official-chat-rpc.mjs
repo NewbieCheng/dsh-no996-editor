@@ -5,8 +5,12 @@ const failure = () => Object.assign(new Error('OpenFilm chat request is invalid 
 // A deliberate, user-actionable state. It carries no path, credential or history,
 // so it is the one error this dispatcher may relay instead of the fixed message.
 const archivedFailure = () => Object.assign(new Error('This conversation is archived. Restore it in DSH or the video panel before continuing.'), { code: 'OFFICIAL_CHAT_ARCHIVED' });
-const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
-  Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+const exact = (value, keys, optional = []) => value && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).length <= keys.length + optional.length &&
+  keys.every(key => Object.hasOwn(value, key)) &&
+  Object.keys(value).every(key => keys.includes(key) || optional.includes(key));
+/** The conversation a call is about; '' is the project's default conversation. */
+const conversationOf = payload => (typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '');
 
 /** Host-only dispatcher. The caller must authenticate the peer and origin and
  * supply a store whose verifier checks each project against the active Studio.
@@ -64,15 +68,16 @@ export function createOfficialChatRpc(store, agent, options = {}) {
         await unarchive(payload.projectId);
         return await inspect(payload.projectId);
       }
-      if (channel === 'agent:models' && exact(payload, ['projectId']) && typeof agent?.modelCatalog === 'function') {
-        return officialModelOptions(await agent.modelCatalog(payload.projectId)).option;
+      if (channel === 'agent:models' && exact(payload, ['projectId'], ['conversation']) && typeof agent?.modelCatalog === 'function') {
+        return officialModelOptions(await agent.modelCatalog(payload.projectId, conversationOf(payload))).option;
       }
-      if (channel === 'agent:select-model' && exact(payload, ['projectId', 'value']) &&
+      if (channel === 'agent:select-model' && exact(payload, ['projectId', 'value'], ['conversation']) &&
           typeof payload.value === 'string' && typeof agent?.modelCatalog === 'function' && typeof agent?.selectModel === 'function') {
-        const { choices } = officialModelOptions(await agent.modelCatalog(payload.projectId));
+        const conversation = conversationOf(payload);
+        const { choices } = officialModelOptions(await agent.modelCatalog(payload.projectId, conversation));
         const choice = choices.get(payload.value);
         if (!choice) throw failure();
-        await agent.selectModel(payload.projectId, choice);
+        await agent.selectModel(payload.projectId, choice, conversation);
         return { ok: true };
       }
       // Thinking intensity: the option for the project's current model, and the
@@ -84,10 +89,10 @@ export function createOfficialChatRpc(store, agent, options = {}) {
       // throw, the catch below turned that into OFFICIAL_CHAT_UNAVAILABLE, and the
       // person saw a red 503 toast for a menu nobody opened. Degrading to null
       // keeps the reason in the log and the panel usable.
-      if (channel === 'agent:thinking' && exact(payload, ['projectId'])) {
+      if (channel === 'agent:thinking' && exact(payload, ['projectId'], ['conversation'])) {
         if (typeof agent?.thinkingOption !== 'function') return null;
         try {
-          return await agent.thinkingOption(payload.projectId);
+          return await agent.thinkingOption(payload.projectId, conversationOf(payload));
         } catch (error) {
           const reason = String(error?.code ?? error?.message ?? error).slice(0, 120);
           if (typeof options.log === 'function') options.log('agent-thinking-unavailable', { reason });
@@ -95,9 +100,9 @@ export function createOfficialChatRpc(store, agent, options = {}) {
         }
       }
 
-      if (channel === 'agent:select-thinking' && exact(payload, ['projectId', 'value']) &&
+      if (channel === 'agent:select-thinking' && exact(payload, ['projectId', 'value'], ['conversation']) &&
           typeof payload.value === 'string' && typeof agent?.selectThinking === 'function') {
-        return await agent.selectThinking(payload.projectId, payload.value);
+        return await agent.selectThinking(payload.projectId, payload.value, conversationOf(payload));
       }
       // One-shot permission answer from the panel. The Host resolves the owning
       // DSH agent from its own pending record; the page only names the question.

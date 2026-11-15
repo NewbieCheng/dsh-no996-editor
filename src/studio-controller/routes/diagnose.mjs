@@ -16,6 +16,11 @@ export function createDiagnoseRoute({
   permissions,
   agentService,
   getLastProxy,
+  // What the child's instruction chain would read, and who it is told to be: the
+  // two facts behind "the agent talks about the repository" (see
+  // src/instruction-inventory.mjs). Optional so older callers keep working.
+  instructions = null,
+  projectPathOf = null,
 }) {
   let lastHealthRunning;
   const unregisterDiagnose = track(register({
@@ -28,15 +33,18 @@ export function createDiagnoseRoute({
       const proxy = await getLastProxy()?.catch(() => undefined);
       // Which project the page is asking about, if it named one. Both the turn
       // record and the grouping state are per project.
-      const diagnoseProject = await (async () => {
+      const diagnoseRequest = await (async () => {
         try {
           const chunks = [];
-          for await (const chunk of req) { chunks.push(chunk); if (Buffer.concat(chunks).byteLength > 4096) return ''; }
+          for await (const chunk of req) { chunks.push(chunk); if (Buffer.concat(chunks).byteLength > 4096) return {}; }
           const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-          const id = typeof parsed?.projectId === 'string' ? parsed.projectId : '';
-          return /^[A-Za-z0-9_-]{6,40}$/.test(id) ? id : '';
-        } catch { return ''; }
+          const projectId = typeof parsed?.projectId === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(parsed.projectId) ? parsed.projectId : '';
+          const conversation = typeof parsed?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(parsed.conversation) ? parsed.conversation : '';
+          return { projectId, conversation };
+        } catch { return {}; }
       })();
+      const diagnoseProject = diagnoseRequest.projectId ?? '';
+      const diagnoseConversation = diagnoseRequest.conversation ?? '';
       // Whether the video-editing preset actually activated, not just whether its
       // row exists: the roster carries each preset's activation diagnostic.
       let preset = null;
@@ -73,7 +81,18 @@ export function createDiagnoseRoute({
         // Per-turn evidence for "the panel shows nothing": frames received, updates
         // emitted, and which frames died in translation. Without this, exhausted
         // agent output and dropped events look identical.
-        turns: agentService ? agentService.diagnose(diagnoseProject) : null,
+        turns: agentService ? agentService.diagnose(diagnoseProject, diagnoseConversation) : null,
+        // Who the agent is told to be, and which instruction files it reads. A film
+        // chat must not carry a repository's manual: `outside` lists files above the
+        // film folder that the chain would have read, so a regression shows here.
+        instructions: await (async () => {
+          if (!instructions || !diagnoseProject) return null;
+          try {
+            const path = projectPathOf ? await projectPathOf(diagnoseProject) : null;
+            if (typeof path !== 'string' || !path) return null;
+            return { ...instructions(path), conversation: diagnoseConversation };
+          } catch (error) { return { error: String(error?.code ?? error?.message ?? error).slice(0, 120) }; }
+        })(),
         // Whether the conversation is really grouped under the project's folder.
         grouping: 'acp',
         // The last few events, so a support message can carry the history that

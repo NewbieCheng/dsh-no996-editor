@@ -136,7 +136,16 @@ function officialFacadeFactory(bridge) {
   // await tabs.list without a catch. This window has one document and no tab
   // bar, so the shape must be absent rather than present-but-rejecting.
   const tabs = undefined;
+  // key -> { projectId, conversation }. The panel's key is per turn, the conversation
+  // is per chat: the Host keeps one ACP Session per conversation, so every call must
+  // name which one it means (otherwise a new chat continues the previous one).
   const agentKeys = new Map();
+  const scopeOf = (key) => {
+    const value = agentKeys.get(key);
+    if (!value) return undefined;
+    if (typeof value === 'string') return { projectId: value, conversation: '' };
+    return { projectId: value.projectId, conversation: typeof value.conversation === 'string' ? value.conversation : '' };
+  };
   const pendingAgentPrompts = new Map();
   const agentListeners = new Set();
   const agentSources = new Map();
@@ -194,7 +203,11 @@ function officialFacadeFactory(bridge) {
       } else {
         const counts = traceFor(id);
         counts.seen += 1;
-        const name = value.update && typeof value.update.sessionUpdate === 'string' ? value.update.sessionUpdate : '';
+        // Live frames are not `session/update`s, so they would otherwise be invisible in the
+        // trace: a turn that streamed shows stream=N beside the committed update kinds.
+        const name = value.kind === 'stream'
+          ? 'stream'
+          : value.update && typeof value.update.sessionUpdate === 'string' ? value.update.sessionUpdate : '';
         if (/^[a-z_]{1,40}$/.test(name)) counts.kinds[name] = (counts.kinds[name] || 0) + 1;
         emitAgent(value);
       }
@@ -212,13 +225,13 @@ function officialFacadeFactory(bridge) {
       const match = /^\/projects\/([A-Za-z0-9_-]{6,40})\/?$/.exec(globalThis.location?.pathname || '');
       if (match) {
         try {
-          const option = await rpc('agent:models', { projectId: match[1] });
+          const option = await rpc('agent:models', { projectId: match[1], conversation: '' });
           if (option && option.id === 'model' && Array.isArray(option.options)) info.configOptions = [option];
         } catch { /* keep the empty list */ }
         // The thinking menu is a second select option; a model with no declared
         // efforts omits it rather than showing a dead control.
         try {
-          const thinking = await rpc('agent:thinking', { projectId: match[1] });
+          const thinking = await rpc('agent:thinking', { projectId: match[1], conversation: '' });
           if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options) && thinking.options.length > 1) {
             info.configOptions = [...info.configOptions, thinking];
           }
@@ -251,18 +264,21 @@ function officialFacadeFactory(bridge) {
         return { ok: false, error: `Cannot resolve project: ${String((error && error.message) || error)}` };
       }
       const key = 'dsh-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      agentKeys.set(key, id);
+      // The conversation id is known before the menus are read, so the probes below
+      // ask about this conversation's Session rather than the project's default.
+      const conversationId = typeof resume === 'string' && resume ? resume : key;
+      agentKeys.set(key, { projectId: id, conversation: conversationId });
       // The composer's model menu reads ACP config options, so publish the Host
       // catalog here; a missing catalog leaves the menu empty instead of broken.
       // Thinking intensity rides along: without it the menu shows its built-in
       // "default" row until the model probe answers, which reads as "no choice".
       let configOptions = [];
       try {
-        const option = await rpc('agent:models', { projectId: id });
+        const option = await rpc('agent:models', { projectId: id, conversation: conversationId });
         if (option && option.id === 'model' && Array.isArray(option.options)) configOptions = [option];
       } catch { configOptions = []; }
       try {
-        const thinking = await rpc('agent:thinking', { projectId: id });
+        const thinking = await rpc('agent:thinking', { projectId: id, conversation: conversationId });
         if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options)) configOptions = [...configOptions, thinking];
       } catch { /* the model row alone still works */ }
       try {
@@ -273,39 +289,38 @@ function officialFacadeFactory(bridge) {
       // the shell skip its "could not open the previous session" hand-over.
       let resumed = false;
       try {
-        const state = await rpc('agent:session', { projectId: id });
+        const state = await rpc('agent:session', { projectId: id, conversation: conversationId });
         resumed = state && state.resumed === true;
       } catch { /* an older Host: leave it unknown rather than claiming a resume */ }
       // The shell calls start(agent, cwd, resume) and compares the answer with the
       // conversation it asked to resume: reporting our page-local key there made
       // every reload look like a failed resume. The conversation keeps its id; only
       // a fresh conversation (no resume argument) gets a new one.
-      const conversationId = typeof resume === 'string' && resume ? resume : key;
       return { ok: true, key, info: { sessionId: conversationId, resumed, agentInfo: { name: 'DeepSeek Harness' }, authMethods: [], mcp: false, models: null, modes: null, configOptions } };
     },
     cancel: async (key) => {
-      const id = agentKeys.get(key);
-      if (!id) throw unavailable('localAgents.cancel');
+      const scope = scopeOf(key);
+      if (!scope) throw unavailable('localAgents.cancel');
       const pending = pendingAgentPrompts.get(key);
       if (pending && !pending.dispatched) {
         pending.cancelled = true;
         pending.cancelWait();
         return { ok: true };
       }
-      return await rpc('agent:cancel', { projectId: id });
+      return await rpc('agent:cancel', { projectId: scope.projectId, conversation: scope.conversation });
     },
     setOption: async (key, optionId, value) => {
-      const id = agentKeys.get(key);
-      if (!id) throw unavailable('localAgents.setOption');
+      const scope = scopeOf(key);
+      if (!scope) throw unavailable('localAgents.setOption');
       if (typeof value !== 'string') throw unavailable('localAgents.setOption');
-      if (optionId === 'model') return await rpc('agent:select-model', { projectId: id, value });
+      if (optionId === 'model') return await rpc('agent:select-model', { projectId: scope.projectId, conversation: scope.conversation, value });
       // Thinking intensity travels as its own option: the Host applies it through
       // the model selection, so the two can never disagree.
-      if (optionId === 'thinking') return await rpc('agent:select-thinking', { projectId: id, value });
+      if (optionId === 'thinking') return await rpc('agent:select-thinking', { projectId: scope.projectId, conversation: scope.conversation, value });
       // The permission row in the same menu sets the preset the tools run under:
       // it replaces the floating chip that used to cover the timeline.
       if (optionId === 'permission') {
-        const result = await rpc('agent:permission-set', { projectId: id, preset: value });
+        const result = await rpc('agent:permission-set', { projectId: scope.projectId, preset: value });
         if (!result || result.ok !== true) throw new Error('没有应用成功，可重试或在 DSH 里改权限');
         return result;
       }
@@ -330,8 +345,9 @@ function officialFacadeFactory(bridge) {
     },
     answerQuestion: async () => ({ ok: false, error: '当前会话没有待回答的问题' }),
     prompt: async (key, text, meta, images) => {
-      const id = agentKeys.get(key);
-      if (!id) throw unavailable('localAgents.prompt');
+      const scope = scopeOf(key);
+      if (!scope) throw unavailable('localAgents.prompt');
+      const id = scope.projectId;
       if (typeof text !== 'string' || text.length > 200000) throw unavailable('localAgents.prompt');
       // The official composer hands over reference pictures as ACP image parts;
       // forward only well-formed inline images and let the Host re-validate.
@@ -364,7 +380,7 @@ function officialFacadeFactory(bridge) {
         pending.dispatched = true;
         // RPC completion is not an ordering barrier for SSE. Only the matching
         // terminal on this exact stream can finish the visible turn.
-        const request = rpc('agent:prompt', { projectId: id, key, turnId, text: text || '（参考图）', ...(stills.length ? { images: stills } : {}) });
+        const request = rpc('agent:prompt', { projectId: id, conversation: scope.conversation, key, turnId, text: text || '（参考图）', ...(stills.length ? { images: stills } : {}) });
         const rpcFailure = request.then(() => new Promise((_, reject) => {
           if (!settled) terminalTimer = setTimeout(() => reject(unavailable('agent.events: terminal missing; output may be incomplete')), 15000);
         }));

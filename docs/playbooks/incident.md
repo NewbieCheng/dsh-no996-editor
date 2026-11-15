@@ -25,6 +25,49 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 
 ## 2. 故障档案
 
+### 2026-11-15 · 每段话都说两遍，上一轮的思考跑到下一轮开头
+
+**现象**：回答和思考叠字（"那那今天先…"、"TheThe user said…"），长句子整段重复；发下一条消息时，
+开头出现上一轮的思考（"user 想干什么"）。
+
+**一眼分辨**：把真机一轮的 tap 帧和 `session/update` 一起抓下来重放（`.tmp-capture-turn.mjs` 那类
+一次性 harness）。看快照与它概括的 delta 谁先到：快照在前 = 顺序错，后 = 合流错。
+
+**根因**：`sync`/`seal` 绕过 30 ms 的 delta 队列直接写 socket。快照先到、被它概括的 delta 后到，
+页面先把快照写进行、再把 delta 追加到快照后面——同一段写两遍。换轮时补发上一轮思考的 `seal`，
+页面按"当前轮"落行，于是旧思考写进新消息开头。重放证据：旧顺序文本 340 字符（提交值 95）、
+思考 470（提交值 181）；新顺序 95/95、181/181。
+
+**改法**：所有帧走同一条有序队列；换轮只清空思考不 seal，思考改在 attempt 结束时 seal；帧带 `turn`，
+页面丢弃更旧的帧；快照用 `preferLonger` 覆盖、绝不拼接（`mergeStreamText` 在互不为前缀时会拼接）。
+回归测试 `tests/acp-stream-tap.test.mjs` 钉住"快照只概括它之前的 delta"。
+
+**边界**：思考行默认收起、展开最高 280px 是同一版改的界面，不是这个 bug 的原因。
+
+### 2026-11-15 · 回答"隔一会儿蹦出一团"：增量没到页面，不是播放器坏了
+
+**现象**：回答不是一个字一个字写出来，而是隔一会儿弹出一整段，再隔一会儿又一段。
+0.15.18 已经删掉了"事后逐字回放"，所以这不是假播放——是 **live 帧根本没到**。
+
+**一眼分辨**（先看日志，别先改页面）：
+
+| 日志 | 含义 |
+|---|---|
+| 没有 `acp-stream-hello` | 这个子进程没有 tap（没注入 / 加载失败） |
+| 有 hello，但每轮 `acp-stream` 的 `deltas` 是 0 | tap 在、帧没出来（事件名或帧形状随 DSH 版本漂了） |
+| 有 `acp-stream-silent`（reason `tap-absent` / `connected-no-frames`） | 该轮只有提交后的整段，面板已降级 |
+| `agent-trace` 的 `kinds` 里有 `stream=N` | 帧到了页面（N 就是收到的帧数） |
+
+**根因**：`spawnArgs()` 把模型覆盖层和 tap 覆盖层塞进同一个数组，`ensure()` 在模型覆盖层被拒时
+`openWith([])` 重试，把 tap 一起丢了。日志证据：`acp-stream-connected` 全程只出现一次，且属于一个
+300 ms 后就被替换的子进程（`no adapter registered for provider "openai-codex"` → `acp-model-fallback`）。
+
+**改法**：覆盖层拆成 `{model?, tap?}`，回退只丢模型；tap 连上先发 `hello`；每轮记
+`acp-stream`/`acp-stream-silent`；`/diagnose` 的 `turns.stream` 给 `connected/deltas/textCommits`。
+设计见 [`../decisions/ADR-0010-live-streaming.md`](../decisions/ADR-0010-live-streaming.md)。
+
+**边界**：`acp-stream-connected` 只证明"有个 socket 接了"，`acp-stream-hello` 才证明"这个子进程带 tap"。
+
 ### 2026-11-14 · 工作区/剪辑区开关会凭空消失，之后切不回来
 
 **现象**：侧栏左上那个「工作区/剪辑区」开关偶尔不见了；有时点导航里的「视频创作」，侧栏自己跳进剪辑区，

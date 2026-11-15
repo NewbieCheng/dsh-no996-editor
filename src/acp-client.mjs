@@ -12,7 +12,9 @@
 // answers permission requests through a handler, and stops the child. It never
 // interprets agent semantics.
 import { spawn as nodeSpawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 
 const CAPABILITIES = Object.freeze({ protocolVersion: 1, clientCapabilities: {}, clientInfo: { name: 'no996-openfilm', version: '1' } });
@@ -67,6 +69,12 @@ export function createAcpClient({ resolve = resolveAcpCommand, env = process.env
   const pending = new Map();
   const listeners = new Map();
   let onPermission = null;
+  // Live token frames from the child (see src/acp-stream-tap.mjs). ACP carries a committed
+  // message only, so the child also dials back to this loopback port and writes its deltas
+  // here; the token is per spawn, so no other local process can write into this turn.
+  let streamServer = null;
+  let streamToken = '';
+  const streamSockets = new Set();
 
   const emit = (event, payload) => {
     for (const listener of listeners.get(event) ?? []) {
@@ -148,10 +156,88 @@ export function createAcpClient({ resolve = resolveAcpCommand, env = process.env
   const request = (method, params, options) => (state === 'ready'
     ? wire(method, params, options)
     : Promise.reject(fail('ACP_NOT_READY', `${method} while ${state}`)));
-
   const notify = (method, params) => {
     if (state !== 'ready') return false;
     try { child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n'); return true; } catch { return false; }
+  };
+
+  /**
+   * The loopback port the child dials for its live frames.
+   *
+   * It is opened before the spawn and closed with the child. A frame is forwarded verbatim;
+   * a `hello` frame proves this child actually runs the tap, `seal` carries the settled text of
+   * the attempt and `sync` a mid-attempt snapshot, so a dropped delta cannot leave a hole for
+   * long. Failure here is never a turn failure: without a listener the child keeps running and
+   * the panel falls back to the committed message.
+   */
+  const openStream = () => new Promise((resolve) => {
+    if (streamServer) { resolve(streamServer.address()?.port ?? 0); return; }
+    streamToken = randomUUID();
+    const server = createServer((socket) => {
+      streamSockets.add(socket);
+      socket.setEncoding('utf8');
+      socket.setNoDelay(true);
+      let buffer = '';
+      let admitted = false;
+      socket.on('close', () => { streamSockets.delete(socket); });
+      socket.on('error', () => { /* the child went away */ });
+      socket.on('data', (chunk) => {
+        buffer += chunk;
+        let index;
+        while ((index = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, index).trim();
+          buffer = buffer.slice(index + 1);
+          if (!line) continue;
+          let message;
+          try { message = JSON.parse(line); } catch { continue; }
+          if (!admitted) {
+            admitted = message?.token === streamToken;
+            if (!admitted) { socket.destroy(); return; }
+            void log?.('acp-stream-connected', {});
+            continue;
+          }
+          // The tap announces itself before it has any text: without this line "the panel
+          // does not stream" and "this child has no tap" look identical in the log.
+          if (message?.t === 'hello') {
+            void log?.('acp-stream-hello', { v: message.v, pid: message.pid });
+            emit('hello', { v: message.v, pid: message.pid });
+            continue;
+          }
+          const kind = message?.kind === 'thought' ? 'thought' : message?.kind === 'text' ? 'text' : '';
+          if (!kind || typeof message.text !== 'string' || message.text === '') continue;
+          emit('stream', {
+            kind,
+            text: message.text,
+            // `seal` is the settled attempt text, `sync` a mid-attempt snapshot: both are
+            // whole-value replacements, while a delta is an append (see ADR-0010).
+            seal: message.t === 'seal',
+            ...(message.t === 'sync' ? { sync: true } : {}),
+            // `attempt` is DSH's attemptId, a branded string (`<session>:<n>`), not a counter;
+            // `index` is the dense per-attempt position. Both travel verbatim.
+            ...(typeof message.attempt === 'string' || Number.isInteger(message.attempt) ? { attempt: message.attempt } : {}),
+            ...(Number.isInteger(message.index) ? { index: message.index } : {}),
+            // The DSH turn the frame belongs to: the page drops frames from an older turn
+            // instead of writing them into the turn it is drawing now.
+            ...(Number.isInteger(message.turn) ? { turn: message.turn } : {}),
+            ...(typeof message.sessionId === 'string' && message.sessionId ? { sessionId: message.sessionId } : {}),
+          });
+        }
+      });
+    });
+    server.once('error', () => { streamServer = null; resolve(0); });
+    server.listen(0, '127.0.0.1', () => {
+      streamServer = server;
+      resolve(server.address()?.port ?? 0);
+    });
+  });
+  const closeStream = () => {
+    const server = streamServer;
+    streamServer = null;
+    streamToken = '';
+    for (const socket of streamSockets) { try { socket.destroy(); } catch { /* already gone */ } }
+    streamSockets.clear();
+    if (!server) return;
+    try { server.close(); } catch { /* already closed */ }
   };
 
   return {
@@ -170,9 +256,14 @@ export function createAcpClient({ resolve = resolveAcpCommand, env = process.env
       // a space (a temp dir under a user profile that has one) would split in two.
       // Quote those tokens here; a plain spawn keeps the raw argument.
       const spawnArgs = shell ? args.map(value => (/\s/.test(value) ? '"' + value + '"' : value)) : args;
+      // The child's live-frame port is announced through the environment, so the tap
+      // plugin needs no overlay config and no file of its own to parse.
+      const streamPort = await openStream();
       child = spawnChild(command, spawnArgs, {
         cwd: env.NO996_OPENFILM_ACP_CWD || process.cwd(),
-        env: { ...env },
+        env: streamPort > 0
+          ? { ...env, NO996_OPENFILM_STREAM_PORT: String(streamPort), NO996_OPENFILM_STREAM_TOKEN: streamToken }
+          : { ...env },
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
         ...(shell ? { shell: true } : {}),
@@ -200,10 +291,12 @@ export function createAcpClient({ resolve = resolveAcpCommand, env = process.env
       });
       child.on('error', error => {
         state = 'closed';
+        closeStream();
         rejectAll(fail('ACP_SPAWN', String(error?.message ?? error)));
       });
       child.on('exit', (code, signal) => {
         state = 'closed';
+        closeStream();
         rejectAll(fail('ACP_EXITED', `code ${code ?? 'null'} signal ${signal ?? 'none'}`));
         emit('exit', { code, signal });
       });
@@ -214,6 +307,7 @@ export function createAcpClient({ resolve = resolveAcpCommand, env = process.env
         return capabilities;
       } catch (error) {
         state = 'closed';
+        closeStream();
         try { child?.kill(); } catch { /* already gone */ }
         throw error;
       }
@@ -240,6 +334,7 @@ export function createAcpClient({ resolve = resolveAcpCommand, env = process.env
 
     async close() {
       state = 'closed';
+      closeStream();
       rejectAll(fail('ACP_CLOSED'));
       const current = child;
       child = null;

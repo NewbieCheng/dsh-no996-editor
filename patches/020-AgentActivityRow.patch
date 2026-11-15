@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/components/AgentActivityRow.tsx b/apps/desktop/chat/src/components/AgentActivityRow.tsx
-index 69c82b6..3c278ed 100644
+index 69c82b6..9eeb94e 100644
 --- a/apps/desktop/chat/src/components/AgentActivityRow.tsx
 +++ b/apps/desktop/chat/src/components/AgentActivityRow.tsx
 @@ -45,6 +45,8 @@ export interface AgentActivityItem {
@@ -11,7 +11,19 @@ index 69c82b6..3c278ed 100644
    plan?: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' }>;
    /** The question the agent asks the user (chat.ask). */
    ask?: { question: string; options: Array<{ label: string; description?: string }>; answer?: string; status?: 'answered' | 'skipped' | 'timeout' };
-@@ -181,32 +183,37 @@ export function formatWorkDuration(ms: number): string {
+@@ -153,7 +155,10 @@ const AgentActivityRow = React.memo(function AgentActivityRow({
+ 
+   if (item.kind === 'text') {
+     /* Agent text is markdown. As plain text, `**bold**`, `###` and `>` would show raw and paragraphs would
+-       need splitting by hand; block parsing also drops extra blank lines. */
++       need splitting by hand; block parsing also drops extra blank lines.
++
++       dsh-openfilm: the row grows while the model writes (see LocalAgentTurn.stream), so the markdown
++       is re-read as the text arrives, exactly as the agent's own interface draws it. */
+     const text = item.text ?? '';
+     if (!text.trim()) return null;
+     return (
+@@ -181,36 +186,47 @@ export function formatWorkDuration(ms: number): string {
  }
  
  /**
@@ -21,17 +33,19 @@ index 69c82b6..3c278ed 100644
 - * While thinking, one shimmering row; then "Thought for 6s", which opens to the agent's own reasoning in
 - * muted gray. That text is written for itself, so it starts closed, as Codex and Claude Code show it.
 + * dsh-openfilm: the reasoning is shown, not hidden — a bridging agent reports it, and a person watching
-+ * a film get edited wants to see what the agent weighed. It starts open (a "thought for 16s" header with
-+ * the text under it), and collapses to that header when the turn moves on: what was thought stays one
-+ * click away without taking the screen after the fact.
++ * a film get edited wants to see what the agent weighed. It starts *collapsed* (the "thought for 16s"
++ * header, one click away), because a long reasoning block would otherwise push the answer off screen.
++ * When opened it is capped at THOUGHT_MAX_HEIGHT and scrolls inside itself: the row never grows past a
++ * readable block, no matter how long the model thought.
   */
++const THOUGHT_MAX_HEIGHT = 280;
++
  function ThoughtRow({ item }: { item: AgentActivityItem }) {
    const t = useT();
--  const [open, setOpen] = React.useState(false);
+   const [open, setOpen] = React.useState(false);
 -  if (item.pending) {
 -    return <div className="py-1 text-[14px] leading-relaxed"><span className="text-sweep">{t('agent.thinking')}</span></div>;
 -  }
-+  const [open, setOpen] = React.useState(true);
    const ms = item.startedAt != null && item.endedAt != null ? item.endedAt - item.startedAt : null;
 -  const label = ms != null && ms >= 1000
 -    ? t('turnFrame.thought').replace('{t}', formatWorkDuration(ms))
@@ -62,7 +76,15 @@ index 69c82b6..3c278ed 100644
          <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
        </button>
        {open ? (
-@@ -409,6 +416,15 @@ function ActRow({ item }: { item: AgentActivityItem }) {
+-        <div className="mt-1 border-l border-[var(--border)] pl-3">
++        <div
++          className="mt-1 overflow-y-auto border-l border-[var(--border)] pl-3"
++          style={{ maxHeight: THOUGHT_MAX_HEIGHT }}
++        >
+           <Markdown text={text} muted />
+         </div>
+       ) : null}
+@@ -409,6 +425,15 @@ function ActRow({ item }: { item: AgentActivityItem }) {
            className="flex h-6 max-w-full min-w-0 items-center gap-1.5 text-left"
          >
            <ActivityLabel label={item.label} pending={!!item.pending} />
@@ -78,3 +100,27 @@ index 69c82b6..3c278ed 100644
            {item.query ? (
              <span className="min-w-0 truncate text-[var(--text-faint)] opacity-80" title={item.query}>
                “{item.query}”
+@@ -635,7 +660,12 @@ function togglePlayer(url: string, owner: string): void {
+  */
+ export function StatusLine({ items, fallback, ownAgent = false }: { items: AgentActivityItem[]; fallback?: string | null; ownAgent?: boolean }) {
+   const t = useT();
+-  const running = React.useMemo(() => pendingWork(items), [items]);
++  /* dsh-openfilm: a pending thought already has its own row — ThoughtRow shows "正在思考" with its
++     chevron — so counting it here printed the same words twice, one under the other. The status row
++     reports work only; reasoning is the thought row's business. */
++  const pending = React.useMemo(() => pendingWork(items), [items]);
++  const running = React.useMemo(() => pending.filter((item) => item.kind !== 'thought'), [pending]);
++  const thinking = pending.length > running.length;
+   /* The last time anything happened: each new item (text, an act starting or finishing) gives the list a new identity */
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   const changedAt = React.useMemo(() => Date.now(), [items]);
+@@ -650,6 +680,9 @@ export function StatusLine({ items, fallback, ownAgent = false }: { items: Agent
+   if (running.length || fallback) {
+     return <StatusShell label={running.length ? t('act.thinking') : fallback!} since={changedAt} />;
+   }
++  /* Nothing but a thought runs: its own row is already saying so, with its own clock. A second line
++     here ("正在工作") is the same sentence in other words. */
++  if (thinking) return null;
+   /* The agent is speaking (text still streaming): no "Working" underneath, the text itself moves. Just after a
+      paragraph, say nothing for a while (the seconds spent wrapping up a turn, or an act about to start)
+      and say "Working" only once it is quiet. */

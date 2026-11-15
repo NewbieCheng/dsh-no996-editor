@@ -199,7 +199,7 @@ index 9c7041b..81373c0 100644
                      ) : (
                        <div ref={thread.contentRef} className="min-w-0 shrink-0">
 diff --git a/apps/desktop/chat/src/components/AgentActivityRow.tsx b/apps/desktop/chat/src/components/AgentActivityRow.tsx
-index 69c82b6..3c278ed 100644
+index 69c82b6..9eeb94e 100644
 --- a/apps/desktop/chat/src/components/AgentActivityRow.tsx
 +++ b/apps/desktop/chat/src/components/AgentActivityRow.tsx
 @@ -45,6 +45,8 @@ export interface AgentActivityItem {
@@ -211,7 +211,19 @@ index 69c82b6..3c278ed 100644
    plan?: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' }>;
    /** The question the agent asks the user (chat.ask). */
    ask?: { question: string; options: Array<{ label: string; description?: string }>; answer?: string; status?: 'answered' | 'skipped' | 'timeout' };
-@@ -181,32 +183,37 @@ export function formatWorkDuration(ms: number): string {
+@@ -153,7 +155,10 @@ const AgentActivityRow = React.memo(function AgentActivityRow({
+ 
+   if (item.kind === 'text') {
+     /* Agent text is markdown. As plain text, `**bold**`, `###` and `>` would show raw and paragraphs would
+-       need splitting by hand; block parsing also drops extra blank lines. */
++       need splitting by hand; block parsing also drops extra blank lines.
++
++       dsh-openfilm: the row grows while the model writes (see LocalAgentTurn.stream), so the markdown
++       is re-read as the text arrives, exactly as the agent's own interface draws it. */
+     const text = item.text ?? '';
+     if (!text.trim()) return null;
+     return (
+@@ -181,36 +186,47 @@ export function formatWorkDuration(ms: number): string {
  }
  
  /**
@@ -221,17 +233,19 @@ index 69c82b6..3c278ed 100644
 - * While thinking, one shimmering row; then "Thought for 6s", which opens to the agent's own reasoning in
 - * muted gray. That text is written for itself, so it starts closed, as Codex and Claude Code show it.
 + * dsh-openfilm: the reasoning is shown, not hidden — a bridging agent reports it, and a person watching
-+ * a film get edited wants to see what the agent weighed. It starts open (a "thought for 16s" header with
-+ * the text under it), and collapses to that header when the turn moves on: what was thought stays one
-+ * click away without taking the screen after the fact.
++ * a film get edited wants to see what the agent weighed. It starts *collapsed* (the "thought for 16s"
++ * header, one click away), because a long reasoning block would otherwise push the answer off screen.
++ * When opened it is capped at THOUGHT_MAX_HEIGHT and scrolls inside itself: the row never grows past a
++ * readable block, no matter how long the model thought.
   */
++const THOUGHT_MAX_HEIGHT = 280;
++
  function ThoughtRow({ item }: { item: AgentActivityItem }) {
    const t = useT();
--  const [open, setOpen] = React.useState(false);
+   const [open, setOpen] = React.useState(false);
 -  if (item.pending) {
 -    return <div className="py-1 text-[14px] leading-relaxed"><span className="text-sweep">{t('agent.thinking')}</span></div>;
 -  }
-+  const [open, setOpen] = React.useState(true);
    const ms = item.startedAt != null && item.endedAt != null ? item.endedAt - item.startedAt : null;
 -  const label = ms != null && ms >= 1000
 -    ? t('turnFrame.thought').replace('{t}', formatWorkDuration(ms))
@@ -262,7 +276,15 @@ index 69c82b6..3c278ed 100644
          <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
        </button>
        {open ? (
-@@ -409,6 +416,15 @@ function ActRow({ item }: { item: AgentActivityItem }) {
+-        <div className="mt-1 border-l border-[var(--border)] pl-3">
++        <div
++          className="mt-1 overflow-y-auto border-l border-[var(--border)] pl-3"
++          style={{ maxHeight: THOUGHT_MAX_HEIGHT }}
++        >
+           <Markdown text={text} muted />
+         </div>
+       ) : null}
+@@ -409,6 +425,15 @@ function ActRow({ item }: { item: AgentActivityItem }) {
            className="flex h-6 max-w-full min-w-0 items-center gap-1.5 text-left"
          >
            <ActivityLabel label={item.label} pending={!!item.pending} />
@@ -278,6 +300,30 @@ index 69c82b6..3c278ed 100644
            {item.query ? (
              <span className="min-w-0 truncate text-[var(--text-faint)] opacity-80" title={item.query}>
                “{item.query}”
+@@ -635,7 +660,12 @@ function togglePlayer(url: string, owner: string): void {
+  */
+ export function StatusLine({ items, fallback, ownAgent = false }: { items: AgentActivityItem[]; fallback?: string | null; ownAgent?: boolean }) {
+   const t = useT();
+-  const running = React.useMemo(() => pendingWork(items), [items]);
++  /* dsh-openfilm: a pending thought already has its own row — ThoughtRow shows "正在思考" with its
++     chevron — so counting it here printed the same words twice, one under the other. The status row
++     reports work only; reasoning is the thought row's business. */
++  const pending = React.useMemo(() => pendingWork(items), [items]);
++  const running = React.useMemo(() => pending.filter((item) => item.kind !== 'thought'), [pending]);
++  const thinking = pending.length > running.length;
+   /* The last time anything happened: each new item (text, an act starting or finishing) gives the list a new identity */
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   const changedAt = React.useMemo(() => Date.now(), [items]);
+@@ -650,6 +680,9 @@ export function StatusLine({ items, fallback, ownAgent = false }: { items: Agent
+   if (running.length || fallback) {
+     return <StatusShell label={running.length ? t('act.thinking') : fallback!} since={changedAt} />;
+   }
++  /* Nothing but a thought runs: its own row is already saying so, with its own clock. A second line
++     here ("正在工作") is the same sentence in other words. */
++  if (thinking) return null;
+   /* The agent is speaking (text still streaming): no "Working" underneath, the text itself moves. Just after a
+      paragraph, say nothing for a while (the seconds spent wrapping up a turn, or an act about to start)
+      and say "Working" only once it is quiet. */
 diff --git a/apps/desktop/chat/src/components/ConversationSessionBar.tsx b/apps/desktop/chat/src/components/ConversationSessionBar.tsx
 index 102217b..dfbd754 100644
 --- a/apps/desktop/chat/src/components/ConversationSessionBar.tsx
@@ -1718,10 +1764,18 @@ index 603a205..728944a 100644
  
  /**
 diff --git a/apps/desktop/chat/src/lib/agent-transcript.ts b/apps/desktop/chat/src/lib/agent-transcript.ts
-index 48d05f4..b57684c 100644
+index 48d05f4..09041c4 100644
 --- a/apps/desktop/chat/src/lib/agent-transcript.ts
 +++ b/apps/desktop/chat/src/lib/agent-transcript.ts
-@@ -35,6 +35,8 @@ export interface TranscriptItem {
+@@ -16,6 +16,7 @@ import {
+   TRANSCRIPT_TEXT_MAX,
+   clipTranscriptText,
+   mergeStreamText,
++  preferLonger,
+   type AgentAct,
+   type AgentActAsset,
+   type AgentAsk,
+@@ -35,6 +36,8 @@ export interface TranscriptItem {
    kind: 'text' | 'act' | 'notice' | 'thought' | 'plan';
    /** What it is doing (a closed set); absent for text / notice. */
    act?: AgentAct;
@@ -1730,7 +1784,7 @@ index 48d05f4..b57684c 100644
    /** The short visible text after the act (search query / picture description), picked by the server. */
    query?: string;
    /**
-@@ -83,6 +85,28 @@ export function reduceTranscript(
+@@ -83,6 +86,31 @@ export function reduceTranscript(
    items: TranscriptItem[],
    event: PublicGenerationEvent,
    now: number = Date.now(),
@@ -1747,7 +1801,10 @@ index 48d05f4..b57684c 100644
 +  const next = items.map((item) => {
 +    if (item.kind !== 'thought' || !item.pending) return item;
 +    changed = true;
-+    return { ...item, pending: false, endedAt: item.endedAt ?? now };
++    /* dsh-openfilm: the turn has one thought row, so it is closed and reopened several times; the end
++       time is the latest close, not the first, or the row would report the first tool call's moment as
++       the end of its thinking. */
++    return { ...item, pending: false, endedAt: now };
 +  });
 +  return changed ? next : items;
 +}
@@ -1759,7 +1816,16 @@ index 48d05f4..b57684c 100644
  ): TranscriptItem[] {
    switch (event.type) {
      case 'agent-text': {
-@@ -127,6 +151,7 @@ export function reduceTranscript(
+@@ -94,7 +122,7 @@ export function reduceTranscript(
+         const next = [...items];
+         next[at] = {
+           ...next[at]!,
+-          text: mergeStreamText(next[at]!.text ?? '', event.text),
++          text: preferLonger(next[at]!.text ?? '', event.text),
+           pending,
+         };
+         return next;
+@@ -127,6 +155,7 @@ export function reduceTranscript(
          kind: 'act',
          act: event.act,
          ...(event.query ? { query: event.query } : {}),
@@ -1767,7 +1833,7 @@ index 48d05f4..b57684c 100644
          ...(event.ask ? { ask: event.ask } : {}),
          turnNo: event.turnNo,
          pending: true,
-@@ -147,9 +172,38 @@ export function reduceTranscript(
+@@ -147,9 +176,45 @@ export function reduceTranscript(
        return next;
      }
  
@@ -1780,11 +1846,17 @@ index 48d05f4..b57684c 100644
 +     * It used to only drive the status line underneath, which is all a built-in agent's reasoning could
 +     * do — it never sent any. Our bridging agent does send it, so a turn that thought for 16s should say
 +     * so and open to the reasoning; the row closes as soon as the turn moves on (see below).
++     *
++     * The bridging agent names the row after the turn, not after the paragraph: one turn is one thought,
++     * even though a tool call closes and reopens it. See LocalAgentTurn.think.
 +     */
 +    case 'agent-thinking': {
-+      const id = `thought:${event.partId ?? event.turnNo}`;
++      const partId = event.partId;
++      const id = partId
++        ? (partId.startsWith('thought:') ? partId : `thought:${partId}`)
++        : `thought:${event.turnNo}`;
 +      const at = items.findIndex((item) => item.id === id);
-+      const text = event.text ? mergeStreamText(items[at]?.text ?? '', event.text) : items[at]?.text;
++      const text = event.text ? preferLonger(items[at]?.text ?? '', event.text) : items[at]?.text;
 +      const pending = event.done !== true;
 +      if (at >= 0) {
 +        const next = [...items];
@@ -1792,7 +1864,8 @@ index 48d05f4..b57684c 100644
 +          ...next[at]!,
 +          ...(text !== undefined ? { text } : {}),
 +          pending,
-+          ...(pending ? {} : { endedAt: now }),
++          /* reopened: the previous end time is not this stretch's */
++          ...(pending ? { endedAt: undefined } : { endedAt: now }),
 +        };
 +        return next;
 +      }
@@ -1810,10 +1883,10 @@ index 48d05f4..b57684c 100644
      /* The agent's question settled (answered / skipped / timed out): write it back to its row, so the conversation
         reads "asked what · answered what". The question's id is not the tool call's callId, so match the latest
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..6380e31 100644
+index 9134f7a..cef07dd 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
-@@ -82,12 +82,49 @@ async function readAgain(project: string): Promise<void> {
+@@ -82,12 +82,55 @@ async function readAgain(project: string): Promise<void> {
    joinKept(record(project), kept);
  }
  
@@ -1828,10 +1901,16 @@ index 9134f7a..6380e31 100644
 + * poll can skip the re-render.
 + */
 +export async function refreshChatSessions(project: string): Promise<boolean> {
-+  let kept: { sessions?: ProjectSessionItem[] } | null = null;
++  // The bridge's load result is only loosely typed (`sessions: unknown[]`), so narrow it
++  // here instead of declaring the precise list and failing the typecheck.
++  let kept: { sessions?: unknown[] } | null = null;
 +  try { kept = await app.chat.load(project); } catch { return false; }
 +  const next = (Array.isArray(kept?.sessions) ? kept.sessions : [])
-+    .filter((entry): entry is ProjectSessionItem => Boolean(entry && typeof entry.id === 'string' && typeof entry.createdAt === 'string'));
++    .filter((entry: unknown): entry is ProjectSessionItem => {
++      if (!entry || typeof entry !== 'object') return false;
++      const row = entry as { id?: unknown; createdAt?: unknown };
++      return typeof row.id === 'string' && typeof row.createdAt === 'string';
++    });
 +  const current = record(project).sessions;
 +  const stamp = (list: ProjectSessionItem[]) => list.map(entry => `${entry.id}\u0000${entry.updatedAt ?? ''}\u0000${entry.title ?? ''}`).join('\u0001');
 +  if (stamp(next) === stamp(current)) return false;
@@ -1924,10 +2003,19 @@ index 4f7aa72..25eeb92 100644
    }, [project, thumbnail]);
  
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..1fb2036 100644
+index 0ef8753..78b2b61 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
-@@ -230,8 +230,16 @@ export function acpUpdateToEvent(
+@@ -17,6 +17,8 @@
+ import React from 'react';
+ import {
+   askOutcome,
++  mergeStreamText,
++  preferLonger,
+   publicActivity,
+   publicActivityResult,
+   publicAsk,
+@@ -230,8 +232,16 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -1939,14 +2027,14 @@ index 0ef8753..1fb2036 100644
 +      const content = update.content as { type?: string; text?: string } | undefined;
 +      const text = content?.type === 'text' && content.text ? content.text : undefined;
 +      return {
-+        type: 'agent-thinking', turnNo: ctx.turnNo, partId: `thought:${ctx.turnNo}:${ctx.part}`,
++        type: 'agent-thinking', turnNo: ctx.turnNo, partId: `thought:${ctx.turnNo}`,
 +        ...(text ? { text } : {}),
 +      };
 +    }
      case 'tool_call': {
        const activity = localToolActivity(
          update.title as string | undefined,
-@@ -246,6 +254,9 @@ export function acpUpdateToEvent(
+@@ -246,6 +256,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
@@ -1956,6 +2044,205 @@ index 0ef8753..1fb2036 100644
        };
      }
      case 'tool_call_update': {
+@@ -295,6 +308,17 @@ export class LocalAgentTurn {
+      snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
+      deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
+   private partText = new Map<number, string>();
++  /* dsh-openfilm: which row the live frames of one provider attempt grow. The frames carry DSH's own
++     attempt id (see src/acp-stream-tap.mjs) — a branded string like `<session>:1`, not a counter — so a
++     delayed commit or an interleaved tool call cannot make a later attempt's words land in an earlier
++     paragraph. Keyed in arrival order; a commit retires the oldest attempt whose text it covers
++     (claimAttempt). */
++  private attempts = new Map<string | number, string>();
++  /* The newest DSH turn this turn's frames came from: an older turn's frame is stale. */
++  private streamTurn: number | undefined;
++  /* One store notification per animation frame: the network delivers a frame every ~30 ms, and a long
++     transcript re-renders its Markdown per notification, so per-frame updates read as bursts. */
++  private emitScheduled = false;
+ 
+   constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
+ 
+@@ -304,7 +328,14 @@ export class LocalAgentTurn {
+   };
+ 
+   private emit(): void {
+-    for (const fn of this.listeners) fn();
++    if (this.emitScheduled) return;
++    this.emitScheduled = true;
++    const run = () => {
++      this.emitScheduled = false;
++      for (const fn of this.listeners) fn();
++    };
++    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
++    else setTimeout(run, 16);
+   }
+ 
+   patch(next: Partial<LocalRunState>): void {
+@@ -363,6 +394,9 @@ export class LocalAgentTurn {
+     if (event.type === 'agent-text') {
+       const full = (this.partText.get(this.part) ?? '') + event.text;
+       this.partText.set(this.part, full);
++      /* The committed paragraph is authoritative: take over the row its live frames grew
++         before the reducer looks the id up, or the answer would be drawn twice. */
++      this.claimAttempt(full);
+       event = { ...event, text: full };
+     }
+     this.items = reduceTranscript(this.items, event);
+@@ -389,7 +423,6 @@ export class LocalAgentTurn {
+   private pendingAsk: TranscriptItem['ask'];
+   /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
+   private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
+-  private thoughtNo = 0;
+   private openThought: string | null = null;
+ 
+   private patchItem(id: string, patch: Partial<TranscriptItem>): void {
+@@ -400,18 +433,38 @@ export class LocalAgentTurn {
+     this.items = next;
+   }
+ 
+-  /** It is thinking: one stretch of thought is one row ("Thought for 6s"); anything in between starts a new one. */
++  /**
++   * It is thinking: the turn keeps one thought row, and a later stretch of reasoning adds to it.
++   *
++   * dsh-openfilm: a tool call in between used to close the row and the next update opened
++   * `thought:<turnNo>:<n+1>`, so a turn with fifty tool calls reported fifty "thought for 6s" blocks
++   * for one stretch of reasoning. One row per turn now; it stays open while it thinks and reports the
++   * turn's thinking time when the turn moves on (see reduceTranscript's closeThoughts).
++   */
+   private think(update: AcpUpdate): void {
+     const content = (update as { content?: { type?: string; text?: string } }).content;
+     const text = content?.type === 'text' ? content.text ?? '' : '';
+-    if (!this.openThought) {
+-      this.thoughtNo += 1;
+-      this.openThought = `thought:${this.turnNo}:${this.thoughtNo}`;
+-      this.items = [...this.items, { id: this.openThought, kind: 'thought', text, turnNo: this.turnNo, pending: true, startedAt: Date.now() }];
+-    } else if (text) {
+-      const prev = this.items.find((item) => item.id === this.openThought);
+-      this.patchItem(this.openThought, { text: (prev?.text ?? '') + text });
++    const id = `thought:${this.turnNo}`;
++    const at = this.items.findIndex((item) => item.id === id);
++    if (at < 0) {
++      this.items = [...this.items, { id, kind: 'thought', text, turnNo: this.turnNo, pending: true, startedAt: Date.now() }];
++    } else {
++      const row = this.items[at]!;
++      const next: TranscriptItem = {
++        ...row,
++        /* preferLonger, not `+` and not a plain merge: the reasoning of this turn may already be
++           on the row from the live frames (see stream), and a committed block that is shorter
++           than what the frames already showed must not be appended as a second copy. */
++        text: text ? preferLonger(row.text ?? '', text) : row.text ?? '',
++        pending: true,
++      };
++      /* it is open again: the end time belongs to the last close, not to the first */
++      delete next.endedAt;
++      const items = [...this.items];
++      items[at] = next;
++      this.items = items;
+     }
++    this.openThought = id;
+     if (!this.state.thinking) this.state = { ...this.state, thinking: true };
+     this.emit();
+   }
+@@ -423,6 +476,91 @@ export class LocalAgentTurn {
+     return true;
+   }
+ 
++  /**
++   * The words as they are being written.
++   *
++   * dsh-openfilm: ACP hands a message over only once it is committed (dsh-acp reports the durable
++   * `assistant/message`), which made a long answer appear in one frame. The child process does see
++   * the provider deltas, so the Host forwards them here (src/acp-stream-tap.mjs), and every frame
++   * names the provider attempt it belongs to. The row is claimed per attempt, so a delayed commit
++   * or an interleaved tool call cannot put one paragraph's words into another's row; the commit
++   * then takes the row over (claimAttempt) instead of writing a second one.
++   *
++   * A `delta` appends; `sync` (a mid-attempt snapshot, ~250 ms) and `seal` (the settled attempt)
++   * replace the row with the whole value — but only when that value is the same text, longer
++   * (preferLonger). A snapshot must never be concatenated: it is how one out-of-order frame used
++   * to double a whole paragraph (ADR-0010 §3.3).
++   */
++  stream(frame: { kind?: string; text?: string; seal?: boolean; sync?: boolean; attempt?: string | number; turn?: number }): void {
++    const text = typeof frame?.text === 'string' ? frame.text : '';
++    if (text === '') return;
++    // A frame from an older turn belongs to the row that turn already drew. Writing it into
++    // this turn is what made a previous turn's reasoning show up under a new message.
++    if (typeof frame?.turn === 'number') {
++      if (this.streamTurn !== undefined && frame.turn < this.streamTurn) return;
++      this.streamTurn = frame.turn;
++    }
++    const thought = frame?.kind === 'thought';
++    const whole = frame?.seal === true || frame?.sync === true;
++    const id = thought ? `thought:${this.turnNo}` : this.rowForAttempt(frame?.attempt);
++    const at = this.items.findIndex((item) => item.id === id);
++    if (at < 0) {
++      this.items = [...this.items, {
++        id,
++        kind: thought ? 'thought' : 'text',
++        text,
++        turnNo: this.turnNo,
++        pending: true,
++        startedAt: Date.now(),
++      }];
++    } else {
++      const row = this.items[at]!;
++      const next = [...this.items];
++      next[at] = {
++        ...row,
++        text: whole ? preferLonger(row.text ?? '', text) : (row.text ?? '') + text,
++        pending: true,
++      };
++      this.items = next;
++    }
++    if (thought) this.openThought = id;
++    this.emit();
++  }
++
++  /** The row one attempt's live text grows; allocated on its first frame, in arrival order. */
++  private rowForAttempt(attempt: string | number | undefined): string {
++    if (attempt === undefined) return `text:${this.turnNo}:${this.part}`;
++    const known = this.attempts.get(attempt);
++    if (known !== undefined) return known;
++    const id = `text:${this.turnNo}:${this.part}`;
++    this.attempts.set(attempt, id);
++    return id;
++  }
++
++  /**
++   * The committed paragraph arrived: it is authoritative, so the row its live frames grew becomes
++   * that paragraph's row. The page's own part counter may have moved on between the first frame and
++   * the commit (a tool call in between), so the row is renamed to the id the reducer will write to;
++   * otherwise the commit would draw a second paragraph and leave the streamed one behind.
++   */
++  private claimAttempt(full: string): void {
++    if (this.attempts.size === 0) return;
++    const target = `text:${this.turnNo}:${this.part}`;
++    for (const [attempt, id] of this.attempts) {
++      const at = this.items.findIndex((item) => item.id === id);
++      if (at < 0) { this.attempts.delete(attempt); continue; }
++      const streamed = this.items[at]!.text ?? '';
++      // Prefix either way: a truncated or re-generated attempt must still take over its row.
++      if (!full.startsWith(streamed) && !streamed.startsWith(full)) continue;
++      this.attempts.delete(attempt);
++      if (id === target) return;
++      const next = [...this.items];
++      next[at] = { ...next[at]!, id: target, text: preferLonger(streamed, full) };
++      this.items = next;
++      return;
++    }
++  }
++
+   /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
+   private plan(update: AcpUpdate): void {
+     const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
+@@ -649,6 +787,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+ /** One event from the shell into its turn (live, or replayed after a reload). */
+ function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
+   if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
++  else if (event.kind === 'stream') turn.stream(event.stream as Parameters<LocalAgentTurn['stream']>[0]);
+   else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
+   else if (event.kind === 'permission') {
+     const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
 diff --git a/apps/desktop/chat/src/state/local-agent-store.ts b/apps/desktop/chat/src/state/local-agent-store.ts
 index a3c7f97..2d4085e 100644
 --- a/apps/desktop/chat/src/state/local-agent-store.ts
@@ -4019,7 +4306,7 @@ index 0000000..e9a36ac
 +  );
 +}
 diff --git a/packages/shared/src/contract.ts b/packages/shared/src/contract.ts
-index 340ad66..f60cc69 100644
+index 340ad66..0750abb 100644
 --- a/packages/shared/src/contract.ts
 +++ b/packages/shared/src/contract.ts
 @@ -190,14 +190,30 @@ export const publicGenerationEventSchema = z.discriminatedUnion('type', [
@@ -4055,6 +4342,25 @@ index 340ad66..f60cc69 100644
      callId: z.string(),
      turnNo: z.number().int().nonnegative(),
      act: z.enum(AGENT_ACTS),
+@@ -288,3 +304,18 @@ export function mergeStreamText(cur: string, next: string): string {
+   if (cur.includes(next)) return cur;
+   return cur + next;
+ }
++
++/**
++ * Picks between two versions of the same growing text (a live snapshot and the row it belongs to).
++ *
++ * A snapshot may be behind the row (deltas arrived while it was in flight) or ahead of it (a normal
++ * extension). What it must never do is get appended: {@link mergeStreamText} falls back to `cur + next`
++ * when neither string is a prefix of the other, which turns one out-of-order snapshot into a visibly
++ * duplicated paragraph. Both values describe the same attempt, so the longer one is always right.
++ */
++export function preferLonger(cur: string, next: string): string {
++  if (!cur) return next;
++  if (next.startsWith(cur)) return next;
++  if (cur.startsWith(next)) return cur;
++  return cur.length >= next.length ? cur : next;
++}
 diff --git a/packages/shared/src/markdown-blocks.ts b/packages/shared/src/markdown-blocks.ts
 index bfafa9c..3f78b5b 100644
 --- a/packages/shared/src/markdown-blocks.ts

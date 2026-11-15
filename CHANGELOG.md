@@ -1,5 +1,165 @@
 # 更新记录
 
+## 0.15.21 —— 剪辑导演：一条对话一条会话、身份与指令边界、分镜契约
+
+按 [`docs/topics/agent-plan.md`](docs/topics/agent-plan.md) 落地 P0–P4。三条决定见
+[ADR-0011](docs/decisions/ADR-0011-director-contract.md)。
+
+**P0 会话与注入（真 bug，不是观感）**
+
+- **一条对话 = 一条 ACP 会话**。此前 Host 侧 `entryOf(projectId)` 一个项目只有一条会话，页面的对话 id
+  与 `resume` 从未到达 Host——所以新建对话等于接着上一轮聊。现在 `conversation` 随 `agent:prompt/cancel/
+  session/models/thinking/select-*` 一起走，子进程内按对话 `session/new` / `session/resume`；会话 id 按
+  对话存在 `acp-sessions.json`（v2，v1 自动迁移）。一个子进程仍是一个项目（MCP 令牌是进程级的）。
+- **身份**：`--patch` 覆盖 `system-prompt.personaPrefix` → "你是 No996 Studio 的剪辑导演…"（≤ 400 B）。
+- **指令边界**：`agent-instructions.projectRootMarkers` 增加 `.film`、`film.html`。影片文件夹成为指令链的根，
+  仓库/单仓上层的 `AGENTS.md` 不再进入影片对话；`/diagnose.instructions.outside` 把本该被排除的文件列出来。
+- **默认影片库**移到 Studio 自己的位置（`~/Videos/OpenFilm/Projects`），不再默认落在仓库旁。
+- `/diagnose` 新增 `instructions`（persona、逐文件字节、`budget` ≤ 6 KB）与 `turns.sessions`（该项目每条会话）。
+
+**P1 分镜契约**
+
+- `openfilm_storyboard`：`read` / `write`（校验重叠、倒序、重复 id、未知 motion、超长屏上字）/ `plan` /
+  `from-script` / `subtitles`。分镜落 `.film/storyboard.json`。
+- `plan` 把分镜翻译成 `openfilm_clip` 的 `trim`/`move`，并明确列出**还缺片段的镜头**（clip 工具加不了片段，
+  这一点写进输出而不是假装能加）。
+- 新技能 `skills/openfilm-director`：口播优先的三段流程（转写 → 分镜 → 时间轴），与 `openfilm-motion` 分工。
+
+**P2 口播优先**
+
+- `src/script-plan.mjs`（纯函数）：segments → 句子（保持时间码、不跨段）→ 镜头（切在句尾、2–8 秒）→
+  字幕（按字宽折行、最多两行）→ SRT。同一份转写永远给同一条切法。
+
+**P3 模板可发现**
+
+- `openfilm_library kind=template` 走 Host 自己的模板目录：`id/title/description/tags` 可搜，`take=<id>`
+  返回该模板的 `prompt.md`（≤ 2 KB）——按需读，不进系统提示。模板目录支持每模板 `prompt.md`。
+
+**P4 上下文预算**
+
+- `/diagnose.instructions.budget`：常驻 = persona + 指令文件，上限 6144 字节；指南/技能/库/模板按需读。
+
+- **已有项目也会拿到新协议**：项目里的 `AGENTS.md` 从不被覆盖，所以老项目会一直停在旧协议上。现在按 sha256
+  白名单判断"这份文件是不是我们写的且没被改过"——是才升级成当前文本，人改过的一律不动。
+
+**测试**：新增 `tests/agent-overlays.test.mjs`（persona 预算、仓库手册不再注入、链的顺序）、
+`tests/storyboard.test.mjs`（校验/往返/plan/口播切镜/字幕/SRT/模板目录）、`tests/acp-session-store.test.mjs`
+（按对话存、v1 迁移、坏文件降级）；`acp-agent-service` 增加"两个对话两条会话""重启后各自 resume"。
+全库 724 条，0 失败。
+
+**未验**：面板实机（两个对话的实际隔离、persona 的实际回答、分镜到时间轴的实际执行）。
+
+## 0.15.20 —— 修"每段话都说两遍"：帧顺序才是契约；思考默认收起、最高 280px
+
+**现象**：回答和思考都出现叠字/整段重复（"那那今天先…"、"TheThe user said…"、"辛苦了辛苦了辛苦了"），
+并且上一轮的思考会出现在下一轮开头（"user 想干什么"）。
+
+**根因：`sync` / `seal` 插队。** 0.15.19 的 tap 把增量塞进 30 ms 的队列，却把快照（`sync`）和结算
+（`seal`）**直接写 socket**。于是快照先到、它概括的那些 delta 后到：页面先把快照写进行，再把 delta
+追加到快照后面——每一段都被写了两遍。用真机一轮的帧序列离线重放确认：
+
+| 帧顺序 | 文本行 | 思考行 |
+|---|---|---|
+| 旧（快照插队） | 340 字符（提交值 95） | 470（提交值 181） |
+| 新（单一队列） | 95，与提交完全一致 | 181，与提交完全一致 |
+
+第二个问题同理：`start` 看到新一轮时，把**上一轮**的思考 seal 立刻写出，而页面按"当前轮"落行，
+于是旧思考被写进新消息的开头。
+
+- `src/acp-stream-tap.mjs`：所有帧走同一条有序队列（`sync` 也进队列），`seal` 在 `end` 时随队列发出；
+  换轮不再 seal 上一轮的思考（思考改为每个 attempt 结束时 seal，仍在同一轮内）；每帧带 `turn`。
+- `src/acp-client.mjs`：转发 `turn`。
+- 页面（`patches/190-local-agent-run.patch`、`160-agent-transcript.patch`）：快照只允许"同文本、更长"
+  才覆盖（`preferLonger`，落在 `packages/shared/src/contract.ts`），绝不拼接；`turn` 比当前小的帧直接丢弃。
+- 思考行（`patches/020-AgentActivityRow.patch`）：**默认收起**（只显示「思考了 Ns」），展开后正文最高
+  280px、内部滚动，不再把回答顶出屏幕。
+- 测试：新增 `tests/acp-stream-tap.test.mjs`——快照必须只概括它之前的 delta、换轮不得 seal 旧思考、
+  超大思考不再整段重发。
+
+**同一版顺手修的**：状态行把"思考"也算成在干活，和思考行各画一次「正在思考」，屏幕上出现两行一样的字。
+`StatusLine` 不再统计 `kind:'thought'`（思考自己有行、自己有时钟）。
+
+**发现但未修（写进 [`docs/topics/agent-plan.md`](docs/topics/agent-plan.md) P0）**：
+
+- ACP 会话按 `projectId` 唯一，页面的对话 id 与 `resume` 没被 Host 使用 → 同一项目里新建对话会接着旧对话聊（串会话）。
+- ACP 子进程的身份提示词是 `You are a coding agent`，且影片库放在插件仓库内，`dsh-agent-instructions`
+  按 `.git` 找到项目根，把**仓库开发者手册**注入给了剪辑对话（截图里"0.15.x / MIT / 四层界面"就是这么来的）。
+
+**未完成**：面板实机验收（用户手动）。
+
+## 0.15.19 —— 真流式重做：tap 跟着每个存活子进程，帧带 attempt，提交接管行
+
+**根因不是"播放"，是增量根本没到页面。** 0.15.18 的 tap 思路成立，但 `spawnArgs` 把**模型覆盖层和
+tap 覆盖层塞进了同一个数组**；`ensure()` 在模型覆盖层被拒时用 `openWith([])` 重试，把 tap 一起丢了。
+于是活下来的子进程没有 tap，整轮只剩提交后的整段——看起来就是"隔一会儿蹦出一团"。
+证据：`plugin.log` 里 `acp-stream-connected` 全程只出现一次（05:09:26.810），300 ms 后
+`no adapter registered for provider "openai-codex"` → `acp-model-fallback` → 该子进程被替换；
+05:09:29 活下来的子进程没有 connected，它那一轮 `agent-trace` 的 `seen` 与 `kinds` 合计都等于 26，
+即**零个 `kind:'stream'`** 到过页面。用一次性 harness 直接拉起真子进程验证：tap 能加载、能连，
+一轮 33–45 个 1–9 字符的 delta，`end` 后补 seal——机制是好的，接线是错的。
+
+- `src/studio-controller.mjs`：`spawnArgs()` 返回 `{model?, tap?}` 两个覆盖层，不再是一个扁平数组。
+- `src/acp-agent-service.mjs`：模型回退只丢模型覆盖层，tap 永远保留；`entry.turnStats` 每轮统计
+  delta/seal/sync/提交段数，回合结束记 `acp-stream`，有文本提交却零 delta 时记 `acp-stream-silent`
+  （`tap-absent` / `connected-no-frames`），`diagnose()` 多出 `stream {connected, deltas, textCommits, lastAt}`。
+- `src/acp-stream-tap.mjs`：帧契约升级为 `hello` / `start` / `delta` / `sync` / `seal`，带
+  `attempt`（DSH 的 attemptId）与 `index`；`sync` 约 250 ms 或每 32 个 delta 一次全文快照，
+  把丢帧的修复窗口从"回合结束"缩到 250 ms；思考的 seal 收敛到换轮时发一次，不再每个 attempt 发整段。
+- `src/acp-client.mjs`：转发 `hello` 事件与 `attempt`/`index`/`sync` 字段；`hello` 是"这个子进程真的带 tap"的正面证据。
+- `patches/190-local-agent-run.patch`：页面按 attempt 认领行（`rowForAttempt`），提交到达时
+  `claimAttempt` 把流式的行改名成交付的 id（行 id 不变，不跳动）；`delta` 追加、`sync`/`seal` 覆盖；
+  store 通知按 `requestAnimationFrame` 合并，长回答不再一顿一顿。
+- 顺手：`chat-store.ts` 的既有类型错误修掉，上游 `pnpm --filter @openfilm/desktop typecheck` 重新为绿。
+- 测试：`fake-acp-agent.mjs` 现在会扮演 tap（hello/start/delta/sync/seal），新增
+  "live frames keep their attempt identity"（传输）与"a turn reports the live frames it received"
+  （服务，含 tap 缺失时的 `acp-stream-silent`）；"模型覆盖层被拒"用例改为断言 tap 仍在。
+- 文档：[`ADR-0010`](docs/decisions/ADR-0010-live-streaming.md)、`ARCHITECTURE.md` §1/§3、`STATUS.md` §2.1/§4。
+
+**未完成**：面板实机验收（用户手动）。判据见 `STATUS.md` §4：`acp-stream-hello` 出现、每轮
+`acp-stream.deltas > 0`、字是连续长出来的。
+
+## 0.15.18 —— 面板三处：真流式输出（不再事后回放）、思考只一行、产物图只一张
+
+**① 真流式：把 token 从看得见它的那个进程里取出来。** ACP 只发**已提交**的消息
+（`dsh-acp/src/updates.ts` 的 `assistantUpdates()` 跑在 `assistant/message` 上，整段一个 chunk），
+DSH 也没有 partial/delta 事件可订阅，所以「等整段到手再逐字播放」是假的——上一版就是这么做的，
+看起来像弹出，不像在写。真正的 token 在**子进程**里：`dsh-agent-loop` 对每个 provider chunk 都发
+`agent/assistant-stream` 帧（`start` / `chunk`(`text-delta`、`reasoning-delta`) / `end`），
+`dsh-headless` 与 `dsh-api-session-controller` 就是这么拿的。
+
+于是新增一个只跑在子进程里的小插件 `src/acp-stream-tap.mjs`：订阅这些帧，把增量写回拉起它的
+Host。它靠 `--patch` 覆盖层按**绝对文件 URL** 注入（`- insert: [{id, name}]`；`- id: … name: …` 这种
+写法只覆盖已存在的条目，会被 `patch: entry … not found` 跳过），端口与一次性 token 通过环境变量
+下发，子进程用 loopback TCP 回连（token 不对就直接断开，别的本机进程写不进来）。
+
+- `src/acp-client.mjs`：spawn 前先开 `127.0.0.1:0` 监听，把端口/token 放进子进程 env，收到帧后
+  `emit('stream', {kind, text, seal})`；子进程退出/关闭时一起收掉。
+- `src/acp-agent-service.mjs`：帧按同一个 `key` 转成 `{kind:'stream'}` 事件走 SSE。
+- 面板（`local-agent-run.ts`）：`dispatch` 认 `kind:'stream'`，`LocalAgentTurn.stream()` 把增量写到
+  提交后要落的那一行——段落是 `text:<turn>:<part>`，思考是 `thought:<turn>`；`end` 帧再补一次
+  `seal`（整段快照），提交到达时用 `mergeStreamText` 合并（长前缀胜、重复丢弃），所以丢一帧最多
+  短暂缺字，不会重复也不会错乱。
+- 上一版那个「按节奏回放」的 `useRevealedText()` 已删除：现在字是真的一个字一个字来的。
+
+**② 思考被切成 35 行。** `LocalAgentTurn.apply()` 对每个非 `agent_thought_chunk` 的更新都调
+`closeThought()`，于是**每一个工具调用都关掉当前那段思考**，下一个 `agent_thought_chunk` 又开
+`thought:<turnNo>:<n+1>`。一轮五十次工具调用 = 五十个「已思考」。实测存档
+（`手绘笔记-…`，rev 311）一轮里有 35 行 `thought:0:N`，编号还带缺口（被合并/丢弃过）。
+改为**一轮一行**：`think()` 写 `thought:<turnNo>`，关掉后再来时清掉 `endedAt` 续写，
+`closeThoughts()` 取**最后一次**关闭时间，于是标签报的是整轮的思考时长。
+
+**③ 同一张产物图反复渲染。** `assets/shell-ui.js` 的 `drawPicture()` 画完图后把锚点的
+`data-no996-picture` 从 `1` 改成 `shown`，而 `upgrade()` 只认 `1` —— 于是下一次扫描（整页
+`MutationObserver` + 每 2.5s 轮询）判定"没画过"，再插一张；`load` 又改回 `shown`，无限叠加。
+现在用 `WeakMap` 按**链接对象**记住那张按钮（并校验它指向的路径），`shown` 这个死状态删掉。
+回归 harness（同一 DOM 打桩，跑三轮 tick + load）结果：旧代码 3 张，新代码 1 张。
+
+验证：流式链路在**离线**子进程里跑通——真的 `dsh --profile acp` 子进程 + 真的覆盖层 + 真的
+loopback 回连，`acp-stream-connected` 出现，两帧增量与 `seal` 都到了 Host（`frames` 断言）。
+`npm test` 692 项全过（691 pass / 1 skip）、`patches:check` 为当前、`lint --strict` 0 问题、
+`tsc -p chat` 无新增错误、`resolveOfficialShell()` 对新快照哈希校验通过。**真实 token 的节奏**
+还得在面板里跑一个真回合看（见 `docs/STATUS.md` 第 4 节）：字应当边写边出，不再整段弹出。
+
 ## 0.15.17 —— 橙色投放提示不再显示原始键名
 
 0.15.10 的整页投放把文案写成 `t('composer.dropActive')`，而这个键属于 `editor` 命名空间，

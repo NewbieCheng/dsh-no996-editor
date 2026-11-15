@@ -2,7 +2,7 @@
 id: decisions
 reader: 维护者、要推翻某个设计的人
 fact-source: docs/decisions/README.md 的历史条目（已迁入）、CHANGELOG、源码
-checked: 0.15.11
+checked: 0.15.21
 rot-if: 新增或废弃一条 ADR
 -->
 
@@ -24,6 +24,8 @@ rot-if: 新增或废弃一条 ADR
 | [0007](ADR-0007-docs-and-baseline.md) | 文档按寿命分层 + 工程基线进 CI | 生效 | 每次事实变化要重生成 |
 | [0008](ADR-0008-controller-split.md) | 两个巨型闭包分两步拆（两步都已完成） | 生效 | 迁移期要改 6 个读源码的测试 |
 | [0009](ADR-0009-ui-change-strategy.md) | 界面改动先改源码（补丁 + 重建），注入降级为例外并逐个迁出 | 生效 | 每次升上游要重放补丁、重建快照 |
+| [0010](ADR-0010-live-streaming.md) | 真流式：子进程 tap 必须随每个存活子进程注入，帧带 attempt，提交覆盖增量 | 生效 | 私有通道随 DSH 版本漂移，每次升级要复测帧形状 |
+| [0011](ADR-0011-director-contract.md) | 一条对话一条 ACP 会话；身份/指令边界写进子进程配置；剪辑先有分镜再动时间轴 | 生效 | 同项目并发的权限请求只能归到最近发起的那条会话 |
 
 ## 模板
 

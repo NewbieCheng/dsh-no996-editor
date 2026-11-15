@@ -161,6 +161,10 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 | `vendor/templates/**` | 否 | 下一次请求即生效 | 无 |
 | `vendor/official-shell/ui/**` | 是（上游） | 部署产物后重启 Studio | 清单不匹配 → `OFFICIAL_SHELL_UNAVAILABLE` |
 | `cordis.patch.yml` | 否 | 重新 `install_bundle` 或重启 Host | 已有会话不迁移 |
+| `src/agent-overlays.mjs`（persona、指令根标记） | 否 | 重载插件 + 刷新；**下一次 spawn 才生效** | 已开的子进程继续用旧 persona，直到它退出 |
+| `skills/**` | 否 | `node scripts/install-skills.mjs`（`--force` 覆盖同名） | 只影响之后新建的会话 |
+| `vendor/templates/<id>/prompt.md` | 否 | 下一次 `openfilm_library take=<id>` 即生效 | 无 |
+| `src/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
 
 **重载前先 `touch index.js src/*.mjs`**：加载器只重新求值 mtime 变了的模块，未 touch 的引入方会继续用旧 import——症状就是"改了没生效"。`npm run dev` 会替你 touch。
 

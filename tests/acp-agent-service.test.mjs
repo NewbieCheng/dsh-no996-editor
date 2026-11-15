@@ -13,14 +13,28 @@ const PROJECT = 'proj123456';
 
 function memoryStore(seed = {}) {
   const table = new Map(Object.entries(seed));
-  return { get: id => table.get(id), set: (id, value) => table.set(id, value), all: () => [...table] };
+  const scoped = new Map();
+  const keyOf = (project, conversation) => `${project}\u0000${conversation ?? ''}`;
+  return {
+    get: id => table.get(id),
+    set: (id, value) => table.set(id, value),
+    getSession: (project, conversation) => scoped.get(keyOf(project, conversation)),
+    setSession: (project, conversation, value) => {
+      scoped.set(keyOf(project, conversation), value);
+      // The real store keeps the default conversation as the project's own record;
+      // mirror that so `get` keeps answering for callers that only know a project.
+      if (!conversation) table.set(project, value);
+    },
+    all: () => [...table],
+    scoped: () => [...scoped.entries()],
+  };
 }
 
 // The Host always has an approvals coordinator; a granted request is the normal
 // answer in these tests, unless a test supplies its own (or null for the missing case).
 const allowOnce = () => ({ request: async () => 'allowed-once', answerRequest: () => true, close() {} });
 
-function harness({ mode, image = false, emptyList = false, store = memoryStore(), approvals = allowOnce(), defaultSelection, permissionMode, onOptions, mcpServers, onClosed, prepareProject, startModel, spawnArgs } = {}) {
+function harness({ mode, image = false, emptyList = false, stream = false, store = memoryStore(), approvals = allowOnce(), defaultSelection, permissionMode, onOptions, mcpServers, onClosed, prepareProject, startModel, spawnArgs } = {}) {
   const events = [];
   const service = createAcpAgentService({
     verifier: async projectId => ({ projectId, path: 'C:\\fake' }),
@@ -38,7 +52,7 @@ function harness({ mode, image = false, emptyList = false, store = memoryStore()
       return createAcpClient({
         resolve: () => ({ command: process.execPath, args: [fixture] }),
         ...(options?.args ? { args: options.args } : {}),
-        env: { ...process.env, ...(mode ? { FAKE_ACP_MODE: mode } : {}), ...(image ? { FAKE_ACP_IMAGE: '1' } : {}), ...(emptyList ? { FAKE_ACP_EMPTY_LIST: '1' } : {}), ...(mcpServers ? { FAKE_ACP_MCP: '1' } : {}), ...(startModel ? { FAKE_ACP_START_MODEL: startModel } : {}), ...(options?.env ?? {}) },
+        env: { ...process.env, ...(mode ? { FAKE_ACP_MODE: mode } : {}), ...(image ? { FAKE_ACP_IMAGE: '1' } : {}), ...(emptyList ? { FAKE_ACP_EMPTY_LIST: '1' } : {}), ...(mcpServers ? { FAKE_ACP_MCP: '1' } : {}), ...(startModel ? { FAKE_ACP_START_MODEL: startModel } : {}), ...(stream ? { FAKE_ACP_STREAM: '1' } : {}), ...(options?.env ?? {}) },
         requestTimeoutMs: 5000,
         spawnChild: (command, args, spawnOptions) => spawn(command, args, spawnOptions),
       });
@@ -74,6 +88,51 @@ test('a child that fails to announce a session is closed before the retry', asyn
   assert.equal(made[0].closed, true, 'the failed child is stopped, not orphaned');
   assert.equal(made[1].closed, true);
   await service.close();
+});
+
+test('each conversation is its own Session, and a new chat does not continue the old one', async () => {
+  const store = memoryStore();
+  const { service } = harness({ store });
+  // Two chats in one project: the page's session bar does exactly this, and before
+  // the conversation key reached the Host they shared one DSH Session — a new chat
+  // answered with the previous one's history.
+  await service.send(PROJECT, { conversation: 'sa', key: 'k1', turnId: 't1', text: 'one' });
+  await service.send(PROJECT, { conversation: 'sb', key: 'k2', turnId: 't2', text: 'two' });
+  const a = service.sessionOf(PROJECT, 'sa');
+  const b = service.sessionOf(PROJECT, 'sb');
+  assert.ok(a && b);
+  assert.notEqual(a, b, 'two conversations, two Sessions');
+
+  // Going back to the first chat keeps its own Session: that is what "continue the
+  // conversation" means, and it must not depend on which chat ran last.
+  await service.send(PROJECT, { conversation: 'sa', key: 'k3', turnId: 't3', text: 'three' });
+  assert.equal(service.sessionOf(PROJECT, 'sa'), a);
+  assert.equal(service.sessionOf(PROJECT, 'sb'), b);
+  assert.equal(store.getSession(PROJECT, 'sa')?.sessionId, a, 'the id is remembered per conversation');
+  assert.equal(store.getSession(PROJECT, 'sb')?.sessionId, b);
+
+  // The diagnose view names every Session the child holds, so "is this really
+  // isolated?" is answerable from the panel.
+  const seen = service.diagnose(PROJECT, 'sa');
+  assert.deepEqual(seen.sessions.map(item => item.conversation).sort(), ['sa', 'sb']);
+  assert.equal(seen.sessionId, a);
+  await service.close();
+});
+
+test('a second conversation resumes its own stored Session after a restart', async () => {
+  const store = memoryStore();
+  const first = harness({ store });
+  await first.service.send(PROJECT, { conversation: 'sa', key: 'k1', turnId: 't1', text: 'one' });
+  await first.service.send(PROJECT, { conversation: 'sb', key: 'k2', turnId: 't2', text: 'two' });
+  const a = first.service.sessionOf(PROJECT, 'sa');
+  const b = first.service.sessionOf(PROJECT, 'sb');
+  await first.service.close();
+
+  const second = harness({ store });
+  await second.service.send(PROJECT, { conversation: 'sb', key: 'k3', turnId: 't3', text: 'again' });
+  assert.equal(second.service.sessionOf(PROJECT, 'sb'), b, 'resumed, not recreated');
+  assert.notEqual(second.service.sessionOf(PROJECT, 'sb'), a);
+  await second.service.close();
 });
 
 test('the advertised model catalog becomes the DSH shape the menu expects', async () => {
@@ -330,19 +389,21 @@ test('a model overlay the agent cannot serve is dropped instead of failing the p
   const made = [];
   const logs = [];
   const closed = [];
+  const MODEL = 'C:\\temp\\model.yml';
+  const TAP = 'C:\\temp\\tap.yml';
   const service = createAcpAgentService({
     verifier: async projectId => ({ projectId, path: 'C:\\fake' }),
     store: memoryStore(),
     emit: () => true,
     log: (event, fields) => logs.push({ event, fields }),
     onClosed: projectId => closed.push(projectId),
-    spawnArgs: async () => ['--patch', 'C:\\temp\\model.yml'],
+    spawnArgs: async () => ({ model: MODEL, tap: TAP }),
     createClient: options => {
       made.push(options);
       return createAcpClient({
         resolve: () => ({ command: process.execPath, args: [fixture] }),
         ...(options?.args ? { args: options.args } : {}),
-        env: { ...process.env, FAKE_ACP_REFUSE_PATCH: '1', ...(options?.env ?? {}) },
+        env: { ...process.env, FAKE_ACP_REFUSE_PATCH: '1', FAKE_ACP_REFUSE_PATCH_FILE: MODEL, ...(options?.env ?? {}) },
         requestTimeoutMs: 5000,
         spawnChild: (command, args, spawnOptions) => spawn(command, args, spawnOptions),
       });
@@ -351,13 +412,67 @@ test('a model overlay the agent cannot serve is dropped instead of failing the p
   const catalog = await service.modelCatalog(PROJECT);
   assert.ok(catalog.groups.length > 0);
   assert.equal(made.length, 2, 'the overlay child and the fallback child');
-  assert.deepEqual(made[0].args, ['--patch', 'C:\\temp\\model.yml']);
-  assert.equal(made[1].args, undefined);
+  assert.deepEqual(made[0].args, ['--patch', MODEL, '--patch', TAP]);
+  // The model overlay goes, the tap stays: sharing one array here is exactly how a
+  // model fallback silently turned every answer back into committed paragraphs.
+  assert.deepEqual(made[1].args, ['--patch', TAP]);
   assert.ok(logs.some(entry => entry.event === 'acp-model-fallback'));
   // The replaced child exits on purpose; that must not close the live Session.
   assert.deepEqual(closed, []);
   assert.equal(service.sessionOf(PROJECT), 'session-fake-1');
   await service.close();
+});
+
+test('a turn reports the live frames it received, and names a silent turn', async () => {
+  const build = ({ stream, tap }) => {
+    const logs = [];
+    const events = [];
+    const service = createAcpAgentService({
+      verifier: async projectId => ({ projectId, path: 'C:\\fake' }),
+      store: memoryStore(),
+      emit: (projectId, event) => { events.push(event); return true; },
+      log: (event, fields) => logs.push({ event, fields }),
+      spawnArgs: async () => (tap ? { tap } : {}),
+      createClient: options => createAcpClient({
+        resolve: () => ({ command: process.execPath, args: [fixture] }),
+        ...(options?.args ? { args: options.args } : {}),
+        env: { ...process.env, ...(stream ? { FAKE_ACP_STREAM: '1' } : {}), ...(options?.env ?? {}) },
+        requestTimeoutMs: 5000,
+        spawnChild: (command, args, spawnOptions) => spawn(command, args, spawnOptions),
+      }),
+    });
+    return { service, logs, events };
+  };
+
+  const live = build({ stream: true, tap: 'C:\\temp\\tap.yml' });
+  await live.service.send(PROJECT, { key: 'k', turnId: 't1', text: 'hi' });
+  // The counters are logged one tick after the turn so the child's last socket frames
+  // can drain first; wait for that line instead of guessing.
+  for (let attempt = 0; attempt < 40 && !live.logs.some(entry => entry.event === 'acp-stream'); attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  const line = live.logs.find(entry => entry.event === 'acp-stream');
+  assert.ok(line, 'the turn says what the live channel delivered');
+  assert.equal(line.fields.deltas, 3, 'one thought delta and two text deltas');
+  assert.equal(line.fields.syncs, 1);
+  assert.equal(line.fields.seals, 1);
+  assert.equal(line.fields.textCommits, 1);
+  assert.equal(line.fields.connected, true);
+  assert.ok(!live.logs.some(entry => entry.event === 'acp-stream-silent'));
+  assert.ok(live.events.some(event => event.kind === 'stream'), 'the page receives the frames');
+  const diagnose = live.service.diagnose(PROJECT);
+  assert.equal(diagnose.stream.connected, true);
+  assert.equal(diagnose.stream.deltas, 3);
+  await live.service.close();
+
+  const silent = build({ stream: false, tap: undefined });
+  await silent.service.send(PROJECT, { key: 'k', turnId: 't1', text: 'hi' });
+  for (let attempt = 0; attempt < 40 && !silent.logs.some(entry => entry.event === 'acp-stream-silent'); attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  const warning = silent.logs.find(entry => entry.event === 'acp-stream-silent');
+  assert.equal(warning?.fields.reason, 'tap-absent', 'a child without the tap is named, not silently degraded');
+  await silent.service.close();
 });
 
 test('a stored Session is resumed after restart even when the overlay model is unavailable', async () => {
@@ -370,7 +485,7 @@ test('a stored Session is resumed after restart even when the overlay model is u
     emit: () => true,
     log: (event, fields) => logs.push({ event, fields }),
     onClosed: projectId => closed.push(projectId),
-    spawnArgs: async () => ['--patch', 'C:\\temp\\model.yml'],
+    spawnArgs: async () => ({ model: 'C:\\temp\\model.yml' }),
     createClient: options => createAcpClient({
       resolve: () => ({ command: process.execPath, args: [fixture] }),
       ...(options?.args ? { args: options.args } : {}),

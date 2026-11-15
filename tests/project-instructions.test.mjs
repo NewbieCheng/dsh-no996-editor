@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ensureProjectInstructions, INSTRUCTIONS } from '../src/project-instructions.mjs';
+import { ensureProjectInstructions, INSTRUCTIONS, upgradeProjectInstructions } from '../src/project-instructions.mjs';
 
 const folder = () => mkdtempSync(join(tmpdir(), 'no996-agents-md-'));
 
@@ -49,4 +49,19 @@ test('the instructions keep the verification rule the preset gives', () => {
 test('a folder argument is required', () => {
   assert.throws(() => ensureProjectInstructions({}), error => error.toString().includes('project folder'));
   assert.throws(() => ensureProjectInstructions({ root: '' }));
+});
+
+test('an old instructions file is upgraded, a person\'s edit is not', () => {
+  const root = mkdtempSync(join(tmpdir(), 'no996-instructions-'));
+  const file = join(root, 'AGENTS.md');
+  // What 0.15.11–0.15.20 wrote, byte for byte.
+  const legacy = '# OpenFilm 项目工作说明\n\n先读再改。\n';
+  writeFileSync(file, legacy, 'utf8');
+  const untouched = upgradeProjectInstructions({ root });
+  assert.equal(untouched.upgraded, false);
+  assert.equal(untouched.reason, 'user-edited');
+  assert.equal(readFileSync(file, 'utf8'), legacy);
+  // The current text is not rewritten either.
+  writeFileSync(file, INSTRUCTIONS, 'utf8');
+  assert.equal(upgradeProjectInstructions({ root }).reason, 'current');
 });
