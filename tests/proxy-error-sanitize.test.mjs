@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { startStudioProxy } from '../src/studio-proxy.mjs';
+import { startStudioProxy } from '../src/studio/studio-proxy.mjs';
 
 const KEY = 'c'.repeat(48);
 

@@ -1,7 +1,7 @@
 <!-- doc
 id: transcribe
 reader: 用转写的人、维护者
-fact-source: src/transcribe-service.mjs、scripts/asr-*.mjs
+fact-source: src/asr/transcribe-service.mjs、scripts/asr-*.mjs
 checked: 0.15.11
 rot-if: 模型、路由或权重来源变化
 -->
@@ -87,7 +87,7 @@ rot-if: 模型、路由或权重来源变化
 
 ## 已知边界（别当成已完成）
 
-- **macOS 未在本机实测**：只靠官方预编译包的存在性；首台 Mac 要按 `playbooks/manual-acceptance.md` 走一遍。
+- **macOS 未在本机实测**：只靠官方预编译包的存在性；首台 Mac 先跑一次 `openfilm_transcribe status` 再转一段真音频。
 - **长任务在会话里同步跑**：3 小时音轨约 5–8 分钟，若上层有工具超时会先断。后续可挂 Worker。
 - **没有说话人分离**：多人时是一整段文本。
 - **没有逐字时间戳**：句级时间按段内字重插值，够字幕，不够卡拉 OK 高亮。要逐字就换 Paraformer-zh（同一套 sherpa 接口）。
@@ -99,14 +99,14 @@ rot-if: 模型、路由或权重来源变化
 
 | 文件 | 职责 |
 |---|---|
-| `src/transcribe-tool.mjs` | 工具面：权限、参数、状态/安装/转写、输出排版 |
-| `src/transcribe-service.mjs` | 单队列、单飞安装、缓存、临时目录 |
-| `src/asr-audio.mjs` | ffmpeg 探测/抽轨（stderr 走文件描述符，过沙箱限制） |
-| `src/asr-wav.mjs` | WAV 头解析 + 窗口读（从不整文件入堆） |
-| `src/asr-silence.mjs` | RMS 语音段 |
-| `src/asr-pipeline.mjs` | 编排：闸门 → 切段 → 逐段识别 → 段/句输出 |
-| `src/asr-sensevoice.mjs` | sherpa-onnx 适配（懒加载、异步解码） |
-| `src/asr-refine.mjs` | 会话模型校对（严格同长数组，否则丢弃） |
-| `src/asr-models.mjs` | 权重清单、目录、下载与校验 |
+| `src/tools/transcribe-tool.mjs` | 工具面：权限、参数、状态/安装/转写、输出排版 |
+| `src/asr/transcribe-service.mjs` | 单队列、单飞安装、缓存、临时目录 |
+| `src/asr/asr-audio.mjs` | ffmpeg 探测/抽轨（stderr 走文件描述符，过沙箱限制） |
+| `src/asr/asr-wav.mjs` | WAV 头解析 + 窗口读（从不整文件入堆） |
+| `src/asr/asr-silence.mjs` | RMS 语音段 |
+| `src/asr/asr-pipeline.mjs` | 编排：闸门 → 切段 → 逐段识别 → 段/句输出 |
+| `src/asr/asr-sensevoice.mjs` | sherpa-onnx 适配（懒加载、异步解码） |
+| `src/asr/asr-refine.mjs` | 会话模型校对（严格同长数组，否则丢弃） |
+| `src/asr/asr-models.mjs` | 权重清单、目录、下载与校验 |
 | `scripts/asr-models.mjs` | `status` / `fetch` |
 | `scripts/asr-smoke.mjs` | 真机冒烟：一个文件进，RTF 与文本出 |

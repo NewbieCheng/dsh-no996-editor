@@ -2,7 +2,7 @@
 // and binding; a locked folder must leave everything (including chat) intact.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEditingProjectDelete } from '../src/editing-project-delete.mjs';
+import { createEditingProjectDelete } from '../src/project/editing-project-delete.mjs';
 
 function harness(over = {}) {
   const calls = [];

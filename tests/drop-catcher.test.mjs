@@ -2,7 +2,7 @@
 // page does, so it catches the drop while the panel is on screen.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { installDropCatcher } from '../src/drop-catcher.mjs';
+import { installDropCatcher } from '../src/studio/drop-catcher.mjs';
 
 function harness(active = true) {
   const handlers = new Map();

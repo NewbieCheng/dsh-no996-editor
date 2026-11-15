@@ -12,13 +12,13 @@ rot-if: 新增/删除环境变量（重新生成即可）
 
 | 变量 | 读取次数 | 位置 |
 |---|---|---|
-| `DSH_HOME` | 9 | `src/login-remember.mjs`、`src/preferences.mjs`、`src/studio-controller.mjs`、`src/studio-controller/routes/assets.mjs`、`src/tool-installer.mjs`、`src/workbench-auth.mjs` |
-| `NO996_OPENFILM_CLI` | 1 | `src/cli-tool.mjs` |
-| `NO996_OPENFILM_DEBUG_PORT` | 3 | `src/studio-controller.mjs`、`src/studio-debug-redirect.mjs`、`src/studio-debug.mjs` |
-| `NO996_OPENFILM_DEV` | 2 | `src/studio-controller.mjs`、`src/workbench-auth.mjs` |
+| `DSH_HOME` | 9 | `src/auth/login-remember.mjs`、`src/auth/workbench-auth.mjs`、`src/host/preferences.mjs`、`src/studio/studio-controller.mjs`、`src/studio/studio-controller/routes/assets.mjs`、`src/tools/tool-installer.mjs` |
+| `NO996_OPENFILM_CLI` | 1 | `src/tools/cli-tool.mjs` |
+| `NO996_OPENFILM_DEBUG_PORT` | 3 | `src/studio/studio-controller.mjs`、`src/studio/studio-debug-redirect.mjs`、`src/studio/studio-debug.mjs` |
+| `NO996_OPENFILM_DEV` | 2 | `src/auth/workbench-auth.mjs`、`src/studio/studio-controller.mjs` |
 | `NO996_OPENFILM_DSH_CHAT` | 1 | `index.js` |
-| `NO996_OPENFILM_EDITOR_PORT` | 2 | `src/studio-controller.mjs`、`src/studio-proxy.mjs` |
-| `NO996_OPENFILM_KEEP_V4_FLASH` | 1 | `src/acp-agent-service.mjs` |
-| `NO996_WORKBENCH_BASE_URL` | 1 | `src/workbench-auth.mjs` |
-| `OPENFILM_LIBRARY_URL` | 1 | `src/studio-runtime.mjs` |
+| `NO996_OPENFILM_EDITOR_PORT` | 2 | `src/studio/studio-controller.mjs`、`src/studio/studio-proxy.mjs` |
+| `NO996_OPENFILM_KEEP_V4_FLASH` | 1 | `src/acp/acp-agent-service.mjs` |
+| `NO996_WORKBENCH_BASE_URL` | 1 | `src/auth/workbench-auth.mjs` |
+| `OPENFILM_LIBRARY_URL` | 1 | `src/studio/studio-runtime.mjs` |
 

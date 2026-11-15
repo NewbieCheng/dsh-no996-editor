@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { createStudioRuntime, OPENFILM_VERSION } from '../src/studio-runtime.mjs';
+import { createStudioRuntime, OPENFILM_VERSION } from '../src/studio/studio-runtime.mjs';
 
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 

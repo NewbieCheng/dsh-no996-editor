@@ -3,7 +3,7 @@
 // probe failed. It also owns the "log a health change once" behaviour.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDiagnoseRoute } from '../src/studio-controller/routes/diagnose.mjs';
+import { createDiagnoseRoute } from '../src/studio/studio-controller/routes/diagnose.mjs';
 
 const BROWSER = { id: 'browser' };
 const PATH = '/api/no996-openfilm/diagnose';

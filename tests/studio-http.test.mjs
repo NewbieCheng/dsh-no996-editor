@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStudioHttp } from '../src/studio-http.mjs';
+import { createStudioHttp } from '../src/studio/studio-http.mjs';
 
 const origin = 'http://127.0.0.1:4999';
 const studio = async () => ({ origin, key: 'secret-key' });

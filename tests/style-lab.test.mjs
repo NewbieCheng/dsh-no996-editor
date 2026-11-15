@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { styleLabInjection, styleLabVersion } from '../src/style-lab.mjs';
+import { styleLabInjection, styleLabVersion } from '../src/ui/style-lab.mjs';
 
 const ASSET = fileURLToPath(new URL('../assets/style-lab.js', import.meta.url));
 

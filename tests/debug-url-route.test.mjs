@@ -4,7 +4,7 @@
 // redeemed twice.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDebugUrlRoute } from '../src/studio-controller/routes/debug-url.mjs';
+import { createDebugUrlRoute } from '../src/studio/studio-controller/routes/debug-url.mjs';
 
 const BROWSER = { id: 'browser' };
 const PATH = '/api/no996-openfilm/debug-url';

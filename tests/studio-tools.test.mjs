@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createFrameTool } from '../src/frame-tool.mjs';
-import { createFilmTool, summarizeFilm, exportReadiness } from '../src/film-tool.mjs';
-import { createLibraryTool } from '../src/library-tool.mjs';
-import { createGetTool } from '../src/get-tool.mjs';
+import { createFrameTool } from '../src/tools/frame-tool.mjs';
+import { createFilmTool, summarizeFilm, exportReadiness } from '../src/tools/film-tool.mjs';
+import { createLibraryTool } from '../src/tools/library-tool.mjs';
+import { createGetTool } from '../src/tools/get-tool.mjs';
 
 const bound = { projectId: 'film123', path: 'C:/films/one' };
 const agent = { id: 'session-a', session: { requestHeader: () => ({ config: { provider: 'p', model: 'm' } }) } };

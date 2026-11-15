@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0003-acp-boundary
 reader: 维护者、要改对话链路的人
-fact-source: src/acp-client.mjs、src/acp-agent-service.mjs、docs/ARCHITECTURE.md
+fact-source: src/acp/acp-client.mjs、src/acp/acp-agent-service.mjs、docs/ARCHITECTURE.md
 checked: 0.15.11
 rot-if: DSH 提供稳定的进程内 agent API，或改用 MCP/其它协议
 -->
@@ -28,11 +28,11 @@ ACP 是**唯一**对话路径。Host 只做三件事：拉起子进程、把 Stu
 
 ## 代价
 
-- 多一个进程与一份 `acp` profile，模型渠道要在两处同步（`src/acp-profile-models.mjs`）；
+- 多一个进程与一份 `acp` profile，模型渠道要在两处同步（`src/acp/acp-profile-models.mjs`）；
 - ACP 只给两个 `configOptions`（model、reasoning_effort），**权限不是 ACP 选项**，只能靠 `DSH_PERMISSION_MODE` 在建进程时定，改权限 = 重建子进程；
 - 会话在子进程侧，Host 只存映射（`$DSH_HOME/no996-openfilm/acp-sessions.json`）；
 - 版本敏感：`session/resume`、`mcpServers` 形状都随 DSH 变，升级要复测。
 
 ## 证据
 
-`src/acp-client.mjs`（线级客户端）、`src/acp-agent-service.mjs`（`ensure()` 与 `DSH_PERMISSION_MODE`）、`docs/ARCHITECTURE.md` §3/§9。
+`src/acp/acp-client.mjs`（线级客户端）、`src/acp/acp-agent-service.mjs`（`ensure()` 与 `DSH_PERMISSION_MODE`）、`docs/ARCHITECTURE.md` §3/§9。

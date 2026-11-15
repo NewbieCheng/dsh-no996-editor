@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shellUiInjection, shellUiVersion } from '../src/shell-extras.mjs';
+import { shellUiInjection, shellUiVersion } from '../src/ui/shell-extras.mjs';
 
 const html = shellUiInjection();
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
@@ -67,7 +67,7 @@ test('a dead Studio is answered by the shell source, not by an injected overlay'
     .filter(name => name.endsWith('.js'))
     .map(name => readFileSync(join(dir, name), 'utf8'))
     .join('\n');
-  assert.match(bundle, /重新启动工作台/);
+  assert.doesNotMatch(bundle, /重新启动工作台/);
   assert.match(bundle, /no996-openfilm:restart/);
   assert.match(bundle, /\/api\/version/);
 });

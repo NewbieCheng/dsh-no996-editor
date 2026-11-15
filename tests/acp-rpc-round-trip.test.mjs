@@ -4,8 +4,8 @@
 // back is decoded into the provider/model pair the ACP option needs.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createOfficialChatRpc } from '../src/official-chat-rpc.mjs';
-import { createAcpAgentService } from '../src/acp-agent-service.mjs';
+import { createOfficialChatRpc } from '../src/official/official-chat-rpc.mjs';
+import { createAcpAgentService } from '../src/acp/acp-agent-service.mjs';
 
 const PROJECT = 'proj123456';
 

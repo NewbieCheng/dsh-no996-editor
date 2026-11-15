@@ -6,12 +6,12 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
   MOTIONS, normalizeStoryboard, planFromStoryboard, readStoryboard, storyboardSummary, validateStoryboard, writeStoryboard,
-} from '../src/storyboard.mjs';
+} from '../src/film/storyboard.mjs';
 import {
   planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt, wrapCjk,
-} from '../src/script-plan.mjs';
-import { createStoryboardTool } from '../src/storyboard-tool.mjs';
-import { catalogText, searchTemplates, scoreTemplate, templateCatalog } from '../src/template-catalog.mjs';
+} from '../src/film/script-plan.mjs';
+import { createStoryboardTool } from '../src/tools/storyboard-tool.mjs';
+import { catalogText, searchTemplates, scoreTemplate, templateCatalog } from '../src/film/template-catalog.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'no996-storyboard-'));
 

@@ -15,22 +15,22 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 
 | 方法 | 路径 | 类型 | 处理位置 |
 |---|---|---|---|
-| POST | `/api/no996-openfilm/archive` | exact | `src/archive-bridge.mjs:16` |
-| POST | `/api/no996-openfilm/asr` | exact | `src/studio-controller/routes/system.mjs:9` |
-| GET/HEAD | `/api/no996-openfilm/attachment` | exact | `src/studio-controller/routes/assets.mjs:16` |
-| POST | `/api/no996-openfilm/auth` | exact | `src/auth-bridge.mjs:95` |
-| POST | `/api/no996-openfilm/bootstrap` | exact | `src/studio-controller/routes/bootstrap.mjs:21` |
-| POST | `/api/no996-openfilm/client-log` | exact | `src/studio-controller/routes/diagnostics.mjs:11` |
-| POST | `/api/no996-openfilm/debug-url` | exact | `src/studio-controller/routes/debug-url.mjs:22` |
-| POST | `/api/no996-openfilm/diagnose` | exact | `src/studio-controller/routes/diagnose.mjs:27` |
-| POST | `/api/no996-openfilm/drag-probe` | exact | `src/studio-controller/routes/diagnostics.mjs:47` |
-| POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio-controller/routes/editing.mjs:141` |
-| POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio-controller/routes/editing.mjs:186` |
-| POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio-controller/routes/editing.mjs:231` |
-| POST | `/api/no996-openfilm/editing-prefs` | exact | `src/studio-controller/routes/editing.mjs:116` |
-| GET | `/api/no996-openfilm/editing-sessions` | exact | `src/studio-controller/routes/editing.mjs:33` |
-| POST | `/api/no996-openfilm/mcp-host` | exact | `src/studio-controller/routes/chat.mjs:18` |
-| POST | `/api/no996-openfilm/system/check` | exact | `src/studio-controller/routes/system.mjs:71` |
-| POST | `/api/no996-openfilm/system/install` | exact | `src/studio-controller/routes/system.mjs:83` |
-| POST | `/api/no996-openfilm/templates` | exact | `src/template-bridge.mjs:8` |
+| POST | `/api/no996-openfilm/archive` | exact | `src/project/archive-bridge.mjs:16` |
+| POST | `/api/no996-openfilm/asr` | exact | `src/studio/studio-controller/routes/system.mjs:9` |
+| GET/HEAD | `/api/no996-openfilm/attachment` | exact | `src/studio/studio-controller/routes/assets.mjs:16` |
+| POST | `/api/no996-openfilm/auth` | exact | `src/auth/auth-bridge.mjs:95` |
+| POST | `/api/no996-openfilm/bootstrap` | exact | `src/studio/studio-controller/routes/bootstrap.mjs:21` |
+| POST | `/api/no996-openfilm/client-log` | exact | `src/studio/studio-controller/routes/diagnostics.mjs:11` |
+| POST | `/api/no996-openfilm/debug-url` | exact | `src/studio/studio-controller/routes/debug-url.mjs:22` |
+| POST | `/api/no996-openfilm/diagnose` | exact | `src/studio/studio-controller/routes/diagnose.mjs:27` |
+| POST | `/api/no996-openfilm/drag-probe` | exact | `src/studio/studio-controller/routes/diagnostics.mjs:47` |
+| POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio/studio-controller/routes/editing.mjs:141` |
+| POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio/studio-controller/routes/editing.mjs:186` |
+| POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio/studio-controller/routes/editing.mjs:231` |
+| POST | `/api/no996-openfilm/editing-prefs` | exact | `src/studio/studio-controller/routes/editing.mjs:116` |
+| GET | `/api/no996-openfilm/editing-sessions` | exact | `src/studio/studio-controller/routes/editing.mjs:33` |
+| POST | `/api/no996-openfilm/mcp-host` | exact | `src/studio/studio-controller/routes/chat.mjs:18` |
+| POST | `/api/no996-openfilm/system/check` | exact | `src/studio/studio-controller/routes/system.mjs:71` |
+| POST | `/api/no996-openfilm/system/install` | exact | `src/studio/studio-controller/routes/system.mjs:83` |
+| POST | `/api/no996-openfilm/templates` | exact | `src/film/template-bridge.mjs:8` |
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createExportTool, exportAsk, blockedBy } from '../src/export-tool.mjs';
-import { cliArguments, createCliTool, resolveCli } from '../src/cli-tool.mjs';
+import { createExportTool, exportAsk, blockedBy } from '../src/tools/export-tool.mjs';
+import { cliArguments, createCliTool, resolveCli } from '../src/tools/cli-tool.mjs';
 
 const bound = { projectId: 'film123', path: 'C:\\films\\one' };
 const agent = { id: 'session-a' };

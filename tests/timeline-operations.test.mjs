@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyTimelineOperations as apply, TimelineEditError } from '../src/timeline-operations.mjs';
+import { applyTimelineOperations as apply, TimelineEditError } from '../src/film/timeline-operations.mjs';
 
 const film = () => ({ stage: { w: 1920, h: 1080 }, extra: { keep: 1 }, keyframes: { unused: 'x' }, tracks: [
   { name: 'source', clips: [{ id: 'a', src: 'a.mp4', at: 2, time: [2, 10], speed: 2, box: { x: 1 } }] },

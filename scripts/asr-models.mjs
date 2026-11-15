@@ -8,7 +8,7 @@
  * Kept as a script so the message a person gets from the tool ("run this") is a
  * real command rather than a paragraph of prose they have to translate.
  */
-import { modelState, ensureModels, SENSE_VOICE } from '../src/asr-models.mjs';
+import { modelState, ensureModels, SENSE_VOICE } from '../src/asr/asr-models.mjs';
 
 const command = process.argv[2] ?? 'status';
 const mb = bytes => (bytes / 1024 / 1024).toFixed(0) + ' MB';

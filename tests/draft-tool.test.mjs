@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDraftTool } from '../src/draft-tool.mjs';
+import { createDraftTool } from '../src/tools/draft-tool.mjs';
 
 const source = '<!doctype html><html><head></head><body><section><video id="clip" src="clip.mp4#t=0,4"></video></section></body></html>';
 

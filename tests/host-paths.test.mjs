@@ -2,7 +2,7 @@
 // (which holds Electron's webUtils bridge) answers for it.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { installHostPathBridge } from '../src/host-paths.mjs';
+import { installHostPathBridge } from '../src/host/host-paths.mjs';
 
 function fakeWindow(bridge) {
   const listeners = [];

@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0006-narrow-sidebar-injection
 reader: 维护者、改界面的人
-fact-source: src/sidebar-editing.mjs、tests/sidebar-untouched.test.mjs
+fact-source: src/ui/sidebar-editing.mjs、tests/sidebar-untouched.test.mjs
 checked: 0.15.11
 rot-if: DSH 为侧栏标题行开出官方插槽
 -->
@@ -29,4 +29,4 @@ rot-if: DSH 为侧栏标题行开出官方插槽
 
 ## 证据
 
-`src/sidebar-editing.mjs`、`reference/injection-registry.md` 的登记行、`tests/sidebar-untouched.test.mjs`。
+`src/ui/sidebar-editing.mjs`、`reference/injection-registry.md` 的登记行、`tests/sidebar-untouched.test.mjs`。

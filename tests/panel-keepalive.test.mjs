@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createActivationStore } from '../src/panel-keepalive.mjs';
+import { createActivationStore } from '../src/studio/panel-keepalive.mjs';
 
 test('activation follows the main placeholder and notifies subscribers', () => {
   const store = createActivationStore();
@@ -33,7 +33,7 @@ test('a throwing subscriber cannot break the panel', () => {
 });
 
 test('the entry keeps the panel in a slot rendered for the whole frame', async () => {
-  const entry = await readFile(new URL('../src/studio-entry.js', import.meta.url), 'utf8');
+  const entry = await readFile(new URL('../src/studio/studio-entry.js', import.meta.url), 'utf8');
   // The panel body must NOT sit in the keyed main slot: switching pages would
   // unmount it and reload Studio. Only the tiny placeholder belongs there.
   assert.match(entry, /name: 'main', key: PANEL, locale: NS \}, PanelSeat\)/);

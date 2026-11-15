@@ -7,7 +7,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { createAcpClient, resolveAcpCommand } from '../src/acp-client.mjs';
+import { createAcpClient, resolveAcpCommand } from '../src/acp/acp-client.mjs';
 
 const fixture = fileURLToPath(new URL('./fixtures/fake-acp-agent.mjs', import.meta.url));
 

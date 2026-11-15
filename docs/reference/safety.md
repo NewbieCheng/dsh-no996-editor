@@ -1,7 +1,7 @@
 <!-- doc
 id: safety
 reader: 维护者、reviewer、写新路由的人
-fact-source: src/studio-proxy.mjs、src/workbench-auth.mjs、src/auth-bridge.mjs、SECURITY.md
+fact-source: src/studio/studio-proxy.mjs、src/auth/workbench-auth.mjs、src/auth/auth-bridge.mjs、SECURITY.md
 checked: 0.15.11
 rot-if: 新增对浏览器的信任假设，或改动鉴权链路
 -->
@@ -36,7 +36,7 @@ rot-if: 新增对浏览器的信任假设，或改动鉴权链路
 
 ## 4. token 与账号
 
-- 工作台账号 token 只在 Host（`src/workbench-auth.mjs`、`src/auth-client.mjs`），浏览器侧只拿状态，不回显；
+- 工作台账号 token 只在 Host（`src/auth/workbench-auth.mjs`、`src/auth/auth-bridge.mjs`），浏览器侧只拿状态，不回显；
 - 存 `$DSH_HOME/no996-openfilm/workbench-auth.json`，权限按用户文件；
 - `NO996_OPENFILM_DEV=1` 跳过账号门，只应在开发机使用。
 

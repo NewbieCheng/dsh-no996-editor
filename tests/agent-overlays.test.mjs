@@ -9,8 +9,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { PERSONA, ROOT_MARKERS, overlayYaml, writeOverlay } from '../src/agent-overlays.mjs';
-import { instructionChain, projectRootOf } from '../src/instruction-inventory.mjs';
+import { PERSONA, ROOT_MARKERS, overlayYaml, writeOverlay } from '../src/acp/agent-overlays.mjs';
+import { instructionChain, projectRootOf } from '../src/acp/instruction-inventory.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'no996-instructions-'));
 

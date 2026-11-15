@@ -31,7 +31,7 @@ rot-if: 上游不再发布 studio/ui 源码、构建白名单变化、任何注�
 | 这份 checkout 里有我们的 **21 个改动**，就是 `patches/series.json` 的来源 | `git status` 21 files |
 | 桌面壳一次构建同时打进了 **Studio 编辑器**和**聊天列** | `apps/desktop/shell/main.tsx` 里 `App` 来自 `openfilm/studio-ui/App.tsx`，`mountChat` 来自 `apps/desktop/chat/src` |
 | 构建脚本允许改 `apps/desktop/chat/src/**` 与 `packages/openfilm/studio/ui/src/**`，其它改动一律拒绝 | `scripts/build-official-shell.mjs` 的 `PATCHED` 白名单 |
-| 我们自己构建的 `vendor/official-shell/ui` 会作为 `editorDir` 交给 Studio，**顶替** npm 包里的 `studio/ui/dist` | `startStudio({ editorDir })` + `src/studio-controller.mjs` 的 `resolveEditorDir` |
+| 我们自己构建的 `vendor/official-shell/ui` 会作为 `editorDir` 交给 Studio，**顶替** npm 包里的 `studio/ui/dist` | `startStudio({ editorDir })` + `src/studio/studio-controller.mjs` 的 `resolveEditorDir` |
 
 L2 的界面结构因此和 L1 一样能改源码：npm 包只发布 dist，上游 monorepo 有源码。
 
@@ -44,7 +44,7 @@ L2 的界面结构因此和 L1 一样能改源码：npm 包只发布 dist，上�
 | **A1 源码补丁** | 默认。上游源码里存在的界面（L1 聊天列、L2 编辑器、L3 模板） | 已有 21 个补丁 + 构建白名单 |
 | **A2 构建期样式** | 纯配色/间距，且上游有变量或稳定类名 | 与 A1 同一个构建 |
 | **B1 样式注入** | 临时试色；或某个样式必须按运行时条件切换 | `assets/theme/*.css` |
-| **B2 DOM 注入** | 只剩一种情况：**DSH 外壳没有对应插槽** | `src/sidebar-editing.mjs` |
+| **B2 DOM 注入** | 只剩一种情况：**DSH 外壳没有对应插槽** | `src/ui/sidebar-editing.mjs` |
 
 **规则：**
 
@@ -114,4 +114,4 @@ dsh-openfilm/              ← 只开这一个
 ## 8. 白话版
 
 给非工程背景的人看的版本（含批次、你会看到什么变化、验收方法）在
-[`topics/ui-plan.md`](../topics/ui-plan.md)。两篇讲的是同一件事，一份给决策，一份给执行。
+`topics/ui-plan.md`（已随该批做完删除）。两篇讲的是同一件事，一份给决策，一份给执行。

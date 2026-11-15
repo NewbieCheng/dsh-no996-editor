@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "f2458321493aa3ae07f8a1c863d493d28560f06d1e22a12f6e77397d6001bbfd"
+    "sha256": "50f83d341841295b2882e6949a7465b91472ff4d6d340926e8976a684fc12ded"
   },
   "patches": [
     {
@@ -149,8 +149,8 @@
       "file": "180-desktop-attachments.patch",
       "source": "apps/desktop/chat/src/lib/desktop-attachments.ts",
       "group": "chat",
-      "sha256": "5513fab34fb5372e21c7c926dcd5720cce7c39e5e3d02f7364684abcdba2414b",
-      "bytes": 3743
+      "sha256": "bde5987e91a92ee61810074ad8ab954cf8588dca27fa7c0e37f8324d897580f4",
+      "bytes": 4249
     },
     {
       "id": "190-local-agent-run",
@@ -181,16 +181,16 @@
       "file": "220-LoginGate.patch",
       "source": "apps/desktop/shell/LoginGate.tsx",
       "group": "chat",
-      "sha256": "62587e3e5f271bea08d7aeb46a2ee14a18aeebdaeca5317370ef0c50990f3eca",
-      "bytes": 29334
+      "sha256": "a62a3fef90b87936c2ebde51f4db3fab2e89ed14b5de192bb88544e55a02feac",
+      "bytes": 29691
     },
     {
       "id": "230-RecoveryGate",
       "file": "230-RecoveryGate.patch",
       "source": "apps/desktop/shell/RecoveryGate.tsx",
       "group": "chat",
-      "sha256": "412b5604f84055fc15c98ec4a13678c67a05db4d539ba1faedbd874c4830f9f8",
-      "bytes": 2890
+      "sha256": "6f67ac66d439ead1f1c05a80406978987d15ac4bb9d2d492fcb1f66e9f973392",
+      "bytes": 1918
     },
     {
       "id": "240-brand-mark",

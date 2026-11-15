@@ -32,7 +32,7 @@ function sourceFiles() {
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name)
-      // src/studio-controller/** and src/studio-proxy/** hold real Host code now.
+      // src/studio/studio-controller/** and src/studio/studio-proxy/** hold real Host code now.
       if (entry.isDirectory()) walk(full)
       else if (/\.(mjs|js)$/.test(entry.name)) files.push(full)
     }

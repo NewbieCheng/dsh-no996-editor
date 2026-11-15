@@ -2,8 +2,8 @@
 id: templates
 reader: 做模板的人
 fact-source: vendor/templates/**、scripts/templates-build.mjs
-checked: 0.15.11
-rot-if: 模板结构、_kit 或构建流程变化
+checked: 0.15.22
+rot-if: 模板结构、_kit、构建流程或提示词注入链路变化
 -->
 
 # 模板与素材库
@@ -123,10 +123,61 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 
 ## 模板目录必须自包含
 
-安装模板是把**整个模板目录复制**进项目（`src/official-templates.mjs` 的 `copy`）。
+安装模板是把**整个模板目录复制**进项目（`src/official/official-templates.mjs` 的 `copy`）。
 所以页面里不能出现指向模板目录之外的相对路径——例如 `../../_kit/…` 在仓库里能
 跑、复制进项目后 404。需要共享的样式由构建器合并成 `<模板>/assets/kit.css`，
 且有一条测试扫描每个页面的 `href`/`src` 来守这个边界。
+
+## 模板提示词：新增一个模板时，它的提示词怎么注入
+
+模板不只给一份起手的 `film.html`，还带着**自己的设定和思路**：配色、镜头语法、屏上字的口气。
+这份东西是 `vendor/templates/<id>/prompt.md`，只进"选了这个模板的那个项目"的对话，不进别人的系统提示。
+
+### 注入链路（一共三步，都是自动的）
+
+```
+1. 选中        openfilm_library(kind=template, take=<id>)
+                 ↓
+2. 记住        <项目>/.film/templates.json   { "version": 1, "active": ["sketchnote"] }
+                 ↓
+3. 写进去      <项目>/AGENTS.md 里的生成块：
+               <!-- no996-openfilm:templates:begin -->
+               ## 本片使用的模板
+               ### 手绘笔记（sketchnote）
+               <prompt.md 的内容>
+               <!-- no996-openfilm:templates:end -->
+```
+
+第 3 步的文件是子进程**本来就会读**的那份（影片文件夹是指令链的根，见 ADR-0011），所以下一轮、
+下次重开面板、换个会话都还在。生成块是唯一会被重写的部分，块外面的内容（人写的）不动。
+当轮还会把 prompt 文本直接放进工具结果——DSH 靠文件操作触发指令刷新，不监听外部写文件，
+所以"文件里有了"和"这一轮看到了"要分开保证。
+
+### 加模板时你要做的
+
+| 步 | 做什么 | 硬要求 |
+|---|---|---|
+| 1 | 建目录 `vendor/templates/<id>/` | `<id>` 是 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`，与 `manifest.json` 的 `id` 一致 |
+| 2 | `manifest.json` | 必填 `id`/`title`/`entry`/`mode`（`film` 或 `style`）；建议 `description`、`prompt`（一句话）、`tags`（可搜） |
+| 3 | `prompt.md`（可选但推荐） | ≤ 2 KB，写**这支片的设定与思路**：给谁看、什么调子、镜头怎么走、屏上字的规矩。不要写通用剪辑教程（那在 `openfilm-motion` 技能里） |
+| 4 | `film.html` + 素材 | 目录必须自包含（上文） |
+| 5 | 跑 `npm run check` | 模板清单、提示词长度、链接都有测试 |
+
+不需要注册表：`src/film/template-catalog.mjs` 扫目录读 `manifest.json` 与 `prompt.md`。
+`openfilm_library(kind=template, query="…")` 按 `id/title/description/tags` 搜。
+
+### 多个模板可以叠加
+
+- `.film/templates.json` 的 `active` 是顺序；生成块按这个顺序渲染，先写的先出现。
+- 整个块上限 8 KB，单个 prompt 由 2048 字符截断；超出的模板不渲染（不报错，但会在结果里少了那一段）。
+- 取消启用：从 `active` 里删掉那个 id（或写空数组），下次 `prepareProject` 会把那一段从生成块里移除。
+- 冲突时以**后出现的模板 + 用户当轮的话**为准，这条写进了生成块的开头。
+
+### 不要做
+
+- 不要手改生成块：下次同步会被覆盖，而且块里没有 `begin/end` 标记时同步会把整块追加到文件末尾。
+- 不要把模板提示词塞进工具描述或 persona：常驻预算只有 6 KB（persona + 指令文件），模板是"选了这个项目才有"的信息。
+- 不要把 `prompt.md` 写成模板的 README（安装步骤、构建命令属于 `docs/TEMPLATES.md`，不属于对话）。
 
 ## 常用命令
 
@@ -168,11 +219,6 @@ npm run templates:build motion-styles
 `/node_modules`、three.js 的样片（05/07/10/19/22）不能直接搬——先按 `docs/MOTION.md`
 的引擎契约决定是内联打包还是重写。
 
-## 优化记录（0.6.0）
+## 已知未做
 
-- 19 个复刻镜头原本每个 ~75 行手写页面，现在各是一份 JSON + 一个内容片段 + 一个
-  动画文件，页面外壳零手写；`COPY`、`DURATION`、`START`、`mount` 装配不可能再漏。
-- 纸纹讲堂的两个镜头共用一套单元与一份 `<模板>/assets/kit.css`，差异只剩 7 个 CSS 变量。
-- 手绘笔记的七个页面由窗口数据生成，窗口连续性有测试。
-- 已知未做的优化：`sketchnote/assets/fonts.css` 有 10.4 MB（内嵌字体），
-  仍未做子集化——它影响的是首屏体积，不影响画面，单独排期。
+- `sketchnote/assets/fonts.css` 有 10.4 MB（内嵌字体），未做子集化：影响首屏体积，不影响画面。

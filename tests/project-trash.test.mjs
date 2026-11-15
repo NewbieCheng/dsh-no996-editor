@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, parse } from 'node:path';
-import { createProjectTrash, TRASH_DIR } from '../src/project-trash.mjs';
+import { createProjectTrash, TRASH_DIR } from '../src/project/project-trash.mjs';
 
 async function project(over = {}) {
   const rawRoot = await mkdtemp(join(tmpdir(), 'n996-trash-'));

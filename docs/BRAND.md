@@ -26,7 +26,7 @@ rot-if: 品牌字段、法务要求或替换流程变化
 | `links.*` | 帮助、官网、反馈入口 |
 | `upstream.*` | 上游名称、版本、许可证、归属声明（**只读，不许删**） |
 
-`src/brand.mjs` 负责校验与导出：
+`src/ui/brand.mjs` 负责校验与导出：
 
 - 名字 1–24 字符，slug 必须是小写 kebab-case；
 - 颜色必须是 `#rrggbb`，缺 `accent/paper/ink` 直接报 `BRAND_INVALID`；
@@ -38,7 +38,7 @@ rot-if: 品牌字段、法务要求或替换流程变化
 
 | 界面 | 现在读什么 | 状态 |
 |---|---|---|
-| 主题颜色 | `brandCssVars()` → `--n996-*` | 已接（`src/theme.mjs`） |
+| 主题颜色 | `brandCssVars()` → `--n996-*` | 已接（`src/ui/theme.mjs`） |
 | 页面标题（tab / 历史） | 代理把上游 `<title>` 换成 `brand.name` | 已接（`replaceTitle`） |
 | 面板标题 / 侧栏名 | `locale/*.json`（当前已是品牌名） | 文案已改；尚未从 brand 生成 |
 | 官方壳的标题/文案 | 上游 i18n + 源码补丁 | 待接（补丁里读 `brand.name`） |

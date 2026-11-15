@@ -10,7 +10,7 @@ process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'openfilm-smoke-'));
 process.env.NO996_OPENFILM_DEBUG_PORT = '0';
 process.env.NO996_OPENFILM_DEV = '1';
 
-const { createStudioController } = await import('../src/studio-controller.mjs');
+const { createStudioController } = await import('../src/studio/studio-controller.mjs');
 
 const routes = new Map();
 const browser = { id: 'browser' };

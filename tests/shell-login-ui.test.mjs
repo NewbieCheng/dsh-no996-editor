@@ -15,9 +15,9 @@ test('the login page paints a day/night sky from the timeline', () => {
 });
 
 test('the city background is throttled and stops when the page is hidden', () => {
-  assert.match(js, /CITY_INTERVAL=33/);
+  assert.match(js, /CITY_INTERVAL=100/);
   assert.match(js, /document\.hidden/);
-  assert.match(js, /now-lastCityAt>=CITY_INTERVAL/);
+  assert.match(js, /now-lastCityAt>=cityGap/);
   assert.match(js, /CITY_SPEED=\.2/);
 });
 

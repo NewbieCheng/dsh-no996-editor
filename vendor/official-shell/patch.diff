@@ -1978,6 +1978,13 @@ index 4f7aa72..25eeb92 100644
 -    for (const { item, file, path } of items) {
 -      if (path) continue;
 +    const keepBytes = (item: DesktopAttachment, file: File) => {
++      /* Large media must stay a path reference. Copying hundreds of MB into the
++         project (and through the 256 MiB upload gate) is the wrong product; fail
++         visibly so the person retries with a path or uses the media library. */
++      if (typeof file.size === 'number' && file.size > 256 * 1024 * 1024) {
++        patch(item.id, { state: 'failed', error: '大视频请用本机路径引用（不上传会话）。请重试拖放，或从素材库导入。' });
++        return;
++      }
        void file.arrayBuffer()
          .then((bytes) => app.chat.saveAttachment(project, item.name, bytes))
          .then((r) => patch(item.id, { state: 'ready', path: r.path }))
@@ -2490,7 +2497,7 @@ index 0000000..564155f
 +const CITY_START = 1.9;
 +const CITY_END = 2.86;
 +const CITY_SPEED = 0.2;
-+const CITY_INTERVAL = 33;
++const CITY_INTERVAL = 100;
 +const PAUSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
 +const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
 +
@@ -2663,16 +2670,21 @@ index 0000000..564155f
 +      paint(p);
 +    };
 +
++    // ~10 fps city by default; under load stretch the interval so the login form stays responsive.
++    let cityGap = CITY_INTERVAL;
 +    const frame = (now: number) => {
-+      if (document.hidden) { lastNow = now; raf = requestAnimationFrame(frame); return; }
-+      const dt = lastNow ? Math.min(0.05, (now - lastNow) / 1000) : 0;
++      if (document.hidden || rootRef.current?.hidden) { lastNow = now; raf = requestAnimationFrame(frame); return; }
++      const raw = lastNow ? (now - lastNow) / 1000 : 0;
++      const dt = lastNow ? Math.min(0.05, raw) : 0;
 +      lastNow = now;
++      if (raw > 0.04) cityGap = Math.min(200, cityGap + 20);
++      else if (raw > 0 && cityGap > CITY_INTERVAL) cityGap = Math.max(CITY_INTERVAL, cityGap - 5);
 +      if (playingRef.current) {
 +        let p = progress.current + dt / DAY_SECONDS;
 +        if (p >= 1) { p -= 1; if (sceneRef.current) sceneRef.current.style.opacity = '1'; }
 +        ct += dt * CITY_SPEED;
 +        if (ct > CITY_END) ct = CITY_START + ((ct - CITY_END) % (CITY_END - CITY_START));
-+        if (city && now - lastCityAt >= CITY_INTERVAL) { lastCityAt = now; city.renderAt(ct); }
++        if (city && now - lastCityAt >= cityGap) { lastCityAt = now; city.renderAt(ct); }
 +        setP(p);
 +      }
 +      raf = requestAnimationFrame(frame);
@@ -3060,25 +3072,34 @@ new file mode 100644
 index 0000000..9bd6e9c
 --- /dev/null
 +++ b/apps/desktop/shell/RecoveryGate.tsx
-@@ -0,0 +1,63 @@
-+import { useEffect, useState } from 'react';
+@@ -0,0 +1,54 @@
++import { useEffect } from 'react';
 +
 +/**
 + * The Host's Studio can go away while this page stays up. Upstream's own error
-+ * overlay asks the person to restart an application that is not involved, so we
-+ * show our own: poll the Studio's own health endpoint and offer to re-bootstrap
-+ * through the panel.
-+ *
-+ * This used to live in a runtime DOM injection (assets/shell-ui.js). It is
-+ * component state now: no MutationObserver, no element created outside React,
-+ * and the overlay cannot be wiped by a re-render of the app.
++ * overlay asks the person to restart an application that is not involved.
++ * Here we only probe health and ask the panel to re-bootstrap — silently, with
++ * backoff. No card, no "already stopped" copy.
 + */
 +export function RecoveryGate() {
-+  const [shown, setShown] = useState(false);
-+
 +  useEffect(() => {
 +    let misses = 0;
 +    let cancelled = false;
++    let recovering = false;
++    let backoffMs = 2000;
++    let unlockTimer = 0;
++
++    const restart = () => {
++      if (recovering || cancelled) return;
++      recovering = true;
++      if (window.parent !== window) {
++        window.parent.postMessage({ type: 'no996-openfilm:restart', version: 1 }, '*');
++      }
++      const wait = backoffMs;
++      backoffMs = Math.min(15000, Math.round(backoffMs * 1.8));
++      unlockTimer = window.setTimeout(() => { recovering = false; }, wait);
++    };
++
 +    const probe = async () => {
 +      try {
 +        const controller = new AbortController();
@@ -3087,10 +3108,10 @@ index 0000000..9bd6e9c
 +        clearTimeout(timer);
 +        if (!reply.ok) throw new Error('unhealthy');
 +        misses = 0;
-+        if (!cancelled) setShown(false);
++        backoffMs = 2000;
 +      } catch {
 +        misses += 1;
-+        if (misses >= 2 && !cancelled) setShown(true);
++        if (misses >= 2 && !cancelled) restart();
 +      }
 +    };
 +    const first = setTimeout(probe, 3000);
@@ -3099,30 +3120,11 @@ index 0000000..9bd6e9c
 +      cancelled = true;
 +      clearTimeout(first);
 +      clearInterval(every);
++      clearTimeout(unlockTimer);
 +    };
 +  }, []);
 +
-+  if (!shown) return null;
-+
-+  const restart = () => {
-+    if (window.parent !== window) {
-+      window.parent.postMessage({ type: 'no996-openfilm:restart', version: 1 }, '*');
-+    }
-+  };
-+
-+  return (
-+    <div style={{ position: 'fixed', inset: 0, zIndex: 2147483001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,10,12,.88)', font: '14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif', color: '#e9e9ee' }}>
-+      <div style={{ maxWidth: 400, padding: 24, borderRadius: 12, background: '#232326', border: '1px solid rgba(255,255,255,.14)', textAlign: 'center', boxShadow: '0 16px 48px rgba(0,0,0,.6)' }}>
-+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>工作台已停止运行</div>
-+        <div style={{ opacity: 0.75, fontSize: 12, lineHeight: 1.7, marginBottom: 18 }}>
-+          视频编辑服务已断开。重新启动会重新加载界面，未保存的内容可能丢失。
-+        </div>
-+        <button type="button" onClick={restart} style={{ padding: '9px 20px', border: 0, borderRadius: 8, background: '#3b82f6', color: '#fff', fontSize: 13, cursor: 'pointer' }}>
-+          重新启动工作台
-+        </button>
-+      </div>
-+    </div>
-+  );
++  return null;
 +}
 diff --git a/apps/desktop/shell/brand-mark.ts b/apps/desktop/shell/brand-mark.ts
 new file mode 100644

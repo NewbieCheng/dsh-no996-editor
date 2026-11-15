@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0002-panel-overlay
 reader: 维护者、改界面的人
-fact-source: src/studio-entry.js、src/studio-panel.mjs、src/panel-keepalive.mjs
+fact-source: src/studio/studio-entry.js、src/studio/studio-panel.mjs、src/studio/panel-keepalive.mjs
 checked: 0.15.11
 rot-if: DSH 提供"常驻页面"官方能力，或面板改为独立窗口
 -->
@@ -19,7 +19,7 @@ rot-if: DSH 提供"常驻页面"官方能力，或面板改为独立窗口
 
 - `sidebar.panellist` 只提供入口；
 - 真正的 iframe 挂在 `shell.overlay`（不随切换卸载），`main` 里只留占位；
-- 显示/隐藏由 `src/panel-keepalive.mjs` 控制；矩形靠 resize + 轮询同步（没有官方"矩形变化"事件）。
+- 显示/隐藏由 `src/studio/panel-keepalive.mjs` 控制；矩形靠 resize + 轮询同步（没有官方"矩形变化"事件）。
 
 ## 代价
 
@@ -29,4 +29,4 @@ rot-if: DSH 提供"常驻页面"官方能力，或面板改为独立窗口
 
 ## 证据
 
-`src/studio-entry.js` 的 `main`/`shell.overlay` 注册；`src/panel-keepalive.mjs`；`tests/` 中面板常驻断言。
+`src/studio/studio-entry.js` 的 `main`/`shell.overlay` 注册；`src/studio/panel-keepalive.mjs`；`tests/` 中面板常驻断言。

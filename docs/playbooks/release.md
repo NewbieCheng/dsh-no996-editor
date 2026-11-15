@@ -8,7 +8,7 @@ rot-if: 换发布渠道，或版本流程变化
 
 # 流程：发版
 
-> 版本号只有 `package.json` 一个来源。README 与 `STATUS.md` 由检查脚本核对，不再手写"当前 0.x"。
+> 版本号只有 `package.json` 一个来源。README、docs 与 `STATE.md` 由检查脚本核对，不再手写"当前 0.x"。
 
 ## 1. 发版前
 
@@ -16,7 +16,7 @@ rot-if: 换发布渠道，或版本流程变化
 npm ci
 npm run check          # lint(strict) + test + docs/brand/templates/patches
 npm run shell:bake     # 把主题烘焙进 vendor/official-shell/ui 并重算 manifest
-npm run build          # src/studio-entry.js → client.js
+npm run build          # src/studio/studio-entry.js → client.js
 ```
 
 `npm run check` 必须全绿。它等价于 CI，本地红着就别发。
@@ -32,8 +32,7 @@ npm run release:check          # 净仓 + 版本一致 + CHANGELOG/STATUS 有小
 
 1. `package.json` 的 `version` +1（语义：修 bug → patch，加能力 → minor，破坏契约 → major）；
 2. `CHANGELOG.md` 顶部加一节，写**结论**不写过程：改了什么、为什么、测试数；
-3. `docs/STATUS.md` 更新 §1（仓库版本/最近发布）与 §2（这批做完什么）；
-4. `docs/ROADMAP.md` 把做完的项移到"已做"或删掉。
+3. `docs/STATE.md`：版本、"能用"、"待真机验"、"下一步"各一句，别写成流水账。
 
 四者必须同一批改。版本号不一致会让"现在到底哪个版本"永远说不清——这正是 0.15.1 之前发生的事（`README` 写着 0.13.0）。
 
@@ -52,7 +51,7 @@ gh release create v0.15.2 dist/dsh-openfilm-0.15.2.tgz --title "0.15.2" --notes-
 ## 4. 发布后
 
 1. 核对 Releases 资产大小与 sha256；
-2. 在 `STATUS.md` §1 把"最近发布包"改成新版本；
+2. `docs/STATE.md` 的版本号；
 3. 若这次动了侧栏注入、ACP 权限、上游 pin：把对应项加进 [`verify.md`](verify.md) 的回归清单。
 
 ## 5. 回滚

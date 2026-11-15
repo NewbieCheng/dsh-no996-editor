@@ -20,7 +20,8 @@ const bundle = readdirSync(assets)
 
 test('the recovery overlay is source, not injection', () => {
   assert.doesNotMatch(injection, /no996-stopped/);
-  assert.match(bundle, /重新启动工作台/);
+  // Silent auto-restart: postMessage stays, the blocking card copy is gone.
+  assert.doesNotMatch(bundle, /重新启动工作台/);
   assert.match(bundle, /no996-openfilm:restart/);
 });
 

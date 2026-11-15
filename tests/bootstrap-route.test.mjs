@@ -8,7 +8,7 @@
 // failure with a code, and the origin fence.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createBootstrapRoute } from '../src/studio-controller/routes/bootstrap.mjs';
+import { createBootstrapRoute } from '../src/studio/studio-controller/routes/bootstrap.mjs';
 
 const BROWSER = { id: 'browser' };
 const PATH = '/api/no996-openfilm/bootstrap';

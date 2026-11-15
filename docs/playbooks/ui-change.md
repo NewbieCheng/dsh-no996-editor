@@ -1,7 +1,7 @@
 <!-- doc
 id: playbooks-ui-change
 reader: 改界面的人、智能体
-fact-source: docs/reference/ui-layers.md、src/theme.mjs、assets/theme/*.css
+fact-source: docs/reference/ui-layers.md、src/ui/theme.mjs、assets/theme/*.css
 checked: 0.15.11
 rot-if: 手段分级变化，或出现新的界面层
 -->
@@ -39,7 +39,7 @@ rot-if: 手段分级变化，或出现新的界面层
 | L1 隐藏/移动/新增控件 | A1 | 上游源码 + `patches/` |
 | L1 文案、i18n | A1 | 上游 `i18n/locales/*.ts` + 补丁 |
 | 登录页、账号条、首次引导 | A1（结构）/ A2（样式） | 上游源码优先；现存注入见登记表 |
-| 面板边框、加载态、侧栏图标 | L0 源码 | `src/studio-panel.mjs`、`src/studio-entry.js` |
+| 面板边框、加载态、侧栏图标 | L0 源码 | `src/studio/studio-panel.mjs`、`src/studio/studio-entry.js` |
 | 影片画面、镜头、字幕 | L3 | `vendor/templates/*` + `npm run templates:build` |
 
 **升级规则（硬约束）**
@@ -69,7 +69,7 @@ rot-if: 手段分级变化，或出现新的界面层
 | `brand/brand.json`、`assets/theme/*.css` | 保存 + 刷新（读盘 + mtime） | iframe 重载，未保存编辑丢失 |
 | `assets/shell-ui.js`、`shell-login.js` | 保存 + 刷新 | 同上；改注入清单要重载 Host |
 | `src/studio-*.mjs`（Host） | 重载插件 + 刷新 | Studio 子进程重建 |
-| `src/studio-entry.js` 等客户端源码 | `npm run build` + 刷新 | 同上 |
+| `src/studio/studio-entry.js` 等客户端源码 | `npm run build` + 刷新 | 同上 |
 | 上游源码补丁 | `npm run shell:dev`（开发）/ `npm run shell:bake`（发布） | 首次要 checkout + 依赖 |
 | `vendor/templates/**` | 下一次请求即生效 | 无 |
 

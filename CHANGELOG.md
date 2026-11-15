@@ -1,5 +1,15 @@
 # 更新记录
 
+## 0.15.22 —— 模板提示词可注入；文档砍掉一半
+
+- **模板提示词注入**（[TEMPLATES.md](docs/TEMPLATES.md) · AGENTS.md §2.2）：模板目录下的 `prompt.md`（≤2 KB）
+  在 `openfilm_library(kind=template, take=<id>)` 时启用：写入项目 `.film/templates.json`，并渲染进项目
+  `AGENTS.md` 的生成块（`<!-- no996-openfilm:templates:begin -->`）。可叠多个、可取消；当轮由工具结果带回
+  文本，之后各轮由文件保证。新增模板只需 `manifest.json` + `prompt.md`，没有注册表。
+- **文档精简**：删掉 `STATUS.md`、`ROADMAP.md`、`topics/ui-plan.md`、`topics/copy-and-branding.md`、
+  `features/*`、`playbooks/manual-acceptance.md`；进度只写在新的 [`docs/STATE.md`](docs/STATE.md)（一屏）。
+  `docs/index.md` 重写成"六篇必读 + 按任务找"；AGENTS.md 压到 9 KB 内。脚本与测试跟着改成读 `STATE.md`。
+
 ## 0.15.21 —— 剪辑导演：一条对话一条会话、身份与指令边界、分镜契约
 
 按 [`docs/topics/agent-plan.md`](docs/topics/agent-plan.md) 落地 P0–P4。三条决定见

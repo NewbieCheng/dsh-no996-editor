@@ -8,7 +8,7 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 
 # 开发文档 — dsh-openfilm / No996 Studio
 
-> 最短操作约束看 [`../AGENTS.md`](../AGENTS.md)；改界面看 [`playbooks/ui-change.md`](playbooks/ui-change.md)；升级上游看 [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md)；接下来做什么看 [`ROADMAP.md`](ROADMAP.md)，现在到哪了看 [`STATUS.md`](STATUS.md)。
+> 最短操作约束看 [`../AGENTS.md`](../AGENTS.md)；改界面看 [`playbooks/ui-change.md`](playbooks/ui-change.md)；升级上游看 [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md)；现在到哪了看 [`STATE.md`](STATE.md)。
 >
 > 版本与测试数量以 `package.json` 和 `node --test` 的实际输出为准，本文不抄数字（抄了就会过期）。
 
@@ -86,16 +86,17 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 | 文件 | 职责 | 风险 |
 |---|---|---|
 | `index.js` | `inject` 声明与 `apply` | 加依赖会改变加载时序 |
-| `studio-controller.mjs` | 路由、生命周期、代理工厂、RPC、系统提示、模板桥 | 高：信任判断汇集于此 |
-| `studio-runtime.mjs` | 懒加载并校验上游版本，`startStudio` | 中：版本 pin 与上游契约耦合 |
-| `studio-proxy.mjs` | 回环反向代理、WS、`/__dsh/*` 桥、HTML 注入 | 很高：放松一条就是安全回归 |
-| `official-shell.mjs` | 校验 manifest（版本、commit、逐文件 sha256） | 高：改 ui 必须重生成 manifest |
-| `project-conversation.mjs` | 一个项目 = 一个 DSH Session | 高：会话归属在这里决定 |
-| `workspace-archive.mjs` / `archive-bridge.mjs` | 归档集合的唯一 Host 视图 + 浏览器路由 | 高：浏览器可触达的写路径 |
+| `src/studio/studio-controller.mjs` | 路由、生命周期、代理工厂、RPC、系统提示、模板桥 | 高：信任判断汇集于此 |
+| `src/studio/studio-runtime.mjs` | 懒加载并校验上游版本，`startStudio` | 中：版本 pin 与上游契约耦合 |
+| `src/studio/studio-proxy.mjs` | 回环反向代理、WS、`/__dsh/*` 桥、HTML 注入 | 很高：放松一条就是安全回归 |
+| `src/official/official-shell.mjs` | 校验 manifest（版本、commit、逐文件 sha256） | 高：改 ui 必须重生成 manifest |
+| `src/project/workspace-archive.mjs` / `archive-bridge.mjs` | 归档集合的唯一 Host 视图 + 浏览器路由 | 高：浏览器可触达的写路径 |
+
+`src/` 按故障域分目录：`host/` `studio/` `acp/` `official/` `auth/` `tools/` `film/` `asr/` `project/` `ui/`（见 `AGENTS.md` §3）。
 
 ### 对话桥（ACP）
 
-面板的对话不再由 Host 手工模拟回合：`acp-client.mjs`（ndjson 线级客户端：initialize / session/new|resume|prompt / set_config_option / cancel）、`acp-agent-service.mjs`（每项目一个 `dsh --profile acp` 子进程；会话 id 存 `acp-session-store.mjs`；模型与思考走 configOptions；权限预设以 `DSH_PERMISSION_MODE` 在 spawn 时传给子进程）、`mcp-server.mjs`（Host 的 MCP 端点，把 `openfilm_*` 工具交给子进程，令牌按会话签发、滑动过期、随退出吊销）、`project-instructions.mjs`（首开项目写 `AGENTS.md`）。外层仍是：`official-chat-rpc.mjs`（RPC 白名单与校验）、`official-chat-store.mjs`、`official-event-hub.mjs` / `official-event-stream.mjs`（fan-out + SSE）、`official-facade.mjs`（注入页面的 `openfilmNative`）、`official-permission.mjs`（权限行与决策）、`official-approvals.mjs`（`session/request_permission` → 页面）。
+面板的对话不再由 Host 手工模拟回合：`src/acp/acp-client.mjs`（ndjson 线级客户端）、`src/acp/acp-agent-service.mjs`（每项目一个 `dsh --profile acp`；会话 id 存 `acp-session-store.mjs`）、`src/tools/mcp-server.mjs`、`src/project/project-instructions.mjs`。外层：`src/official/official-chat-rpc.mjs`、`official-chat-store.mjs`、`official-event-hub.mjs` / `official-event-stream.mjs`、`official-facade.mjs`、`official-permission.mjs`、`official-approvals.mjs`。
 
 旧路径（进程内回合服务、事件翻译层、Host 侧会话绑定、审批桥）已按 `docs/ARCHITECTURE.md §10` 删除；`NO996_OPENFILM_ACP` 变量不再存在。
 
@@ -107,17 +108,17 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 
 ### 客户端
 
-`studio-entry.js`（Slot 注册）、`studio-panel.mjs`（iframe、超时诊断、bootstrap 重试）、`panel-keepalive.mjs`（占位矩形）。`client.js` 是 `npm run build` 的产物，**不要手改**。
+`src/studio/studio-entry.js`（Slot 注册）、`studio-panel.mjs`（iframe、超时诊断、bootstrap 重试）、`panel-keepalive.mjs`（占位矩形）。`client.js` 是 `npm run build` 的产物，**不要手改**。
 
 ### 界面注入与主题
 
 | 文件 | 职责 |
 |---|---|
-| `src/shell-extras.mjs` | 读 `assets/shell-ui.js` / `login-city.js` / `shell-login.js`（mtime 缓存） |
+| `src/ui/shell-extras.mjs` | 读 `assets/shell-ui.js`（mtime 缓存）；登录门已进 shell 包 |
 | `assets/shell-ui.js` | 官方壳的 DOM 叠加：模板、环境检查、账号条、故障卡 |
-| `assets/shell-login.js` | 全屏登录页 |
-| `src/theme.mjs` | 按 surface 读 `assets/theme/*.css` 并生成 `<style>` |
-| `brand/brand.json` + `src/brand.mjs` | 产品名、颜色、链接、上游归属 |
+| `assets/shell-login.js` | 登录门参考实现（真机门是 `LoginGate.tsx`） |
+| `src/ui/theme.mjs` | 按 surface 读 `assets/theme/*.css` 并生成 `<style>` |
+| `brand/brand.json` + `src/ui/brand.mjs` | 产品名、颜色、链接、上游归属 |
 
 ### 上游补丁
 
@@ -142,7 +143,7 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 ```sh
 npm ci
 npm run check       # lint(strict) + test + docs/brand/templates/patches
-npm run build       # src/studio-entry.js → client.js
+npm run build       # src/studio/studio-entry.js → client.js
 npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 ```
 
@@ -156,15 +157,15 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 |---|---|---|---|
 | `brand/brand.json`、`assets/theme/*.css` | 否 | 保存 + 刷新 | iframe 重载，未保存编辑丢失 |
 | `assets/shell-ui.js` / `login-city.js` / `shell-login.js` | 否 | 保存 + 刷新（读盘 + mtime） | 同上；改注入清单要重载 Host |
-| `src/studio-entry.js` / `studio-panel.mjs` / `panel-keepalive.mjs` | **是** | 刷新 | 同上 |
+| `src/studio/studio-entry.js` / `studio-panel.mjs` / `panel-keepalive.mjs` | **是** | 刷新 | 同上 |
 | Host 源码 `index.js`、`src/*.mjs` | 否 | 重载插件（disable→enable）+ 刷新 | Studio 子进程重建 |
 | `vendor/templates/**` | 否 | 下一次请求即生效 | 无 |
 | `vendor/official-shell/ui/**` | 是（上游） | 部署产物后重启 Studio | 清单不匹配 → `OFFICIAL_SHELL_UNAVAILABLE` |
 | `cordis.patch.yml` | 否 | 重新 `install_bundle` 或重启 Host | 已有会话不迁移 |
-| `src/agent-overlays.mjs`（persona、指令根标记） | 否 | 重载插件 + 刷新；**下一次 spawn 才生效** | 已开的子进程继续用旧 persona，直到它退出 |
+| `src/acp/agent-overlays.mjs`（persona、指令根标记） | 否 | 重载插件 + 刷新；**下一次 spawn 才生效** | 已开的子进程继续用旧 persona，直到它退出 |
 | `skills/**` | 否 | `node scripts/install-skills.mjs`（`--force` 覆盖同名） | 只影响之后新建的会话 |
 | `vendor/templates/<id>/prompt.md` | 否 | 下一次 `openfilm_library take=<id>` 即生效 | 无 |
-| `src/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
+| `src/acp/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
 
 **重载前先 `touch index.js src/*.mjs`**：加载器只重新求值 mtime 变了的模块，未 touch 的引入方会继续用旧 import——症状就是"改了没生效"。`npm run dev` 会替你 touch。
 

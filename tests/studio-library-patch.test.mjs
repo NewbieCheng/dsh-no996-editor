@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyStudioLibraryPatch } from '../src/studio-library-patch.mjs';
+import { applyStudioLibraryPatch } from '../src/studio/studio-library-patch.mjs';
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'openfilm-pkg-'));

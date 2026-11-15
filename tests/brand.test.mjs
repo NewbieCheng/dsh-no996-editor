@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { brandCssVars, getBrand, replaceTitle, validateBrand } from '../src/brand.mjs';
+import { brandCssVars, getBrand, replaceTitle, validateBrand } from '../src/ui/brand.mjs';
 
 const RAW = Object.freeze({
   name: '不加班剪辑',

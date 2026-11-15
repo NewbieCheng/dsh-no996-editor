@@ -1,7 +1,7 @@
 <!-- doc
 id: injection-registry
 reader: 改界面的人、reviewer
-fact-source: assets/shell-ui.js、assets/shell-login.js、assets/theme/*.css、src/sidebar-editing.mjs
+fact-source: assets/shell-ui.js、assets/shell-login.js、assets/theme/*.css、src/ui/sidebar-editing.mjs
 checked: 0.15.11
 rot-if: 新增/撤掉任何一处没走源码的改动
 -->
@@ -18,14 +18,14 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 |---|---|---|---|
 | 模板选择弹窗 | `assets/shell-ui.js` | 历史上先做的注入；上游有模板入口 | 模板主路径迁进 A1 后删除 |
 | 视频工具环境检查卡 | `assets/shell-ui.js` | 需要 Host 能力，上游没有这个界面 | 上游有环境检查或迁进 A1 |
-| 工作区下拉开关 | `src/sidebar-editing.mjs` | 侧栏标题行没有官方插槽；`sidebar.workspaces` 是 single 槽 | DSH 开出标题行插槽后删除 |
+| 工作区下拉开关 | `src/ui/sidebar-editing.mjs` | 侧栏标题行没有官方插槽；`sidebar.workspaces` 是 single 槽 | DSH 开出标题行插槽后删除 |
 
 ## 1.1 已经不在注入里的（别再加回来）
 
 | 东西 | 现在在哪 |
 |---|---|
 | 账号条 / 登录态 | `packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx`（React 源码，补丁） |
-| 故障恢复卡（工作台已停止运行） | `apps/desktop/shell/RecoveryGate.tsx`（React 源码，补丁；2026-11 从 `assets/shell-ui.js` 迁出） |
+| 故障恢复（静默自愈，无卡片） | `apps/desktop/shell/RecoveryGate.tsx`（探活 + `no996-openfilm:restart`；面板侧退避重拉；2026-11 去掉阻塞卡） |
 | 主题 token + 覆盖 | 发布产物在构建期由 `npm run shell:bake` 烘进 `vendor/official-shell/ui/assets/no996-theme.css`；运行时那份只是开发热更 |
 | 全屏登录门 | `apps/desktop/shell/LoginGate.tsx`（React，样式 `login.css`）；`assets/shell-login.js` 只作迁移期的参考实现 |
 | 城市背景 | 生成物 `assets/login-city.js`，构建期由 `npm run login:sync` 复制进上游壳，`import` 后挂 `window.__NOF_MOUNT_CITY__` |
@@ -35,7 +35,7 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 
 `sidebar.workspaces` 是 **single** 槽：一个优先级一个注册，最小者独占渲染，且官方浏览器组件未导出。占用它等于重写整块界面——置顶、归档、运行中、右键菜单、拖拽都会丢，2026-11 真机试过并撤回（见 ADR-0006）。
 
-现行做法（`src/sidebar-editing.mjs`）：
+现行做法（`src/ui/sidebar-editing.mjs`）：
 
 1. 文本 + 结构锚点找到「工作区/会话」`span`，**只隐藏它并插入切换按钮**；
 2. 选「剪辑区」时隐藏它的兄弟列表、显示我们的列表，头部只留搜索（视图选项移进文件夹行的 ⋯）；

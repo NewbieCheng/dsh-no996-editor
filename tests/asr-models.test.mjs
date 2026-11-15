@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { libraryCacheRoot, senseVoiceDir, senseVoiceReadyMark } from '../src/asr-models.mjs';
+import { libraryCacheRoot, senseVoiceDir, senseVoiceReadyMark } from '../src/asr/asr-models.mjs';
 
 test('the transcription model lives where the Studio installs it', () => {
   assert.equal(libraryCacheRoot({ env: {}, home: '/home/x' }), join('/home/x', '.openfilm', 'library'));

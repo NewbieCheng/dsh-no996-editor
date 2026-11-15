@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createWorkbenchAuth, DEFAULT_WORKBENCH_BASE_URL, parseAuthActionBody } from '../src/workbench-auth.mjs';
-import { dispatchAuthAction, registerAuthBridge } from '../src/auth-bridge.mjs';
+import { createWorkbenchAuth, DEFAULT_WORKBENCH_BASE_URL, parseAuthActionBody } from '../src/auth/workbench-auth.mjs';
+import { dispatchAuthAction, registerAuthBridge } from '../src/auth/auth-bridge.mjs';
 import { Readable } from 'node:stream';
 
 test('defaults to production workbench origin', () => {

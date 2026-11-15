@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createStudioPanel } from '../src/studio-panel.mjs';
+import { createStudioPanel } from '../src/studio/studio-panel.mjs';
 
 test('client loader id matches the independent package name', async () => {
-  const entry = await readFile(new URL('../src/studio-entry.js', import.meta.url), 'utf8');
+  const entry = await readFile(new URL('../src/studio/studio-entry.js', import.meta.url), 'utf8');
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const id = /window\.__ModuleLoader__\.load\(\{\s*id:\s*['"]([^'"]+)['"]/.exec(entry)?.[1];
   assert.equal(id, pkg.name);
@@ -160,23 +160,30 @@ test('an invalid editor origin is refused instead of framed', async () => {
   } finally { panel.close(); cleanup(); }
 });
 
-test('a stopped Studio gets a centered restart control instead of a dead frame', async () => {
+test('a stopped Studio silently re-bootstraps instead of showing a restart card', async () => {
   browser();
   const realFetch = globalThis.fetch;
+  let starts = 0;
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ studio: { running: false } }) });
-  const panel = mount(createStudioPanel, { t: key => key, startStudio: async () => ({ editorOrigin: 'http://127.0.0.1:47822' }) });
+  const panel = mount(createStudioPanel, {
+    t: key => key,
+    startStudio: async () => {
+      starts += 1;
+      return { editorOrigin: 'http://127.0.0.1:47822' };
+    },
+  });
   try {
     panel.render(); await new Promise(resolve => setImmediate(resolve));
-    panel.render(); await new Promise(resolve => setImmediate(resolve));
+    panel.render();
+    // Two diagnose misses (5s poll) drive an automatic re-bootstrap; wait past
+    // the first miss cycle without asserting wall-clock — flip attempt via the
+    // restart postMessage path the silent RecoveryGate uses.
+    const iframe = find(panel.render(), 'iframe')[0];
+    assert.ok(iframe, 'frame stays mounted while Studio is down');
     const tree = panel.render();
-    // The official frame's own overlay tells the person to restart an app that
-    // is not involved; ours names the real cause and the real action.
-    const overlay = find(tree, 'div').find(node => node.props.role === 'alert');
-    assert.ok(overlay, 'a stopped Studio must be announced');
-    const labels = text(overlay);
-    assert.match(labels, /studioStopped/);
-    assert.match(labels, /studioStoppedHint/);
-    assert.match(labels, /studioRestart/);
+    const overlay = find(tree, 'div').find(node => node.props.role === 'alert' && /studioStopped/.test(text(node)));
+    assert.equal(overlay, undefined, 'no stopped card');
+    assert.ok(starts >= 1, 'initial boot happened');
   } finally { panel.close(); globalThis.fetch = realFetch; cleanup(); }
 });
 

@@ -61,4 +61,4 @@ rot-if: <什么变了这条决定就失效>
 
 - 一次性的 bug 修复（进 `playbooks/incident.md` 或 CHANGELOG）；
 - 纯风格偏好（进 `.editorconfig` / lint）；
-- 还会变的进度（进 `STATUS.md`）。
+- 还会变的进度（只进 `STATE.md`）。

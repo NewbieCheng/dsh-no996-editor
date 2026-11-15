@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { createAcpClient } from '../src/acp-client.mjs';
-import { catalogFromConfigOptions, createAcpAgentService } from '../src/acp-agent-service.mjs';
+import { createAcpClient } from '../src/acp/acp-client.mjs';
+import { catalogFromConfigOptions, createAcpAgentService } from '../src/acp/acp-agent-service.mjs';
 
 const fixture = fileURLToPath(new URL('./fixtures/fake-acp-agent.mjs', import.meta.url));
 const PROJECT = 'proj123456';

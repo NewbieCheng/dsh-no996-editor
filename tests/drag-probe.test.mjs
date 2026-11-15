@@ -1,7 +1,7 @@
 // The probe answers one question only: which layer saw the drag at all.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { installDragProbe } from '../src/drag-probe.mjs';
+import { installDragProbe } from '../src/studio/drag-probe.mjs';
 
 function fakeWindow() {
   const listeners = new Map();

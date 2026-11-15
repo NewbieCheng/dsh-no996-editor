@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { createEditingPrefs } from '../src/editing-prefs.mjs';
+import { createEditingPrefs } from '../src/project/editing-prefs.mjs';
 
 test('a pin and a display title round-trip and are listed', () => {
   const prefs = createEditingPrefs();

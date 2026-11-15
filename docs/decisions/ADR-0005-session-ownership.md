@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0005-session-ownership
 reader: 维护者、要动会话/归档的人
-fact-source: src/archive-bridge.mjs、src/official-chat-store.mjs、DSH 的 sessions/workspaceRegistry 契约
+fact-source: src/project/archive-bridge.mjs、src/official/official-chat-store.mjs、DSH 的 sessions/workspaceRegistry 契约
 checked: 0.15.11
 rot-if: DSH 开放会话搬移/归组 API
 -->

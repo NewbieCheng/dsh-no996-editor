@@ -3,7 +3,7 @@
 // `新对话` fallback — not just the raw stored title.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { filterEditing, matchRange, sessionDisplayTitle, projectDisplayTitle } from '../src/editing-filter.mjs';
+import { filterEditing, matchRange, sessionDisplayTitle, projectDisplayTitle } from '../src/project/editing-filter.mjs';
 
 const project = (over = {}) => ({
   projectId: 'proj123456', name: '自定义-7f8dfa', path: 'F:\\Films\\自定义-7f8dfa',

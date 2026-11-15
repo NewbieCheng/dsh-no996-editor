@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { startStudioDebug } from '../src/studio-debug.mjs';
+import { startStudioDebug } from '../src/studio/studio-debug.mjs';
 
 function env(name, value) {
   const previous = process.env[name];

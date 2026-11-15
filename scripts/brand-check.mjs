@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { getBrand } from '../src/brand.mjs';
+import { getBrand } from '../src/ui/brand.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const THEME = join(ROOT, 'assets', 'theme');

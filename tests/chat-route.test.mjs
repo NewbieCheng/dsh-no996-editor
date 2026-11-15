@@ -5,7 +5,7 @@
 // whole chat. These cases call the handler the way the Host does.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createChatRoutes } from '../src/studio-controller/routes/chat.mjs';
+import { createChatRoutes } from '../src/studio/studio-controller/routes/chat.mjs';
 
 function fakeResponse() {
   const headers = {};

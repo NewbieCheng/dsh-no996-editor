@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { createHostComponentDetector } from '../src/host-components.mjs';
+import { createHostComponentDetector } from '../src/host/host-components.mjs';
 
 function fakeSpawn(results, calls = []) {
   return (bin, args, options) => {

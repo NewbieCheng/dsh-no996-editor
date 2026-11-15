@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink, open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { installTemplate } from '../src/official-templates.mjs';
+import { installTemplate } from '../src/official/official-templates.mjs';
 
 async function fixture(t) {
   const base = await mkdtemp(join(tmpdir(), 'openfilm-template-test-'));

@@ -1,14 +1,14 @@
 <!-- doc
 id: adr-0011-director-contract
 reader: 设计对话行为、提示词、影片工具的人
-fact-source: src/storyboard.mjs、src/script-plan.mjs、src/agent-overlays.mjs、src/acp-agent-service.mjs
+fact-source: src/film/storyboard.mjs、src/film/script-plan.mjs、src/acp/agent-overlays.mjs、src/acp/acp-agent-service.mjs
 checked: 0.15.21
 rot-if: ACP 会话键、分镜 schema、口播转写接口或工具面变化
 -->
 
 # ADR-0011：一个项目多对话 = 多条 ACP 会话；剪辑先有分镜，再动时间轴
 
-- 状态：生效（0.15.21；面板实机验收见 `docs/STATUS.md` §4）
+- 状态：生效（0.15.21；面板实机验收见 `docs/STATE.md`）
 - 日期：2026-11-15
 - 取代：无（补充 ADR-0010 的对话边界；新增分镜契约）
 
@@ -43,7 +43,7 @@ rot-if: ACP 会话键、分镜 schema、口播转写接口或工具面变化
 
 ## 4. 决定三：分镜是契约，时间轴跟着它走
 
-`.film/storyboard.json`（`src/storyboard.mjs`）：
+`.film/storyboard.json`（`src/film/storyboard.mjs`）：
 
 ```json
 { "version": 1, "duration": 45.5, "shots": [

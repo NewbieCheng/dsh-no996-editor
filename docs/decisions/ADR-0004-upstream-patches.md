@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0004-upstream-patches
 reader: 维护者、升上游的人
-fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official-shell.mjs
+fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official/official-shell.mjs
 checked: 0.15.11
 rot-if: 上游提供可注入的扩展点，或本项目不再 vendored 上游
 -->
@@ -19,7 +19,7 @@ rot-if: 上游提供可注入的扩展点，或本项目不再 vendored 上游
 
 - `vendor/official-shell/` 存**构建产物快照**，`manifest.json` 记录版本、commit、逐文件 sha256；
 - 改动写成源码补丁，放 `patches/`，**一个源文件一个补丁**，顺序与 sha256 记在 `patches/series.json`；
-- 三处 pin 必须一致：`package.json` 的 `openfilm` tarball、`manifest.json`、`src/official-shell.mjs` 的 `OFFICIAL_COMMIT`；
+- 三处 pin 必须一致：`package.json` 的 `openfilm` tarball、`manifest.json`、`src/official/official-shell.mjs` 的 `OFFICIAL_COMMIT`；
 - 样式不做成永久注入：`assets/theme/shell.css` 在发版前由 `npm run shell:bake` 烘焙进产物并重算 manifest（开发期才走运行时注入）。
 
 ## 代价

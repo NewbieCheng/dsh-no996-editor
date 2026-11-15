@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
-import { registerTemplateBridge } from '../src/template-bridge.mjs';
-import { templateProjectUrl } from '../src/studio-panel.mjs';
+import { registerTemplateBridge } from '../src/film/template-bridge.mjs';
+import { templateProjectUrl } from '../src/studio/studio-panel.mjs';
 
 function fixture() {
   let handler, removed = false, calls = [];

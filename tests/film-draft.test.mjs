@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { draftFilm } from '../src/film-draft.mjs';
-import { MAX_SOURCE_BYTES } from '../src/film-source.mjs';
+import { draftFilm } from '../src/film/film-draft.mjs';
+import { MAX_SOURCE_BYTES } from '../src/film/film-source.mjs';
 
 const source = `<!doctype html>\r\n<html><head><style>/* keep */ .x { color: red }</style></head>\r\n<body>\r\n<!-- track note -->\r\n<section id='one'>\r\n  <!-- a note -->\r\n  <video data-note='hello' id='a' src='a.mp4#t=1,9' at='1' class='x'></video>\r\n  <!-- b note -->\r\n  <audio id='b' src='b.wav#t=0,3' at='20'></audio>\r\n</section>\r\n<section id='two'></section>\r\n<section><track src='captions.vtt' kind='captions'></section>\r\n</body></html>`;
 

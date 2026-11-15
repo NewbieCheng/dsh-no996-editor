@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { createOfficialEventHub } from '../src/official-event-hub.mjs';
-import { attachOfficialEventStream } from '../src/official-event-stream.mjs';
+import { createOfficialEventHub } from '../src/official/official-event-hub.mjs';
+import { attachOfficialEventStream } from '../src/official/official-event-stream.mjs';
 
 class Response extends EventEmitter {
   chunks = [];

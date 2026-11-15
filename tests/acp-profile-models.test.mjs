@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyAcpModelProviders } from '../src/acp-profile-models.mjs';
+import { applyAcpModelProviders } from '../src/acp/acp-profile-models.mjs';
 
 const PATCH = `# profile patch
 - id: agent-default-model
@@ -68,7 +68,7 @@ test('the sidebar model is read from the profile patch, so the child is not left
   const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { readProfileDefaultModel } = await import('../src/acp-profile-models.mjs');
+  const { readProfileDefaultModel } = await import('../src/acp/acp-profile-models.mjs');
   const home = mkdtempSync(join(tmpdir(), 'dsh-profile-model-'));
   const profile = join(home, 'profiles', 'desktop');
   mkdirSync(profile, { recursive: true });
@@ -95,7 +95,7 @@ test('the sidebar model is read from the profile patch, so the child is not left
 
 test('the controller falls back to that reader when the Host exposes no selection service', () => {
   const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-  const source = read('src/studio-controller.mjs');
-  assert.match(source, /import \{ readProfileDefaultModel \} from '\.\/acp-profile-models\.mjs'/);
+  const source = read('src/studio/studio-controller.mjs');
+  assert.match(source, /import \{ readProfileDefaultModel \} from '\.\.\/acp\/acp-profile-models\.mjs'/);
   assert.match(source, /return readProfileDefaultModel\(\) \?\? undefined;/);
 });

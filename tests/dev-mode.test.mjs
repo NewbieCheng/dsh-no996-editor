@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createWorkbenchAuth } from '../src/workbench-auth.mjs';
+import { createWorkbenchAuth } from '../src/auth/workbench-auth.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -47,7 +47,7 @@ test('the environment check is source now, and nothing probes on load', () => {
 });
 
 test('controller enables dev only from the explicit environment flag', () => {
-  const source = readFileSync(join(root, 'src', 'studio-controller.mjs'), 'utf8');
+  const source = readFileSync(join(root, 'src', 'studio', 'studio-controller.mjs'), 'utf8');
   assert.match(source, /createWorkbenchAuth\(\{ dev: process\.env\.NO996_OPENFILM_DEV === '1' \}\)/);
   assert.match(source, /dev: status\.dev === true/);
 });

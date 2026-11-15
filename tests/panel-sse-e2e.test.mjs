@@ -5,10 +5,10 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import test from 'node:test';
-import { attachOfficialEventStream } from '../src/official-event-stream.mjs';
-import { createOfficialEventHub } from '../src/official-event-hub.mjs';
-import { createAcpAgentService } from '../src/acp-agent-service.mjs';
-import { startStudioProxy } from '../src/studio-proxy.mjs';
+import { attachOfficialEventStream } from '../src/official/official-event-stream.mjs';
+import { createOfficialEventHub } from '../src/official/official-event-hub.mjs';
+import { createAcpAgentService } from '../src/acp/acp-agent-service.mjs';
+import { startStudioProxy } from '../src/studio/studio-proxy.mjs';
 
 const KEY = 'd'.repeat(48);
 const PROJECT = 'proj123456';

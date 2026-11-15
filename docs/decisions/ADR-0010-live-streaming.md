@@ -1,14 +1,14 @@
 <!-- doc
 id: ADR-0010-live-streaming
 reader: 维护者、要改对话流式链路的人
-fact-source: src/acp-stream-tap.mjs、src/acp-client.mjs、src/acp-agent-service.mjs、src/studio-controller.mjs、patches/190-local-agent-run.patch、%TEMP%\dsh-openfilm\plugin.log、DSH 0.2.2-rc.3 安装包内 dsh-agent / dsh-agent-loop / dsh-acp / dsh-api-session-controller
+fact-source: src/acp/acp-stream-tap.mjs、src/acp/acp-client.mjs、src/acp/acp-agent-service.mjs、src/studio/studio-controller.mjs、patches/190-local-agent-run.patch、%TEMP%\dsh-openfilm\plugin.log、DSH 0.2.2-rc.3 安装包内 dsh-agent / dsh-agent-loop / dsh-acp / dsh-api-session-controller
 checked: 0.15.21
 rot-if: DSH 在 ACP 上提供 durable 增量事件（届时删掉 tap），或 acp 子进程不再由本 Host 拉起
 -->
 
 # ADR-0010：对话的“真流式”重做——live 帧按 attempt 认领，提交时替换而不是拼接
 
-- 状态：生效（0.15.19 实现 P0–P3，0.15.20 修帧顺序；面板实机验收见 `docs/STATUS.md` §4）
+- 状态：生效（0.15.19 实现 P0–P3，0.15.20 修帧顺序；面板实机验收见 `docs/STATE.md`）
 - 日期：2026-11-15
 - 取代：无（`0.15.18` 的 tap 思路保留，接线与合流重做）
 
@@ -51,16 +51,16 @@ rot-if: DSH 在 ACP 上提供 durable 增量事件（届时删掉 tap），或 a
 
 | 段 | 文件 | 做什么 |
 |---|---|---|
-| 子进程注入 | `src/studio-controller.mjs` `spawnArgs()` | 写两个 `--patch` 覆盖层：模型、tap（`- insert:` + 绝对 `file://` URL） |
-| 子进程侧 | `src/acp-stream-tap.mjs` | 订阅 `agent/assistant-stream`，把 `text-delta` / `reasoning-delta` 以 30 ms 合批写回 loopback |
-| 传输 | `src/acp-client.mjs` | spawn 前监听 `127.0.0.1:0`，端口 + 一次性 token 走 env，帧转成 `emit('stream', …)` |
-| 扇出 | `src/acp-agent-service.mjs` → `official-event-hub` → `official-event-stream` | `{kind:'stream'}` 走 SSE |
+| 子进程注入 | `src/studio/studio-controller.mjs` `spawnArgs()` | 写两个 `--patch` 覆盖层：模型、tap（`- insert:` + 绝对 `file://` URL） |
+| 子进程侧 | `src/acp/acp-stream-tap.mjs` | 订阅 `agent/assistant-stream`，把 `text-delta` / `reasoning-delta` 以 30 ms 合批写回 loopback |
+| 传输 | `src/acp/acp-client.mjs` | spawn 前监听 `127.0.0.1:0`，端口 + 一次性 token 走 env，帧转成 `emit('stream', …)` |
+| 扇出 | `src/acp/acp-agent-service.mjs` → `official-event-hub` → `official-event-stream` | `{kind:'stream'}` 走 SSE |
 | 页面 | `patches/190-local-agent-run.patch` | `LocalAgentTurn.stream()` 把增量写进 `text:<turn>:<part>` / `thought:<turn>`，提交时 `mergeStreamText` |
 
 ### 2.5 真正的故障：模型回退把 tap 一起丢了
 
-`src/studio-controller.mjs` 的 `spawnArgs()` 把**两个覆盖层放进同一个数组**；
-`src/acp-agent-service.mjs` 的 `ensure()` 在模型覆盖层被拒时这样重试：
+`src/studio/studio-controller.mjs` 的 `spawnArgs()` 把**两个覆盖层放进同一个数组**；
+`src/acp/acp-agent-service.mjs` 的 `ensure()` 在模型覆盖层被拒时这样重试：
 
 ```js
 opened = await openWith(extraArgs);   // 模型覆盖层 + tap 覆盖层

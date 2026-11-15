@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRefinePrompt, parseRefineReply, refineTranscript } from '../src/asr-refine.mjs';
+import { buildRefinePrompt, parseRefineReply, refineTranscript } from '../src/asr/asr-refine.mjs';
 
 const segments = [
   { start: 0, end: 2, text: '我们今天聊 openfil 的剪辑' },

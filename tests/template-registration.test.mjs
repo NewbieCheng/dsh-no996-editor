@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { installTemplate } from '../src/official-templates.mjs';
+import { installTemplate } from '../src/official/official-templates.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const templates = join(root, 'vendor', 'templates');

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startDraft, appendDraft, undoDraft, MAX_DRAFT_OPERATIONS } from '../src/draft-session.mjs';
-import { draftFilm } from '../src/film-draft.mjs';
+import { startDraft, appendDraft, undoDraft, MAX_DRAFT_OPERATIONS } from '../src/film/draft-session.mjs';
+import { draftFilm } from '../src/film/film-draft.mjs';
 
 const source = '<!doctype html><html><head></head><body><section><video id="clip" src="clip.mp4#t=0,4"></video></section></body></html>';
 

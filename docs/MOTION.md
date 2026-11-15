@@ -453,4 +453,4 @@ function draw(t) {
 | `skills/openfilm-motion/SKILL.md` | 给模型的紧凑入口（触发条件 + 协议摘要） |
 | `skills/openfilm-editing/SKILL.md` | 剪辑手法：节奏、字幕、转场、导出档位 |
 | `docs/TEMPLATES.md` | 模板怎么生成、怎么写单元与镜头 |
-| `docs/ROADMAP.md` | 下一批要做什么，不在本文范围 |
+| `docs/STATE.md` | 当前到哪了，不在本文范围 |

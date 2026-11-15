@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeFilm } from '../src/film-summary.mjs';
+import { summarizeFilm } from '../src/film/film-summary.mjs';
 
 const film = (body, head = '') => `<html><head>${head}</head><body>${body}</body></html>`;
 

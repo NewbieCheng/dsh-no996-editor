@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createPreferencesStore, onboardingCopy } from '../src/preferences.mjs';
+import { createPreferencesStore, onboardingCopy } from '../src/host/preferences.mjs';
 
 test('自定义画布与时长：默认值、合法值、拒绝非法值', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'openfilm-prefs-'));

@@ -31,8 +31,8 @@ test('a missing changelog section blocks the release', () => {
   assert.ok(releaseProblems({ ...base, changelog: '## 0.15.0 —— old\n' }).some(line => line.includes('CHANGELOG.md')));
 });
 
-test('a version that does not appear in STATUS blocks the release', () => {
-  assert.ok(releaseProblems({ ...base, statusText: '| 仓库版本 | **0.15.0** |' }).some(line => line.includes('STATUS.md')));
+test('a version that does not appear in STATE blocks the release', () => {
+  assert.ok(releaseProblems({ ...base, statusText: '| 仓库版本 | **0.15.0** |' }).some(line => line.includes('STATE.md')));
 });
 
 test('an existing tag blocks the release', () => {

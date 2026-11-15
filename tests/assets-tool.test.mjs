@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAssetsTool, flattenFiles } from '../src/assets-tool.mjs';
+import { createAssetsTool, flattenFiles } from '../src/tools/assets-tool.mjs';
 
 const bound = { projectId: 'film123', path: 'C:/films/one' };
 const agent = { id: 'session-a' };

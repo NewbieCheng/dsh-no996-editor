@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createOfficialChatRpc } from '../src/official-chat-rpc.mjs';
+import { createOfficialChatRpc } from '../src/official/official-chat-rpc.mjs';
 
 function store() {
   const loaded = { revision: 2, sessions: [{ id: 's1' }], last: 's1', turns: [{ turn: { id: 't1' }, items: [] }] };

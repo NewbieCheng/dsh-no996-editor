@@ -7,7 +7,7 @@
 // (bound sessions → buildEditingProjects → chat store → prefs) against stubs.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createEditingRoutes } from '../src/studio-controller/routes/editing.mjs';
+import { createEditingRoutes } from '../src/studio/studio-controller/routes/editing.mjs';
 
 const BROWSER = { id: 'browser' };
 

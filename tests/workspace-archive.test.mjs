@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createArchiveWatcher } from '../src/workspace-archive.mjs';
+import { createArchiveWatcher } from '../src/project/workspace-archive.mjs';
 
 /** A Workspace controller stand-in: one follow stream plus two mutations. */
 function fakeController(initial = []) {

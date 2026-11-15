@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBridgeTrace } from '../src/bridge-trace.mjs';
+import { createBridgeTrace } from '../src/host/bridge-trace.mjs';
 
 const update = (name, extra = {}) => ({ key: 'dsh-key', kind: 'update', update: { sessionUpdate: name, ...extra } });
 

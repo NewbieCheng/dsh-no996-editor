@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ensureProjectInstructions, INSTRUCTIONS, upgradeProjectInstructions } from '../src/project-instructions.mjs';
+import { ensureProjectInstructions, INSTRUCTIONS, upgradeProjectInstructions } from '../src/project/project-instructions.mjs';
 
 const folder = () => mkdtempSync(join(tmpdir(), 'no996-agents-md-'));
 

@@ -4,7 +4,7 @@
 // port answers with its redirect, and the fallback page is actually registered.
 //
 // Run after the plugin is loaded: pnpm node scripts/verify-templates.mjs
-import { listTemplates, installTemplate } from '../src/official-templates.mjs';
+import { listTemplates, installTemplate } from '../src/official/official-templates.mjs';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';

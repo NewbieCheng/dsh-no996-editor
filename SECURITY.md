@@ -23,7 +23,7 @@
 
 | 项 | 做法 |
 |---|---|
-| 账号 token | 只存在 Host（`auth-client`/`auth-bridge`），浏览器侧只拿状态，不回显 token |
+| 账号 token | 只存在 Host（`workbench-auth`/`auth-bridge`），浏览器侧只拿状态，不回显 token |
 | 写操作入口 | 自定义请求头 + 回环地址 + 同源校验（见 `docs/reference/api-routes.md`） |
 | 日志 | `plugin-log` 统一写入并脱敏；不记 token、cookie、完整 prompt |
 | 仓库 | 不提交密钥；`scripts/lint.mjs` 扫描常见密钥形态；`dist/` 与 `*.tgz` 不进 git |

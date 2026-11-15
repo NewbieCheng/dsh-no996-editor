@@ -4,8 +4,7 @@
  *
  * The README once said 0.13.0 while package.json said 0.15.1, and the roadmap
  * said 0.9.1. Instead of trusting discipline, check the claims that are cheap
- * to check: STATUS names the current version, it names a published version,
- * and no other doc claims a different "当前 x.y.z".
+ * to check: No other doc claims a different "当前 x.y.z" than package.json.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
@@ -16,16 +15,13 @@ const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
 const version = pkg.version
 const problems = []
 
-const statusFile = join(ROOT, 'docs', 'STATUS.md')
+const statusFile = join(ROOT, 'docs', 'STATE.md')
 if (!existsSync(statusFile)) {
-  problems.push('docs/STATUS.md is missing')
+  problems.push('docs/STATE.md is missing')
 } else {
   const text = readFileSync(statusFile, 'utf8')
   if (!text.includes(`**${version}**`)) {
-    problems.push(`docs/STATUS.md does not state the current version ${version} in bold`)
-  }
-  if (!/\|\s*最近发布包\s*\|/.test(text)) {
-    problems.push('docs/STATUS.md is missing the "最近发布包" row')
+    problems.push(`docs/STATE.md does not state the current version ${version} in bold`)
   }
 }
 
@@ -47,7 +43,7 @@ if (existsSync(lockFile)) {
 const CLAIM = /当前\s*`?v?(\d+\.\d+\.\d+)`?/g
 const targets = [
   join(ROOT, 'README.md'),
-  join(ROOT, 'docs', 'STATUS.md'),
+  join(ROOT, 'docs', 'STATE.md'),
   join(ROOT, 'docs', 'DEVELOPMENT.md'),
   join(ROOT, 'AGENTS.md'),
 ]

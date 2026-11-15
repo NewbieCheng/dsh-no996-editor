@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { createAcpSessionStore } from '../src/acp-session-store.mjs';
+import { createAcpSessionStore } from '../src/acp/acp-session-store.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'no996-acp-store-'));
 const PROJECT = 'proj123456';

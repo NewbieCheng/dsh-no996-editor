@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { splitSentences, ribbonTimes, formatTimecode, truncateChars, countChars, textWeight } from '../src/asr-text.mjs';
+import { splitSentences, ribbonTimes, formatTimecode, truncateChars, countChars, textWeight } from '../src/asr/asr-text.mjs';
 
 test('sentences end at full stops and keep their punctuation', () => {
   assert.deepEqual(splitSentences('大家好。今天聊剪片！你觉得呢？'), ['大家好。', '今天聊剪片！', '你觉得呢？']);

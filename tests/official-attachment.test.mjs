@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
-import { officialFacadeSource } from '../src/official-facade.mjs';
-import { officialUploadSource } from '../src/official-attachment.mjs';
+import { officialFacadeSource } from '../src/official/official-facade.mjs';
+import { officialUploadSource } from '../src/official/official-attachment.mjs';
 
 function facade(upload) {
   const context = { ArrayBuffer, location: { pathname: '/projects/project1' }, openfilmDesktop: { hello: async () => ({ project: { id: 'project1', path: '/project' } }) } };
@@ -15,7 +15,7 @@ class SizedBuffer extends ArrayBuffer {
 
 test('attachment facade distinguishes size, empty file, invalid input and missing upload', async () => {
   const api = facade();
-  for (const [bytes, pattern] of [[new SizedBuffer(256 * 1024 * 1024 + 1), /超过 256 MiB/], [new ArrayBuffer(0), /附件为空/], [null, /无法读取附件/], [new ArrayBuffer(1), /上传暂不可用/]]) {
+  for (const [bytes, pattern] of [[new SizedBuffer(256 * 1024 * 1024 + 1), /本机路径引用|256 MiB/], [new ArrayBuffer(0), /附件为空/], [null, /无法读取附件/], [new ArrayBuffer(1), /上传暂不可用/]]) {
     await assert.rejects(api.chat.saveAttachment('/project', 'x.mp4', bytes), pattern);
   }
   await assert.rejects(api.chat.saveAttachment('/project', '', new ArrayBuffer(1)), /文件名无效/);
@@ -34,7 +34,7 @@ test('attachment facade accepts the exact limit and preserves transport errors',
 test('injected upload transport reports statuses and uncertain outcomes in Chinese', async () => {
   const make = fetch => runInNewContext(officialUploadSource, { fetch, URLSearchParams });
   for (const [response, pattern] of [
-    [{ status: 413, ok: false }, /超过 256 MiB/],
+    [{ status: 413, ok: false }, /本机路径引用|256 MiB/],
     [{ status: 422, ok: false }, /已导入但无法读取/],
     [{ status: 503, ok: false }, /上传暂不可用.*可能已导入/],
     [{ status: 200, ok: true, json: async () => { throw new Error('bad json'); } }, /结果无法读取.*可能已导入/],

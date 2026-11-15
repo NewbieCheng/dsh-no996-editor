@@ -1,7 +1,7 @@
 <!-- doc
 id: ui-layers
 reader: 改界面的人、智能体
-fact-source: src/studio-entry.js、src/theme.mjs、DSH 客户端包（source map）、推进记录见 ADR-0002/0006
+fact-source: src/studio/studio-entry.js、src/ui/theme.mjs、DSH 客户端包（source map）、推进记录见 ADR-0002/0006
 checked: 0.15.11
 rot-if: 层数变化、DSH 为侧栏开出官方插槽、或上游提供源码
 -->
@@ -15,7 +15,7 @@ rot-if: 层数变化、DSH 为侧栏开出官方插槽、或上游提供源码
 
 | 层 | 页面 | 源码归属 | 能不能改源码 |
 |---|---|---|---|
-| L0 DSH 外壳 | 侧边栏、面板边框、加载/错误态 | 本仓 `src/studio-entry.js`、`studio-panel.mjs` | 能，完全自己的 |
+| L0 DSH 外壳 | 侧边栏、面板边框、加载/错误态 | 本仓 `src/studio/studio-entry.js`、`studio-panel.mjs` | 能，完全自己的 |
 | L1 官方桌面壳 | 项目列表、对话、登录、首次引导 | 上游 `apps/desktop/*`，产物在 `vendor/official-shell/ui` | 能，但要源码补丁 + 重建 |
 | L2 Studio 编辑器 | 时间轴、画布、素材库 | 上游 monorepo 的 `packages/openfilm/studio/ui/src`，随桌面壳一起构建进 `vendor/official-shell/ui`；npm 包的 `studio/ui/dist` 只在我们没传 `editorDir` 时兜底 | 能，与 L1 同一条补丁链路（ADR-0009） |
 | L3 影片/模板页 | 用户项目里的 `film.html` | 本仓 `vendor/templates/*` | 能，改模板源并重建 |
@@ -47,7 +47,7 @@ brand/brand.json          ← 产品名、颜色、链接、上游归属（唯�
 assets/theme/tokens.css   ← 非品牌 token：圆角、间距、动效曲线
 assets/theme/shell.css    ← L1 覆盖
 assets/theme/studio.css   ← L2 覆盖
-src/theme.mjs             ← 读取 + 注入（按 surface 注册表 THEME_SURFACES）
+src/ui/theme.mjs             ← 读取 + 注入（按 surface 注册表 THEME_SURFACES）
 ```
 
 - 品牌色由 `brand.json` 生成 `--n996-*`，注入在 tokens 之前；
@@ -59,7 +59,7 @@ src/theme.mjs             ← 读取 + 注入（按 surface 注册表 THEME_SURF
 
 ### 4.1 归属
 
-侧栏是 **DSH 自己的客户端插件**（`@deepseek-ai/dsh-client-ui-sidebar`），打进 `app.asar`。本仓与它的唯一关系：`src/studio-entry.js` 注册了 `sidebar.panellist` 入口（「视频创作」）与 `shell.overlay` 面板。
+侧栏是 **DSH 自己的客户端插件**（`@deepseek-ai/dsh-client-ui-sidebar`），打进 `app.asar`。本仓与它的唯一关系：`src/studio/studio-entry.js` 注册了 `sidebar.panellist` 入口（「视频创作」）与 `shell.overlay` 面板。
 
 可用插槽（DSH 0.15 实测）：`sidebar.workspaces`（single，**不要占**）、`sidebar.workspaces.session.row.action`、`sidebar.workspaces.session.menu.item`、`sidebar.session.row.trailing/.leading/.hover`、`sidebar.panellist`、`sidebar.footer.action`、`sidebar.settings`、`sidebar.right.pane.tab`。
 **「工作区」标题行本身没有官方插槽。**
@@ -94,7 +94,7 @@ grep -n "section.workspaces" .dev/tmp/workspace-src.js
 2. 父节点是 `sectionHeader`，它的下一个兄弟是 `listArea`；
 3. 插入按钮、隐藏列表，MutationObserver 跟随 React 重渲染（标题文字会在两值间切换）。
 
-如果元素定位给的是 `src/client-entry.js:24`、`.tmp-frames/login-dom.js:57` 这类路径，那是客户端入口/登录页，**不是侧栏组件**——以本节为准。
+如果元素定位给的是 `src/ui/client-entry.js:24`、`.tmp-frames/login-dom.js:57` 这类路径，那是客户端入口/登录页，**不是侧栏组件**——以本节为准。
 
 ## 5. 模型 / 思考 / 权限从哪来
 
@@ -105,7 +105,7 @@ grep -n "section.workspaces" .dev/tmp/workspace-src.js
 | `model` | `model` | 分组：`DeepSeek`、`DeepSeek Account`、`opencode-go`、`ChatGPT subscription`… |
 | `reasoning_effort` | `thought_level` | `Provider default / Low / High / Max`（官方模型还有 `Off`） |
 
-**没有 permission 选项。** 权限是 DSH 的会话权限预设：子进程启动时用 `DSH_PERMISSION_MODE` 传入（`src/acp-agent-service.mjs` 的 `ensure()`），预设存在 `~/.dsh/storages/no996_openfilm_project_permissions`，默认 `danger-full-access`。所以换模型不会、也不应该改变权限——权限是项目级，不是模型级。
+**没有 permission 选项。** 权限是 DSH 的会话权限预设：子进程启动时用 `DSH_PERMISSION_MODE` 传入（`src/acp/acp-agent-service.mjs` 的 `ensure()`），预设存在 `~/.dsh/storages/no996_openfilm_project_permissions`，默认 `danger-full-access`。所以换模型不会、也不应该改变权限——权限是项目级，不是模型级。
 
 排查"权限行变灰/消失"：先确认是 DSH 主界面菜单还是面板菜单；再看 `%TEMP%\dsh-openfilm\plugin.log` 的 `permission-hint-unavailable` / `acp-default-model-failed`。
 

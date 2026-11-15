@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createLoginRememberStore } from '../src/login-remember.mjs';
+import { createLoginRememberStore } from '../src/auth/login-remember.mjs';
 
 test('login remember encrypts password on disk and round-trips', async () => {
   const home = await mkdtemp(join(tmpdir(), 'nof-remember-'));

@@ -31,7 +31,7 @@ async function tap({ token = 'tok' } = {}) {
   process.env.NO996_OPENFILM_STREAM_PORT = String(server.address().port);
   process.env.NO996_OPENFILM_STREAM_TOKEN = token;
 
-  const { apply } = await import('../src/acp-stream-tap.mjs');
+  const { apply } = await import('../src/acp/acp-stream-tap.mjs');
   const handlers = [];
   let dispose = () => {};
   apply({

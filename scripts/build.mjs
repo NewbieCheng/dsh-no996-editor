@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 await build({
   absWorkingDir: root,
-  entryPoints: ['src/studio-entry.js'],
+  entryPoints: ['src/studio/studio-entry.js'],
   outfile: 'client.js',
   bundle: true,
   format: 'iife',

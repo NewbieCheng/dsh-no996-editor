@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
-import { officialFacadeSource } from '../src/official-facade.mjs';
+import { officialFacadeSource } from '../src/official/official-facade.mjs';
 
 const PROJECT = 'film123';
 // Values cross the VM realm boundary, so their prototypes are not this realm's.

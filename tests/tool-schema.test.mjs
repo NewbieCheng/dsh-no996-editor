@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createFrameTool } from '../src/frame-tool.mjs';
-import { createFilmTool } from '../src/film-tool.mjs';
-import { createLibraryTool } from '../src/library-tool.mjs';
-import { createGetTool } from '../src/get-tool.mjs';
-import { createClipTool } from '../src/clip-tool.mjs';
-import { createAssetsTool } from '../src/assets-tool.mjs';
-import { createExportTool } from '../src/export-tool.mjs';
-import { createCliTool } from '../src/cli-tool.mjs';
-import { createDraftTool } from '../src/draft-tool.mjs';
-import { createGuideTool } from '../src/guide-tool.mjs';
+import { createFrameTool } from '../src/tools/frame-tool.mjs';
+import { createFilmTool } from '../src/tools/film-tool.mjs';
+import { createLibraryTool } from '../src/tools/library-tool.mjs';
+import { createGetTool } from '../src/tools/get-tool.mjs';
+import { createClipTool } from '../src/tools/clip-tool.mjs';
+import { createAssetsTool } from '../src/tools/assets-tool.mjs';
+import { createExportTool } from '../src/tools/export-tool.mjs';
+import { createCliTool } from '../src/tools/cli-tool.mjs';
+import { createDraftTool } from '../src/tools/draft-tool.mjs';
+import { createGuideTool } from '../src/tools/guide-tool.mjs';
 
 /*
  * DSH validates a plugin's tool schemas when the plugin loads and refuses the

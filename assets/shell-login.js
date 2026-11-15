@@ -237,7 +237,7 @@
   // ---- 时间轴 + 城市背景共用一条时钟：默认播放，可暂停 ----
   var reduced=false;
   try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
-  var DAY_SECONDS=150, CITY_START=1.9, CITY_END=2.86, CITY_SPEED=.2, CITY_INTERVAL=33;
+  var DAY_SECONDS=150, CITY_START=1.9, CITY_END=2.86, CITY_SPEED=.2, CITY_INTERVAL=100;
   var p=0, playing=!reduced, ct=2.35, cityApi=null, lastNow=0, lastCityAt=0, dragging=false, wasPlaying=false;
   var lastMinute=-1, lastSeg=-1, lastTip='', trackWidth=0;
   var PAUSE_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
@@ -358,17 +358,22 @@
     scene.style.transition='';
     scene.style.opacity='1';
   }
+  // ~10 fps city by default; under load stretch the gap so the form stays responsive.
+  var cityGap=CITY_INTERVAL;
   function frame(now){
     if(root.hidden||document.hidden){lastNow=now;requestAnimationFrame(frame);return;}
-    var dt=lastNow?Math.min(.05,(now-lastNow)/1000):0;
+    var raw=lastNow?(now-lastNow)/1000:0;
+    var dt=lastNow?Math.min(.05,raw):0;
     lastNow=now;
+    if(raw>0.04)cityGap=Math.min(200,cityGap+20);
+    else if(raw>0&&cityGap>CITY_INTERVAL)cityGap=Math.max(CITY_INTERVAL,cityGap-5);
     if(playing){
       p+=dt/DAY_SECONDS;
       if(p>=1){p-=1;wrapScene();}
       ct+=dt*CITY_SPEED;
       if(ct>CITY_END)ct=CITY_START+((ct-CITY_END)%(CITY_END-CITY_START));
-      // 30fps 是样片原生节奏；半分辨率栅格化已经把整屏绘制像素降下来了。
-      if(cityApi&&now-lastCityAt>=CITY_INTERVAL){lastCityAt=now;cityApi.renderAt(ct);}
+      // 半分辨率栅格化已经把整屏绘制像素降下来了；再按 cityGap 限频。
+      if(cityApi&&now-lastCityAt>=cityGap){lastCityAt=now;cityApi.renderAt(ct);}
       setP(p);
     }
     requestAnimationFrame(frame);

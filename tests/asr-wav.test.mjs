@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseWavHeader, openWav } from '../src/asr-wav.mjs';
+import { parseWavHeader, openWav } from '../src/asr/asr-wav.mjs';
 
 /** A minimal 16-bit PCM wav with a LIST chunk in front of the data, like ffmpeg writes. */
 function wavBytes({ sampleRate = 16000, channels = 1, samples = [], extraChunk = true }) {

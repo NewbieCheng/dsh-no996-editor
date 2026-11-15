@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { startLocalConsole } from '../src/studio-debug-redirect.mjs';
+import { startLocalConsole } from '../src/studio/studio-debug-redirect.mjs';
 
 test('loopback debug console refuses unauthenticated project creation', async () => {
   let calls = 0;

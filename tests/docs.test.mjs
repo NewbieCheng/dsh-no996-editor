@@ -99,16 +99,16 @@ test('strictMeta accepts a complete header and rejects a missing field', () => {
   assert.ok(checkDocs({ root: broken, agentsLimit: 1024, strictMeta: true }).problems.some((l) => l.includes('"reader" is missing')));
 });
 
-test('progress wording is confined to STATUS and ROADMAP', () => {
+test('progress wording is confined to STATE', () => {
   const dir = metaRoot({
     docs: {
       'ARCHITECTURE.md': GOOD_HEADER + '这个功能源码完成，待真机验证。\n',
-      'STATUS.md': GOOD_HEADER + '源码完成，待真机验证。\n',
+      'STATE.md': GOOD_HEADER + '源码完成，待真机验证。\n',
     },
   });
   const { problems } = checkDocs({ root: dir, agentsLimit: 1024, strictMeta: true });
   assert.equal(problems.filter((line) => line.includes('ARCHITECTURE.md') && line.includes('progress wording')).length, 2);
-  assert.equal(problems.filter((line) => line.startsWith('/docs/STATUS.md')).length, 0);
+  assert.equal(problems.filter((line) => line.startsWith('/docs/STATE.md')).length, 0);
 });
 
 test('a stale claim is reported where the doc lives', () => {

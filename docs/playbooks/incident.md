@@ -104,7 +104,7 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 **改法（两步，第一步不够）**：
 1. 两个 A1 补丁把整页变成投放区；路径由 DSH 页面代答，拿不到就回落到复制入库。**发布后仍然"禁止"** ——
    因为事件根本没进那个 frame。
-2. 真因在承载官方壳的 `<iframe>`：`src/studio-panel.mjs` 给它加了 `sandbox` 属性。**Chromium 拒绝把
+2. 真因在承载官方壳的 `<iframe>`：`src/studio/studio-panel.mjs` 给它加了 `sandbox` 属性。**Chromium 拒绝把
    桌面文件拖进带 sandbox 的 frame**，连 `dragover` 都不派发，所以第一步的 handler 一次也没执行
    （对照：Atlassian Forge 的沙箱 iframe 有同一症状，页内拖拽却正常）。0.15.11 去掉 `sandbox`，
    保留 URL 校验与 `allow` 列表。
@@ -182,7 +182,7 @@ iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型；**进程完�
 只有 `acp-ready` 没有 `agent-trace`。
 
 **改法**：拿不到 Host 选择时读 profile 的 `agent-default-model`
-（`readProfileDefaultModel`，`src/acp-profile-models.mjs`），子进程一上来就是侧边栏那个模型与
+（`readProfileDefaultModel`，`src/acp/acp-profile-models.mjs`），子进程一上来就是侧边栏那个模型与
 思考强度；`tests/acp-profile-models.test.mjs` 覆盖有/没有两种情况。
 
 **边界**：只读了 desktop 那份 profile 的 patch；`ctx.agentDefaultModel` 真给出值时仍以它为准。
@@ -269,7 +269,7 @@ ACP_REQUEST_FAILED`；模型菜单只剩「默认」；`plugin.log` 每两秒一
 
 UI 完全由 `/api/local-models` 的数据驱动，所以**不需要重建 Studio UI**：补 `ABOUT` + `local-models.json` 两处数据，行就按原生组件渲染。
 
-**做法**：`src/studio-library-patch.mjs` 在 Host 启动时幂等改这两处（装在 `node_modules/openfilm`，pnpm 重装会覆盖）；`src/studio-library-mirror.mjs` 起回环镜像并把 `OPENFILM_LIBRARY_URL` 指过去。
+**做法**：`src/studio/studio-library-patch.mjs` 在 Host 启动时幂等改这两处（装在 `node_modules/openfilm`，pnpm 重装会覆盖）；`src/studio/studio-library-mirror.mjs` 起回环镜像并把 `OPENFILM_LIBRARY_URL` 指过去。
 
 **坑**：`npm run upstream:fetch` 用 `git fetch --depth=1 origin <sha>` 拉 pin commit 会报 `couldn't find remote ref`——对象其实在 clone 里，直接 `git -C .upstream/openfilm checkout --force <sha>`。另外 `openfilm` 的 `exports` 只开子路径，要 `import.meta.resolve('openfilm/package.json')` 再 `new URL('.', …)` 才拿得到包根。
 

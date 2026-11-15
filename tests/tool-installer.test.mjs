@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
-import { createToolInstaller, readTarMember } from '../src/tool-installer.mjs';
+import { createToolInstaller, readTarMember } from '../src/tools/tool-installer.mjs';
 
 function block(name, body) {
   const header = Buffer.alloc(512);

@@ -2,7 +2,7 @@
 // so deleting the last chat cannot make the project vanish from the list.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEditingProjects } from '../src/editing-sessions.mjs';
+import { buildEditingProjects } from '../src/project/editing-sessions.mjs';
 
 test('a project without a binding is still listed, with no sessionId', () => {
   const items = buildEditingProjects([{ id: 'proj123456', name: '自定义-7f8dfa', path: 'C:\\Films\\p' }]);

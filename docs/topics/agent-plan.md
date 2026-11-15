@@ -1,7 +1,7 @@
 <!-- doc
 id: agent-plan
 reader: 设计提示词与对话行为的人、维护对话桥的人
-fact-source: dsh --profile acp --dump-config、src/project-instructions.mjs、src/official-facade.mjs、src/acp-agent-service.mjs、src/*-tool.mjs、skills/
+fact-source: dsh --profile acp --dump-config、src/project/project-instructions.mjs、src/official/official-facade.mjs、src/acp/acp-agent-service.mjs、src/*-tool.mjs、skills/
 checked: 0.15.21
 rot-if: ACP 会话键、注入链（persona/AGENTS.md/技能）、影片工具面或模板库变化
 -->
@@ -15,15 +15,15 @@ rot-if: ACP 会话键、注入链（persona/AGENTS.md/技能）、影片工具�
 
 | 批次 | 状态 | 落点 |
 |---|---|---|
-| P0-1 会话按对话隔离 | **已实现**（单测；面板未验） | `src/acp-agent-service.mjs`、`src/acp-session-store.mjs`、`src/official-facade.mjs` |
+| P0-1 会话按对话隔离 | **已实现**（单测；面板未验） | `src/acp/acp-agent-service.mjs`、`src/acp/acp-session-store.mjs`、`src/official/official-facade.mjs` |
 | P0-2 影片库移出仓库 | **已实现** | 默认目录 `~/Videos/OpenFilm/Projects`；注入链修复见 P0-2' |
-| P0-2' 仓库手册不再注入 | **已实现** | `src/agent-overlays.mjs`（`.film`/`film.html` 根标记） |
+| P0-2' 仓库手册不再注入 | **已实现** | `src/acp/agent-overlays.mjs`（`.film`/`film.html` 根标记） |
 | P0-3 persona 换成剪辑导演 | **已实现**（`--dump-config` 验证） | 同上 |
 | P0-4 注入自检 | **已实现** | `/diagnose.instructions`（persona、逐文件字节、budget） |
-| P1 分镜契约 | **已实现**（`read/write/plan/from-script/subtitles`） | `src/storyboard.mjs`、`src/storyboard-tool.mjs`、`skills/openfilm-director` |
+| P1 分镜契约 | **已实现**（`read/write/plan/from-script/subtitles`） | `src/film/storyboard.mjs`、`src/tools/storyboard-tool.mjs`、`skills/openfilm-director` |
 | P1-3 导演技能 | **已实现** | `skills/openfilm-director/SKILL.md` |
-| P2 口播优先 | **已实现**（转写→句子→镜头→字幕，纯函数） | `src/script-plan.mjs` |
-| P3 模板可发现 | **已实现**（目录 + `prompt.md` 按需） | `src/template-catalog.mjs`、`openfilm_library kind=template` |
+| P2 口播优先 | **已实现**（转写→句子→镜头→字幕，纯函数） | `src/film/script-plan.mjs` |
+| P3 模板可发现 | **已实现**（目录 + `prompt.md` 按需） | `src/film/template-catalog.mjs`、`openfilm_library kind=template` |
 | P4 上下文预算 | **已实现**（常驻 ≤ 6 KB 可查） | `/diagnose.instructions.budget` |
 | 从分镜自动建时间轴 | **未做**（缺片段创建接口） | 见 §8 与 `ROADMAP` |
 | L2 每轮项目摘要注入 | **未做**（改为按需读 `openfilm_film`/分镜） | 见 `ROADMAP` |
@@ -56,7 +56,7 @@ rot-if: ACP 会话键、注入链（persona/AGENTS.md/技能）、影片工具�
         └─ 项目根（有 .git）  F:\Dev\Desktop-Projects\dsh-openfilm   ← 仓库手册在这里
 ```
 
-`dsh-agent-instructions` 用 `.git` 标记项目根，把**从项目根到 cwd 的每一层** `AGENTS.md` 都注入。影片库放在插件仓库里，于是"改插件的人"的手册进了"剪片的人"的提示词。项目自己那份 `AGENTS.md`（[`src/project-instructions.mjs`](../src/project-instructions.mjs) 写的）排在它后面，权重更小。
+`dsh-agent-instructions` 用 `.git` 标记项目根，把**从项目根到 cwd 的每一层** `AGENTS.md` 都注入。影片库放在插件仓库里，于是"改插件的人"的手册进了"剪片的人"的提示词。项目自己那份 `AGENTS.md`（[`src/project/project-instructions.mjs`](../src/project/project-instructions.mjs) 写的）排在它后面，权重更小。
 
 它为什么还去读 `.film/`、`assets/`、`.codegraph/`？因为工具权限允许，且项目说明第 1 条写着"先读再改"。它没有"该读什么"的边界——那正是下面要补的。
 
@@ -83,8 +83,8 @@ rot-if: ACP 会话键、注入链（persona/AGENTS.md/技能）、影片工具�
 事实链：
 
 1. 页面每个对话有自己的 id（`ProjectSessionItem.id`）和"agent 的会话 id"（`agentSessions[agent]`），`App.tsx` 每轮把 `conversation`/`resume` 交给桥；
-2. 桥（[`src/official-facade.mjs`](../src/official-facade.mjs) `start`）把 `resume` 当作对话 id 回给页面，但 **Host 侧只用 `projectId`**：`agentKeys.set(key, projectId)`；
-3. [`src/acp-agent-service.mjs`](../src/acp-agent-service.mjs) 的 `entryOf(projectId)` 一个项目**只有一个** ACP 会话，`send()` 用的是 `entry.sessionId`；
+2. 桥（[`src/official/official-facade.mjs`](../src/official/official-facade.mjs) `start`）把 `resume` 当作对话 id 回给页面，但 **Host 侧只用 `projectId`**：`agentKeys.set(key, projectId)`；
+3. [`src/acp/acp-agent-service.mjs`](../src/acp/acp-agent-service.mjs) 的 `entryOf(projectId)` 一个项目**只有一个** ACP 会话，`send()` 用的是 `entry.sessionId`；
 4. 所以：**同一项目下所有对话共用一条 DSH 会话**。新建对话 = 接着上一轮聊，历史、思考、工具调用全在。
 
 这不是"记住了不该记的"，是**根本没实现按对话分会话**。修法在 §6 P0-1。

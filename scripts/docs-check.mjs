@@ -22,7 +22,7 @@ const REQUIRED_FIELDS = ['id', 'reader', 'fact-source', 'checked', 'rot-if'];
 
 /** Words that describe progress; only the status lanes may use them. */
 const PROGRESS_PATTERNS = [/源码完成/, /当前批/, /待真机验证/, /已实现 0\./];
-const PROGRESS_ALLOWED = new Set(['STATUS.md', 'ROADMAP.md']);
+const PROGRESS_ALLOWED = new Set(['STATE.md']);
 
 /** Facts that were true two versions ago and are now actively misleading. */
 const STALE_PATTERNS = [
@@ -149,7 +149,7 @@ function checkFreshness(root, { problems, warnings }) {
     if (!PROGRESS_ALLOWED.has(base) && !isDecision) {
       const prose = stripFences(text);
       for (const pattern of PROGRESS_PATTERNS) {
-        if (pattern.test(prose)) problems.push(`${relative}: progress wording (${pattern.source}) belongs in STATUS.md`);
+        if (pattern.test(prose)) problems.push(`${relative}: progress wording (${pattern.source}) belongs in STATE.md`);
       }
     }
   }
@@ -169,7 +169,7 @@ function checkFreshness(root, { problems, warnings }) {
 
 /**
  * Prose that names a repository file is a claim that the file exists. Prose rots by
- * pointing at things that moved (`src/studio-controller.mjs` line numbers, a renamed
+ * pointing at things that moved (`src/studio/studio-controller.mjs` line numbers, a renamed
  * module), and nothing else notices: a dead *link* is checked, a dead *code span* is
  * not. Only paths with a known source extension are checked, so examples and prose
  * stay free.

@@ -10,23 +10,23 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { createRouter } from '../src/studio-controller/router.mjs';
+import { createRouter } from '../src/studio/studio-controller/router.mjs';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('the controller never calls the web registry directly', () => {
-  const controller = read('src/studio-controller.mjs');
+  const controller = read('src/studio/studio-controller.mjs');
   assert.equal((controller.match(/ctx\.webServer\.register\(/g) ?? []).length, 0, 'only the router module may register routes');
 });
 
 test('the router module is the single direct caller', () => {
-  const router = read('src/studio-controller/router.mjs');
+  const router = read('src/studio/studio-controller/router.mjs');
   assert.equal((router.match(/webServer\.register\(/g) ?? []).length, 1);
   assert.equal(/const\s+registerRoute\b/.test(router), false, 'the guard is a function, not a binding that could run early');
 });
 
 test('the router is created before the first route registration', () => {
-  const source = read('src/studio-controller.mjs');
+  const source = read('src/studio/studio-controller.mjs');
   const declaration = source.indexOf('const router = createRouter(');
   const firstUse = source.indexOf('trackRoute(registerRoute(');
   assert.ok(declaration > 0, 'the controller creates a router');

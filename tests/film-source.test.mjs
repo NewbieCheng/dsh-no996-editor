@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeFilmSource, MAX_SOURCE_BYTES } from '../src/film-source.mjs';
+import { decodeFilmSource, MAX_SOURCE_BYTES } from '../src/film/film-source.mjs';
 
 test('decodes complete UTF-8 film data without executing markup', () => {
   const data = new TextEncoder().encode('<script>throw new Error("executed")</script>中文');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planSegments, normalizeSegments, SEGMENT_LIMITS } from '../src/asr-segments.mjs';
+import { planSegments, normalizeSegments, SEGMENT_LIMITS } from '../src/asr/asr-segments.mjs';
 
 test('fixed windows cover the whole file and stop at the end', () => {
   assert.deepEqual(planSegments(20, { windowSec: 8 }), [

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { startStudioProxy } from '../src/studio-proxy.mjs';
+import { startStudioProxy } from '../src/studio/studio-proxy.mjs';
 
 /*
  * The transcript routes are the only way an image or a product reaches a person's

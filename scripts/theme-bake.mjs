@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Bake the theme into the vendored shell instead of injecting it at runtime.
 //
-// Development injects the same CSS (src/theme.mjs) so iteration is save+refresh.
+// Development injects the same CSS (src/ui/theme.mjs) so iteration is save+refresh.
 // A release must not depend on that: the shipped artifact gets one extra
 // stylesheet and one <link>, recorded in the manifest like every other file.
 // This step is idempotent and does not need the upstream checkout.
@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { brandCssVars, getBrand } from '../src/brand.mjs';
+import { brandCssVars, getBrand } from '../src/ui/brand.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SHELL = join(ROOT, 'vendor', 'official-shell');

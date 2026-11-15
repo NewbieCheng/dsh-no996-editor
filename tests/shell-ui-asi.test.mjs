@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { shellUiInjection } from '../src/shell-extras.mjs';
+import { shellUiInjection } from '../src/ui/shell-extras.mjs';
 
 /*
  * `assets/shell-ui.js` is injected into the official OpenFilm page as one inline

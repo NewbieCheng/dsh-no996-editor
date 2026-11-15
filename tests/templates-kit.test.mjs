@@ -200,7 +200,7 @@ for (const name of replicaShots) {
 }
 
 /**
- * 安装模板是把整个模板目录复制进项目（src/official-templates.mjs 的 copy）。
+ * 安装模板是把整个模板目录复制进项目（src/official/official-templates.mjs 的 copy）。
  * 所以页面只能引用模板目录内部的资源——一个指向 `_kit/` 的 ../ 链接在项目里会
  * 404，而且只在那时候才炸。这条测试守的就是这个边界。
  */

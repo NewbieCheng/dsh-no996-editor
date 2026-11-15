@@ -1,7 +1,7 @@
 <!-- doc
 id: storage
 reader: 维护者、要加持久化的人
-fact-source: src/official-chat-store.mjs、src/acp-session-store.mjs、src/preferences.mjs、DSH 的 storageDomain
+fact-source: src/official/official-chat-store.mjs、src/acp/acp-session-store.mjs、src/host/preferences.mjs、DSH 的 storageDomain
 checked: 0.15.11
 rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 -->

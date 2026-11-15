@@ -8,7 +8,7 @@ rot-if: 进程模型、对话边界、面板宿主方式变化
 
 # 架构：OpenFilm × DSH 的正确接法（ACP 为边界）
 
-> 状态：方案待批（2026-11-13）。批准后按 §7 的里程碑实施，并把未完成项并入 `docs/ROADMAP.md`。
+> 只写"系统长什么样、边界在哪"。进度在 `docs/STATE.md`，为什么这么定在 `docs/decisions/`。
 > 依据：本机 OpenFilm 源码 `F:\Dev\_upstream\openfilm`（apps/desktop）与我们的 `src/official-*` 实现。
 
 ## 1. 事实：OpenFilm 的对话本来就是 ACP
@@ -59,8 +59,8 @@ rot-if: 进程模型、对话边界、面板宿主方式变化
 - **边界是 ACP**：Host 不再手工映射"回合"，只做 ACP 客户端（`initialize/session.new|resume/session.prompt/cancel`，转发 `session/update`、`request_permission`、模型与 effort 选项）。
 - **一条对话一条 ACP 会话（0.15.21，见 [ADR-0011](decisions/ADR-0011-director-contract.md)）**：一个项目一个 `dsh --profile acp` 子进程（MCP 令牌、tap、模型菜单是进程级的），子进程内按页面的对话 id `session/new` / `session/resume`，会话 id 按对话存在 `~/.dsh/no996-openfilm/acp-sessions.json`（v2；v1 读成默认对话）。帧与提交按 `sessionId` 路由回各自的对话；权限请求不带 sessionId，按当前跑着的会话回答。**没有这个键，新建对话就是接着上一轮聊**——这是修掉的真 bug，不是观感。
 - **身份与指令边界写在子进程配置里**：`--patch` 覆盖 `system-prompt.personaPrefix`（"你是 No996 Studio 的剪辑导演…"）与 `agent-instructions.projectRootMarkers`（加 `.film`、`film.html`）。影片文件夹因此成为指令链的根，仓库/单仓上层的 `AGENTS.md` 不再进入影片对话；`/diagnose.instructions` 会列出实际注入的文件、字节与常驻预算（≤ 6 KB），并把被排除的上层文件列在 `outside`。
-- **分镜是契约**：`.film/storyboard.json`（`src/storyboard.mjs`）由 `openfilm_storyboard` 读/写/校验；`plan` 把分镜翻成 `openfilm_clip` 的 trim/move 并列出缺片段的镜头；口播优先（`src/script-plan.mjs`：句子 → 按句切镜 → 字幕 SRT）是纯函数，同一份转写永远给同一条切法。
-- **token 级流式另走一条通道（0.15.19，见 [ADR-0010](decisions/ADR-0010-live-streaming.md)）**：ACP 只发提交后的整段消息，而面板要"边写边出"。子进程里本来就看得见 provider 增量，所以 `src/acp-stream-tap.mjs` 以 `--patch` 覆盖层（`- insert:` + 绝对文件 URL）注入进 `dsh --profile acp`，订阅 `agent/assistant-stream`，把 `text-delta`/`reasoning-delta` 通过 loopback TCP（端口 + 一次性 token 由 env 下发）写回 Host。帧带 `attempt`（DSH 的 attemptId）、`index` 与 `turn`，**且全部走同一条队列**——快照插队会让同一段话写两遍（0.15.20 的教训）；页面按 attempt 认领行，`sync`（约 250 ms 的快照）与 `seal`（attempt 结束的整段）只覆盖、绝不拼接（`preferLonger`），比当前轮更旧的帧直接丢弃。覆盖层按用途分开：模型覆盖层被拒时只丢它，tap 永远随每个存活子进程注入。ACP 路径完全不变，tap 起不来就退回"整段到达"，并记 `acp-stream-silent`（每轮另记 `acp-stream` 的 delta/seal/sync 计数）。思考行默认收起，展开后最高 280px 内部滚动。
+- **分镜是契约**：`.film/storyboard.json`（`src/film/storyboard.mjs`）由 `openfilm_storyboard` 读/写/校验；`plan` 把分镜翻成 `openfilm_clip` 的 trim/move 并列出缺片段的镜头；口播优先（`src/film/script-plan.mjs`：句子 → 按句切镜 → 字幕 SRT）是纯函数，同一份转写永远给同一条切法。
+- **token 级流式另走一条通道（0.15.19，见 [ADR-0010](decisions/ADR-0010-live-streaming.md)）**：ACP 只发提交后的整段消息，而面板要"边写边出"。子进程里本来就看得见 provider 增量，所以 `src/acp/acp-stream-tap.mjs` 以 `--patch` 覆盖层（`- insert:` + 绝对文件 URL）注入进 `dsh --profile acp`，订阅 `agent/assistant-stream`，把 `text-delta`/`reasoning-delta` 通过 loopback TCP（端口 + 一次性 token 由 env 下发）写回 Host。帧带 `attempt`（DSH 的 attemptId）、`index` 与 `turn`，**且全部走同一条队列**——快照插队会让同一段话写两遍（0.15.20 的教训）；页面按 attempt 认领行，`sync`（约 250 ms 的快照）与 `seal`（attempt 结束的整段）只覆盖、绝不拼接（`preferLonger`），比当前轮更旧的帧直接丢弃。覆盖层按用途分开：模型覆盖层被拒时只丢它，tap 永远随每个存活子进程注入。ACP 路径完全不变，tap 起不来就退回"整段到达"，并记 `acp-stream-silent`（每轮另记 `acp-stream` 的 delta/seal/sync 计数）。思考行默认收起，展开后最高 280px 内部滚动。
 - **引用优先**：对话里的媒体是 `resource_link`（路径 + 可选缩略图），不复制、不上传；只有"导入项目素材"这个显式动作才写盘。
 - **工作区是承载，不是产品**：每个项目目录一个工作区，命名固定，复用优先，绝不重复创建。
 
@@ -101,7 +101,7 @@ rot-if: 进程模型、对话边界、面板宿主方式变化
 ### 5.1 我们的 Host（可先做，不等上游）
 
 1. `project-conversation`：工作区命名 `<项目名> · 视频创作`；先查同路径工作区，复用优先；日志记录 create/reuse。
-2. 新增 `src/acp-client.mjs`：启动/复用 `dsh --profile acp`，管理 `initialize`、模型目录、`session/new|resume`、`prompt/cancel`、事件转发、子进程退出回收。
+2. 新增 `src/acp/acp-client.mjs`：启动/复用 `dsh --profile acp`，管理 `initialize`、模型目录、`session/new|resume`、`prompt/cancel`、事件转发、子进程退出回收。
 3. `official-facade` / `official-chat-rpc`：把 `agent:*` 从"手写回合"改为 ACP 转发；`agent:select-model`、`agent:select-thinking` 映射到会话 config 选项；删除 `OFFICIAL_AGENT_BUSY` 的 503 路径，改为 `steering` 或排队。
 4. `official-attachment`：对话附件改为引用（路径白名单：项目目录内任意文件、或用户显式选择的本机文件），仅缩略图走内存；`official-facade` 删除 256 MiB 判断。
 5. `official-agent-events`：以 ACP `session/update` 为唯一事件源；思考增量原样转发。
@@ -148,6 +148,6 @@ rot-if: 进程模型、对话边界、面板宿主方式变化
 
 ## 9. 进展与验收
 
-**进展不写在这篇文档里。** 当前版本、本批做完什么、哪些还等真机见 [`STATUS.md`](STATUS.md)；每次改动的结论见 [`../CHANGELOG.md`](../CHANGELOG.md)；"为什么对话交给 ACP 而不是自建回合"见 [`decisions/ADR-0003-acp-boundary.md`](decisions/ADR-0003-acp-boundary.md)。
+**进展不写在这篇文档里。** 当前版本与待验项见 [`STATE.md`](STATE.md)；每次改动的结论见 [`../CHANGELOG.md`](../CHANGELOG.md)；"为什么对话交给 ACP 而不是自建回合"见 [`decisions/ADR-0003-acp-boundary.md`](decisions/ADR-0003-acp-boundary.md)。
 
-ACP 的里程碑口径（M1–M5）已随 0.13.0 完成，验收步骤保留在 [`playbooks/manual-acceptance.md`](playbooks/manual-acceptance.md) 第 11 步。
+ACP 路径的验收步骤（刷新页面后发一句、侧栏同一会话）见 [`STATE.md`](STATE.md) 的"待真机验"。

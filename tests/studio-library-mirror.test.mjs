@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ensureStudioLibraryMirror } from '../src/studio-library-mirror.mjs';
+import { ensureStudioLibraryMirror } from '../src/studio/studio-library-mirror.mjs';
 
 const body = () => new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('MODEL')); controller.close(); } });
 

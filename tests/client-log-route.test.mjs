@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import { createDiagnosticsRoutes } from '../src/studio-controller/routes/diagnostics.mjs';
+import { createDiagnosticsRoutes } from '../src/studio/studio-controller/routes/diagnostics.mjs';
 
 const BROWSER = { id: 'browser' };
 const ctx = { connection: { admit: () => ({ peer: BROWSER }), browserPeer: BROWSER } };

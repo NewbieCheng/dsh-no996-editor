@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findSpeechRuns, rmsOf, percentile, createSilenceSegmenter } from '../src/asr-silence.mjs';
+import { findSpeechRuns, rmsOf, percentile, createSilenceSegmenter } from '../src/asr/asr-silence.mjs';
 
 const loud = 0.1;
 const hush = 0.0005;

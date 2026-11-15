@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTranscribeTool } from '../src/transcribe-tool.mjs';
+import { createTranscribeTool } from '../src/tools/transcribe-tool.mjs';
 
 const bound = { projectId: 'film123', path: 'C:/films/one' };
 const agent = { id: 'session-a' };

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { augmentPath, knownBinaryDirs, modelBases, toolSourceUrls } from '../src/download-sources.mjs';
+import { augmentPath, knownBinaryDirs, modelBases, toolSourceUrls } from '../src/host/download-sources.mjs';
 
 test('every tool lists a China mirror before the canonical host', () => {
   const ffmpeg = toolSourceUrls('ffmpeg', { platform: 'darwin', arch: 'arm64' });

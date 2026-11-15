@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createTheme, THEME_SURFACES, themeSurfaceFor } from '../src/theme.mjs';
+import { createTheme, THEME_SURFACES, themeSurfaceFor } from '../src/ui/theme.mjs';
 
 const BRAND = Object.freeze({
   name: '不加班剪辑',

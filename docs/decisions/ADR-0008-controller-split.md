@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0008-controller-split
 reader: 维护者、要动 controller/proxy 的人
-fact-source: src/studio-controller.mjs、src/studio-proxy.mjs、tests/*.mjs
+fact-source: src/studio/studio-controller.mjs、src/studio/studio-proxy.mjs、tests/*.mjs
 checked: 0.15.11
 rot-if: 拆分完成或策略改变
 -->
@@ -13,7 +13,7 @@ rot-if: 拆分完成或策略改变
 
 ## 背景
 
-`src/studio-controller.mjs`（1,522 行）和 `src/studio-proxy.mjs`（853 行）各是一个巨型闭包：路由、鉴权、诊断、代理、协议解析全在一个函数作用域里。改一处要在上千行里找上下文，review 时也看不出边界。
+`src/studio/studio-controller.mjs`（1,522 行）和 `src/studio/studio-proxy.mjs`（853 行）各是一个巨型闭包：路由、鉴权、诊断、代理、协议解析全在一个函数作用域里。改一处要在上千行里找上下文，review 时也看不出边界。
 
 但也不能直接砍：有 **6 个测试是读源码文本的**，它们把"注册顺序/路径必须出现/不许出现某些符号"当成契约：
 
@@ -33,10 +33,10 @@ rot-if: 拆分完成或策略改变
 
 | 新模块 | 内容 |
 |---|---|
-| `src/studio-proxy/websocket.mjs` | `WS_GUID`、`MAX_FRAME`、`wsFrame`、`frames` |
-| `src/studio-proxy/upstream.mjs` | 失败日志、`COMMAND_FAILURE` 与人性化改写、头白名单、`upstreamOrigin/listen/shutdown/ancestorsFor/fail` |
-| `src/studio-controller/http-body.mjs` | `readJsonBody`（体积上限 + 形状归一） |
-| `src/studio-controller/turns.mjs` | `createTurnLog()`（有界的轮次日志） |
+| `src/studio/studio-proxy/websocket.mjs` | `WS_GUID`、`MAX_FRAME`、`wsFrame`、`frames` |
+| `src/studio/studio-proxy/upstream.mjs` | 失败日志、`COMMAND_FAILURE` 与人性化改写、头白名单、`upstreamOrigin/listen/shutdown/ancestorsFor/fail` |
+| `src/studio/studio-controller/http-body.mjs` | `readJsonBody`（体积上限 + 形状归一） |
+| `src/studio/studio-controller/turns.mjs` | `createTurnLog()`（有界的轮次日志） |
 
 代理 1,005 → 853 行，控制器 1,558 → 1,522 行。
 
@@ -44,21 +44,21 @@ rot-if: 拆分完成或策略改变
 
 | 新模块 | 内容 | 状态 |
 |---|---|---|
-| `src/studio-controller/router.mjs` | register/track/mount/rollback + 重复路径容忍 | 完成 |
-| `src/studio-controller/routes/system.mjs` | asr、system/check、system/install + 共享快照 | 完成（3 条） |
-| `src/studio-controller/routes/diagnostics.mjs` | client-log（枚举事件、512 B、仅本机浏览器） | 完成（1 条） |
-| `src/studio-controller/routes/assets.mjs` | attachment（64-hex 摘要 → 对象库） | 完成（1 条） |
-| `src/studio-controller/routes/chat.mjs` | mcp（唯一跳过 cookie 准入的路由） | 完成（1 条） |
-| `src/studio-controller/routes/editing.mjs` | editing-sessions/prefs/archive/delete/delete-project | 完成（5 条） |
+| `src/studio/studio-controller/router.mjs` | register/track/mount/rollback + 重复路径容忍 | 完成 |
+| `src/studio/studio-controller/routes/system.mjs` | asr、system/check、system/install + 共享快照 | 完成（3 条） |
+| `src/studio/studio-controller/routes/diagnostics.mjs` | client-log（枚举事件、512 B、仅本机浏览器） | 完成（1 条） |
+| `src/studio/studio-controller/routes/assets.mjs` | attachment（64-hex 摘要 → 对象库） | 完成（1 条） |
+| `src/studio/studio-controller/routes/chat.mjs` | mcp（唯一跳过 cookie 准入的路由） | 完成（1 条） |
+| `src/studio/studio-controller/routes/editing.mjs` | editing-sessions/prefs/archive/delete/delete-project | 完成（5 条） |
 
-| `src/studio-controller/routes/bootstrap.mjs` | bootstrap（auth → Studio up → 代理写编辑器 origin） | 完成（1 条） |
-| `src/studio-controller/routes/diagnose.mjs` | diagnose（证据聚合 + 健康变更日志） | 完成（1 条） |
-| `src/studio-controller/routes/debug-url.mjs` | debug-url（调试窗口 cookie 由监听器持有） | 完成（1 条） |
+| `src/studio/studio-controller/routes/bootstrap.mjs` | bootstrap（auth → Studio up → 代理写编辑器 origin） | 完成（1 条） |
+| `src/studio/studio-controller/routes/diagnose.mjs` | diagnose（证据聚合 + 健康变更日志） | 完成（1 条） |
+| `src/studio/studio-controller/routes/debug-url.mjs` | debug-url（调试窗口 cookie 由监听器持有） | 完成（1 条） |
 
 控制器 1,558 → **1,037** 行，路由注册表 14/14 迁完。剩下的 1,000 行不是路由：
 
 ```text
-src/studio-controller/
+src/studio/studio-controller/
   index.mjs               createStudioController：构图 + 装配（目标 < 250 行）
   router.mjs              registerRoute/trackRoute/rollback（TDZ 保护留在这里）
   routes/editing.mjs      editing-sessions、editing-delete-project、archive
@@ -92,4 +92,4 @@ editing 五条路由搬出去时，第一版**编译通过、测试全绿**，�
 
 ## 证据
 
-`src/studio-proxy/{websocket,upstream}.mjs`、`src/studio-controller/{http-body,turns,router}.mjs`、`src/studio-controller/routes/{system,diagnostics,assets,chat,editing}.mjs`；`docs/reference/modules.md`（生成的行数清单）；`npm test` 618 条。
+`src/studio/studio-proxy/{websocket,upstream}.mjs`、`src/studio/studio-controller/{http-body,turns,router}.mjs`、`src/studio/studio-controller/routes/{system,diagnostics,assets,chat,editing}.mjs`；`docs/reference/modules.md`（生成的行数清单）；`npm test` 618 条。

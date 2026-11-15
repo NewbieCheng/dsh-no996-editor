@@ -1,6 +1,6 @@
-import { createDraftTool } from './src/draft-tool.mjs';
-import { createStudioController } from './src/studio-controller.mjs';
-import { startStudioProxy } from './src/studio-proxy.mjs';
+import { createDraftTool } from './src/tools/draft-tool.mjs';
+import { createStudioController } from './src/studio/studio-controller.mjs';
+import { startStudioProxy } from './src/studio/studio-proxy.mjs';
 
 export const inject = ['tools', 'connection', 'webServer', 'llm', 'agentDefaultModel', 'storageDomain', 'sessionController', 'systemPrompt', 'agents'];
 

@@ -10,7 +10,7 @@
  * belongs in docs/playbooks/manual-acceptance.md.
  */
 import { stat } from 'node:fs/promises';
-import { createTranscribeService } from '../src/transcribe-service.mjs';
+import { createTranscribeService } from '../src/asr/transcribe-service.mjs';
 
 const source = process.argv[2];
 if (!source) {

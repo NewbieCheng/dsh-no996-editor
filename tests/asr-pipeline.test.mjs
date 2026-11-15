@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTranscribePipeline, TRANSCRIBE_LIMITS } from '../src/asr-pipeline.mjs';
+import { createTranscribePipeline, TRANSCRIBE_LIMITS } from '../src/asr/asr-pipeline.mjs';
 
 const quiet = () => () => new Promise(resolve => setImmediate(resolve));
 

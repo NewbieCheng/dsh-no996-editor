@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { reportPresetStatus } from '../src/preset-report.mjs';
+import { reportPresetStatus } from '../src/host/preset-report.mjs';
 
 const ctxWith = roster => ({ get: name => (name === 'agentPresets' ? { list: async () => roster } : undefined) });
 

@@ -32,7 +32,7 @@ test('规范：七道闸门与完成契约都在', () => {
 });
 
 test('预设提示：明确指向 openfilm-motion 与「回读输出」', () => {
-  const text = read('src/openfilm-prompt.mjs');
+  const text = read('src/acp/openfilm-prompt.mjs');
   assert.ok(text.includes('openfilm-motion'), 'prompt names the skill');
   assert.ok(text.includes('read its outputs back'), 'prompt defines done');
   assert.ok(text.includes('Do not pause between those stages'), 'prompt forbids mid-way stalls');

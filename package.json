@@ -1,6 +1,6 @@
 {
   "name": "dsh-openfilm",
-  "version": "0.15.21",
+  "version": "0.15.22",
   "description": "OpenFilm video studio as a DSH plugin: the official Studio + Chat shell, bridged to a DSH session.",
   "type": "module",
   "license": "MIT",
@@ -64,7 +64,7 @@
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
-    "./openfilm-prompt": "./src/openfilm-prompt.mjs",
+    "./openfilm-prompt": "./src/acp/openfilm-prompt.mjs",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },

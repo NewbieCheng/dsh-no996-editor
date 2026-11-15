@@ -18,7 +18,7 @@ rot-if: 文档分层被推翻，或 CI 不再是唯一守门人
 | 症状 | 证据 |
 |---|---|
 | 版本号三处不一致 | `package.json` 0.15.1 / `README.md` 「当前 0.13.0」/ `AGENTS.md` 0.15.1 |
-| 路线图停在上古 | `ROADMAP.md` 「当前批：0.9.1」 |
+| 路线图停在上古 | 旧 `ROADMAP.md` 的「当前批：0.9.1」（该文已删，进度收进 `STATE.md`） |
 | 事实表过期且重复维护 | `DSH-SHELL-INTEGRATION.md` 「插槽全表（77 个）」，真机为 116 |
 
 同期工程侧有 607 条测试（9 秒跑完）和 4 个手写 check，但**没有 CI**、没有 `npm test` 入口、没有 lint、7.7 MB 的 tgz 提交进了 git。

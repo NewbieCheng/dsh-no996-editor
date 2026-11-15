@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createMediaEdge } from '../src/asr-media.mjs';
-import { resolveFfmpeg } from '../src/asr-audio.mjs';
+import { createMediaEdge } from '../src/asr/asr-media.mjs';
+import { resolveFfmpeg } from '../src/asr/asr-audio.mjs';
 
 const banner = "  Duration: 00:00:12.50, start: 0.000000, bitrate: 800 kb/s\n  Stream #0:1: Audio: aac (LC), 48000 Hz, stereo, fltp, 128 kb/s";
 

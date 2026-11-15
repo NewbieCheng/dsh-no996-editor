@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogFromConfigOptions } from '../src/acp-agent-service.mjs';
+import { catalogFromConfigOptions } from '../src/acp/acp-agent-service.mjs';
 
 const options = [{
   id: 'model',

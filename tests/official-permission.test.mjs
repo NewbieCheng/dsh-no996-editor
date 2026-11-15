@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { openProjectPermissions, PROJECT_PERMISSIONS_DOMAIN } from '../src/official-permission.mjs';
+import { openProjectPermissions, PROJECT_PERMISSIONS_DOMAIN } from '../src/official/official-permission.mjs';
 
 const chain = () => ({ min: chain, regex: chain, int: chain, nonnegative: chain, strict: chain });
 const z = { object: chain, string: chain, number: chain };

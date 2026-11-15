@@ -29,7 +29,7 @@ export function releaseProblems({ version, changelog, statusText, tags = [], dir
     problems.push(`CHANGELOG.md has no "## ${version}" section`);
   }
   if (statusText !== null && !statusText.includes(`**${version}**`)) {
-    problems.push(`docs/STATUS.md does not state **${version}** as the current version`);
+    problems.push(`docs/STATE.md does not state **${version}** as the current version`);
   }
   if (tags.includes(`v${version}`)) {
     problems.push(`tag v${version} already exists — bump the version before releasing`);
@@ -61,7 +61,7 @@ export function inspectRepo() {
     version: pkg.version,
     lockVersion: lock.version,
     changelog: readIfPresent(join(ROOT, 'CHANGELOG.md')),
-    statusText: readIfPresent(join(ROOT, 'docs', 'STATUS.md')),
+    statusText: readIfPresent(join(ROOT, 'docs', 'STATE.md')),
     tags,
     dirty: git('status', '--porcelain') !== '',
   };

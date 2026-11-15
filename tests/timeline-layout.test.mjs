@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeFilm } from '../src/film-summary.mjs';
-import { layoutTimeline } from '../src/timeline-layout.mjs';
+import { summarizeFilm } from '../src/film/film-summary.mjs';
+import { layoutTimeline } from '../src/film/timeline-layout.mjs';
 
 const film = body => summarizeFilm(`<html><head></head><body>${body}</body></html>`);
 

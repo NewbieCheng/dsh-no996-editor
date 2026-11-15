@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import test from 'node:test';
-import { createMcpEndpoint, createMcpTokens, mcpServerEntry, MCP_PROTOCOL_VERSION } from '../src/mcp-server.mjs';
+import { createMcpEndpoint, createMcpTokens, mcpServerEntry, MCP_PROTOCOL_VERSION } from '../src/tools/mcp-server.mjs';
 
 const token = 'a'.repeat(24);
 const agent = { id: 'mcp:proj123456' };

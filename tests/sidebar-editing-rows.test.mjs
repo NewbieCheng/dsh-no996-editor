@@ -3,9 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { EDITING_LABEL } from '../src/sidebar-editing.mjs';
+import { EDITING_LABEL } from '../src/ui/sidebar-editing.mjs';
 
-const source = readFileSync(new URL('../src/sidebar-editing.mjs', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../src/ui/sidebar-editing.mjs', import.meta.url), 'utf8');
 
 test('the editing area is called 剪辑区 wherever the user can see it', () => {
   assert.equal(EDITING_LABEL, '剪辑区');
@@ -65,7 +65,7 @@ test('menus rise in place and refresh never flashes the list', () => {
 });
 
 test('search matches visible conversation titles, not just folder names', () => {
-  assert.ok(source.includes("import { filterEditing, matchRange, projectDisplayTitle, sessionDisplayTitle } from './editing-filter.mjs'"));
+  assert.ok(source.includes("import { filterEditing, matchRange, projectDisplayTitle, sessionDisplayTitle } from '../project/editing-filter.mjs'"));
   assert.ok(source.includes('filterEditing(projects, { query, archived: view.archived })'));
   assert.ok(source.includes('appendHighlight(title, sessionDisplayTitle(session), query)'));
   assert.ok(source.includes('const shown = query ? sessions'));

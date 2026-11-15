@@ -8,7 +8,7 @@ import { watch } from 'node:fs';
  * Watch mode for the three surfaces we edit, and nothing else.
  *
  *   1. assets/shell-ui.js      → read on every page render (refresh only)
- *   2. src/studio-entry.js     → this script rebuilds `client.js` (refresh only)
+ *   2. src/studio/studio-entry.js     → this script rebuilds `client.js` (refresh only)
  *   3. src/*.mjs (Host)        → needs a plugin reload; this script touches the
  *                                whole Host graph on every change, because the
  *                                loader re-evaluates only modules whose mtime it
@@ -33,7 +33,7 @@ function touchHost() {
 let builds = 0;
 const ctx = await context({
   absWorkingDir: root,
-  entryPoints: ['src/studio-entry.js'],
+  entryPoints: ['src/studio/studio-entry.js'],
   outfile: 'client.js',
   bundle: true,
   format: 'iife',
@@ -54,7 +54,7 @@ const ctx = await context({
 });
 
 await ctx.watch();
-console.log('[dev] watching src/studio-entry.js → client.js');
+console.log('[dev] watching src/studio/studio-entry.js → client.js');
 console.log('[dev] assets/shell-ui.js: edit + refresh the studio page, no reload needed');
 console.log('[dev] src/*.mjs (Host): edit → touched → reload the plugin, then F5');
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseProbeOutput } from '../src/asr-audio.mjs';
+import { parseProbeOutput } from '../src/asr/asr-audio.mjs';
 
 const banner = `ffmpeg version 6.1.1 Copyright (c) 2000-2023 the FFmpeg developers
 Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:\\clips\\talk.mp4':

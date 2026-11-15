@@ -14,7 +14,7 @@ let browser;
 try {
   const { startStudio } = await import('openfilm/studio');
   studio = await startStudio({ port: 0, advertise: false, stays: true, openBrowser: () => {} });
-  const { installTemplate } = await import('../src/official-templates.mjs');
+  const { installTemplate } = await import('../src/official/official-templates.mjs');
   const { openProject } = await import(pathToFileURL(join(root, 'node_modules', 'openfilm', 'studio', 'server', 'projects.mjs')).href);
   const installed = await installTemplate({
     root: join(root, 'vendor', 'templates'), id: 'motion-styles', parentDir: join(temp, 'library'),

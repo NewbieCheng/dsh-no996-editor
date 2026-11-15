@@ -2,7 +2,7 @@
 // did the child send it, did the Host publish it, did the page count it.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createChatTrace, describeEvent } from '../src/chat-trace.mjs';
+import { createChatTrace, describeEvent } from '../src/host/chat-trace.mjs';
 
 test('tracing is off unless asked, and then writes shape only', () => {
   const off = createChatTrace({ env: {} });

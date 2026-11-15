@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const read = path => readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-const route = read('src/studio-controller/routes/chat.mjs');
-const controller = read('src/studio-controller.mjs');
+const route = read('src/studio/studio-controller/routes/chat.mjs');
+const controller = read('src/studio/studio-controller.mjs');
 
 test('the MCP endpoint does not sit on the reserved `/mcp` path', () => {
   assert.match(route, /path: '\/api\/no996-openfilm\/mcp-host'/);

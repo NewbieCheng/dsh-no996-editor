@@ -2,7 +2,7 @@
 // runs; the log must say so, or the failure looks like a missing handler.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createElevationProbe } from '../src/elevation.mjs';
+import { createElevationProbe } from '../src/host/elevation.mjs';
 
 test('a failing `net session` means the window is not elevated', () => {
   const probe = createElevationProbe({ exec: () => { throw new Error('Access is denied.'); }, platform: 'win32' });

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ui = readFileSync(join(root, 'assets', 'shell-ui.js'), 'utf8');
-const ctrl = readFileSync(join(root, 'src', 'studio-controller.mjs'), 'utf8');
+const ctrl = readFileSync(join(root, 'src', 'studio', 'studio-controller.mjs'), 'utf8');
 
 test('首次启动向导只在前台跑一次：受 onboardingCompleted 与 sessionStorage 控制', () => {
   assert.match(ui, /__no996FirstRun/);

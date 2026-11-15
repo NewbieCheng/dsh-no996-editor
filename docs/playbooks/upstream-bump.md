@@ -1,7 +1,7 @@
 <!-- doc
 id: playbooks-upstream
 reader: 维护上游的人
-fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official-shell.mjs
+fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official/official-shell.mjs
 checked: 0.15.11
 rot-if: 上游目录结构或补丁流程变化
 -->
@@ -19,7 +19,7 @@ rot-if: 上游目录结构或补丁流程变化
 |---|---|---|
 | `package.json` | `dependencies.openfilm` 的 tarball URL | 运行时版本（`studio-runtime.mjs` 从它推导） |
 | `vendor/official-shell/manifest.json` | `version` + `commit` | 界面快照的上游身份 |
-| `src/official-shell.mjs` | `OFFICIAL_COMMIT` | 加载时校验，不一致直接 `OFFICIAL_SHELL_UNAVAILABLE` |
+| `src/official/official-shell.mjs` | `OFFICIAL_COMMIT` | 加载时校验，不一致直接 `OFFICIAL_SHELL_UNAVAILABLE` |
 
 `npm run upstream:status` 会把这三处和补丁系列放在一起对账；不一致时退出码为 1。
 
@@ -94,7 +94,7 @@ npm run upstream:verify -- --dir <new-checkout>
 # 4. 按报告修冲突；每修好一个文件，重跑 verify
 # 5. 构建 + 快照 + 重算 manifest（version/commit 一起改）
 node scripts/build-official-shell.mjs <openfilm-checkout> -- --dir <new-checkout>
-# 6. 更新 src/official-shell.mjs 的 OFFICIAL_COMMIT
+# 6. 更新 src/official/official-shell.mjs 的 OFFICIAL_COMMIT
 npm run upstream:status           # 必须 problems none
 node --test tests/*.test.mjs
 ```

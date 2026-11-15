@@ -6,7 +6,7 @@
 // back to a list that no longer contains it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { openOfficialChatStore } from '../src/official-chat-store.mjs';
+import { openOfficialChatStore } from '../src/official/official-chat-store.mjs';
 
 const chain = () => ({ min: chain, max: chain, regex: chain, strict: chain, optional: () => chain });
 const z = { object: chain, string: chain, array: chain, literal: chain, unknown: chain };

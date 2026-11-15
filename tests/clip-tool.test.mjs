@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createClipTool, filmIdentity } from '../src/clip-tool.mjs';
+import { createClipTool, filmIdentity } from '../src/tools/clip-tool.mjs';
 
 const source = `<!doctype html>
 <html><head><style>/* keep */ .x { color: red }</style></head>

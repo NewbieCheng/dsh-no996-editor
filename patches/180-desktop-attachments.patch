@@ -34,6 +34,13 @@ index 4f7aa72..25eeb92 100644
 -    for (const { item, file, path } of items) {
 -      if (path) continue;
 +    const keepBytes = (item: DesktopAttachment, file: File) => {
++      /* Large media must stay a path reference. Copying hundreds of MB into the
++         project (and through the 256 MiB upload gate) is the wrong product; fail
++         visibly so the person retries with a path or uses the media library. */
++      if (typeof file.size === 'number' && file.size > 256 * 1024 * 1024) {
++        patch(item.id, { state: 'failed', error: '大视频请用本机路径引用（不上传会话）。请重试拖放，或从素材库导入。' });
++        return;
++      }
        void file.arrayBuffer()
          .then((bytes) => app.chat.saveAttachment(project, item.name, bytes))
          .then((r) => patch(item.id, { state: 'ready', path: r.path }))

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createPreferencesStore, onboardingCopy, productMeta } from '../src/preferences.mjs';
+import { createPreferencesStore, onboardingCopy, productMeta } from '../src/host/preferences.mjs';
 
 test('preferences default, persist, and sanitize', async () => {
   const home = await mkdtemp(join(tmpdir(), 'nof-prefs-'));
@@ -47,7 +47,7 @@ test('preferences default, persist, and sanitize', async () => {
 });
 
 test('balance cache helpers match 清流 available = permanent + period', async () => {
-  const { balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch } = await import('../src/preferences.mjs');
+  const { balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch } = await import('../src/host/preferences.mjs');
   const patch = balanceCachePatch({
     points_balance: 100,
     period_points_balance: 50,

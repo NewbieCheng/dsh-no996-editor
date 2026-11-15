@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
-import { officialFacadeSource } from '../src/official-facade.mjs';
+import { officialFacadeSource } from '../src/official/official-facade.mjs';
 
 function setup({ promptResult = { ok: true }, EventSourceAvailable = true } = {}) {
   const sources = [], calls = [], events = [], timers = new Map();

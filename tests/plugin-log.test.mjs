@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createPluginLog, redact } from '../src/plugin-log.mjs';
+import { createPluginLog, redact } from '../src/host/plugin-log.mjs';
 
 test('events land as one JSON object per line', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'no996-log-'));
