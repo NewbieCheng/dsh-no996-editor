@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { after, describe, it } from 'node:test';
 import { createVoiceBridge, installVoiceBridgeGlobal, VOICE_BRIDGE } from '../src/voice/voice-bridge.mjs';
 import { installNo996Provider, preferNo996ForTts } from '../src/voice/install-no996-provider.mjs';
@@ -128,12 +129,30 @@ describe('no996 voice bridge', () => {
     const body = await readFile(installed.providerFile, 'utf8');
     assert.match(body, /id: 'no996'/);
     assert.match(body, /Symbol\.for\('no996\.openfilm\.voice'\)/);
+    // Mirrors openfilm studio/server/providers/added.mjs `checked()`: empty env
+    // is rejected and the whole provider is silently dropped from get list.
+    assert.match(body, /env:\s*'NO996_WORKBENCH'/);
 
     const pref = await preferNo996ForTts({ env, force: true });
     assert.equal(pref.changed, true);
     assert.equal(pref.use, 'no996');
     const settings = JSON.parse(await readFile(join(home, 'providers.json'), 'utf8'));
     assert.equal(settings.use.tts, 'no996');
+  });
+
+  it('stub passes OpenFilm added-provider field checks (non-empty env)', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'nof-voice-'));
+    temps.push(home);
+    const installed = await installNo996Provider({ env: { OPENFILM_SHARED_HOME: home, OPENFILM_HOME: home } });
+    const mod = await import(`${pathToFileURL(installed.providerFile).href}?t=${Date.now()}`);
+    const p = mod.default;
+    for (const field of ['id', 'name', 'env']) {
+      assert.equal(typeof p[field], 'string');
+      assert.ok(p[field], `added.mjs rejects empty ${field}`);
+    }
+    assert.ok(Array.isArray(p.verbs) && p.verbs.length);
+    assert.equal(typeof p.run, 'function');
+    assert.equal(typeof p.ready, 'function');
   });
 
   it('registers the process-wide bridge for the stub provider', async () => {

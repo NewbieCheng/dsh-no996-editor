@@ -70,3 +70,4 @@ openfilm_get(verb=voice|tts) / 页面 Speak
 |---|---|
 | 收藏里「0 个音色」 | 收藏只显示你点过星的；点**精选**或**全部** |
 | 精选也是空的 | 未重载插件 / 未登录 / `/api/library/voices` 改写未生效 |
+| Agent 说「没有连接任何配音服务」、只剩 edge-tts | `provider.mjs` 的 `env` 曾是空串；官方 `added.mjs` 要求 `env` 非空，整份 provider 被静默丢弃。须 `env: 'NO996_WORKBENCH'`（不读真实环境变量，连接仍靠 `ready()` + 登录） |

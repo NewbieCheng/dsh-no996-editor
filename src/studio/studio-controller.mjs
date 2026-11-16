@@ -128,9 +128,25 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   const workbenchAuth = createWorkbenchAuth({ dev: process.env.NO996_OPENFILM_DEV === '1' });
   const voiceBridge = createVoiceBridge({ auth: workbenchAuth });
   const disposeVoiceBridge = installVoiceBridgeGlobal(voiceBridge);
-  void voiceBridge.refreshReady().catch(() => {});
-  void installNo996Provider().then((info) => {
+  void voiceBridge.refreshReady().then((ready) => {
+    log.info('no996-voice-ready', { ready });
+  }).catch((error) => {
+    log.warn('no996-voice-ready', { message: String(error?.message || error).slice(0, 200) });
+  });
+  void installNo996Provider().then(async (info) => {
     if (info.written) log.info('no996-provider-installed', { file: info.providerFile });
+    // Official added.mjs drops providers with empty id/name/env — catch that here.
+    try {
+      const mod = await import(`${pathToFileURL(info.providerFile).href}?boot=${Date.now()}`);
+      const p = mod?.default;
+      for (const field of ['id', 'name', 'env']) {
+        if (typeof p?.[field] !== 'string' || !p[field]) {
+          throw new Error(`added-provider field "${field}" is empty (OpenFilm will ignore no996)`);
+        }
+      }
+    } catch (error) {
+      log.warn('no996-provider-invalid', { message: String(error?.message || error).slice(0, 200) });
+    }
     return preferNo996ForTts({ force: true });
   }).then((pref) => {
     if (pref?.changed) log.info('no996-tts-preferred', pref);

@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.15.25 —— 不加班配音真正进 openfilm get list
+
+- **根因**：`providers/no996/provider.mjs` 的 `env: ''` 被官方 `added.mjs` 当成缺字段整份丢弃，Agent 的 `openfilm get list` 认不出不加班，只能回落到本机 edge-tts。
+- **修复**：`env: 'NO996_WORKBENCH'`（占位名，不读环境变量；连接仍走 Host 登录 `ready()`）；启动时校验字段并打 `no996-voice-ready` 日志。
+
 ## 0.15.24 —— 配音抽屉默认进精选；保留全部/本地服务
 
 - **配音空列表误会**：收藏只显示星标音色；打开配音时引导到**精选**，并保留侧栏「全部 / 不加班」（不再误藏）。

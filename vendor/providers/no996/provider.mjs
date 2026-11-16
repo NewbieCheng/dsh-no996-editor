@@ -20,7 +20,9 @@ function bridge() {
 export default {
   id: 'no996',
   name: '不加班',
-  env: '',
+  // Official added.mjs rejects empty env (`!p.env`). This name is never read as a
+  // real secret: connection is `ready()` via Host workbench-auth, not process.env.
+  env: 'NO996_WORKBENCH',
   keysUrl: '',
   billingUrl: '',
   verbs: ['voice', 'tts'],

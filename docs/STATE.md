@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.15.24
+checked: 0.15.25
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。
 
-- 当前版本 **0.15.24**（`package.json`）。
+- 当前版本 **0.15.25**（`package.json`）。
 
 ## 能用
 
@@ -31,7 +31,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 ## 下一步
 
-- XXX 表面收敛 + 不加班配音兼容层：藏服务商/画布/多余 Services；`no996` added-provider 复用工作台 `/v1/audio/voices` + `/api/v1/ai/audio/speech`；代理改写 `/api/library/voices`。见 [`XXX-no996-surface-and-voice.md`](XXX-no996-surface-and-voice.md)。**待真机**：登录后音色抽屉只有不加班音色；Speak / `openfilm_get` tts 落到 `assets/audio/vo`；未登录提示登录。
+- XXX 表面收敛 + 不加班配音：0.15.25 修了 `env` 空串导致 provider 被官方 silently drop。见 [`XXX-no996-surface-and-voice.md`](XXX-no996-surface-and-voice.md)。**待真机**：重载后 `openfilm get list` 应见不加班已连接；配音抽屉精选有复刻+平台；Speak / `openfilm_get` tts → `assets/audio/vo`。
 - 本机依赖兜底提示词：FFmpeg / 转写下载失败可「复制兜底提示词」→ 贴 DSH 主会话开完全访问；Host 按 Win/macOS+arch 填 artifact 与路径。入口：EnvironmentNotice、空态 ASR、首次向导。**待真机**：故意断网装失败 → 复制词含正确平台文件名 → 主会话装好后「重新检查」通过。
 - 下载停滞切换源：FFmpeg/ffprobe 与 SenseVoice 下载无总时长上限；连接约 20s 无响应、或已开始传却 **30s 无新字节** 则中止当前源并试下一个（`src/host/download-stall.mjs`）。**待真机**：故意卡死某一源，应在约 30s 后切源并继续/报齐失败。
 - 游客模式：登录门「游客进入」→ Host 内存游客会话（无 token、不打账号服务）；账号条显示「游客模式」、积分 0；「退出游客」回登录门。重载插件后游客失效。**待真机**：断网/国外打不开账号服务时仍能进工作台调试。

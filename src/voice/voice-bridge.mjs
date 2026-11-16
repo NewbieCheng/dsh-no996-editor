@@ -312,9 +312,15 @@ export function createVoiceBridge({ auth, fetchImpl = globalThis.fetch } = {}) {
     ready: () => {
       // Synchronous probe for provider.ready(); prefer last status snapshot.
       // Studio may call this often; avoid network. Host updates via status() elsewhere.
+      // If the first refresh has not finished, kick one so the next probe can flip.
+      if (!api._ready && !api._refreshing && auth.dev !== true) {
+        api._refreshing = true;
+        void api.refreshReady().finally(() => { api._refreshing = false; });
+      }
       return api._ready === true || auth.dev === true;
     },
     _ready: false,
+    _refreshing: false,
     async refreshReady() {
       api._ready = await isReady();
       return api._ready;
