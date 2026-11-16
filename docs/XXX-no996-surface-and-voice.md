@@ -58,7 +58,15 @@ openfilm_get(verb=voice|tts) / 页面 Speak
 
 ## 5. 验收
 
-1. 登录后音色抽屉见「我的 / 平台」音色，无服务商侧栏。
-2. Speak / Agent `openfilm_get` tts 写出 `assets/audio/vo/*`。
-3. 未登录：provider 未连接；提示登录，不是贴第三方 key。
-4. 关主题注入后，官方服务商 UI 可再出现；卸 `providers/no996` 即回到纯官方。
+1. 登录后打开「配音」默认进**精选**（不是收藏）；应看到复刻 + 平台音色。收藏只有星标后才有。
+2. 侧栏保留「全部 / 不加班」，无 ElevenLabs 等服务商行。
+3. Speak / Agent `openfilm_get` tts 写出 `assets/audio/vo/*`。
+4. 未登录：列表可为 0；提示登录，不是贴第三方 key。
+5. 关主题注入后，官方服务商 UI 可再出现；卸 `providers/no996` 即回到纯官方。
+
+## 6. 常见误会
+
+| 现象 | 原因 |
+|---|---|
+| 收藏里「0 个音色」 | 收藏只显示你点过星的；点**精选**或**全部** |
+| 精选也是空的 | 未重载插件 / 未登录 / `/api/library/voices` 改写未生效 |

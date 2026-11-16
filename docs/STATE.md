@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.15.23
+checked: 0.15.24
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。
 
-- 当前版本 **0.15.23**（`package.json`）。
+- 当前版本 **0.15.24**（`package.json`）。
 
 ## 能用
 

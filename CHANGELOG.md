@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.15.24 —— 配音抽屉默认进精选；保留全部/本地服务
+
+- **配音空列表误会**：收藏只显示星标音色；打开配音时引导到**精选**，并保留侧栏「全部 / 不加班」（不再误藏）。
+- Settings → 服务继续保留 **OpenFilm / 不加班 / 本地服务**。
+- 其余同 0.15.23（no996 Provider 兼容层 + 音色库代理改写）。
+
 ## 0.15.23 —— 不加班配音进 OpenFilm；表面收敛（藏第三方服务商）
 
 - **不加班配音兼容层**：把工作台已有的音色列表 / 语音合成接到 OpenFilm 官方 Provider 合同上（`added provider` `no996`），**不新造配音服务**。复用 `GET /v1/audio/voices`、`GET /api/v1/models/default-tts`、`POST /api/v1/ai/audio/speech`；登录态走 Host `workbench-auth`。Agent 仍用 `openfilm_get`（`voice` / `tts`），音频落 `assets/audio/vo/`。
