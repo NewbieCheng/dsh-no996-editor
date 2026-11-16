@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.15.22
+checked: 0.15.23
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。
 
-- 当前版本 **0.15.22**（`package.json`）。
+- 当前版本 **0.15.23**（`package.json`）。
 
 ## 能用
 
@@ -25,9 +25,21 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 | 会话隔离 | 同项目开两个对话各说一句，互问"刚才说了什么"：都只知道自己那条 |
 | 剪辑导演身份与注入链 | 问"你是谁/这是哪个仓库"：答剪辑导演，不出现版本号、MIT、四层界面 |
 | 分镜到时间轴 | 丢一段口播视频：先转写 → 出分镜 → `op=plan` 说清还缺哪个片段 |
+| 拖放附件可发送 | 从资源管理器拖一段 mp4 进对话：附件 pill 为 ready（无 `describePaths` 失败）、可发送；松手后「松手即可附上」遮罩消失 |
+| 技能隔离（preset 直引） | 同项目新开对话问“你有哪些 skill”：只见到 `openfilm-director/editing/motion` 3 个，无 Office/imagegen 等全局 skill；`/diagnose` 应显示子进程只挂 `skills/` 根 |
+| 环境查看页 | 打开插件详情页：看到「剪辑环境」区（预设状态、3 个隔离技能、11 个影片工具）；填项目 ID 能查到该片的指令链与预算 |
 
 ## 下一步
 
+- XXX 表面收敛 + 不加班配音兼容层：藏服务商/画布/多余 Services；`no996` added-provider 复用工作台 `/v1/audio/voices` + `/api/v1/ai/audio/speech`；代理改写 `/api/library/voices`。见 [`XXX-no996-surface-and-voice.md`](XXX-no996-surface-and-voice.md)。**待真机**：登录后音色抽屉只有不加班音色；Speak / `openfilm_get` tts 落到 `assets/audio/vo`；未登录提示登录。
+- 本机依赖兜底提示词：FFmpeg / 转写下载失败可「复制兜底提示词」→ 贴 DSH 主会话开完全访问；Host 按 Win/macOS+arch 填 artifact 与路径。入口：EnvironmentNotice、空态 ASR、首次向导。**待真机**：故意断网装失败 → 复制词含正确平台文件名 → 主会话装好后「重新检查」通过。
+- 下载停滞切换源：FFmpeg/ffprobe 与 SenseVoice 下载无总时长上限；连接约 20s 无响应、或已开始传却 **30s 无新字节** 则中止当前源并试下一个（`src/host/download-stall.mjs`）。**待真机**：故意卡死某一源，应在约 30s 后切源并继续/报齐失败。
+- 游客模式：登录门「游客进入」→ Host 内存游客会话（无 token、不打账号服务）；账号条显示「游客模式」、积分 0；「退出游客」回登录门。重载插件后游客失效。**待真机**：断网/国外打不开账号服务时仍能进工作台调试。
+- 空态转写模型提示：未装本地 ASR（`/api/local-models` 无 installed）时，「AI 剪辑员工」下显示短提示；「去安装」打开设置→服务并尽量打开本地服务；可复制兜底提示词。**待真机**：无 SenseVoice/Whisper 时见提示；点开能装；装完刷新后提示消失。
+- 对话中断修复：Host + 壳已 bake；另修了 RecoveryGate 假死循环（探 `/api/health`、忽略 abort）；Host `openfilm_*` 不再落到 ephemeral `working`（「正在处理」），而是可见工具行。**待真机**：重载插件后新一轮应看到转写/分镜等工具行；ticket `active` 不再每 ~9s 涨；长轮 `-32603`（见 [`playbooks/turn-interrupt-fix.md`](playbooks/turn-interrupt-fix.md)）。「这段对话已经很长了」按 **token 用量 ≥85%** 触发，不是盯着屏幕的时间——上一轮超长思考/工具结果顶到上下文上限后就会出现，开新对话即可。
+- 工作台配色 / 强调色 / DSH 全局同步已拆除（设置项、`shell-ui` 注入、iframe postMessage、`dsh-global-theme`）。品牌皮肤 `assets/theme` 仍在。
+- 清配色后 20s 无 boot：品牌 logo `MutationObserver` 死循环（非 Settings About）。观察器已修；Settings About A1 已重新接回（`SettingsModal` + i18n，撤 `tuneAbout`）。**待真机**：重载后能进工作台；设置侧栏「兼容 OpenFilm」、关于「基于 OpenFilm 开发」、语言说明「不加班剪辑…」。
+- 作曲栏底部上下文用量：原生壳（`ContextUsage.tsx` + bake）；按钮只显示圆环（无「0%」文字，避免挤出 28×28 遮罩），点开弹层看百分比与用量。**待真机**：硬刷新后见空环；点开有明细；满 85% 环变强调色。
 - 分镜 → 时间轴自动落地：需要 OpenFilm 的片段创建接口；在那之前 `plan` 只报 `missing`。
 - 五个内置模板补 `prompt.md`；分镜可视化（Studio 只有 dist，先看能否样式注入）。
 

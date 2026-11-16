@@ -35,6 +35,15 @@
           # `node scripts/install-skills.mjs`; a person can add their own beside it and the catalog
           # refreshes without a restart (the provider watches its roots).
           #
+          # NOTE (film panel): the sidebar preset keeps these defaults, but the film
+          # panel (`dsh --profile acp` child) does NOT use this preset — it boots the
+          # stock acp profile plus `--patch` overlays from `src/acp/agent-overlays.mjs`.
+          # Skill isolation for film turns lives there (`skill-filesystem:
+          # includeDefaultRoots false` + only this package's `skills/`), plus the
+          # preset's prompt module reused verbatim (`openfilm-prompt.mjs` via
+          # `writePromptOverlay`). The ~40-entry global skill catalog therefore never
+          # enters a film turn. Change the gate there, not here.
+          #
           # The skill *registry* (`@deepseek-ai/dsh-skill`) is mounted by the host itself; mounting it
           # again here made the whole preset fail to load, which showed up as
           # `PROJECT_CONVERSATION_CREATE` on every prompt and a missing 权限 row. Only the file

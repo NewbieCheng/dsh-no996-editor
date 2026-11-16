@@ -115,6 +115,16 @@ test('a missing model starts the download and says what happens next', async () 
   assert.match(value.text, /status/);
 });
 
+test('extract failures become a readable stop, not an immediate retry loop', async () => {
+  const { tool, calls } = harness({
+    error: Object.assign(new Error('抽音轨失败：Invalid data found'), { code: 'EXTRACT_FAILED' }),
+  });
+  const value = await run(tool, { from: 'C:\\clips\\talk.mp4' });
+  assert.equal(calls.transcribe.length, 1);
+  assert.match(value.text, /抽音轨失败/);
+  assert.match(value.text, /不要对同一文件立刻重试/);
+});
+
 test('a real failure still rejects with its own message', async () => {
   const { tool } = harness({ error: Object.assign(new Error('音轨里没有听到人声'), { code: 'NO_SPEECH' }) });
   await assert.rejects(run(tool, { from: 'C:\\clips\\talk.mp4' }), /没有听到人声/);

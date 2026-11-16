@@ -1,9 +1,9 @@
 diff --git a/apps/desktop/shell/RecoveryGate.tsx b/apps/desktop/shell/RecoveryGate.tsx
 new file mode 100644
-index 0000000..9bd6e9c
+index 0000000..01c8d47
 --- /dev/null
 +++ b/apps/desktop/shell/RecoveryGate.tsx
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,68 @@
 +import { useEffect } from 'react';
 +
 +/**
@@ -11,6 +11,11 @@ index 0000000..9bd6e9c
 + * overlay asks the person to restart an application that is not involved.
 + * Here we only probe health and ask the panel to re-bootstrap — silently, with
 + * backoff. No card, no "already stopped" copy.
++ *
++ * Probe `/api/health`, not `/api/version`. Version asks npm (waitMs 4000) and
++ * races our 4s AbortSignal → false "misses" → restart every ~9s → ticket
++ * active climbs, SSE dies ("stream disconnected"), and the page flashes
++ * "[网络] /api/version signal is aborted". Health is local and cheap.
 + */
 +export function RecoveryGate() {
 +  useEffect(() => {
@@ -19,10 +24,12 @@ index 0000000..9bd6e9c
 +    let recovering = false;
 +    let backoffMs = 2000;
 +    let unlockTimer = 0;
++    let inFlight: AbortController | null = null;
 +
 +    const restart = () => {
 +      if (recovering || cancelled) return;
 +      recovering = true;
++      misses = 0;
 +      if (window.parent !== window) {
 +        window.parent.postMessage({ type: 'no996-openfilm:restart', version: 1 }, '*');
 +      }
@@ -32,23 +39,31 @@ index 0000000..9bd6e9c
 +    };
 +
 +    const probe = async () => {
++      if (cancelled || recovering) return;
++      inFlight?.abort();
++      const controller = new AbortController();
++      inFlight = controller;
++      const timer = window.setTimeout(() => controller.abort(), 4000);
 +      try {
-+        const controller = new AbortController();
-+        const timer = setTimeout(() => controller.abort(), 4000);
-+        const reply = await fetch('/api/version', { cache: 'no-store', signal: controller.signal });
-+        clearTimeout(timer);
++        const reply = await fetch('/api/health', { cache: 'no-store', signal: controller.signal });
 +        if (!reply.ok) throw new Error('unhealthy');
 +        misses = 0;
 +        backoffMs = 2000;
-+      } catch {
++      } catch (error) {
++        // Remount / probe overlap aborts the previous fetch — that is not a dead Studio.
++        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
 +        misses += 1;
 +        if (misses >= 2 && !cancelled) restart();
++      } finally {
++        clearTimeout(timer);
++        if (inFlight === controller) inFlight = null;
 +      }
 +    };
-+    const first = setTimeout(probe, 3000);
-+    const every = setInterval(probe, 5000);
++    const first = window.setTimeout(probe, 3000);
++    const every = window.setInterval(probe, 5000);
 +    return () => {
 +      cancelled = true;
++      inFlight?.abort();
 +      clearTimeout(first);
 +      clearInterval(every);
 +      clearTimeout(unlockTimer);

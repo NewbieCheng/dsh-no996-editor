@@ -102,6 +102,9 @@ export function createStudioRuntime({ loadStudio = loadPinnedStudio, attach, ask
         // and BiRefNet still redirect to OpenFilm's own library.
         const mirror = await ensureStudioLibraryMirror().catch(() => null);
         if (mirror) process.env.OPENFILM_LIBRARY_URL = `${mirror.origin}/library`;
+        // Embedded Studio must not hit npm for "is there a newer openfilm?" — Host pins the
+        // version; a registry probe from Settings → About only adds latency on this machine.
+        if (process.env.OPENFILM_NO_UPDATE_CHECK == null) process.env.OPENFILM_NO_UPDATE_CHECK = '1';
         // No machine-wide persistent key, run.json advertisement or browser launch.
         const result = await startStudio({ port, advertise: false, stays: true, openBrowser: () => {}, ...(askAgent ? { askAgent } : {}), ...(resolvedEditorDir ? { editorDir: resolvedEditorDir } : {}) });
         if (!result || typeof result.close !== 'function') throw new Error();

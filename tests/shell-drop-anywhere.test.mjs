@@ -19,6 +19,9 @@ test('the chat takes a file anywhere in the page', () => {
   assert.match(app, /\+      if \(!hasFiles\(event\.dataTransfer\) \|\| event\.defaultPrevented\) return;/);
   // a hover with an empty type list still has to be accepted, or the OS refuses the drop
   assert.match(app, /\+      if \(!event\.dataTransfer\) return;\n\+      event\.preventDefault\(\);/);
+  // host-caught drops must clear the stuck "松手即可附上" overlay
+  assert.match(app, /\+      setPageDropping\(false\);\n\+      if \(files\?\.length\) attachFiles\(files\);/);
+  assert.match(app, /\+    document\.addEventListener\('dragend', end\);/);
 });
 
 test('the drop box is a real drop target and a picker', () => {

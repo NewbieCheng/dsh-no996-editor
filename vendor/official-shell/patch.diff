@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..81373c0 100644
+index 9c7041b..79a2084 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
-@@ -10,6 +10,7 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
+@@ -10,10 +10,12 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
  import { buildPromptDisplay, type Turn } from '@openfilm/shared';
  import { useT, useUiLocale } from '@/i18n';
  import { ConversationBar } from '@/components/ConversationSessionBar';
@@ -10,7 +10,12 @@ index 9c7041b..81373c0 100644
  import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/components/ProjectConversation';
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
-@@ -69,6 +70,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
+ import { AttachmentPreview, type AttachmentPreviewItem } from '@/components/AttachmentPreview';
++import { ContextUsage } from '@/components/ContextUsage';
+ import { ModelPopover } from '@/components/ModelPopover';
+ import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
+ import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
+@@ -69,6 +71,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
  import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
@@ -19,7 +24,7 @@ index 9c7041b..81373c0 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -156,6 +159,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -156,6 +160,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -28,7 +33,7 @@ index 9c7041b..81373c0 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -188,6 +193,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -188,6 +194,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
    React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
@@ -59,7 +64,7 @@ index 9c7041b..81373c0 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -352,6 +381,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -352,6 +382,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const [openedFile, setOpenedFile] = React.useState<AttachmentPreviewItem | null>(null);
    const attachInputRef = React.useRef<HTMLInputElement>(null);
    const [dropping, setDropping] = React.useState(false);
@@ -68,15 +73,19 @@ index 9c7041b..81373c0 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -378,10 +409,56 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -378,10 +410,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
 +  /* dsh-openfilm: the host page catches drops the frame cannot see and hands the
-+     files over; this is where they join the composer. */
++     files over; this is where they join the composer. Host never fires our
++     drop/dragleave, so clear pageDropping here or "松手即可附上" sticks. */
 +  React.useEffect(() => {
 +    const host = window as unknown as { __no996AttachFiles?: (files: File[]) => void };
-+    host.__no996AttachFiles = (files: File[]) => { if (files?.length) attachFiles(files); };
++    host.__no996AttachFiles = (files: File[]) => {
++      setPageDropping(false);
++      if (files?.length) attachFiles(files);
++    };
 +    return () => { host.__no996AttachFiles = undefined; };
 +  }, [attachFiles]);
 +
@@ -113,19 +122,22 @@ index 9c7041b..81373c0 100644
 +      attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
 +      composerRef.current?.focus();
 +    };
++    const end = () => { setPageDropping(false); };
 +    document.addEventListener('dragover', over);
 +    document.addEventListener('dragleave', leave);
 +    document.addEventListener('drop', letGo);
++    document.addEventListener('dragend', end);
 +    return () => {
 +      document.removeEventListener('dragover', over);
 +      document.removeEventListener('dragleave', leave);
 +      document.removeEventListener('drop', letGo);
++      document.removeEventListener('dragend', end);
 +    };
 +  }, [attachFiles]);
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -964,6 +1041,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -964,6 +1049,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -139,7 +151,7 @@ index 9c7041b..81373c0 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -996,6 +1080,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -996,6 +1088,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -151,7 +163,7 @@ index 9c7041b..81373c0 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1028,9 +1117,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1028,9 +1125,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -164,7 +176,16 @@ index 9c7041b..81373c0 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1 py-2.5 pl-3.5 pr-2">
-@@ -1115,6 +1205,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1081,6 +1179,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+           onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
+         />
+         <div className="min-w-0 flex-1" />
++        {/* Always on: 0% until ACP usage_update; then used/size. Native shell, not injection. */}
++        <ContextUsage used={agentContext?.used ?? 0} size={agentContext?.size ?? 0} />
+         <input
+           ref={attachInputRef}
+           type="file"
+@@ -1115,6 +1215,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -181,7 +202,7 @@ index 9c7041b..81373c0 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1132,6 +1232,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1132,6 +1242,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -189,7 +210,7 @@ index 9c7041b..81373c0 100644
                  />
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
-@@ -1143,7 +1244,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1143,7 +1254,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    >
                      {blank ? (
                        <div ref={thread.contentRef}>
@@ -324,6 +345,111 @@ index 69c82b6..9eeb94e 100644
    /* The agent is speaking (text still streaming): no "Working" underneath, the text itself moves. Just after a
       paragraph, say nothing for a while (the seconds spent wrapping up a turn, or an act about to start)
       and say "Working" only once it is quiet. */
+diff --git a/apps/desktop/chat/src/components/ContextUsage.tsx b/apps/desktop/chat/src/components/ContextUsage.tsx
+new file mode 100644
+index 0000000..3626955
+--- /dev/null
++++ b/apps/desktop/chat/src/components/ContextUsage.tsx
+@@ -0,0 +1,99 @@
++/**
++ * Composer footer: how full this conversation's context window is (ACP usage_update).
++ * Always shown (empty ring before the first usage report). Click opens used/size.
++ * Breakdown of system/tools/messages is not available from the bridge yet.
++ */
++import React from 'react';
++import { useT } from '@/i18n';
++import { useClickOpen } from 'openfilm/studio-ui/lib/click-open.ts';
++import { Popover } from './Popover';
++import { POPOVER_CHROME } from './ComposerCard';
++
++const SIZE = 16;
++const STROKE = 2;
++const R = (SIZE - STROKE) / 2;
++const C = 2 * Math.PI * R;
++const CX = SIZE / 2;
++const CY = SIZE / 2;
++
++function formatTokens(n: number): string {
++  if (!Number.isFinite(n) || n < 0) return '—';
++  if (n >= 1_000_000) return `~${(n / 1_000_000).toFixed(1)}M`;
++  if (n >= 10_000) return `~${Math.round(n / 1000)}K`;
++  if (n >= 1000) return `~${(n / 1000).toFixed(1)}K`;
++  return String(Math.round(n));
++}
++
++export function ContextUsage({ used, size }: { used: number; size: number }) {
++  const t = useT();
++  const popup = useClickOpen();
++  const known = size > 0;
++  const share = known ? Math.min(1, Math.max(0, used / size)) : 0;
++  const pct = Math.round(share * 100);
++  const nearlyFull = known && share >= 0.85;
++  const dash = `${(share * C).toFixed(2)} ${C.toFixed(2)}`;
++  const stroke = nearlyFull ? 'var(--accent)' : 'var(--text-muted)';
++  const label = t('composer.contextUsed').replace('{pct}', String(pct));
++
++  return (
++    <Popover
++      open={popup.open}
++      onOpenChange={popup.setOpen}
++      placement="top"
++      align="end"
++      bare
++      trigger={(
++        <button
++          type="button"
++          className="openfilm-composer-tool"
++          aria-label={label}
++          aria-expanded={popup.open}
++          aria-haspopup="dialog"
++        >
++          {/* Rotate progress in SVG space — CSS rotate on <svg> skewed hit-testing. */}
++          <span className="inline-flex h-4 w-4 items-center justify-center" aria-hidden>
++            <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
++              <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--border)" strokeWidth={STROKE} />
++              <circle
++                cx={CX}
++                cy={CY}
++                r={R}
++                fill="none"
++                stroke={stroke}
++                strokeWidth={STROKE}
++                strokeLinecap="round"
++                strokeDasharray={dash}
++                transform={`rotate(-90 ${CX} ${CY})`}
++              />
++            </svg>
++          </span>
++        </button>
++      )}
++    >
++      <div
++        role="dialog"
++        aria-label={label}
++        className="w-[240px] rounded-[10px] border border-[var(--border)] bg-[var(--bg-topbar-popover)] p-3 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.45)]"
++        style={POPOVER_CHROME}
++      >
++        <div className="flex items-baseline justify-between gap-3">
++          <span className="text-[12.5px] font-medium text-[var(--text)]">
++            {label}
++          </span>
++          <span className="shrink-0 tabular-nums text-[11.5px] text-[var(--text-faint)]">
++            {known ? `${formatTokens(used)} / ${formatTokens(size)}` : '—'}
++          </span>
++        </div>
++        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[var(--bg-field)]" aria-hidden>
++          <div
++            className="h-full rounded-full transition-[width] duration-200"
++            style={{ width: `${pct}%`, background: stroke }}
++          />
++        </div>
++        <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-faint)]">
++          {known ? t('composer.contextHint') : t('composer.contextEmpty')}
++        </p>
++      </div>
++    </Popover>
++  );
++}
 diff --git a/apps/desktop/chat/src/components/ConversationSessionBar.tsx b/apps/desktop/chat/src/components/ConversationSessionBar.tsx
 index 102217b..dfbd754 100644
 --- a/apps/desktop/chat/src/components/ConversationSessionBar.tsx
@@ -1204,10 +1330,10 @@ index 0000000..ec02cbf
 +  window.dispatchEvent(new Event(REOPEN));
 +}
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..82de700 100644
+index 640dfe1..dfee1da 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
-@@ -1,32 +1,39 @@
+@@ -1,32 +1,58 @@
  'use client';
  
  /**
@@ -1225,6 +1351,7 @@ index 640dfe1..82de700 100644
  import { useT, useUiLocale } from '@/i18n';
  import { app, type StarterSkill } from '../app-bridge';
 -import { BrandLogo } from './BrandLogo';
++import { desktopBridge } from '@/lib/desktop-bridge';
 +import { TemplatePicker } from './TemplatePicker';
  
  /** Three rows of two: the most used skills, in their order; the rest are a click away in the library. */
@@ -1232,9 +1359,26 @@ index 640dfe1..82de700 100644
  /** the cards as read last: another empty conversation shows them at once, read again behind them */
  let lastRead: StarterSkill[] | null = null;
 +const ONBOARDING_KEY = 'no996.openfilm.onboarding';
++/** Settings → Services opens Local services when ModelsSection mounts (same-origin sessionStorage). */
++const OPEN_LOCAL_CARD = 'openfilm.settings.card';
  
 -export function ProjectStarters({ onSkill }: {
 +type NextSteps = { title?: string; steps?: string[]; uploadHint?: string };
++
++type LocalModelRow = { kind?: string; installed?: boolean };
++
++/** True when Studio lists ASR models and none are on disk yet. Fail closed (hide) if the API is unreachable. */
++async function asrModelsMissing(): Promise<boolean> {
++  try {
++    const res = await fetch('/api/local-models', { cache: 'no-store' });
++    if (!res.ok) return false;
++    const data = await res.json() as { models?: LocalModelRow[] };
++    const asr = (data.models ?? []).filter((m) => m.kind === 'asr');
++    return asr.length > 0 && !asr.some((m) => m.installed);
++  } catch {
++    return false;
++  }
++}
 +
 +export function ProjectStarters({ onSkill, onAddFiles }: {
    /** Names the skill in the composer (unsent) and focuses it. */
@@ -1252,10 +1396,11 @@ index 640dfe1..82de700 100644
    /* null until read: the cards' places are kept meanwhile, so nothing below them moves when they arrive */
    const [skills, setSkills] = React.useState<StarterSkill[] | null>(lastRead);
 +  const [next, setNext] = React.useState<NextSteps | null>(null);
++  const [asrMissing, setAsrMissing] = React.useState(false);
    React.useEffect(() => {
      let live = true;
      void app.starterSkills().then((list) => {
-@@ -35,6 +42,17 @@ export function ProjectStarters({ onSkill }: {
+@@ -35,6 +61,68 @@ export function ProjectStarters({ onSkill }: {
      }, () => { if (live) setSkills((was) => was ?? []); });
      return () => { live = false; };
    }, []);
@@ -1270,10 +1415,61 @@ index 640dfe1..82de700 100644
 +      localStorage.removeItem(ONBOARDING_KEY);
 +    } catch { /* ignore */ }
 +  }, []);
++  React.useEffect(() => {
++    let live = true;
++    const check = () => { void asrModelsMissing().then((missing) => { if (live) setAsrMissing(missing); }); };
++    check();
++    const onFocus = () => check();
++    const onVis = () => { if (document.visibilityState === 'visible') check(); };
++    window.addEventListener('focus', onFocus);
++    document.addEventListener('visibilitychange', onVis);
++    return () => {
++      live = false;
++      window.removeEventListener('focus', onFocus);
++      document.removeEventListener('visibilitychange', onVis);
++    };
++  }, []);
++  const openLocalAsr = () => {
++    try { sessionStorage.setItem(OPEN_LOCAL_CARD, 'local'); } catch { /* private mode */ }
++    desktopBridge()?.openSettings?.('providers');
++  };
++  const [asrFallback, setAsrFallback] = React.useState('');
++  const [asrCopyNote, setAsrCopyNote] = React.useState('');
++  const copyAsrFallback = async () => {
++    setAsrCopyNote('正在生成…');
++    try {
++      const reply = await fetch('/__dsh/official-rpc', {
++        method: 'POST',
++        credentials: 'same-origin',
++        cache: 'no-store',
++        headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ channel: 'environment:fallback-prompt', payload: { kind: 'asr' } }),
++      });
++      if (!reply.ok) throw new Error('HTTP ' + reply.status);
++      const data = await reply.json() as { prompt?: string };
++      const prompt = typeof data?.prompt === 'string' ? data.prompt : '';
++      if (!prompt) throw new Error('empty');
++      try {
++        await navigator.clipboard.writeText(prompt);
++        setAsrFallback('');
++        setAsrCopyNote(t('editor.asrCopied'));
++      } catch {
++        setAsrFallback(prompt);
++        setAsrCopyNote(t('editor.asrCopyManual'));
++      }
++    } catch {
++      try {
++        window.dispatchEvent(new CustomEvent('no996-fallback-prompt', { detail: { kind: 'asr' } }));
++        setAsrCopyNote(t('editor.asrOpenNotice'));
++      } catch {
++        setAsrCopyNote(t('editor.asrCopyFail'));
++      }
++    }
++  };
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +60,80 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +130,112 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -1286,6 +1482,38 @@ index 640dfe1..82de700 100644
        </div>
  
 -      <ul className="mt-6 grid grid-cols-2 gap-2">
++      {asrMissing ? (
++        <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2.5">
++          <p className="text-[12.5px] leading-snug text-[var(--text-muted)]">{t('editor.asrHint')}</p>
++          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
++            <button
++              type="button"
++              onClick={openLocalAsr}
++              className="text-[12.5px] font-medium text-[var(--text)] underline underline-offset-2 hover:text-[var(--accent)]"
++            >
++              {t('editor.asrInstall')}
++            </button>
++            <button
++              type="button"
++              onClick={() => void copyAsrFallback()}
++              className="text-[12.5px] font-medium text-[var(--text-muted)] underline underline-offset-2 hover:text-[var(--text)]"
++            >
++              {t('editor.asrFallback')}
++            </button>
++          </div>
++          {asrCopyNote ? <p className="mt-1.5 text-[11.5px] text-[var(--text-faint)]">{asrCopyNote}</p> : null}
++          {asrFallback ? (
++            <textarea
++              readOnly
++              aria-label={t('editor.asrFallback')}
++              value={asrFallback}
++              className="mt-2 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--bg-app)] p-2 text-[11px] leading-snug text-[var(--text-muted)]"
++              rows={6}
++            />
++          ) : null}
++        </div>
++      ) : null}
++
 +      {next ? (
 +        <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2.5">
 +          <div className="flex items-start justify-between gap-2">
@@ -1358,7 +1586,7 @@ index 640dfe1..82de700 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +141,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +243,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}
@@ -1538,10 +1766,10 @@ index 0000000..f487575
 +  );
 +}
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b5a098a..5370d55 100644
+index b5a098a..9620189 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
-@@ -19,6 +19,25 @@ export const enUS = {
+@@ -19,6 +19,32 @@ export const enUS = {
      browserDownloading: 'Downloading the browser Studio draws pages in (about 100 MB, once)…',
      browserFailed: 'The browser Studio draws pages in did not download: {error}',
    },
@@ -1563,11 +1791,18 @@ index b5a098a..5370d55 100644
 +    nextTitle: 'Next steps',
 +    skills: 'Skills',
 +    dismissNext: 'Got it',
++    asrHint: 'No speech transcription model yet. Install one to turn narration or video into text before cutting.',
++    asrInstall: 'Install',
++    asrFallback: 'Copy fallback prompt',
++    asrCopied: 'Copied. Paste into the DSH main chat and enable full access.',
++    asrCopyManual: 'Clipboard failed — copy the text below manually.',
++    asrOpenNotice: 'Opened the corner notice — copy from there.',
++    asrCopyFail: 'Could not build the prompt. Reload the plugin and retry.',
 +  },
    act: {
      waitingForYou: 'Waiting for you',
      /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
-@@ -130,6 +149,8 @@ export const enUS = {
+@@ -130,8 +156,13 @@ export const enUS = {
      previewFailed: 'This file could not be read',
    },
    composer: {
@@ -1575,8 +1810,13 @@ index b5a098a..5370d55 100644
 +    searchNoMatch: 'No matching model',
      contextFull: 'This conversation is getting long. A new one will work better.',
      contextFullNew: 'New conversation',
++    contextUsed: 'Context {pct}% used',
++    contextHint: 'System prompt and tool definitions are not broken out yet; this is the session total.',
++    contextEmpty: 'No usage yet — send a message to see tokens used.',
      agentLoading: 'Loading…',
-@@ -228,7 +249,7 @@ export const enUS = {
+     agentNone: 'Agent',
+     agentNoneShown: 'No agent is switched on for the chat.',
+@@ -228,7 +259,7 @@ export const enUS = {
      addAttachment: 'Add files',
      close: 'Close',
      composerPlaceholder: 'Say what to change. Type @ for a file, a skill, a moment or what you selected',
@@ -1585,7 +1825,7 @@ index b5a098a..5370d55 100644
      dismiss: 'Dismiss',
      jumpToLatest: 'Jump to latest',
      loadingMessages: 'Loading conversation…',
-@@ -244,6 +265,8 @@ export const enUS = {
+@@ -244,6 +275,8 @@ export const enUS = {
      untitledSession: 'New chat',
    },
    projectMenu: {
@@ -1595,10 +1835,10 @@ index b5a098a..5370d55 100644
      archived: 'Archived',
      asking: 'Waiting for you',
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index 12035f2..9c42b0e 100644
+index 12035f2..33e2a23 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
-@@ -130,6 +130,8 @@ export const es: Words = {
+@@ -130,8 +130,13 @@ export const es: Words = {
      previewFailed: 'No se pudo leer este archivo',
    },
    composer: {
@@ -1606,8 +1846,13 @@ index 12035f2..9c42b0e 100644
 +    searchNoMatch: 'Ningún modelo coincide',
      contextFull: 'Esta conversación ya es larga. Una nueva funcionará mejor.',
      contextFullNew: 'Nueva conversación',
++    contextUsed: 'Contexto usado {pct}%',
++    contextHint: 'Aún no hay desglose de sistema/herramientas; es el total de la sesión.',
++    contextEmpty: 'Sin uso aún: envía un mensaje para ver los tokens.',
      agentLoading: 'Cargando…',
-@@ -243,6 +245,8 @@ export const es: Words = {
+     agentNone: 'Agente',
+     agentNoneShown: 'No hay ningún agente activado para el chat.',
+@@ -243,6 +248,8 @@ export const es: Words = {
      untitledSession: 'Nuevo chat',
    },
    projectMenu: {
@@ -1617,10 +1862,10 @@ index 12035f2..9c42b0e 100644
      archived: 'Archivados',
      asking: 'Esperando tu respuesta',
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 771e3eb..fee5c03 100644
+index 771e3eb..587a349 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
-@@ -130,6 +130,8 @@ export const ja: Words = {
+@@ -130,8 +130,13 @@ export const ja: Words = {
      previewFailed: 'このファイルを読み込めませんでした',
    },
    composer: {
@@ -1628,8 +1873,13 @@ index 771e3eb..fee5c03 100644
 +    searchNoMatch: '一致するモデルがありません',
      contextFull: 'この会話は長くなっています。新しい会話のほうがうまくいきます。',
      contextFullNew: '新しい会話',
++    contextUsed: 'コンテキスト使用率 {pct}%',
++    contextHint: 'システム／ツールの内訳は未対応です。セッション合計です。',
++    contextEmpty: 'まだ使用量がありません。メッセージを送ると表示されます。',
      agentLoading: '読み込み中…',
-@@ -243,6 +245,8 @@ export const ja: Words = {
+     agentNone: 'エージェント',
+     agentNoneShown: 'チャットで使えるエージェントがオンになっていません。',
+@@ -243,6 +248,8 @@ export const ja: Words = {
      untitledSession: '新しいチャット',
    },
    projectMenu: {
@@ -1639,10 +1889,10 @@ index 771e3eb..fee5c03 100644
      archived: 'アーカイブ済み',
      asking: '回答待ち',
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index da3793f..a9246a4 100644
+index da3793f..74dde73 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
-@@ -126,6 +126,8 @@ export const ko: Words = {
+@@ -126,8 +126,13 @@ export const ko: Words = {
      previewFailed: '이 파일을 읽을 수 없습니다',
    },
    composer: {
@@ -1650,8 +1900,13 @@ index da3793f..a9246a4 100644
 +    searchNoMatch: '일치하는 모델이 없습니다',
      contextFull: '대화가 길어졌습니다. 새 대화를 시작하면 더 잘 됩니다.',
      contextFullNew: '새 대화',
++    contextUsed: '컨텍스트 {pct}% 사용',
++    contextHint: '시스템/도구 세부 구분은 아직 없습니다. 세션 합계입니다.',
++    contextEmpty: '아직 사용량이 없습니다. 메시지를 보내면 표시됩니다.',
      agentLoading: '불러오는 중…',
-@@ -239,6 +241,8 @@ export const ko: Words = {
+     agentNone: '에이전트',
+     agentNoneShown: '채팅에 켜 둔 에이전트가 없습니다.',
+@@ -239,6 +244,8 @@ export const ko: Words = {
      untitledSession: '새 채팅',
    },
    projectMenu: {
@@ -1661,10 +1916,10 @@ index da3793f..a9246a4 100644
      archived: '보관됨',
      asking: '답변 대기 중',
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index eccacdb..d3ca72a 100644
+index eccacdb..b1352d6 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-@@ -19,6 +19,25 @@ export const zhCN: Words = {
+@@ -19,6 +19,32 @@ export const zhCN: Words = {
      browserDownloading: '正在下载 Studio 绘制页面用的浏览器（约 100 MB，仅一次）…',
      browserFailed: 'Studio 绘制页面用的浏览器没有下载成功：{error}',
    },
@@ -1686,11 +1941,18 @@ index eccacdb..d3ca72a 100644
 +    nextTitle: '下一步',
 +    skills: '常用技能',
 +    dismissNext: '知道了',
++    asrHint: '还没装语音转写模型。装好后才能把口播/视频转成文字再剪。',
++    asrInstall: '去安装',
++    asrFallback: '复制兜底提示词',
++    asrCopied: '已复制。请粘贴到 DSH 主会话并开「完全访问」。',
++    asrCopyManual: '复制失败，请手动复制下方文本。',
++    asrOpenNotice: '已打开右下角检查卡，可在那里复制。',
++    asrCopyFail: '生成失败，请重载插件后再试。',
 +  },
    act: {
      waitingForYou: '在等你',
      /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
-@@ -130,6 +149,8 @@ export const zhCN: Words = {
+@@ -130,8 +156,13 @@ export const zhCN: Words = {
      previewFailed: '无法读取此文件',
    },
    composer: {
@@ -1698,8 +1960,13 @@ index eccacdb..d3ca72a 100644
 +    searchNoMatch: '没有匹配的模型',
      contextFull: '这段对话已经很长了，开个新对话效果更好。',
      contextFullNew: '新对话',
++    contextUsed: '上下文已用 {pct}%',
++    contextHint: '系统提示与工具定义暂无单独拆分；此为会话已上报的总量。',
++    contextEmpty: '还没有用量数据：发一条消息后会显示已用 token。',
      agentLoading: '正在加载…',
-@@ -227,7 +248,7 @@ export const zhCN: Words = {
+     agentNone: '智能体',
+     agentNoneShown: '对话中尚未开启任何智能体。',
+@@ -227,7 +258,7 @@ export const zhCN: Words = {
      addAttachment: '添加文件',
      close: '关闭',
      composerPlaceholder: '说说要改什么。输入 @ 可指向文件、skill、某个时刻或当前选中的内容',
@@ -1708,7 +1975,7 @@ index eccacdb..d3ca72a 100644
      dismiss: '关闭',
      jumpToLatest: '跳到最新',
      loadingMessages: '正在加载对话…',
-@@ -243,6 +264,8 @@ export const zhCN: Words = {
+@@ -243,6 +274,8 @@ export const zhCN: Words = {
      untitledSession: '新对话',
    },
    projectMenu: {
@@ -1943,7 +2210,7 @@ index 9134f7a..cef07dd 100644
  export function setLastSession(project: string, id: string) {
    const chat = record(project);
 diff --git a/apps/desktop/chat/src/lib/desktop-attachments.ts b/apps/desktop/chat/src/lib/desktop-attachments.ts
-index 4f7aa72..25eeb92 100644
+index 4f7aa72..3f4ea6d 100644
 --- a/apps/desktop/chat/src/lib/desktop-attachments.ts
 +++ b/apps/desktop/chat/src/lib/desktop-attachments.ts
 @@ -64,6 +64,10 @@ export function useDesktopAttachments(project: string) {
@@ -1968,7 +2235,7 @@ index 4f7aa72..25eeb92 100644
        void app.chat.describePaths(onDisk.map(({ path }) => path))
          .then((found) => onDisk.forEach(({ item }, i) => {
            const one = found[i];
-@@ -100,15 +104,30 @@ export function useDesktopAttachments(project: string) {
+@@ -100,15 +104,37 @@ export function useDesktopAttachments(project: string) {
            } else patch(item.id, { state: 'ready', path: one.path, size: one.size ?? item.size });
          }))
          .catch((error: unknown) => onDisk.forEach(({ item }) => patch(item.id, { state: 'failed', error: error instanceof Error ? error.message : String(error) })));
@@ -2010,7 +2277,7 @@ index 4f7aa72..25eeb92 100644
    }, [project, thumbnail]);
  
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..78b2b61 100644
+index 0ef8753..7d337af 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -2022,7 +2289,88 @@ index 0ef8753..78b2b61 100644
    publicActivity,
    publicActivityResult,
    publicAsk,
-@@ -230,8 +232,16 @@ export function acpUpdateToEvent(
+@@ -130,12 +132,55 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
+  * The name of our own MCP tool in this call (`mcp__openfilm__look`); undefined for anyone else's tools.
+  * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
+  * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
++ *
++ * dsh-openfilm: the Host MCP server is named `no996-openfilm` (see mcpServerEntry). Titles arrive as
++ * `mcp.no996-openfilm.openfilm_transcribe` or bare `openfilm_*`. Only recognizing `server === 'openfilm'`
++ * made every Host tool look like "someone else's MCP" and return null — the panel showed a long
++ * thought and no tool rows (2026-11-16).
+  */
+ export function ourToolName(title: string | undefined, rawInput: unknown): string | undefined {
+   const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as { server?: unknown; tool?: unknown };
+-  if (input.server === 'openfilm' && typeof input.tool === 'string') return `mcp__openfilm__${input.tool}`;
+-  const ours = /^(?:mcp__|mcp\.)?openfilm(?:__|\.|:|\/)(.+)$/i.exec((title ?? '').trim());
+-  return ours ? `mcp__openfilm__${ours[1]!.trim()}` : undefined;
++  const oursServer = input.server === 'openfilm' || input.server === 'no996-openfilm';
++  if (oursServer && typeof input.tool === 'string') return `mcp__openfilm__${input.tool}`;
++  const trimmed = (title ?? '').trim();
++  const ours = /^(?:mcp__|mcp\.)?(?:no996[-_.])?openfilm(?:__|\.|:|\/)(.+)$/i.exec(trimmed);
++  if (ours) return `mcp__openfilm__${ours[1]!.trim()}`;
++  if (/^openfilm_[A-Za-z0-9_]+$/.test(trimmed)) return `mcp__openfilm__${trimmed}`;
++  return undefined;
++}
++
++/**
++ * Host MCP tools (`openfilm_transcribe` …) are not in upstream's publicActivity catalog, so they
++ * collapse to `act.working`. That act is ephemeral: only the live status line ("正在处理"), never a
++ * tool row — so a turn with dozens of Host tools looks like endless thinking with no work. Map them
++ * onto closed acts that stay in the transcript (2026-11-16).
++ */
++export function hostOpenfilmActivity(mcpName: string): LocalActivity {
++  const short = mcpName.replace(/^mcp__openfilm__/i, '');
++  switch (short) {
++    case 'openfilm_transcribe':
++      return { act: 'audio.transcribe' };
++    case 'openfilm_frame':
++      return { act: 'film.frames' };
++    case 'openfilm_film':
++    case 'openfilm_storyboard':
++      return { act: 'film.review' };
++    case 'openfilm_clip':
++      return { act: 'film.arrange' };
++    case 'openfilm_export':
++      return { act: 'film.check' };
++    case 'openfilm_guide':
++    case 'openfilm_library':
++      return { act: 'research.read' };
++    case 'openfilm_assets':
++    case 'openfilm_get':
++      return { act: 'files.read', detail: clipDetail(short) };
++    case 'openfilm_draft':
++      return { act: 'scene.write' };
++    case 'openfilm_cli':
++    default:
++      return { act: 'command.run', detail: clipDetail(short || 'openfilm') };
++  }
+ }
+ 
+ /**
+@@ -161,7 +206,20 @@ export function localToolActivity(
+      rawInput.arguments (next to server / tool). Recognize that first. */
+   const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown> & { server?: unknown; tool?: unknown; arguments?: unknown };
+   const tool = ourToolName(name, rawInput);
+-  if (tool) return publicActivity(tool, input.arguments ?? (input.server === 'openfilm' ? {} : rawInput)) ?? null;
++  if (tool) {
++    const args = input.arguments ?? ((input.server === 'openfilm' || input.server === 'no996-openfilm') ? {} : rawInput);
++    const activity = publicActivity(tool, args);
++    /* Upstream catalog hit (look / check / …): keep that projection. `working` means "unknown tool" —
++       Host openfilm_* always land there, so promote them to a lasting row. */
++    if (activity && activity.act !== 'working') return activity;
++    if (activity === null) return null;
++    return hostOpenfilmActivity(tool);
++  }
++  /* Our Host MCP under an unrecognized title still belongs on the film row, not the status line. */
++  if (input.server === 'no996-openfilm' || input.server === 'openfilm') {
++    const tip = typeof input.tool === 'string' ? input.tool : name;
++    return hostOpenfilmActivity(`mcp__openfilm__${tip}`);
++  }
+   /* Other MCP tools (Codex's own browser, computer use…): not film work, not drawn */
+   if (typeof input.server === 'string' || /^mcp[._]/.test(name)) return null;
+   const files = touchedFiles(extra, input);
+@@ -230,11 +288,25 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -2039,19 +2387,29 @@ index 0ef8753..78b2b61 100644
 +      };
 +    }
      case 'tool_call': {
++      /* Prefer ACP's toolName when the title is an opaque MCP label — bare openfilm_*
++         is enough for ourToolName after the no996-openfilm recognition fix. */
++      const titled = typeof update.title === 'string' ? update.title : undefined;
++      const named = typeof (update as { toolName?: unknown }).toolName === 'string'
++        ? String((update as { toolName?: string }).toolName)
++        : undefined;
        const activity = localToolActivity(
-         update.title as string | undefined,
-@@ -246,6 +256,9 @@ export function acpUpdateToEvent(
+-        update.title as string | undefined,
++        named || titled,
+         update.kind as string | undefined,
+         update.rawInput,
+         { locations: (update as { locations?: unknown }).locations, content: (update as { content?: unknown }).content },
+@@ -246,6 +318,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
 +        /* dsh-openfilm: the real tool name travels beside the act, so the row can say what ran. The
 +           bridging agent knows it; the closed act only says what it meant for the film. */
-+        ...(typeof update.toolName === 'string' && update.toolName ? { tool: String(update.toolName).slice(0, 80) } : {}),
++        ...(named ? { tool: named.slice(0, 80) } : {}),
        };
      }
      case 'tool_call_update': {
-@@ -295,6 +308,17 @@ export class LocalAgentTurn {
+@@ -295,6 +370,17 @@ export class LocalAgentTurn {
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
@@ -2069,7 +2427,7 @@ index 0ef8753..78b2b61 100644
  
    constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
  
-@@ -304,7 +328,14 @@ export class LocalAgentTurn {
+@@ -304,7 +390,14 @@ export class LocalAgentTurn {
    };
  
    private emit(): void {
@@ -2085,7 +2443,7 @@ index 0ef8753..78b2b61 100644
    }
  
    patch(next: Partial<LocalRunState>): void {
-@@ -363,6 +394,9 @@ export class LocalAgentTurn {
+@@ -363,6 +456,9 @@ export class LocalAgentTurn {
      if (event.type === 'agent-text') {
        const full = (this.partText.get(this.part) ?? '') + event.text;
        this.partText.set(this.part, full);
@@ -2095,7 +2453,7 @@ index 0ef8753..78b2b61 100644
        event = { ...event, text: full };
      }
      this.items = reduceTranscript(this.items, event);
-@@ -389,7 +423,6 @@ export class LocalAgentTurn {
+@@ -389,7 +485,6 @@ export class LocalAgentTurn {
    private pendingAsk: TranscriptItem['ask'];
    /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
    private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
@@ -2103,7 +2461,7 @@ index 0ef8753..78b2b61 100644
    private openThought: string | null = null;
  
    private patchItem(id: string, patch: Partial<TranscriptItem>): void {
-@@ -400,18 +433,38 @@ export class LocalAgentTurn {
+@@ -400,18 +495,38 @@ export class LocalAgentTurn {
      this.items = next;
    }
  
@@ -2150,7 +2508,7 @@ index 0ef8753..78b2b61 100644
      if (!this.state.thinking) this.state = { ...this.state, thinking: true };
      this.emit();
    }
-@@ -423,6 +476,91 @@ export class LocalAgentTurn {
+@@ -423,6 +538,91 @@ export class LocalAgentTurn {
      return true;
    }
  
@@ -2242,7 +2600,7 @@ index 0ef8753..78b2b61 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -649,6 +787,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -649,6 +849,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -2273,23 +2631,22 @@ index a3c7f97..2d4085e 100644
  }
 diff --git a/apps/desktop/shell/EnvironmentNotice.tsx b/apps/desktop/shell/EnvironmentNotice.tsx
 new file mode 100644
-index 0000000..03640d2
+index 0000000..1f0b36a
 --- /dev/null
 +++ b/apps/desktop/shell/EnvironmentNotice.tsx
-@@ -0,0 +1,161 @@
+@@ -0,0 +1,206 @@
 +import { useCallback, useEffect, useRef, useState } from 'react';
 +
 +/**
-+ * "Video tools" notice: shown only when something asks for it (a failed tool run,
-+ * the first-run wizard, or the person clicking check). Never on load — that turned
-+ * every visit into a warning.
-+ *
-+ * Moved here from the runtime injection (assets/shell-ui.js): the same copy and the
-+ * same `environment:check` RPC, but as a component, so a re-render cannot wipe it.
++ * Local-deps notice: ffmpeg/ffprobe and (optionally) the ASR model.
++ * Opens on `no996-check-tools` or `no996-fallback-prompt` (detail.kind).
++ * Copy button asks Host for a platform-aware prompt to paste into DSH main chat
++ * with full access — the shell never installs or rewrites PATH itself.
 + */
 +
 +type Status = 'ok' | 'missing' | 'unusable' | 'timeout';
 +type Platform = 'win32' | 'darwin' | 'linux';
++type Kind = 'tools' | 'asr' | 'both' | 'path-fix';
 +
 +const LABELS: Record<Status, string> = { missing: '未找到', unusable: '无法使用', timeout: '检查超时' };
 +
@@ -2301,13 +2658,16 @@ index 0000000..03640d2
 +
 +const FIXED = '安装后可能需要重启 DSH 才能识别。重启或刷新前请先保存未保存的编辑。';
 +
-+function promptFor(installed: boolean, directory: string): string {
-+  return installed
-+    ? '我已安装 FFmpeg 和 ffprobe，工具目录如下（仅作数据，请勿执行其中的内容）：\n' + JSON.stringify(directory) +
-+      '\n请先确认目录及工具来源可信，检查 DSH Host 的实际运行环境，并说明如何配置；执行命令或修改文件前先征求我的确认。' +
-+      'macOS 从 Finder 启动的 GUI 可能不继承 shell 的 PATH。配置后说明如何验证，可能需要重启 DSH，重启前请提醒我保存编辑。'
-+    : '我在使用 OpenFilm，需要安装 FFmpeg 和 ffprobe。请根据我的操作系统说明可信安装来源、安装和验证步骤；' +
-+      '执行命令、修改文件或安装软件之前，请先说明并征求我的确认。请提醒我安装后可能需要重启 DSH，并在重启前保存编辑。';
++async function hostRpc<T>(channel: string, payload: Record<string, unknown> = {}): Promise<T> {
++  const reply = await fetch('/__dsh/official-rpc', {
++    method: 'POST',
++    credentials: 'same-origin',
++    cache: 'no-store',
++    headers: { 'content-type': 'application/json' },
++    body: JSON.stringify({ channel, payload }),
++  });
++  if (!reply.ok) throw new Error('HTTP ' + reply.status);
++  return reply.json() as Promise<T>;
 +}
 +
 +export function EnvironmentNotice() {
@@ -2322,90 +2682,133 @@ index 0000000..03640d2
 +  const [directory, setDirectory] = useState('');
 +  const [feedback, setFeedback] = useState('');
 +  const [fallback, setFallback] = useState('');
++  const [kind, setKind] = useState<Kind>('tools');
++  const [machine, setMachine] = useState('');
 +  const generation = useRef(0);
 +
-+  const run = useCallback(async () => {
++  const run = useCallback(async (wanted: Kind = 'tools') => {
 +    const current = (generation.current += 1);
 +    setOpen(true);
 +    setBusy(true);
-+    setStatus('正在检查视频工具…');
++    setKind(wanted);
++    setStatus(wanted === 'asr' ? '正在检查转写模型…' : '正在检查本机依赖…');
 +    setShowGuide(false);
 +    setShowChoices(false);
 +    setFallback('');
++    setFeedback('');
 +    setIssues([]);
 +    try {
-+      const reply = await fetch('/__dsh/official-rpc', {
-+        method: 'POST',
-+        credentials: 'same-origin',
-+        cache: 'no-store',
-+        headers: { 'content-type': 'application/json' },
-+        body: JSON.stringify({ channel: 'environment:check', payload: {} }),
-+      });
-+      if (!reply.ok) throw new Error('check failed');
-+      const value = await reply.json();
++      const value = await hostRpc<{
++        platform?: Platform;
++        arch?: string;
++        tools?: Record<string, { status?: Status }>;
++        asr?: { ready?: boolean; error?: string; installing?: boolean };
++      }>('environment:check', {});
 +      if (current !== generation.current) return;
-+      const platform = value?.platform as Platform | undefined;
++      const platform = value?.platform;
 +      const tools = value?.tools;
-+      const ok = platform && ['win32', 'darwin', 'linux'].includes(platform) && tools?.ffmpeg && tools?.ffprobe &&
-+        (['ok', 'missing', 'unusable', 'timeout'] as string[]).includes(tools.ffmpeg.status) &&
-+        (['ok', 'missing', 'unusable', 'timeout'] as string[]).includes(tools.ffprobe.status);
-+      if (!ok) throw new Error('invalid response');
++      const asr = value?.asr;
++      const okTools = platform && ['win32', 'darwin', 'linux'].includes(platform) && tools?.ffmpeg && tools?.ffprobe &&
++        (['ok', 'missing', 'unusable', 'timeout'] as string[]).includes(tools.ffmpeg.status as string) &&
++        (['ok', 'missing', 'unusable', 'timeout'] as string[]).includes(tools.ffprobe.status as string);
++      if (!okTools) throw new Error('invalid response');
 +      setBusy(false);
-+      const bad = ['ffmpeg', 'ffprobe'].filter(name => tools[name].status !== 'ok');
-+      if (!bad.length) {
++      setMachine([platform, value?.arch].filter(Boolean).join(' · '));
++
++      const badTools = ['ffmpeg', 'ffprobe'].filter(name => tools![name].status !== 'ok');
++      const asrBad = asr && asr.ready !== true;
++      const checkAsr = wanted === 'asr' || wanted === 'both';
++      const checkTools = wanted === 'tools' || wanted === 'both' || wanted === 'path-fix';
++
++      if (checkTools && !badTools.length && (!checkAsr || !asrBad)) {
 +        setShowChoices(false);
 +        setShowGuide(false);
-+        setStatus('检查通过：ffmpeg 和 ffprobe 均可用。请回到原操作重试。');
++        setStatus(checkAsr
++          ? '检查通过：视频工具与转写模型均可用。请回到原操作重试。'
++          : '检查通过：ffmpeg 和 ffprobe 均可用。请回到原操作重试。');
 +        return;
 +      }
-+      setIssues(bad.map(name => `${name}：${LABELS[tools[name].status as Status]}`));
++
++      const nextIssues: string[] = [];
++      if (checkTools) nextIssues.push(...badTools.map(name => `${name}：${LABELS[tools![name].status as Status]}`));
++      if (checkAsr && asrBad) {
++        nextIssues.push(asr?.error
++          ? `转写模型：${asr.error.slice(0, 120)}`
++          : (asr?.installing ? '转写模型：正在下载' : '转写模型：未安装'));
++      }
++      setIssues(nextIssues);
 +      setShowChoices(true);
-+      setShowGuide(true);
-+      setGuide(INSTRUCTIONS[platform] + ' 安装后请确认两个工具均可用，再返回此处重新检查。');
-+      setStatus('视频工具需要注意：' + bad.map(name => `${name}：${LABELS[tools[name].status as Status]}`).join('；') + '。您可以继续使用工作台。');
++      setShowGuide(checkTools && badTools.length > 0);
++      if (platform) setGuide(INSTRUCTIONS[platform] + ' 安装后请确认工具可用，再返回此处重新检查。');
++      setStatus('本机依赖需要注意：' + nextIssues.join('；') + '。可复制兜底提示词到 DSH 主会话（完全访问）。');
++      if (wanted === 'tools' && asrBad) setKind('both');
++      else if (wanted === 'asr' && badTools.length) setKind('both');
++      else setKind(wanted === 'path-fix' ? 'path-fix' : wanted);
 +    } catch {
 +      if (current !== generation.current) return;
 +      setBusy(false);
 +      setShowChoices(true);
 +      setShowGuide(false);
 +      setIssues([]);
-+      setStatus('环境检查暂时失败，无法确定工具状态。请确认插件已更新并重启 DSH 后重新检查；您也可以继续使用工作台。');
++      setStatus('环境检查暂时失败。仍可复制兜底提示词到 DSH 主会话；或重载插件后再检查。');
 +    }
 +  }, []);
 +
 +  useEffect(() => {
-+    const handler = () => void run();
-+    window.addEventListener('no996-check-tools', handler);
-+    (window as unknown as { __no996CheckTools?: () => void }).__no996CheckTools = handler;
-+    return () => window.removeEventListener('no996-check-tools', handler);
++    const onCheck = () => void run('tools');
++    const onFallback = (event: Event) => {
++      const detail = (event as CustomEvent<{ kind?: Kind }>).detail;
++      const next = detail?.kind;
++      void run(next === 'asr' || next === 'both' || next === 'path-fix' ? next : 'tools');
++    };
++    window.addEventListener('no996-check-tools', onCheck);
++    window.addEventListener('no996-fallback-prompt', onFallback);
++    (window as unknown as { __no996CheckTools?: () => void }).__no996CheckTools = onCheck;
++    return () => {
++      window.removeEventListener('no996-check-tools', onCheck);
++      window.removeEventListener('no996-fallback-prompt', onFallback);
++    };
 +  }, [run]);
 +
 +  if (!open) return null;
 +
 +  const copy = async () => {
-+    if (installed && !directory.trim()) {
++    const usePath = installed === true || kind === 'path-fix';
++    if (usePath && !directory.trim()) {
 +      setFeedback('请先输入已安装的工具目录。');
 +      return;
 +    }
-+    const prompt = promptFor(installed === true, directory);
++    setFeedback('正在生成提示词…');
 +    try {
-+      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') throw new Error('no clipboard');
-+      await navigator.clipboard.writeText(prompt);
-+      setFallback('');
-+      setFeedback('提示已复制，请粘贴到主对话；尚未配置或安装。');
++      const payload = await hostRpc<{ prompt?: string }>('environment:fallback-prompt', {
++        kind: usePath ? 'path-fix' : kind,
++        directory: directory.trim(),
++        mode: usePath ? 'installed' : '',
++      });
++      const prompt = typeof payload?.prompt === 'string' ? payload.prompt : '';
++      if (!prompt) throw new Error('empty prompt');
++      try {
++        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') throw new Error('no clipboard');
++        await navigator.clipboard.writeText(prompt);
++        setFallback('');
++        setFeedback('已复制。请粘贴到 DSH 主会话，并开「完全访问」后再让它下载/修路径。');
++      } catch {
++        setFallback(prompt);
++        setFeedback('复制失败，请选择下方文本手动复制到 DSH 主会话。');
++      }
 +    } catch {
-+      setFallback(prompt);
-+      setFeedback('复制失败，请选择下方文本手动复制到主对话。');
++      setFeedback('生成提示词失败。请确认插件已重载后再试。');
 +    }
 +  };
 +
 +  return (
 +    <section
-+      aria-label="视频工具环境检查"
++      aria-label="本机依赖环境检查"
 +      role="region"
 +      style={{ position: 'fixed', zIndex: 2147483000, right: 16, bottom: 16, width: 'min(400px, calc(100vw - 32px))', maxHeight: '70vh', overflow: 'auto', boxSizing: 'border-box', padding: 16, border: '1px solid #62563d', borderRadius: 12, background: '#252321', color: '#f1eee8', boxShadow: '0 8px 30px rgba(0,0,0,.4)', font: '13px/1.6 system-ui,sans-serif' }}
 +    >
-+      <strong>视频工具环境检查</strong>
++      <strong>本机依赖检查</strong>
++      {machine ? <p style={{ margin: '4px 0 0', opacity: 0.75, fontSize: 12 }}>{machine}</p> : null}
 +      <p role="status" aria-live="polite">{status}</p>
 +      {showGuide && (
 +        <div>
@@ -2417,22 +2820,22 @@ index 0000000..03640d2
 +        <button type="button" onClick={() => setShowGuide(v => !v)} aria-expanded={showGuide} style={BUTTON}>查看手动安装方法</button>
 +        {showChoices && (
 +          <>
-+            <button type="button" style={BUTTON} onClick={() => { setInstalled(true); setFeedback('请输入包含 ffmpeg 和 ffprobe 的目录，再复制提示给主对话。'); }}>我已安装</button>
-+            <button type="button" style={BUTTON} onClick={() => { setInstalled(false); setFeedback('可复制提示给主对话，了解安装方法。'); }}>尚未安装</button>
-+            <button type="button" style={BUTTON} onClick={() => void copy()}>复制询问 DeepSeek 的提示</button>
++            <button type="button" style={BUTTON} onClick={() => { setInstalled(true); setKind('path-fix'); setFeedback('请输入包含 ffmpeg 和 ffprobe 的目录，再复制提示给主对话。'); }}>我已安装</button>
++            <button type="button" style={BUTTON} onClick={() => { setInstalled(false); setFeedback('可复制提示给主对话，走完全访问兜底下载。'); }}>尚未安装</button>
++            <button type="button" style={BUTTON} onClick={() => void copy()}>复制兜底提示词</button>
 +          </>
 +        )}
-+        <button type="button" style={BUTTON} disabled={busy} onClick={() => void run()}>重新检查</button>
++        <button type="button" style={BUTTON} disabled={busy} onClick={() => void run(kind === 'path-fix' ? 'tools' : kind)}>重新检查</button>
 +        <button type="button" style={BUTTON} onClick={() => setOpen(false)}>{issues.length ? '暂时跳过' : '关闭'}</button>
 +      </div>
-+      {installed && (
++      {(installed || kind === 'path-fix') && (
 +        <label style={{ display: 'block', marginTop: 8 }}>
 +          已安装的工具目录（仅用于生成提示，不会自动配置）
 +          <input type="text" maxLength={2048} value={directory} onChange={event => setDirectory(event.target.value)} placeholder="例如 C:\\Program Files\\ffmpeg\\bin 或 /opt/homebrew/bin" style={{ boxSizing: 'border-box', width: '100%', marginTop: 6 }} />
 +        </label>
 +      )}
 +      {feedback && <p role="status" aria-live="polite">{feedback}</p>}
-+      {fallback && <textarea readOnly aria-label="可手动复制的 DeepSeek 提问" value={fallback} style={{ boxSizing: 'border-box', width: '100%', minHeight: 120, marginTop: 8 }} />}
++      {fallback && <textarea readOnly aria-label="可手动复制的 DSH 提问" value={fallback} style={{ boxSizing: 'border-box', width: '100%', minHeight: 120, marginTop: 8 }} />}
 +    </section>
 +  );
 +}
@@ -2440,10 +2843,10 @@ index 0000000..03640d2
 +const BUTTON = { padding: '6px 10px', border: '1px solid #777', borderRadius: 6, background: '#34312d', color: '#fff', cursor: 'pointer', font: 'inherit' } as const;
 diff --git a/apps/desktop/shell/LoginGate.tsx b/apps/desktop/shell/LoginGate.tsx
 new file mode 100644
-index 0000000..564155f
+index 0000000..af0f353
 --- /dev/null
 +++ b/apps/desktop/shell/LoginGate.tsx
-@@ -0,0 +1,618 @@
+@@ -0,0 +1,648 @@
 +'use client';
 +
 +/**
@@ -2460,7 +2863,9 @@ index 0000000..564155f
 + * - the click captcha (single pick, or a sequence in the shown order), refreshed
 + *   after two wrong sequence clicks;
 + * - "记住本机账号和密码" through `auth:remember-*`;
-+ * - `auth:status` decides whether the gate is on screen at all.
++ * - `auth:status` decides whether the gate is on screen at all;
++ * - "游客进入" opens an in-memory Host guest session (credits 0) when the
++ *   workbench is unreachable — for debugging, not a real account.
 + */
 +import React from 'react';
 +import { BRAND_WHITE } from './brand-mark';
@@ -2703,13 +3108,18 @@ index 0000000..564155f
 +  }, []);
 +
 +  React.useEffect(() => {
-+    void rpc('auth:status').then((data: { loggedIn?: boolean }) => setVisible(data?.loggedIn !== true)).catch(() => setVisible(true));
++    const syncGate = () => {
++      void rpc('auth:status').then((data: { loggedIn?: boolean }) => setVisible(data?.loggedIn !== true)).catch(() => setVisible(true));
++    };
++    syncGate();
++    window.addEventListener('no996-auth-changed', syncGate);
 +    void rpc('auth:remember-get').then((data: { enabled?: boolean; account?: string; password?: string }) => {
 +      if (!data?.enabled || !data.account) return;
 +      setAccount(String(data.account).slice(0, 160));
 +      if (data.password) setPassword(String(data.password).slice(0, 128));
 +      setRemember(true);
 +    }).catch(() => {});
++    return () => window.removeEventListener('no996-auth-changed', syncGate);
 +  }, []);
 +
 +  React.useEffect(() => {
@@ -2722,9 +3132,22 @@ index 0000000..564155f
 +    setPlaying(false);
 +    setProgressEnd();
 +    setVisible(false);
++    try { window.dispatchEvent(new CustomEvent('no996-auth-changed', { detail: { loggedIn: true } })); } catch { /* ignore */ }
 +    try {
 +      if (window.parent !== window) window.parent.postMessage({ type: 'no996-openfilm:auth', version: 1, action: 'logged-in' }, '*');
 +    } catch { /* ignore */ }
++  };
++
++  const enterGuest = async () => {
++    setBusy(true);
++    try {
++      await auth('guest', {});
++      afterLogin();
++    } catch (error) {
++      problem((error as Error).message || '无法进入游客模式');
++    } finally {
++      setBusy(false);
++    }
 +  };
 +  function setProgressEnd() {
 +    progress.current = 1;
@@ -3011,6 +3434,11 @@ index 0000000..564155f
 +          </div>
 +
 +          <button type="submit" className="lg-go" disabled={busy}>{goLabel}</button>
++          {mode === 'login' ? (
++            <button type="button" className="lg-go-guest" disabled={busy} onClick={() => void enterGuest()}>
++              游客进入
++            </button>
++          ) : null}
 +          <p className={isError ? 'lg-msg err' : 'lg-msg'} role="status" aria-live="polite">{asideText}</p>
 +          <div className="lg-stamp" aria-hidden="true">准点<br />下班</div>
 +        </form>
@@ -3069,10 +3497,10 @@ index 0000000..564155f
 +}
 diff --git a/apps/desktop/shell/RecoveryGate.tsx b/apps/desktop/shell/RecoveryGate.tsx
 new file mode 100644
-index 0000000..9bd6e9c
+index 0000000..01c8d47
 --- /dev/null
 +++ b/apps/desktop/shell/RecoveryGate.tsx
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,68 @@
 +import { useEffect } from 'react';
 +
 +/**
@@ -3080,6 +3508,11 @@ index 0000000..9bd6e9c
 + * overlay asks the person to restart an application that is not involved.
 + * Here we only probe health and ask the panel to re-bootstrap — silently, with
 + * backoff. No card, no "already stopped" copy.
++ *
++ * Probe `/api/health`, not `/api/version`. Version asks npm (waitMs 4000) and
++ * races our 4s AbortSignal → false "misses" → restart every ~9s → ticket
++ * active climbs, SSE dies ("stream disconnected"), and the page flashes
++ * "[网络] /api/version signal is aborted". Health is local and cheap.
 + */
 +export function RecoveryGate() {
 +  useEffect(() => {
@@ -3088,10 +3521,12 @@ index 0000000..9bd6e9c
 +    let recovering = false;
 +    let backoffMs = 2000;
 +    let unlockTimer = 0;
++    let inFlight: AbortController | null = null;
 +
 +    const restart = () => {
 +      if (recovering || cancelled) return;
 +      recovering = true;
++      misses = 0;
 +      if (window.parent !== window) {
 +        window.parent.postMessage({ type: 'no996-openfilm:restart', version: 1 }, '*');
 +      }
@@ -3101,23 +3536,31 @@ index 0000000..9bd6e9c
 +    };
 +
 +    const probe = async () => {
++      if (cancelled || recovering) return;
++      inFlight?.abort();
++      const controller = new AbortController();
++      inFlight = controller;
++      const timer = window.setTimeout(() => controller.abort(), 4000);
 +      try {
-+        const controller = new AbortController();
-+        const timer = setTimeout(() => controller.abort(), 4000);
-+        const reply = await fetch('/api/version', { cache: 'no-store', signal: controller.signal });
-+        clearTimeout(timer);
++        const reply = await fetch('/api/health', { cache: 'no-store', signal: controller.signal });
 +        if (!reply.ok) throw new Error('unhealthy');
 +        misses = 0;
 +        backoffMs = 2000;
-+      } catch {
++      } catch (error) {
++        // Remount / probe overlap aborts the previous fetch — that is not a dead Studio.
++        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
 +        misses += 1;
 +        if (misses >= 2 && !cancelled) restart();
++      } finally {
++        clearTimeout(timer);
++        if (inFlight === controller) inFlight = null;
 +      }
 +    };
-+    const first = setTimeout(probe, 3000);
-+    const every = setInterval(probe, 5000);
++    const first = window.setTimeout(probe, 3000);
++    const every = window.setInterval(probe, 5000);
 +    return () => {
 +      cancelled = true;
++      inFlight?.abort();
 +      clearTimeout(first);
 +      clearInterval(every);
 +      clearTimeout(unlockTimer);
@@ -3847,10 +4290,10 @@ index 0000000..67c2c93
 +};
 diff --git a/apps/desktop/shell/login.css b/apps/desktop/shell/login.css
 new file mode 100644
-index 0000000..643e993
+index 0000000..0423202
 --- /dev/null
 +++ b/apps/desktop/shell/login.css
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,84 @@
 +/* Login gate styles, extracted from the old injection (assets/shell-login.js).
 + * Two layers: `.nof-lg` (paper card over the night scene) and the `lg-` additions for
 + * the timeline and the city backdrop. The component renders these class names. */
@@ -3897,6 +4340,11 @@ index 0000000..643e993
 +.nof-lg .lg-go:hover{transform:translateY(-1px);box-shadow:0 5px 0 var(--sun)}
 +.nof-lg .lg-go:active{transform:translateY(3px);box-shadow:0 1px 0 var(--sun)}
 +.nof-lg .lg-go:disabled{opacity:.6;cursor:default;transform:none}
++/* Secondary: local guest session when the workbench account service is unreachable. */
++.nof-lg .lg-go-guest{display:block;width:100%;margin-top:10px;padding:12px;border:1.5px solid color-mix(in srgb,var(--ink) 28%,transparent);border-radius:3px;background:transparent;color:var(--ink);font:650 14px/1.2 "Noto Sans SC",sans-serif;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s}
++.nof-lg .lg-go-guest:hover{background:color-mix(in srgb,var(--ink) 6%,transparent);border-color:color-mix(in srgb,var(--ink) 45%,transparent)}
++.nof-lg .lg-go-guest:disabled{opacity:.55;cursor:default}
++.nof-lg .lg-go-guest:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 +.nof-lg .lg-links{display:inline-flex;align-items:center;gap:0;margin:0 0 0 auto;flex:none}
 +.nof-lg .lg-lk{border:0;background:none;padding:0;color:#d84700;font:400 13px/1.3 "Noto Sans SC",sans-serif;text-decoration:none;border-bottom:1px solid rgba(216,71,0,.4);cursor:pointer;white-space:nowrap}
 +.nof-lg .lg-lk+.lg-lk{margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}
@@ -3975,10 +4423,10 @@ index ac36b35..f8ba6f1 100644
                  <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={Boolean(layoutDraft.draft)} onClick={() => setCanvasOpen(!canvasOpen)}
 diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
 new file mode 100644
-index 0000000..e9a36ac
+index 0000000..3142e24
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
-@@ -0,0 +1,328 @@
+@@ -0,0 +1,332 @@
 +/**
 + * Workbench account chip + right detail panel (no996 Host auth).
 + * Chip sits left of the page reload control in the title bar.
@@ -4007,6 +4455,7 @@ index 0000000..e9a36ac
 +type AuthStatus = {
 +  loggedIn: boolean;
 +  dev?: boolean;
++  guest?: boolean;
 +  account?: string;
 +  displayName?: string;
 +  credits?: number | null;
@@ -4031,6 +4480,7 @@ index 0000000..e9a36ac
 +function labelOf(status: AuthStatus | null): string {
 +  if (!status?.loggedIn) return '';
 +  if (status.dev) return '开发模式';
++  if (status.guest) return '游客模式';
 +  return String(status.displayName || status.account || '已登录').trim().slice(0, 64);
 +}
 +
@@ -4232,7 +4682,9 @@ index 0000000..e9a36ac
 +                {wallet?.stale ? (
 +                  <p className="mt-2 text-[12px] text-[var(--warn)]">{wallet.message || '显示的是本地缓存，线上可能已变化。'}</p>
 +                ) : null}
-+                {synced ? (
++                {status?.guest ? (
++                  <p className="mt-2 text-[11px] text-[var(--text-faint)]">游客模式不连接账号服务，积分为 0</p>
++                ) : synced ? (
 +                  <p className="mt-2 text-[11px] text-[var(--text-faint)]">最近同步 {synced}</p>
 +                ) : (
 +                  <p className="mt-2 text-[11px] text-[var(--text-faint)]">{walletBusy ? '正在同步…' : '尚未同步到工作台余额'}</p>
@@ -4290,7 +4742,7 @@ index 0000000..e9a36ac
 +                onClick={() => void logout()}
 +                className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-[12.5px] text-[var(--text)] transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
 +              >
-+                {status?.dev ? '开发模式无需退出' : busy ? '退出中…' : '退出登录'}
++                {status?.dev ? '开发模式无需退出' : busy ? '退出中…' : status?.guest ? '退出游客' : '退出登录'}
 +              </button>
 +              <button
 +                type="button"
@@ -4307,6 +4759,426 @@ index 0000000..e9a36ac
 +    </div>
 +  );
 +}
+diff --git a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
+index 4c99bb2..37d3cda 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
+@@ -44,6 +44,14 @@ export function ModelsSection() {
+   const [card, setCard] = React.useState<string | null>(null);
+   /* asks the custom services to open their form (counted, so asking again opens it again) */
+   const [addCustom, setAddCustom] = React.useState(0);
++  /* Empty chat "Install ASR" sets this before opening Settings → Services. */
++  React.useEffect(() => {
++    try {
++      if (sessionStorage.getItem('openfilm.settings.card') !== 'local') return;
++      sessionStorage.removeItem('openfilm.settings.card');
++      setCard('local');
++    } catch { /* private mode */ }
++  }, []);
+   /* Local services opens its own card (LocalModelsDialog), not a service's */
+   const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
+   const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;
+diff --git a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
+index c888b35..e27d26e 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
+@@ -3,24 +3,24 @@
+  * right as a page of titled groups. General (the theme and the language), Agents (in an app with a chat: the agents
+  * it can use), Services (which model makes each kind of media, and the services connected for it), the keyboard
+  * shortcuts, Advanced and Developer; the search finds a section by any phrase on it. At the
+- * foot of the nav, quietly, where OpenFilm lives: its code, the examples and the website.
++ * foot of the nav: this DSH build names the pinned OpenFilm it wraps (no upstream
++ * GitHub / examples / site links — those pointed at the wrong product).
+  */
+ import React from 'react';
+ import { createPortal } from 'react-dom';
+-import { X, Settings2, Keyboard, Sun, Moon, Monitor, Boxes, Bot, Search, SquareTerminal, Loader2, SlidersHorizontal } from 'lucide-react';
++import { X, Settings2, Keyboard, Sun, Moon, Monitor, Boxes, Bot, Search, SquareTerminal, SlidersHorizontal } from 'lucide-react';
+ import { LANGUAGES, phrasesUnder, useLanguage, useLanguageChoice, useT, type LanguageChoice } from '@/i18n';
+-import { studioHost, type HostDeveloper, type HostUpdateState } from '@/lib/host';
++import { studioHost, type HostDeveloper } from '@/lib/host';
+ import { showWhatsNew } from '@/lib/whats-new';
+ import { usePreviewPrefs, writePreviewPref } from '@/lib/preview-prefs';
+ import { hasNotes } from '../WhatsNew';
+-import { useWebUpdate } from '../UpdateButton';
+ import { api, type StudioPrefs, type StudioVersion } from '@/api';
+ import { AgentsSection } from './AgentsSection';
+ import { DiagnosticsGroup } from './DiagnosticsGroup';
+ import { ModelsSection } from './ModelsSection';
+ import { SettingsSelect } from './SettingsSelect';
+ import { ShortcutsSection } from './ShortcutsSection';
+-import { SettingsButton, SettingsGroup, SettingsItem, SettingsPage, SettingsSegmented, SettingsSwitch } from './ui';
++import { SettingsGroup, SettingsItem, SettingsPage, SettingsSegmented, SettingsSwitch } from './ui';
+ import { useThemeMode, type ThemeMode } from './theme';
+ import { StorageGroup } from './StorageGroup';
+ import { LARGE_DIALOG_SIZE } from '../dialog-chrome';
+@@ -35,12 +35,8 @@ const NAV: Array<{ group: 'settings' | 'help'; sections: SettingsSection[] }> =
+   { group: 'help', sections: ['shortcuts', 'advanced', 'developer'] },
+ ];
+ 
+-/** where OpenFilm lives, linked at the foot of the nav */
+-const LINKS = [
+-  { label: 'settings.links.github', href: 'https://github.com/openfilm/openfilm' },
+-  { label: 'settings.links.examples', href: 'https://github.com/openfilm/examples' },
+-  { label: 'settings.links.site', href: 'https://openfilm.dev' },
+-];
++/** Fallback when Studio has not reported a version yet; keep in sync with brand.upstream.version. */
++const OPENFILM_PIN = '0.3.2';
+ 
+ const SECTION_ICON: Record<SettingsSection, React.ReactNode> = {
+   general: <Settings2 size={18} strokeWidth={1.75} />,
+@@ -171,11 +167,7 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+             </div>
+           ))}
+           {found.length === 0 ? <p className="px-2.5 pt-4 text-[14px] text-[var(--text-faint)]">{t('settings.noResults')}</p> : null}
+-          <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 px-2.5 pt-6 text-[13px] text-[var(--text-faint)]">
+-            {LINKS.map((link) => (
+-              <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="rounded-[4px] transition hover:text-[var(--text)]">{t(link.label)}</a>
+-            ))}
+-          </div>
++          <EmbeddedCompatNote />
+         </nav>
+ 
+         <div className="relative flex min-w-0 flex-1 flex-col">
+@@ -244,11 +236,45 @@ function GeneralSection() {
+         />
+       </SettingsGroup>
+       <StorageGroup />
+-      {studioHost?.update?.onState ? <AppAboutGroup /> : <AboutGroup />}
++      <EmbeddedAboutGroup />
+     </SettingsPage>
+   );
+ }
+ 
++/** Nav foot: which OpenFilm this wrapper is built on. Replaces upstream's GitHub / examples / site links. */
++function EmbeddedCompatNote() {
++  const t = useT();
++  const [version, setVersion] = React.useState(OPENFILM_PIN);
++  React.useEffect(() => {
++    void api.version().then((v) => { if (v?.version) setVersion(v.version); }).catch(() => {});
++  }, []);
++  return (
++    <div className="mt-auto px-2.5 pt-6 text-[13px] text-[var(--text-faint)]">
++      {t('settings.links.compat').replace('{version}', version)}
++    </div>
++  );
++}
++
++/**
++ * DSH-embedded About: this build cannot self-update through Studio, so do not
++ * show check/download/fail rows. Attribution stays on screen as a stable line.
++ */
++function EmbeddedAboutGroup() {
++  const t = useT();
++  const [info, setInfo] = React.useState<StudioVersion | null>(null);
++  React.useEffect(() => { void api.version().then(setInfo).catch(() => {}); }, []);
++  return (
++    <SettingsGroup title={t('settings.about.group')}>
++      <SettingsItem
++        title={info ? `OpenFilm ${info.version}` : 'OpenFilm'}
++        description={t('settings.about.embedded')}
++      >
++        {hasNotes(info?.version) ? <WhatsNewLink /> : null}
++      </SettingsItem>
++    </SettingsGroup>
++  );
++}
++
+ /** In the app: the system's notification of a chat's turn done, stopped or waiting, while its window is not in front. */
+ function NotificationsGroup() {
+   const t = useT();
+@@ -359,66 +385,6 @@ function AdvancedSection() {
+   );
+ }
+ 
+-/**
+- * This Studio's version and whether npm has a newer openfilm. In the desktop app, Studio comes with the app and is
+- * updated with it; anywhere else the person (or their agent) runs the latest, and the CLI restarts Studio on it.
+- */
+-function AboutGroup() {
+-  const t = useT();
+-  const [info, setInfo] = React.useState<StudioVersion | null>(null);
+-  const [state, setState] = React.useState<'idle' | 'checking' | 'failed'>('idle');
+-  React.useEffect(() => { void api.version().then(setInfo).catch(() => {}); }, []);
+-  const inApp = Boolean(studioHost);
+-  /* Update here as in the top bar: Studio runs the newest and starts again on it */
+-  const web = useWebUpdate();
+-  const check = () => {
+-    setState('checking');
+-    const before = info?.checkedAt ?? null;
+-    void api.version(true)
+-      .then((v) => { setInfo(v); setState(v.checkedAt != null && v.checkedAt !== before ? 'idle' : 'failed'); })
+-      .catch(() => setState('failed'));
+-  };
+-  const status = inApp ? t('settings.about.inApp')
+-    : info?.source ? t('settings.about.source')
+-    : info && !info.checking ? t('settings.about.off')
+-    : state === 'checking' ? t('settings.about.checking')
+-    : state === 'failed' ? t('settings.about.failed')
+-    : info?.newer ? t('settings.about.newer').replace('{version}', info.latest ?? '')
+-    : info?.latest ? t('settings.about.upToDate')
+-    : t('settings.about.never');
+-  return (
+-    <SettingsGroup title={t('settings.about.group')}>
+-      <SettingsItem
+-        title={info ? `OpenFilm ${info.version}` : 'OpenFilm'}
+-        description={status}
+-        control={inApp || !info?.checking ? null : (
+-          <SettingsButton disabled={state === 'checking'} onClick={check}>{t('settings.about.check')}</SettingsButton>
+-        )}
+-      >
+-        {hasNotes(info?.version) ? <WhatsNewLink /> : null}
+-      </SettingsItem>
+-      {!inApp && !info?.source && info?.newer ? (
+-        <SettingsItem
+-          title={t('settings.about.howTitle')}
+-          description={web.update?.status === 'updating' ? t('update.webUpdating')
+-            : web.update?.status === 'waiting' ? t(web.update.reason === 'exporting' ? 'update.webExporting' : 'update.webMaking')
+-            : web.update?.status === 'failed' ? t('update.webFailed').replace('{error}', web.update.error)
+-            : t('settings.about.how')}
+-          control={(
+-            <>
+-              <code className="select-all rounded-md bg-[var(--bg-field)] px-2 py-1 font-mono text-[12px] text-[var(--text)]">npx -y openfilm@latest update</code>
+-              <SettingsButton variant="primary" disabled={!web.update || web.update.status === 'updating'} onClick={web.start}>
+-                {web.update?.status === 'updating' ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+-                {t('update.webUpdate')}
+-              </SettingsButton>
+-            </>
+-          )}
+-        />
+-      ) : null}
+-    </SettingsGroup>
+-  );
+-}
+-
+ /** This release's notes again (components/WhatsNew). */
+ function WhatsNewLink() {
+   const t = useT();
+@@ -430,79 +396,6 @@ function WhatsNewLink() {
+   );
+ }
+ 
+-/** A check that answered this long ago is still news: opening About within it looks again only on a click. */
+-const CHECKED_FRESH_MS = 10 * 60_000;
+-
+-/**
+- * The app's version and its update (lib/host.ts `update`), as an app's About shows them: looked for on opening (unless
+- * a check answered a few minutes ago), downloaded by itself with its progress, Restart when it is ready (it installs at
+- * the next quit too). The menu's Check for Updates… stays.
+- */
+-function AppAboutGroup() {
+-  const t = useT();
+-  const language = useLanguage();
+-  const update = studioHost?.update;
+-  const [state, setState] = React.useState<HostUpdateState | null>(null);
+-  const [refused, setRefused] = React.useState<string | null>(null);
+-  React.useEffect(() => update?.onState?.(setState), [update]);
+-  /* looked for once on opening, when the last answer is old or there is none */
+-  const looked = React.useRef(false);
+-  React.useEffect(() => {
+-    if (!state || looked.current) return;
+-    looked.current = true;
+-    const stale = state.checkedAt == null || Date.now() - state.checkedAt > CHECKED_FRESH_MS;
+-    if (stale && ['idle', 'current', 'error'].includes(state.status)) void update?.check?.();
+-  }, [state, update]);
+-  const check = () => { setRefused(null); void update?.check?.(); };
+-  const restart = () => {
+-    setRefused(null);
+-    void update?.restart().then((r) => { if (!r.ok && r.error) setRefused(r.error); });
+-  };
+-  const ago = (at: number) => {
+-    const minutes = Math.round((Date.now() - at) / 60_000);
+-    const rtf = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
+-    return minutes < 60 ? rtf.format(-minutes, 'minute') : minutes < 48 * 60 ? rtf.format(-Math.round(minutes / 60), 'hour') : rtf.format(-Math.round(minutes / 1440), 'day');
+-  };
+-  const s = state;
+-  const next = s?.availableVersion ?? '';
+-  const waiting = refused ?? (s?.status === 'ready' ? s.error : null);
+-  const why = waiting === 'agent-busy' ? t('update.agentBusy') : waiting === 'exporting' ? t('update.exporting')
+-    : waiting === 'install-failed' ? t('update.installFailed').replace('{version}', next) : null;
+-  const errorText = s?.error === 'offline' ? t('settings.about.appOffline') : s?.error === 'unavailable' ? t('settings.about.appUnavailable') : t('settings.about.appFailed');
+-  const busy = (text: string) => <span className="inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" aria-hidden />{text}</span>;
+-  const description = !s ? null
+-    : s.status === 'off' ? t('settings.about.appOff')
+-    : s.status === 'idle' || s.status === 'checking' ? busy(t('settings.about.checking'))
+-    : s.status === 'current' ? `${t('settings.about.upToDate')}${s.checkedAt ? ` ${t('settings.about.appChecked').replace('{time}', ago(s.checkedAt))}` : ''}`
+-    : s.status === 'available' || s.status === 'downloading' ? busy(`${t('settings.about.appDownloading').replace('{version}', next)}${s.status === 'downloading' ? ` ${Math.round(s.progress)}%` : ''}`)
+-    : s.status === 'staging' ? busy(t('settings.about.appStaging').replace('{version}', next))
+-    : s.status === 'ready' ? (why ?? t('update.ready').replace('{version}', next))
+-    : s.status === 'installing' ? busy(t('update.installing'))
+-    : errorText;
+-  const control = !s ? null
+-    : s.status === 'current' ? <SettingsButton onClick={check}>{t('settings.about.check')}</SettingsButton>
+-    : s.status === 'error' ? <SettingsButton onClick={check}>{t('settings.about.appRetry')}</SettingsButton>
+-    : s.status === 'ready' ? <SettingsButton variant="primary" onClick={restart}>{t('update.restart')}</SettingsButton>
+-    : null;
+-  return (
+-    <SettingsGroup title={t('settings.about.group')}>
+-      <SettingsItem
+-        title={`OpenFilm ${s?.version ?? ''}`.trim()}
+-        badge={s?.channel === 'beta' ? <span className="rounded-full bg-[var(--bg-field)] px-2 py-0.5 text-[11.5px] text-[var(--text-muted)]">beta</span> : null}
+-        description={description}
+-        control={control}
+-      >
+-        {hasNotes(s?.version) ? <WhatsNewLink /> : null}
+-        {s?.status === 'downloading' ? (
+-          <div className="h-1 overflow-hidden rounded-full bg-[var(--bg-field)]" role="progressbar" aria-valuenow={Math.round(s.progress)} aria-valuemin={0} aria-valuemax={100}>
+-            <div className="h-full rounded-full bg-[var(--accent)] transition-[width]" style={{ width: `${Math.max(2, s.progress)}%` }} />
+-          </div>
+-        ) : null}
+-      </SettingsItem>
+-    </SettingsGroup>
+-  );
+-}
+-
+ /**
+  * Diagnostics (DiagnosticsGroup), for when something does not work; how playing goes, in the viewer's corner
+  * (lib/preview-prefs `stats`); in the app, what its chat shows of each turn: what it changed in the files, and its
+diff --git a/packages/openfilm/studio/ui/src/i18n/en.ts b/packages/openfilm/studio/ui/src/i18n/en.ts
+index 38b1100..78e34f1 100644
+--- a/packages/openfilm/studio/ui/src/i18n/en.ts
++++ b/packages/openfilm/studio/ui/src/i18n/en.ts
+@@ -2365,6 +2365,7 @@ export const en = {
+       github: 'GitHub',
+       examples: 'Examples',
+       site: 'Website',
++      compat: 'Compatible with OpenFilm {version}',
+     },
+     sections: {
+       agents: 'Agents',
+@@ -2388,7 +2389,7 @@ export const en = {
+       language: 'Language',
+       languageSystem: 'Same as the system',
+       themeHint: 'Light, dark, or the same as your system.',
+-      languageHint: 'The language OpenFilm shows itself in.',
++      languageHint: 'The language No996 Studio shows itself in.',
+     },
+     storage: {
+       group: 'Storage',
+@@ -2430,6 +2431,7 @@ export const en = {
+     },
+     about: {
+       group: 'About',
++      embedded: 'Built on OpenFilm',
+       check: 'Check for updates',
+       checking: 'Checking…',
+       failed: 'Couldn’t reach npm. Try again later.',
+diff --git a/packages/openfilm/studio/ui/src/i18n/es.ts b/packages/openfilm/studio/ui/src/i18n/es.ts
+index 4f61bbd..0be0af5 100644
+--- a/packages/openfilm/studio/ui/src/i18n/es.ts
++++ b/packages/openfilm/studio/ui/src/i18n/es.ts
+@@ -2364,6 +2364,7 @@ export const es: Words = {
+       github: 'GitHub',
+       examples: 'Ejemplos',
+       site: 'Sitio web',
++      compat: 'Compatible con OpenFilm {version}',
+     },
+     sections: {
+       agents: 'Agentes',
+@@ -2387,7 +2388,7 @@ export const es: Words = {
+       language: 'Idioma',
+       languageSystem: 'Igual que el sistema',
+       themeHint: 'Claro, oscuro o igual que el sistema.',
+-      languageHint: 'El idioma en que se muestra OpenFilm.',
++      languageHint: 'El idioma en que se muestra 不加班剪辑.',
+     },
+     storage: {
+       group: 'Almacenamiento',
+@@ -2429,6 +2430,7 @@ export const es: Words = {
+     },
+     about: {
+       group: 'Acerca de',
++      embedded: 'Basado en OpenFilm',
+       check: 'Buscar actualizaciones',
+       checking: 'Comprobando…',
+       failed: 'No se pudo contactar con npm. Inténtalo más tarde.',
+diff --git a/packages/openfilm/studio/ui/src/i18n/ja.ts b/packages/openfilm/studio/ui/src/i18n/ja.ts
+index 1e51124..659d2e2 100644
+--- a/packages/openfilm/studio/ui/src/i18n/ja.ts
++++ b/packages/openfilm/studio/ui/src/i18n/ja.ts
+@@ -2364,6 +2364,7 @@ export const ja: Words = {
+       github: 'GitHub',
+       examples: 'サンプル',
+       site: 'ウェブサイト',
++      compat: 'OpenFilm {version} 互換',
+     },
+     sections: {
+       agents: 'エージェント',
+@@ -2387,7 +2388,7 @@ export const ja: Words = {
+       language: '言語',
+       languageSystem: 'システムに合わせる',
+       themeHint: 'ライト、ダーク、またはシステムに合わせる。',
+-      languageHint: 'OpenFilm の表示言語。',
++      languageHint: '不加班剪辑の表示言語。',
+     },
+     storage: {
+       group: '保存場所',
+@@ -2429,6 +2430,7 @@ export const ja: Words = {
+     },
+     about: {
+       group: 'このアプリについて',
++      embedded: 'OpenFilm を基に開発',
+       check: 'アップデートを確認',
+       checking: '確認中…',
+       failed: 'npm に接続できません。しばらくしてからもう一度お試しください。',
+diff --git a/packages/openfilm/studio/ui/src/i18n/ko.ts b/packages/openfilm/studio/ui/src/i18n/ko.ts
+index b54b527..d01e3b2 100644
+--- a/packages/openfilm/studio/ui/src/i18n/ko.ts
++++ b/packages/openfilm/studio/ui/src/i18n/ko.ts
+@@ -2360,6 +2360,7 @@ export const ko: Words = {
+       github: 'GitHub',
+       examples: '예제',
+       site: '웹사이트',
++      compat: 'OpenFilm {version} 호환',
+     },
+     sections: {
+       agents: '에이전트',
+@@ -2383,7 +2384,7 @@ export const ko: Words = {
+       language: '언어',
+       languageSystem: '시스템 설정 따르기',
+       themeHint: '라이트, 다크 또는 시스템 설정을 따릅니다.',
+-      languageHint: 'OpenFilm 화면에 표시되는 언어.',
++      languageHint: '不加班剪辑 화면에 표시되는 언어.',
+     },
+     storage: {
+       group: '저장 위치',
+@@ -2425,6 +2426,7 @@ export const ko: Words = {
+     },
+     about: {
+       group: '정보',
++      embedded: 'OpenFilm 기반',
+       check: '업데이트 확인',
+       checking: '확인 중…',
+       failed: 'npm에 연결할 수 없습니다. 잠시 후 다시 시도하세요.',
+diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
+index 83567f9..e931b11 100644
+--- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
++++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
+@@ -2365,6 +2365,7 @@ export const zhCN: Words = {
+       github: 'GitHub',
+       examples: '示例',
+       site: '官网',
++      compat: '兼容 OpenFilm {version}',
+     },
+     sections: {
+       agents: '智能体',
+@@ -2388,7 +2389,7 @@ export const zhCN: Words = {
+       language: '语言',
+       languageSystem: '跟随系统',
+       themeHint: '浅色、深色，或跟随系统。',
+-      languageHint: 'OpenFilm 界面使用的语言。',
++      languageHint: '不加班剪辑 界面使用的语言。',
+     },
+     storage: {
+       group: '存储位置',
+@@ -2430,6 +2431,7 @@ export const zhCN: Words = {
+     },
+     about: {
+       group: '关于',
++      embedded: '基于 OpenFilm 开发',
+       check: '检查更新',
+       checking: '正在检查…',
+       failed: '连不上 npm，请稍后再试。',
 diff --git a/packages/shared/src/contract.ts b/packages/shared/src/contract.ts
 index 340ad66..0750abb 100644
 --- a/packages/shared/src/contract.ts

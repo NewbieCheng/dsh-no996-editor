@@ -1,5 +1,12 @@
 # 更新记录
 
+## 0.15.23 —— 不加班配音进 OpenFilm；表面收敛（藏第三方服务商）
+
+- **不加班配音兼容层**：把工作台已有的音色列表 / 语音合成接到 OpenFilm 官方 Provider 合同上（`added provider` `no996`），**不新造配音服务**。复用 `GET /v1/audio/voices`、`GET /api/v1/models/default-tts`、`POST /api/v1/ai/audio/speech`；登录态走 Host `workbench-auth`。Agent 仍用 `openfilm_get`（`voice` / `tts`），音频落 `assets/audio/vo/`。
+- **音色页**：代理改写 `/api/library/voices`，只展示该账号的复刻音色 + 平台音色。
+- **表面收敛（可逆，未删上游）**：隐藏音色抽屉「服务商」分类与 ElevenLabs 等第三方；Settings → 服务里**保留 OpenFilm、不加班、本地服务**，其余第三方 chips /「还有 N 个」收起；顶栏画布切换暂时隐藏。说明见 [`docs/XXX-no996-surface-and-voice.md`](docs/XXX-no996-surface-and-voice.md)。
+- **待真机**：登录后选音色 → Speak / 对话配音 → 文件进项目素材。
+
 ## 0.15.22 —— 模板提示词可注入；文档砍掉一半
 
 - **模板提示词注入**（[TEMPLATES.md](docs/TEMPLATES.md) · AGENTS.md §2.2）：模板目录下的 `prompt.md`（≤2 KB）

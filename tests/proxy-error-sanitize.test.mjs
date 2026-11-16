@@ -115,6 +115,27 @@ test('a failed agent turn names the cause without leaking the exception', async 
   assert.doesNotMatch(body, /ACP_SPAWN|secret|dsh\.cmd/);
 });
 
+test('a lost event stream names the page connection, not the child process', async (t) => {
+  const studio = await boot(() => {}, {
+    officialRpc: async (channel) => {
+      if (channel === 'agent:prompt') {
+        throw Object.assign(new Error('no live event stream'), { code: 'OFFICIAL_AGENT_STREAM_LOST' });
+      }
+      return {};
+    },
+  });
+  t.after(() => studio.close());
+  const response = await fetch(studio.origin + '/__dsh/official-rpc', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: studio.origin, 'sec-fetch-site': 'same-origin' },
+    body: JSON.stringify({ channel: 'agent:prompt', payload: { projectId: 'film123', key: 'k', turnId: 't', text: 'hi' } }),
+  });
+  assert.equal(response.status, 503);
+  const body = await response.text();
+  assert.match(body, /^OFFICIAL_AGENT_STREAM_LOST: 页面连接断了/);
+  assert.doesNotMatch(body, /对话子进程出错了/);
+});
+
 test('an unrecognized failure keeps the code-only body', async (t) => {
   const studio = await boot(() => {}, {
     officialRpc: async () => { throw Object.assign(new Error('boom'), { code: 'OFFICIAL_AGENT_NEW_CASE' }); },

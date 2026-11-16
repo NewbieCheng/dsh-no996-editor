@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/desktop-attachments.ts b/apps/desktop/chat/src/lib/desktop-attachments.ts
-index 4f7aa72..25eeb92 100644
+index 4f7aa72..3f4ea6d 100644
 --- a/apps/desktop/chat/src/lib/desktop-attachments.ts
 +++ b/apps/desktop/chat/src/lib/desktop-attachments.ts
 @@ -64,6 +64,10 @@ export function useDesktopAttachments(project: string) {
@@ -24,7 +24,7 @@ index 4f7aa72..25eeb92 100644
        void app.chat.describePaths(onDisk.map(({ path }) => path))
          .then((found) => onDisk.forEach(({ item }, i) => {
            const one = found[i];
-@@ -100,15 +104,30 @@ export function useDesktopAttachments(project: string) {
+@@ -100,15 +104,37 @@ export function useDesktopAttachments(project: string) {
            } else patch(item.id, { state: 'ready', path: one.path, size: one.size ?? item.size });
          }))
          .catch((error: unknown) => onDisk.forEach(({ item }) => patch(item.id, { state: 'failed', error: error instanceof Error ? error.message : String(error) })));

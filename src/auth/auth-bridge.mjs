@@ -7,7 +7,7 @@
  */
 import { parseAuthActionBody } from './workbench-auth.mjs';
 
-const ACTIONS = new Set(['status', 'captcha', 'login', 'register', 'verification-code', 'reset-password', 'logout']);
+const ACTIONS = new Set(['status', 'captcha', 'login', 'register', 'verification-code', 'reset-password', 'logout', 'guest']);
 
 function reply(res, status, value) {
   const body = JSON.stringify(value);
@@ -39,6 +39,8 @@ function publicStatus(result) {
     ...(typeof result.account === 'string' ? { account: result.account } : {}),
     ...(typeof result.displayName === 'string' ? { displayName: result.displayName } : {}),
     ...(typeof result.expiresAt === 'string' ? { expiresAt: result.expiresAt } : {}),
+    ...(result.dev === true ? { dev: true } : {}),
+    ...(result.guest === true ? { guest: true } : {}),
     ...(result.ok === true ? { ok: true } : {}),
   };
 }
@@ -83,6 +85,11 @@ export async function dispatchAuthAction(auth, value) {
       }));
     case 'logout':
       return publicStatus(await auth.logout());
+    case 'guest':
+      if (typeof auth.enterGuest !== 'function') {
+        throw Object.assign(new Error('游客模式不可用'), { code: 'UNAVAILABLE', status: 503 });
+      }
+      return publicStatus(await auth.enterGuest());
     default:
       throw Object.assign(new Error('无效操作'), { code: 'INPUT', status: 400 });
   }

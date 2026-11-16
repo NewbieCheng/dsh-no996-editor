@@ -65,6 +65,38 @@ test('a drag with an empty type list still gets an overlay, and one that ends ou
   assert.equal(overlay.removed, true);
 });
 
+test('an idle dragover timeout dismisses the overlay when OS cancels never deliver dragend', () => {
+  const timers = [];
+  const view = {
+    addEventListener(type, fn) { view[type] = fn; },
+    removeEventListener() {},
+    setTimeout(fn, ms) { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout() {},
+  };
+  const doc = {
+    body: { append() {} },
+    createElement: () => ({
+      attr: {}, style: { cssText: '' }, children: [], removed: false,
+      setAttribute(k, v) { this.attr[k] = v; },
+      append(child) { this.children.push(child); },
+      addEventListener() {},
+      remove() { this.removed = true; },
+    }),
+  };
+  const nodes = [];
+  const realAppend = doc.body.append;
+  doc.body.append = node => { nodes.push(node); realAppend(node); };
+  installDropCatcher({
+    window: view, document: doc, isActive: () => true, frame: () => ({ postMessage() {} }),
+  });
+  view.dragenter({ dataTransfer: { types: ['Files'], files: [{}] } });
+  assert.equal(nodes.length, 1);
+  view.dragover();
+  assert.equal(timers.at(-1)?.ms, 1500);
+  timers.at(-1).fn();
+  assert.equal(nodes[0].removed, true);
+});
+
 test('a missing frame does not throw on drop', () => {
   const { nodes, handlers } = harness();
   const stop = installDropCatcher({

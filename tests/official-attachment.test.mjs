@@ -21,6 +21,18 @@ test('attachment facade distinguishes size, empty file, invalid input and missin
   await assert.rejects(api.chat.saveAttachment('/project', '', new ArrayBuffer(1)), /文件名无效/);
 });
 
+test('describePaths keeps a host-named path ready instead of failing the pill', async () => {
+  const api = facade();
+  // Facade runs in a vm realm; compare plain JSON so cross-realm arrays do not trip deepEqual.
+  const found = JSON.parse(JSON.stringify(await api.chat.describePaths(['D:\\media\\clip.mp4', '', null])));
+  assert.deepEqual(found, [
+    { path: 'D:\\media\\clip.mp4' },
+    { error: 'That is not a file.' },
+    { error: 'That is not a file.' },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(await api.chat.describePaths('not-an-array'))), []);
+});
+
 test('attachment facade accepts the exact limit and preserves transport errors', async () => {
   const calls = [];
   const api = facade(async (...args) => { calls.push(args); return { path: 'assets/upload/x.mp4' }; });

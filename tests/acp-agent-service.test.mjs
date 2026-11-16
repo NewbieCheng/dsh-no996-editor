@@ -256,6 +256,35 @@ test('per-spawn flags reach the child (the model overlay needs them before initi
   await service.close();
 });
 
+test('the prompt overlay rides with tap+instructions and survives a model fallback', async () => {
+  const made = [];
+  const MODEL = 'C:' + '\\temp' + '\\model.yml';
+  const TAP = 'C:' + '\\temp' + '\\tap.yml';
+  const PROMPT = 'C:' + '\\temp' + '\\prompt.yml';
+  const INSTR = 'C:' + '\\temp' + '\\instructions.yml';
+  const service = createAcpAgentService({
+    verifier: async projectId => ({ projectId, path: 'C:' + '\\fake' }),
+    store: memoryStore(),
+    emit: () => true,
+    log: () => {},
+    spawnArgs: async () => ({ model: MODEL, tap: TAP, prompt: PROMPT, instructions: INSTR }),
+    createClient: options => {
+      made.push(options);
+      return createAcpClient({
+        resolve: () => ({ command: process.execPath, args: [fixture] }),
+        ...(options?.args ? { args: options.args } : {}),
+        env: { ...process.env, FAKE_ACP_REFUSE_PATCH: '1', FAKE_ACP_REFUSE_PATCH_FILE: MODEL, ...(options?.env ?? {}) },
+        requestTimeoutMs: 5000,
+        spawnChild: (command, args, spawnOptions) => spawn(command, args, spawnOptions),
+      });
+    },
+  });
+  await service.modelCatalog(PROJECT);
+  assert.deepEqual(made[0].args, ['--patch', MODEL, '--patch', INSTR, '--patch', TAP, '--patch', PROMPT]);
+  assert.deepEqual(made[1].args, ['--patch', INSTR, '--patch', TAP, '--patch', PROMPT]);
+  await service.close();
+});
+
 test('a new session also adopts the DSH-side thinking level', async () => {
   const { service } = harness({ defaultSelection: () => ({ provider: 'p', model: 'm1', reasoningEffort: 'off' }) });
   await service.modelCatalog(PROJECT);
@@ -420,6 +449,11 @@ test('a model overlay the agent cannot serve is dropped instead of failing the p
   // The replaced child exits on purpose; that must not close the live Session.
   assert.deepEqual(closed, []);
   assert.equal(service.sessionOf(PROJECT), 'session-fake-1');
+  const diagnose = service.diagnose(PROJECT);
+  assert.equal(diagnose.modelFallback.rejected, true);
+  assert.ok(diagnose.modelFallback.reason);
+  const state = service.sessionState(PROJECT);
+  assert.equal(state.modelFallback.rejected, true);
   await service.close();
 });
 
@@ -520,7 +554,10 @@ test('sessionState says whether the conversation was reopened or started fresh',
   });
   assert.equal(fresh.sessionState(PROJECT), undefined);
   await fresh.modelCatalog(PROJECT);
-  assert.deepEqual(fresh.sessionState(PROJECT), { sessionId: 'session-fake-1', resumed: false });
+  const freshState = fresh.sessionState(PROJECT);
+  assert.equal(freshState.sessionId, 'session-fake-1');
+  assert.equal(freshState.resumed, false);
+  assert.equal(freshState.modelFallback.rejected, false);
   await fresh.close();
 
   // Stored: the same Session is reopened.
@@ -537,6 +574,8 @@ test('sessionState says whether the conversation was reopened or started fresh',
     }),
   });
   await resumed.modelCatalog(PROJECT);
-  assert.deepEqual(resumed.sessionState(PROJECT), { sessionId: 'session-fake-1', resumed: true });
+  const resumedState = resumed.sessionState(PROJECT);
+  assert.equal(resumedState.sessionId, 'session-fake-1');
+  assert.equal(resumedState.resumed, true);
   await resumed.close();
 });

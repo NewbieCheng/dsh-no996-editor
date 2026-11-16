@@ -432,6 +432,195 @@
     };
   }
 
+  // src/ui/env-section.mjs
+  function createEnvSection(React) {
+    const h = React.createElement;
+    const box = {
+      background: "var(--dsw-alias-bg-layer-1)",
+      border: "1px solid var(--dsw-alias-border-l1)",
+      borderRadius: 12,
+      padding: "16px 18px",
+      margin: "12px 0",
+      color: "var(--dsw-alias-label-primary)",
+      fontSize: 13,
+      lineHeight: 1.65
+    };
+    const title = { fontSize: 14, fontWeight: 650, margin: "0 0 8px" };
+    const sub = { fontSize: 13, fontWeight: 600, margin: "14px 0 4px", color: "var(--dsw-alias-label-primary)" };
+    const dim = { color: "var(--dsw-alias-label-secondary)", fontSize: 12 };
+    const table = { width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 6 };
+    const th = { textAlign: "left", padding: "4px 8px 4px 0", color: "var(--dsw-alias-label-secondary)", fontWeight: 600, verticalAlign: "top", whiteSpace: "nowrap" };
+    const td = { padding: "4px 0 4px 8px", verticalAlign: "top" };
+    const code = { fontFamily: "ui-monospace, monospace", fontSize: 12 };
+    const input = {
+      width: "100%",
+      boxSizing: "border-box",
+      marginTop: 6,
+      padding: "6px 10px",
+      background: "var(--dsw-alias-bg-base)",
+      color: "var(--dsw-alias-label-primary)",
+      border: "1px solid var(--dsw-alias-border-l1)",
+      borderRadius: 8,
+      fontSize: 12
+    };
+    const button = {
+      marginTop: 8,
+      padding: "6px 14px",
+      cursor: "pointer",
+      // Ghost style (repo convention: transparent + border + label color) so the
+      // text stays readable in light and dark themes even if a brand token is
+      // missing. Never pair a filled token background with a hardcoded text color.
+      background: "transparent",
+      border: "1px solid var(--dsw-alias-border-l1)",
+      color: "var(--dsw-alias-label-primary)",
+      borderRadius: 8,
+      fontSize: 12,
+      fontWeight: 600
+    };
+    const row = { display: "flex", gap: 8, alignItems: "center", marginTop: 8 };
+    const link = {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      padding: "6px 4px",
+      color: "var(--dsw-alias-label-secondary)",
+      fontSize: 12,
+      textDecoration: "underline",
+      textUnderlineOffset: 3
+    };
+    const STORAGE_KEY = "no996-openfilm.env.projectId";
+    const readSaved = () => {
+      try {
+        return window.localStorage.getItem(STORAGE_KEY) ?? "";
+      } catch {
+        return "";
+      }
+    };
+    return function EnvSection() {
+      const [data, setData] = React.useState(null);
+      const [error, setError] = React.useState("");
+      const [projectId, setProjectId] = React.useState("");
+      const [savedId, setSavedId] = React.useState("");
+      const [loading, setLoading] = React.useState(true);
+      const load = React.useCallback(async (project) => {
+        setLoading(true);
+        setError("");
+        try {
+          const query = project ? `?projectId=${encodeURIComponent(project)}` : "";
+          const response = await fetch(`/api/no996-openfilm/environment${query}`, { credentials: "same-origin", headers: { accept: "application/json" } });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          setData(await response.json());
+        } catch (fail) {
+          setError(String(fail?.message ?? fail));
+          setData(null);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+      React.useEffect(() => {
+        const saved = readSaved();
+        if (saved) {
+          setProjectId(saved);
+          setSavedId(saved);
+          load(saved);
+        } else {
+          load("");
+        }
+      }, [load]);
+      const save = React.useCallback(() => {
+        const value = projectId.trim();
+        if (!value) return;
+        try {
+          window.localStorage.setItem(STORAGE_KEY, value);
+        } catch {
+        }
+        setSavedId(value);
+        load(value);
+      }, [projectId, load]);
+      const clearSaved = React.useCallback(() => {
+        try {
+          window.localStorage.removeItem(STORAGE_KEY);
+        } catch {
+        }
+        setSavedId("");
+      }, []);
+      const preset = data?.preset;
+      const skills = Array.isArray(data?.skills?.isolated) ? data.skills.isolated : [];
+      const tools = Array.isArray(data?.tools) ? data.tools : [];
+      const chain = data?.project && !data.project.error ? data.project : null;
+      const chainError = data?.project?.error;
+      return h(
+        "div",
+        { "data-no996-env": "", style: box },
+        h("p", { style: title }, "\u526A\u8F91\u73AF\u5883 \xB7 Environment"),
+        h("p", { style: dim }, "\u5F71\u7247\u5B50\u8FDB\u7A0B\u5B9E\u9645\u80FD\u52A0\u8F7D\u7684\u4E1C\u897F\uFF08\u53EA\u8BFB\uFF09\u3002\u5168\u5C40 skill \u76EE\u5F55\u4E0D\u8FDB\u5F71\u7247\u5BF9\u8BDD\uFF0C\u8BFB\u6587\u4EF6/\u8BFB\u56FE/\u4E22 PDF \u8D70\u4E0B\u9762\u7684\u5F71\u7247\u5DE5\u5177\uFF0C\u4E0D\u53D7\u5F71\u54CD\u3002"),
+        loading ? h("p", { style: dim }, "\u6B63\u5728\u8BFB\u53D6\u2026 Loading\u2026") : null,
+        error ? h("p", { style: dim }, `\u8BFB\u53D6\u5931\u8D25 Load failed\uFF1A${error}`) : null,
+        preset ? h(
+          "div",
+          null,
+          h("p", { style: sub }, "\u9884\u8BBE Preset"),
+          h("p", { style: dim }, h("span", { style: code }, preset.id), ` \u2014 ${preset.ok ? "\u5DF2\u52A0\u8F7D loaded" : `\u672A\u52A0\u8F7D not loaded\uFF08${preset.detail}\uFF09`}`)
+        ) : null,
+        skills.length > 0 ? h(
+          "div",
+          null,
+          h("p", { style: sub }, `\u9694\u79BB\u7684\u6280\u80FD Isolated skills\uFF08${skills.length}\uFF09`),
+          h("p", { style: dim }, "\u5B50\u8FDB\u7A0B\u53EA\u770B\u672C\u63D2\u4EF6 skills/\uFF08includeDefaultRoots: false\uFF09\u3002\u9879\u76EE\u81EA\u5E26\u7684 <project>/.agents/skills \u4ECD\u53EF\u7528\u3002"),
+          h("table", { style: table }, h("tbody", null, skills.map((skill) => h(
+            "tr",
+            { key: skill.id },
+            h("td", { style: th }, h("span", { style: code }, skill.id)),
+            h("td", { style: td }, skill.description || "\u2014")
+          ))))
+        ) : null,
+        tools.length > 0 ? h(
+          "div",
+          null,
+          h("p", { style: sub }, `\u5F71\u7247\u5DE5\u5177 Film tools\uFF08MCP\uFF0C${tools.length}\uFF09`),
+          h("table", { style: table }, h("tbody", null, tools.map((tool) => h(
+            "tr",
+            { key: tool.name },
+            h("td", { style: th }, h("span", { style: code }, tool.name)),
+            h("td", { style: td }, h("span", { style: dim }, tool.description || "\u2014"))
+          ))))
+        ) : null,
+        h(
+          "div",
+          null,
+          h("p", { style: sub }, "\u9879\u76EE\u6307\u4EE4\u94FE Project instructions"),
+          h("input", {
+            style: input,
+            value: projectId,
+            placeholder: "\u7C98\u8D34\u9879\u76EE ID \u67E5\u8BE5\u7247\u7684\u6307\u4EE4\u94FE\uFF08\u9762\u677F URL \u6216 /diagnose \u91CC\u6709\uFF09",
+            onChange: (event) => setProjectId(event.target.value)
+          }),
+          h(
+            "div",
+            { style: row },
+            h("button", { style: { ...button, marginTop: 0 }, onClick: () => load(projectId.trim()) }, "\u67E5\u8BE2 Load project"),
+            h("button", { style: { ...button, marginTop: 0, marginLeft: "auto" }, onClick: save, title: "\u8BB0\u4F4F\u8FD9\u4E2A\u9879\u76EE ID\uFF0C\u4E0B\u6B21\u6253\u5F00\u81EA\u52A8\u67E5\uFF08\u53EA\u5B58\u672C\u673A\uFF09" }, "\u4FDD\u5B58 Save")
+          ),
+          savedId ? h(
+            "p",
+            { style: dim },
+            `\u5DF2\u8BB0\u4F4F ${savedId}\uFF08\u6253\u5F00\u81EA\u52A8\u67E5\uFF09`,
+            h("button", { style: link, onClick: clearSaved }, "\u6E05\u9664 Clear")
+          ) : null,
+          chain ? h(
+            "div",
+            { style: { marginTop: 8 } },
+            h("p", { style: dim }, `\u5E38\u9A7B\u9884\u7B97 resident\uFF1A${chain?.budget?.total ?? "?"} / ${chain?.budget?.limit ?? 6144} bytes\uFF08${chain?.budget?.ok ? "OK" : "\u8D85\u9650 over"}\uFF09\xB7 persona ${chain?.persona ?? "?"}B`),
+            h("p", { style: dim }, `\u8BFB\u5230\u7684\u6587\u4EF6 files\uFF1A${(chain.files ?? []).map((f) => f.file).join("\uFF1B") || "\u65E0"}`),
+            chain.outside?.length > 0 ? h("p", { style: dim }, `\u5DF2\u6321\u6389\u7684\u4E0A\u5C42\u624B\u518C excluded\uFF1A${chain.outside.join("\uFF1B")}`) : null,
+            Array.isArray(chain.activeTemplates) && chain.activeTemplates.length > 0 ? h("p", { style: dim }, `\u751F\u6548\u6A21\u677F templates\uFF1A${chain.activeTemplates.join(", ")}`) : null
+          ) : null,
+          chainError ? h("p", { style: dim }, `\u8BE5\u9879\u76EE\u67E5\u4E0D\u5230 ${chainError}\uFF08\u5148\u5728\u5DE5\u4F5C\u53F0\u91CC\u6253\u5F00\u4E00\u6B21\u8BE5\u9879\u76EE\uFF09`) : null
+        )
+      );
+    };
+  }
+
   // src/studio/panel-keepalive.mjs
   function createActivationStore() {
     let active = false;
@@ -590,7 +779,7 @@
     };
     let mode = "workspaces";
     try {
-      mode = doc.defaultView?.localStorage?.getItem(MODE_KEY) === "editing" ? "editing" : "workspaces";
+      doc.defaultView?.localStorage?.removeItem(MODE_KEY);
     } catch {
     }
     let view = readView(doc);
@@ -1361,10 +1550,6 @@
     };
     const setMode = (next) => {
       mode = next === "editing" ? "editing" : "workspaces";
-      try {
-        doc.defaultView?.localStorage?.setItem(MODE_KEY, mode);
-      } catch {
-      }
       applyMode();
     };
     const openPopover = () => {
@@ -1449,10 +1634,6 @@
       if (list) list.style.display = "none";
       if (lostTicks === 3 && mode === "editing") {
         mode = "workspaces";
-        try {
-          doc.defaultView?.localStorage?.setItem(MODE_KEY, mode);
-        } catch {
-        }
         if (mounted?.header) mounted.header.removeAttribute("data-no996-editing");
         pageLog("switch-lost", "reverted-workspaces");
       }
@@ -1534,6 +1715,155 @@
     mount();
     return () => {
       observer?.disconnect();
+      cleanup();
+    };
+  }
+
+  // src/ui/sidebar-brand.mjs
+  var MARK_ATTR = "data-no996-brand-mark";
+  var REPLACED_ATTR = "data-no996-brand-replaced";
+  var STYLE_ATTR = "data-no996-brand-style";
+  var PATH_RING = "M 239 262 L 239 345 L 450 346 L 171 625 L 295 625 L 443 478 L 445 723 L 541 723 L 543 479 L 689 635 L 761 577 L 751 563 L 609 408 L 509 407 L 569 345 L 775 345 L 775 262 Z M 601 16 L 530 8 L 470 9 L 422 15 L 381 24 L 337 38 L 303 52 L 273 67 L 241 86 L 208 109 L 170 141 L 143 168 L 105 214 L 77 256 L 58 291 L 38 338 L 24 382 L 14 427 L 9 467 L 8 530 L 12 573 L 18 606 L 31 652 L 46 690 L 68 733 L 93 772 L 123 811 L 166 856 L 191 878 L 226 904 L 268 929 L 302 945 L 348 961 L 407 973 L 443 974 L 319 846 L 286 831 L 257 813 L 220 783 L 187 748 L 153 700 L 127 650 L 109 600 L 100 554 L 97 510 L 99 467 L 107 417 L 122 367 L 148 310 L 171 272 L 208 226 L 244 191 L 290 157 L 334 133 L 365 120 L 421 104 L 477 96 L 522 95 L 567 99 L 622 111 L 674 130 L 725 158 L 768 190 L 811 232 L 841 269 L 861 300 L 876 328 L 891 364 L 900 391 L 910 435 L 993 409 L 987 381 L 974 340 L 954 293 L 935 258 L 907 215 L 867 166 L 831 130 L 810 112 L 786 94 L 745 68 L 712 51 L 678 37 L 651 28 Z";
+  var PATH_ARROW = "M 1014 452 L 801 510 L 851 548 L 510 847 L 408 744 L 337 808 L 337 810 L 505 971 L 507 971 L 924 612 L 967 662 Z";
+  function brandSvgMarkup({ dark = true, size = 22 } = {}) {
+    const ring = dark ? "#FFFFFF" : "#051D43";
+    const arrow = dark ? "#FF7200" : "#FF6400";
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8.22 0 1039.44 983" width="${size}" height="${size}" role="img" aria-label="\u4ECA\u5929\u4E0D\u52A0\u73ED" style="display:block;flex:none;"><path fill="${ring}" fill-rule="evenodd" d="${PATH_RING}"/><path fill="${arrow}" fill-rule="evenodd" d="${PATH_ARROW}"/></svg>`;
+  }
+  function isDarkDoc(doc) {
+    const root = doc.documentElement;
+    if (!root) return true;
+    const theme = (root.getAttribute("data-theme") || root.dataset?.theme || "").toLowerCase();
+    if (theme.includes("dark") || theme === "deepsea") return true;
+    if (theme === "light" || theme === "sky" || theme === "minimal") return false;
+    if (root.classList?.contains("dark")) return true;
+    try {
+      const bg = doc.defaultView?.getComputedStyle?.(doc.body)?.backgroundColor || "";
+      const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (match) {
+        const luma = (Number(match[1]) * 299 + Number(match[2]) * 587 + Number(match[3]) * 114) / 1e3;
+        return luma < 128;
+      }
+    } catch {
+    }
+    return true;
+  }
+  function isNavButton(el) {
+    const label = (el.textContent || "").trim();
+    return /^(插件|自动化任务|视频创作|更多|新对话|工作区|剪辑区|Plugins|Automation|Video studio|More|New chat)$/i.test(label);
+  }
+  function findSidebarBrandSlot(doc) {
+    const explicit = doc.querySelector(
+      'aside img[alt*="DeepSeek" i], aside svg[aria-label*="DeepSeek" i], nav img[alt*="DeepSeek" i], nav svg[aria-label*="DeepSeek" i], [data-testid*="brand" i], [data-testid*="logo" i]'
+    );
+    if (explicit) return explicit;
+    const navItem = [...doc.querySelectorAll('button, [role="button"], a')].find(
+      (el) => /^(插件|自动化任务|Plugins|Automation)$/i.test((el.textContent || "").trim())
+    );
+    if (!navItem) return null;
+    let container = navItem.parentElement;
+    for (let i = 0; i < 6 && container; i += 1) {
+      const rect = container.getBoundingClientRect?.();
+      if (rect && rect.width > 120 && rect.width < 460 && rect.left < 120 && rect.height > 200) {
+        break;
+      }
+      container = container.parentElement;
+    }
+    if (!container) return null;
+    const navTop = navItem.getBoundingClientRect?.().top ?? 120;
+    for (const media of container.querySelectorAll("svg, img")) {
+      if (media.closest?.(`[${MARK_ATTR}]`)) continue;
+      const ownerBtn = media.closest?.('button, [role="button"], a');
+      if (ownerBtn && isNavButton(ownerBtn)) continue;
+      const rect = media.getBoundingClientRect?.();
+      if (!rect || rect.width < 14 || rect.width > 160 || rect.height < 14 || rect.height > 64) continue;
+      if (rect.top <= navTop && rect.left < 240) return media;
+    }
+    return null;
+  }
+  function installSidebarBrand({ document: doc } = {}) {
+    if (!doc || typeof doc.createElement !== "function") return () => {
+    };
+    let replacedTarget = null;
+    let markNode = null;
+    let lastDark = null;
+    let styleNode = null;
+    const ensureStyle = () => {
+      if (styleNode?.isConnected) return;
+      styleNode = doc.createElement("style");
+      styleNode.setAttribute(STYLE_ATTR, "");
+      styleNode.textContent = `[${MARK_ATTR}]{display:inline-flex;align-items:center;gap:8px;vertical-align:middle;}[${MARK_ATTR}] .n996-brand-text{font:600 13px/1.2 "Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;letter-spacing:-0.01em;white-space:nowrap;}`;
+      (doc.head ?? doc.documentElement)?.append(styleNode);
+    };
+    const cleanup = () => {
+      if (markNode?.isConnected) markNode.remove();
+      markNode = null;
+      if (replacedTarget) {
+        replacedTarget.style.display = "";
+        replacedTarget.removeAttribute(REPLACED_ATTR);
+        replacedTarget = null;
+      }
+      if (styleNode?.isConnected) styleNode.remove();
+      styleNode = null;
+      lastDark = null;
+    };
+    const sync = () => {
+      const dark = isDarkDoc(doc);
+      if (replacedTarget?.isConnected && markNode?.isConnected) {
+        if (lastDark !== dark) {
+          lastDark = dark;
+          const svgSlot2 = markNode.querySelector(".n996-brand-svg");
+          if (svgSlot2) svgSlot2.innerHTML = brandSvgMarkup({ dark, size: 22 });
+        }
+        return;
+      }
+      const slot = findSidebarBrandSlot(doc);
+      if (!slot || !slot.parentElement) return;
+      if (replacedTarget && replacedTarget !== slot) cleanup();
+      ensureStyle();
+      const rect = slot.getBoundingClientRect?.();
+      const wide = rect && rect.width > 56;
+      const size = wide ? 22 : Math.max(18, Math.min(26, Math.round(rect?.height || 22)));
+      slot.setAttribute(REPLACED_ATTR, "");
+      slot.style.display = "none";
+      markNode = doc.createElement("span");
+      markNode.setAttribute(MARK_ATTR, "");
+      markNode.title = "\u4ECA\u5929\u4E0D\u52A0\u73ED \xB7 \u667A\u80FD\u5DE5\u4F5C\u53F0";
+      const svgSlot = doc.createElement("span");
+      svgSlot.className = "n996-brand-svg";
+      svgSlot.innerHTML = brandSvgMarkup({ dark, size });
+      markNode.append(svgSlot);
+      if (wide) {
+        const label = doc.createElement("span");
+        label.className = "n996-brand-text";
+        label.textContent = "\u4ECA\u5929\u4E0D\u52A0\u73ED";
+        markNode.append(label);
+      }
+      slot.parentElement.insertBefore(markNode, slot);
+      replacedTarget = slot;
+      lastDark = dark;
+    };
+    let scheduled = false;
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      const run = () => {
+        scheduled = false;
+        sync();
+      };
+      if (typeof doc.defaultView?.requestAnimationFrame === "function") doc.defaultView.requestAnimationFrame(run);
+      else setTimeout(run, 50);
+    };
+    const observer = new (doc.defaultView?.MutationObserver ?? MutationObserver)(schedule);
+    observer.observe(doc.body ?? doc.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-theme", "class"]
+    });
+    sync();
+    return () => {
+      observer.disconnect();
       cleanup();
     };
   }
@@ -1684,17 +2014,43 @@
       show();
     };
     const onEnd = () => remove();
+    let idle = 0;
+    const armIdle = () => {
+      try {
+        view.clearTimeout?.(idle);
+      } catch {
+      }
+      try {
+        idle = view.setTimeout?.(onEnd, 1500) || 0;
+      } catch {
+        idle = 0;
+      }
+    };
+    const onOver = () => {
+      if (overlay) armIdle();
+    };
     view.addEventListener("dragenter", onEnter, true);
+    view.addEventListener("dragover", onOver, true);
     view.addEventListener("dragleave", onEnd, true);
     view.addEventListener("drop", onEnd, true);
     view.addEventListener("dragend", onEnd, true);
+    try {
+      view.addEventListener("blur", onEnd);
+    } catch {
+    }
     return () => {
       remove();
       try {
+        view.clearTimeout?.(idle);
+      } catch {
+      }
+      try {
         view.removeEventListener("dragenter", onEnter, true);
+        view.removeEventListener("dragover", onOver, true);
         view.removeEventListener("dragleave", onEnd, true);
         view.removeEventListener("drop", onEnd, true);
         view.removeEventListener("dragend", onEnd, true);
+        view.removeEventListener("blur", onEnd);
       } catch {
       }
     };
@@ -1710,6 +2066,7 @@
       const PANEL = "no996-openfilm";
       const en = {
         panel: "Video studio",
+        envTitle: "Editing environment",
         studioLoading: "Starting OpenFilm Studio\u2026",
         studioFailed: "Unable to start OpenFilm Studio.",
         studioRetry: "Try again",
@@ -1729,6 +2086,7 @@
       };
       const zh = {
         panel: "\u89C6\u9891\u521B\u4F5C",
+        envTitle: "\u526A\u8F91\u73AF\u5883",
         studioLoading: "\u6B63\u5728\u542F\u52A8 OpenFilm \u5DE5\u4F5C\u53F0\u2026",
         studioFailed: "\u65E0\u6CD5\u542F\u52A8 OpenFilm \u5DE5\u4F5C\u53F0\u3002",
         studioRetry: "\u91CD\u8BD5",
@@ -1747,6 +2105,7 @@
         logout: "\u9000\u51FA"
       };
       const Panel = createStudioPanel(React);
+      const EnvSection = createEnvSection(React);
       const activation = createActivationStore();
       function PanelSeat() {
         const ref = React.useRef(null);
@@ -1839,6 +2198,16 @@
           h("path", { d: "m10 9 5 3-5 3V9Z", fill: "currentColor" })
         );
       }
+      function BrandSlotMark({ size = 22 }) {
+        const dark = typeof document !== "undefined" ? document.documentElement?.getAttribute("data-theme") !== "light" : true;
+        return h("span", {
+          style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: size, height: size },
+          dangerouslySetInnerHTML: { __html: brandSvgMarkup({ dark, size }) }
+        });
+      }
+      function BrandSlotName() {
+        return h("span", { style: { fontWeight: 600, letterSpacing: "-0.01em" } }, "\u4ECA\u5929\u4E0D\u52A0\u73ED");
+      }
       return {
         inject: ["slots", "locale"],
         apply(ctx) {
@@ -1846,7 +2215,25 @@
           const t = ctx.locale.bind(NS);
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
+          ctx.slots.inject("plugins.detail.section", () => ctx.slots.register({ name: "plugins.detail.section", id: "no996-openfilm-env", order: 10, locale: NS, label: () => t("envTitle") }, EnvSection));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
+          try {
+            ctx.slots.inject("sidebar.brand.mark", () => {
+              try {
+                return ctx.slots.register({ name: "sidebar.brand.mark", priority: 10 }, BrandSlotMark);
+              } catch {
+                return void 0;
+              }
+            });
+            ctx.slots.inject("sidebar.brand.name", () => {
+              try {
+                return ctx.slots.register({ name: "sidebar.brand.name", priority: 10 }, BrandSlotName);
+              } catch {
+                return void 0;
+              }
+            });
+          } catch {
+          }
           if (typeof window !== "undefined") ctx.effect(() => installDragProbe({ window, layer: "host" }), "openfilm: drag probe");
           if (typeof window !== "undefined") {
             ctx.effect(() => installDropCatcher({
@@ -1891,6 +2278,15 @@
             };
             if (typeof ctx.effect === "function") ctx.effect(install, "openfilm: sidebar switch");
             else install();
+            const installBrand = () => {
+              try {
+                return installSidebarBrand({ document });
+              } catch {
+                return void 0;
+              }
+            };
+            if (typeof ctx.effect === "function") ctx.effect(installBrand, "openfilm: sidebar brand");
+            else installBrand();
           }
         }
       };

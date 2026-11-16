@@ -77,17 +77,30 @@ export function installDropCatcher({
   };
   /* the overlay can be dismissed by a drag that ends anywhere */
   const onEnd = () => remove();
+  // OS file cancels do not deliver dragend to the page; blur / a short idle after
+  // the last dragover still has to dismiss, or the panel stays masked.
+  let idle = 0;
+  const armIdle = () => {
+    try { view.clearTimeout?.(idle); } catch { /* no timers */ }
+    try { idle = view.setTimeout?.(onEnd, 1500) || 0; } catch { idle = 0; }
+  };
+  const onOver = () => { if (overlay) armIdle(); };
   view.addEventListener('dragenter', onEnter, true);
+  view.addEventListener('dragover', onOver, true);
   view.addEventListener('dragleave', onEnd, true);
   view.addEventListener('drop', onEnd, true);
   view.addEventListener('dragend', onEnd, true);
+  try { view.addEventListener('blur', onEnd); } catch { /* no blur */ }
   return () => {
     remove();
+    try { view.clearTimeout?.(idle); } catch { /* gone */ }
     try {
       view.removeEventListener('dragenter', onEnter, true);
+      view.removeEventListener('dragover', onOver, true);
       view.removeEventListener('dragleave', onEnd, true);
       view.removeEventListener('drop', onEnd, true);
       view.removeEventListener('dragend', onEnd, true);
+      view.removeEventListener('blur', onEnd);
     } catch { /* gone */ }
   };
 }

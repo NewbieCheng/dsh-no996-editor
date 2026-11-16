@@ -1,0 +1,67 @@
+diff --git a/apps/desktop/chat/src/lib/desktop-attachments.ts b/apps/desktop/chat/src/lib/desktop-attachments.ts
+index 4f7aa72..3f4ea6d 100644
+--- a/apps/desktop/chat/src/lib/desktop-attachments.ts
++++ b/apps/desktop/chat/src/lib/desktop-attachments.ts
+@@ -64,6 +64,10 @@ export function useDesktopAttachments(project: string) {
+   /** Takes the files in; their records come back at once, for their pills to go into the sentence. */
+   const add = React.useCallback((incoming: File[]): DesktopAttachment[] => {
+     const bridge = (window as unknown as { openfilmDesktop?: { pathForFile?: (f: File) => string } }).openfilmDesktop;
++    /* dsh-openfilm: embedded in a host window there is no openfilmDesktop bridge, but that window can still
++       resolve a dropped file's real path (Electron's webUtils). Without it every drop would be copied into the
++       project; with it the message names the file where it already sits, as the desktop app's does. */
++    const hostPath = (window as unknown as { __no996HostPath?: (file: File) => Promise<string> }).__no996HostPath;
+     const items = incoming.map((file) => {
+       const image = isImageAttachment(file);
+       const item: DesktopAttachment = {
+@@ -88,8 +92,8 @@ export function useDesktopAttachments(project: string) {
+       }
+     }
+     /* from the disk: its path, once the app has said whether it is a file or a folder (nothing is copied) */
+-    const onDisk = items.filter(({ path }) => path);
+-    if (onDisk.length) {
++    const settleOnDisk = (onDisk: Array<{ item: DesktopAttachment; path: string }>) => {
++      if (!onDisk.length) return;
+       void app.chat.describePaths(onDisk.map(({ path }) => path))
+         .then((found) => onDisk.forEach(({ item }, i) => {
+           const one = found[i];
+@@ -100,15 +104,37 @@ export function useDesktopAttachments(project: string) {
+           } else patch(item.id, { state: 'ready', path: one.path, size: one.size ?? item.size });
+         }))
+         .catch((error: unknown) => onDisk.forEach(({ item }) => patch(item.id, { state: 'failed', error: error instanceof Error ? error.message : String(error) })));
+-    }
++    };
+     /* pasted: no path of its own, so its bytes are kept in the project */
+-    for (const { item, file, path } of items) {
+-      if (path) continue;
++    const keepBytes = (item: DesktopAttachment, file: File) => {
++      /* Large media must stay a path reference. Copying hundreds of MB into the
++         project (and through the 256 MiB upload gate) is the wrong product; fail
++         visibly so the person retries with a path or uses the media library. */
++      if (typeof file.size === 'number' && file.size > 256 * 1024 * 1024) {
++        patch(item.id, { state: 'failed', error: '大视频请用本机路径引用（不上传会话）。请重试拖放，或从素材库导入。' });
++        return;
++      }
+       void file.arrayBuffer()
+         .then((bytes) => app.chat.saveAttachment(project, item.name, bytes))
+         .then((r) => patch(item.id, { state: 'ready', path: r.path }))
+         .catch((error: unknown) => patch(item.id, { state: 'failed', error: error instanceof Error ? error.message : String(error) }));
++    };
++    settleOnDisk(items.filter(({ path }) => path).map(({ item, path }) => ({ item, path })));
++    const unknown = items.filter(({ path }) => !path);
++    if (!unknown.length) return items.map(({ item }) => item);
++    if (!hostPath) {
++      for (const { item, file } of unknown) keepBytes(item, file);
++      return items.map(({ item }) => item);
+     }
++    /* the host answers late, so nothing waits on it: a resolve that fails is a paste, handled the old way */
++    void Promise.all(unknown.map(({ item, file }) => hostPath(file)
++      .then((path) => ({ item, file, path: typeof path === 'string' ? path : '' }))
++      .catch(() => ({ item, file, path: '' }))))
++      .then((found) => {
++        settleOnDisk(found.filter(({ path }) => path).map(({ item, path }) => ({ item, path })));
++        for (const { item, file, path } of found) if (!path) keepBytes(item, file);
++      })
++      .catch(() => { for (const { item, file } of unknown) keepBytes(item, file); });
+     return items.map(({ item }) => item);
+   }, [project, thumbnail]);
+ 

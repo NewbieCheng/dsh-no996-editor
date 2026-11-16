@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..81373c0 100644
+index 9c7041b..79a2084 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
-@@ -10,6 +10,7 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
+@@ -10,10 +10,12 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
  import { buildPromptDisplay, type Turn } from '@openfilm/shared';
  import { useT, useUiLocale } from '@/i18n';
  import { ConversationBar } from '@/components/ConversationSessionBar';
@@ -10,7 +10,12 @@ index 9c7041b..81373c0 100644
  import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/components/ProjectConversation';
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
-@@ -69,6 +70,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
+ import { AttachmentPreview, type AttachmentPreviewItem } from '@/components/AttachmentPreview';
++import { ContextUsage } from '@/components/ContextUsage';
+ import { ModelPopover } from '@/components/ModelPopover';
+ import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
+ import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
+@@ -69,6 +71,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
  import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
@@ -19,7 +24,7 @@ index 9c7041b..81373c0 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -156,6 +159,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -156,6 +160,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -28,7 +33,7 @@ index 9c7041b..81373c0 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -188,6 +193,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -188,6 +194,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
    React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
@@ -59,7 +64,7 @@ index 9c7041b..81373c0 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -352,6 +381,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -352,6 +382,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const [openedFile, setOpenedFile] = React.useState<AttachmentPreviewItem | null>(null);
    const attachInputRef = React.useRef<HTMLInputElement>(null);
    const [dropping, setDropping] = React.useState(false);
@@ -68,15 +73,19 @@ index 9c7041b..81373c0 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -378,10 +409,56 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -378,10 +410,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
 +  /* dsh-openfilm: the host page catches drops the frame cannot see and hands the
-+     files over; this is where they join the composer. */
++     files over; this is where they join the composer. Host never fires our
++     drop/dragleave, so clear pageDropping here or "松手即可附上" sticks. */
 +  React.useEffect(() => {
 +    const host = window as unknown as { __no996AttachFiles?: (files: File[]) => void };
-+    host.__no996AttachFiles = (files: File[]) => { if (files?.length) attachFiles(files); };
++    host.__no996AttachFiles = (files: File[]) => {
++      setPageDropping(false);
++      if (files?.length) attachFiles(files);
++    };
 +    return () => { host.__no996AttachFiles = undefined; };
 +  }, [attachFiles]);
 +
@@ -113,19 +122,22 @@ index 9c7041b..81373c0 100644
 +      attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
 +      composerRef.current?.focus();
 +    };
++    const end = () => { setPageDropping(false); };
 +    document.addEventListener('dragover', over);
 +    document.addEventListener('dragleave', leave);
 +    document.addEventListener('drop', letGo);
++    document.addEventListener('dragend', end);
 +    return () => {
 +      document.removeEventListener('dragover', over);
 +      document.removeEventListener('dragleave', leave);
 +      document.removeEventListener('drop', letGo);
++      document.removeEventListener('dragend', end);
 +    };
 +  }, [attachFiles]);
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -964,6 +1041,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -964,6 +1049,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -139,7 +151,7 @@ index 9c7041b..81373c0 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -996,6 +1080,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -996,6 +1088,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -151,7 +163,7 @@ index 9c7041b..81373c0 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1028,9 +1117,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1028,9 +1125,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -164,7 +176,16 @@ index 9c7041b..81373c0 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1 py-2.5 pl-3.5 pr-2">
-@@ -1115,6 +1205,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1081,6 +1179,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+           onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
+         />
+         <div className="min-w-0 flex-1" />
++        {/* Always on: 0% until ACP usage_update; then used/size. Native shell, not injection. */}
++        <ContextUsage used={agentContext?.used ?? 0} size={agentContext?.size ?? 0} />
+         <input
+           ref={attachInputRef}
+           type="file"
+@@ -1115,6 +1215,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -181,7 +202,7 @@ index 9c7041b..81373c0 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1132,6 +1232,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1132,6 +1242,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -189,7 +210,7 @@ index 9c7041b..81373c0 100644
                  />
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
-@@ -1143,7 +1244,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1143,7 +1254,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    >
                      {blank ? (
                        <div ref={thread.contentRef}>

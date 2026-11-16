@@ -98,6 +98,8 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 
 面板的对话不再由 Host 手工模拟回合：`src/acp/acp-client.mjs`（ndjson 线级客户端）、`src/acp/acp-agent-service.mjs`（每项目一个 `dsh --profile acp`；会话 id 存 `acp-session-store.mjs`）、`src/tools/mcp-server.mjs`、`src/project/project-instructions.mjs`。外层：`src/official/official-chat-rpc.mjs`、`official-chat-store.mjs`、`official-event-hub.mjs` / `official-event-stream.mjs`、`official-facade.mjs`、`official-permission.mjs`、`official-approvals.mjs`。
 
+OpenFilm 对话跑的是 **acp 子进程**，不是侧栏主会话。菜单/侧栏选的 provider 若在 acp 没有适配器（例如 `dsh-opencode-go`），会 `acp-model-fallback` 落到 profile 默认（常为 DeepSeek official）。**以 `plugin.log` 的 `acp-session-model` / `acp-default-model` 和 `/diagnose` 的 `turns.model` 为准**，不要只看菜单字面；排障见 [`playbooks/turn-interrupt-fix.md`](playbooks/turn-interrupt-fix.md)。
+
 旧路径（进程内回合服务、事件翻译层、Host 侧会话绑定、审批桥）已按 `docs/ARCHITECTURE.md §10` 删除；`NO996_OPENFILM_ACP` 变量不再存在。
 
 ### 影片工具（10 个，只对项目会话可见）

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..78b2b61 100644
+index 0ef8753..7d337af 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -11,7 +11,88 @@ index 0ef8753..78b2b61 100644
    publicActivity,
    publicActivityResult,
    publicAsk,
-@@ -230,8 +232,16 @@ export function acpUpdateToEvent(
+@@ -130,12 +132,55 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
+  * The name of our own MCP tool in this call (`mcp__openfilm__look`); undefined for anyone else's tools.
+  * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
+  * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
++ *
++ * dsh-openfilm: the Host MCP server is named `no996-openfilm` (see mcpServerEntry). Titles arrive as
++ * `mcp.no996-openfilm.openfilm_transcribe` or bare `openfilm_*`. Only recognizing `server === 'openfilm'`
++ * made every Host tool look like "someone else's MCP" and return null — the panel showed a long
++ * thought and no tool rows (2026-11-16).
+  */
+ export function ourToolName(title: string | undefined, rawInput: unknown): string | undefined {
+   const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as { server?: unknown; tool?: unknown };
+-  if (input.server === 'openfilm' && typeof input.tool === 'string') return `mcp__openfilm__${input.tool}`;
+-  const ours = /^(?:mcp__|mcp\.)?openfilm(?:__|\.|:|\/)(.+)$/i.exec((title ?? '').trim());
+-  return ours ? `mcp__openfilm__${ours[1]!.trim()}` : undefined;
++  const oursServer = input.server === 'openfilm' || input.server === 'no996-openfilm';
++  if (oursServer && typeof input.tool === 'string') return `mcp__openfilm__${input.tool}`;
++  const trimmed = (title ?? '').trim();
++  const ours = /^(?:mcp__|mcp\.)?(?:no996[-_.])?openfilm(?:__|\.|:|\/)(.+)$/i.exec(trimmed);
++  if (ours) return `mcp__openfilm__${ours[1]!.trim()}`;
++  if (/^openfilm_[A-Za-z0-9_]+$/.test(trimmed)) return `mcp__openfilm__${trimmed}`;
++  return undefined;
++}
++
++/**
++ * Host MCP tools (`openfilm_transcribe` …) are not in upstream's publicActivity catalog, so they
++ * collapse to `act.working`. That act is ephemeral: only the live status line ("正在处理"), never a
++ * tool row — so a turn with dozens of Host tools looks like endless thinking with no work. Map them
++ * onto closed acts that stay in the transcript (2026-11-16).
++ */
++export function hostOpenfilmActivity(mcpName: string): LocalActivity {
++  const short = mcpName.replace(/^mcp__openfilm__/i, '');
++  switch (short) {
++    case 'openfilm_transcribe':
++      return { act: 'audio.transcribe' };
++    case 'openfilm_frame':
++      return { act: 'film.frames' };
++    case 'openfilm_film':
++    case 'openfilm_storyboard':
++      return { act: 'film.review' };
++    case 'openfilm_clip':
++      return { act: 'film.arrange' };
++    case 'openfilm_export':
++      return { act: 'film.check' };
++    case 'openfilm_guide':
++    case 'openfilm_library':
++      return { act: 'research.read' };
++    case 'openfilm_assets':
++    case 'openfilm_get':
++      return { act: 'files.read', detail: clipDetail(short) };
++    case 'openfilm_draft':
++      return { act: 'scene.write' };
++    case 'openfilm_cli':
++    default:
++      return { act: 'command.run', detail: clipDetail(short || 'openfilm') };
++  }
+ }
+ 
+ /**
+@@ -161,7 +206,20 @@ export function localToolActivity(
+      rawInput.arguments (next to server / tool). Recognize that first. */
+   const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown> & { server?: unknown; tool?: unknown; arguments?: unknown };
+   const tool = ourToolName(name, rawInput);
+-  if (tool) return publicActivity(tool, input.arguments ?? (input.server === 'openfilm' ? {} : rawInput)) ?? null;
++  if (tool) {
++    const args = input.arguments ?? ((input.server === 'openfilm' || input.server === 'no996-openfilm') ? {} : rawInput);
++    const activity = publicActivity(tool, args);
++    /* Upstream catalog hit (look / check / …): keep that projection. `working` means "unknown tool" —
++       Host openfilm_* always land there, so promote them to a lasting row. */
++    if (activity && activity.act !== 'working') return activity;
++    if (activity === null) return null;
++    return hostOpenfilmActivity(tool);
++  }
++  /* Our Host MCP under an unrecognized title still belongs on the film row, not the status line. */
++  if (input.server === 'no996-openfilm' || input.server === 'openfilm') {
++    const tip = typeof input.tool === 'string' ? input.tool : name;
++    return hostOpenfilmActivity(`mcp__openfilm__${tip}`);
++  }
+   /* Other MCP tools (Codex's own browser, computer use…): not film work, not drawn */
+   if (typeof input.server === 'string' || /^mcp[._]/.test(name)) return null;
+   const files = touchedFiles(extra, input);
+@@ -230,11 +288,25 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -28,19 +109,29 @@ index 0ef8753..78b2b61 100644
 +      };
 +    }
      case 'tool_call': {
++      /* Prefer ACP's toolName when the title is an opaque MCP label — bare openfilm_*
++         is enough for ourToolName after the no996-openfilm recognition fix. */
++      const titled = typeof update.title === 'string' ? update.title : undefined;
++      const named = typeof (update as { toolName?: unknown }).toolName === 'string'
++        ? String((update as { toolName?: string }).toolName)
++        : undefined;
        const activity = localToolActivity(
-         update.title as string | undefined,
-@@ -246,6 +256,9 @@ export function acpUpdateToEvent(
+-        update.title as string | undefined,
++        named || titled,
+         update.kind as string | undefined,
+         update.rawInput,
+         { locations: (update as { locations?: unknown }).locations, content: (update as { content?: unknown }).content },
+@@ -246,6 +318,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
 +        /* dsh-openfilm: the real tool name travels beside the act, so the row can say what ran. The
 +           bridging agent knows it; the closed act only says what it meant for the film. */
-+        ...(typeof update.toolName === 'string' && update.toolName ? { tool: String(update.toolName).slice(0, 80) } : {}),
++        ...(named ? { tool: named.slice(0, 80) } : {}),
        };
      }
      case 'tool_call_update': {
-@@ -295,6 +308,17 @@ export class LocalAgentTurn {
+@@ -295,6 +370,17 @@ export class LocalAgentTurn {
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
@@ -58,7 +149,7 @@ index 0ef8753..78b2b61 100644
  
    constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
  
-@@ -304,7 +328,14 @@ export class LocalAgentTurn {
+@@ -304,7 +390,14 @@ export class LocalAgentTurn {
    };
  
    private emit(): void {
@@ -74,7 +165,7 @@ index 0ef8753..78b2b61 100644
    }
  
    patch(next: Partial<LocalRunState>): void {
-@@ -363,6 +394,9 @@ export class LocalAgentTurn {
+@@ -363,6 +456,9 @@ export class LocalAgentTurn {
      if (event.type === 'agent-text') {
        const full = (this.partText.get(this.part) ?? '') + event.text;
        this.partText.set(this.part, full);
@@ -84,7 +175,7 @@ index 0ef8753..78b2b61 100644
        event = { ...event, text: full };
      }
      this.items = reduceTranscript(this.items, event);
-@@ -389,7 +423,6 @@ export class LocalAgentTurn {
+@@ -389,7 +485,6 @@ export class LocalAgentTurn {
    private pendingAsk: TranscriptItem['ask'];
    /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
    private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
@@ -92,7 +183,7 @@ index 0ef8753..78b2b61 100644
    private openThought: string | null = null;
  
    private patchItem(id: string, patch: Partial<TranscriptItem>): void {
-@@ -400,18 +433,38 @@ export class LocalAgentTurn {
+@@ -400,18 +495,38 @@ export class LocalAgentTurn {
      this.items = next;
    }
  
@@ -139,7 +230,7 @@ index 0ef8753..78b2b61 100644
      if (!this.state.thinking) this.state = { ...this.state, thinking: true };
      this.emit();
    }
-@@ -423,6 +476,91 @@ export class LocalAgentTurn {
+@@ -423,6 +538,91 @@ export class LocalAgentTurn {
      return true;
    }
  
@@ -231,7 +322,7 @@ index 0ef8753..78b2b61 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -649,6 +787,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -649,6 +849,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);

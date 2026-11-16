@@ -133,6 +133,15 @@ export function createTranscribeTool({ isProjectAgent, projectOf, service, refin
               + '\n这不是错误：模型下载完就会转。稍后用 status 看进度，或者现在把视频再发我一次。',
           };
         }
+        // Extract / no-audio failures used to be rethrown bare; the model then
+        // spent minutes re-calling the same path (2026-11-16: four EXTRACT_FAILED
+        // in one turn). Say so in the tool result so the turn can stop honestly.
+        if (error?.code === 'EXTRACT_FAILED' || error?.code === 'NO_AUDIO' || error?.code === 'UNREADABLE_MEDIA' || error?.code === 'NO_SPACE') {
+          return {
+            text: String(error.message || error)
+              + '\n不要对同一文件立刻重试 openfilm_transcribe：先换有音轨的文件、检查 ffmpeg（NO996_OPENFILM_FFMPEG），或改用已有字幕/口播稿。',
+          };
+        }
         throw error;
       }
 

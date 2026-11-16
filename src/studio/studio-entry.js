@@ -1,6 +1,8 @@
 import { createStudioPanel } from './studio-panel.mjs';
+import { createEnvSection } from '../ui/env-section.mjs';
 import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from '../ui/sidebar-editing.mjs';
+import { brandSvgMarkup, installSidebarBrand } from '../ui/sidebar-brand.mjs';
 import { installHostPathBridge } from '../host/host-paths.mjs';
 import { installDragProbe } from './drag-probe.mjs';
 import { installDropCatcher } from './drop-catcher.mjs';
@@ -14,6 +16,7 @@ window.__ModuleLoader__.load({
     const PANEL = 'no996-openfilm';
     const en = {
       panel: 'Video studio',
+      envTitle: 'Editing environment',
       studioLoading: 'Starting OpenFilm Studio…',
       studioFailed: 'Unable to start OpenFilm Studio.',
       studioRetry: 'Try again', studioStopped: 'Video workspace stopped', studioStoppedHint: 'The editing service is not running. Restart it to continue; projects and media are untouched.', studioRestart: 'Restart workspace',
@@ -24,6 +27,7 @@ window.__ModuleLoader__.load({
     };
     const zh = {
       panel: '视频创作',
+      envTitle: '剪辑环境',
       studioLoading: '正在启动 OpenFilm 工作台…',
       studioFailed: '无法启动 OpenFilm 工作台。',
       studioRetry: '重试', studioStopped: '工作台已停止运行', studioStoppedHint: '视频编辑服务已断开。重新启动即可继续，项目和素材不受影响。', studioRestart: '重新启动工作台',
@@ -33,6 +37,7 @@ window.__ModuleLoader__.load({
       authChecking: '正在确认登录状态…', loginTitle: '登录', loggedIn: '已登录', logout: '退出',
     };
     const Panel = createStudioPanel(React);
+    const EnvSection = createEnvSection(React);
     // The real panel is rendered once and then only shown or hidden; `main`
     // receives a placeholder that reports selection (see panel-keepalive.mjs).
     const activation = createActivationStore();
@@ -122,16 +127,46 @@ window.__ModuleLoader__.load({
         h('rect', { x: 3, y: 5, width: 18, height: 14, rx: 3, stroke: 'currentColor', strokeWidth: 1.7 }),
         h('path', { d: 'm10 9 5 3-5 3V9Z', fill: 'currentColor' }));
     }
+    function BrandSlotMark({ size = 22 }) {
+      const dark = typeof document !== 'undefined'
+        ? document.documentElement?.getAttribute('data-theme') !== 'light'
+        : true;
+      return h('span', {
+        style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size },
+        dangerouslySetInnerHTML: { __html: brandSvgMarkup({ dark, size }) },
+      });
+    }
+    function BrandSlotName() {
+      return h('span', { style: { fontWeight: 600, letterSpacing: '-0.01em' } }, '今天不加班');
+    }
     return {
       inject: ['slots', 'locale'],
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'openfilm: dictionaries');
         const t = ctx.locale.bind(NS);
+        // Panel entry first. Optional brand slots are single-seat and can throw
+        // when DSH already owns them — that must never wipe 视频创作.
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL, locale: NS }, PanelSeat));
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: PANEL, order: 21, locale: NS, label: () => t('panel') }, PanelIcon));
+        // Bundle detail page: what the film agent can load (preset, isolated
+        // skills, film tools, per-project chain). List slot, append-only: no
+        // official UI is replaced and nothing else moves.
+        ctx.slots.inject('plugins.detail.section', () => ctx.slots.register({ name: 'plugins.detail.section', id: 'no996-openfilm-env', order: 10, locale: NS, label: () => t('envTitle') }, EnvSection));
         // `shell.overlay` is rendered for the whole frame lifetime, so the panel
         // it hosts survives page switches instead of reloading Studio each time.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'no996-openfilm-panel', order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
+        // Brand seats are optional. Single-seat brand slots throw when DSH
+        // already owns them; keep failures local so the panel entry stays up.
+        try {
+          ctx.slots.inject('sidebar.brand.mark', () => {
+            try { return ctx.slots.register({ name: 'sidebar.brand.mark', priority: 10 }, BrandSlotMark); }
+            catch { return undefined; }
+          });
+          ctx.slots.inject('sidebar.brand.name', () => {
+            try { return ctx.slots.register({ name: 'sidebar.brand.name', priority: 10 }, BrandSlotName); }
+            catch { return undefined; }
+          });
+        } catch { /* optional seats missing on this DSH build */ }
         // The Workspace header becomes a two-way switch (工作区 / 剪辑区).
         // It is installed outside React on purpose: the sidebar belongs to DSH,
         // and this is a narrow, reversible append that only hides one label.
@@ -176,6 +211,12 @@ window.__ModuleLoader__.load({
           // call would leave the switch behind until the page reloads.
           if (typeof ctx.effect === 'function') ctx.effect(install, 'openfilm: sidebar switch');
           else install();
+
+          const installBrand = () => {
+            try { return installSidebarBrand({ document }); } catch { return undefined; }
+          };
+          if (typeof ctx.effect === 'function') ctx.effect(installBrand, 'openfilm: sidebar brand');
+          else installBrand();
         }
       },
     };

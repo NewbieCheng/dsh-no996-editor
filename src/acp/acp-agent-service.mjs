@@ -260,10 +260,11 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
   /**
    * The child process, spawned once per project.
    *
-   * The two overlays stay apart on purpose: the model one may be refused (a provider
-   * the profile has no adapter for) and is dropped on retry, while the tap overlay is
-   * what makes the answer stream at all. Sharing one array is how a model fallback
-   * silently turned every answer back into committed paragraphs (ADR-0010 §2.5).
+   * The overlays stay apart on purpose: the model one may be refused (a provider
+   * the profile has no adapter for) and is dropped on retry, while the tap / prompt /
+   * instructions overlays are what make the answer stream, carry the editing
+   * guidance, and decide who the agent is. Sharing one array is how a model
+   * fallback silently turned every answer back into committed paragraphs (ADR-0010 §2.5).
    */
   async function ensureChild(child, projectId, project, overlays) {
     if (child.client) return child;
@@ -271,11 +272,14 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
     child.ready = (async () => {
       const mode = await modeOf(projectId);
       const modelArgs = Array.isArray(overlays) ? [...overlays] : (text(overlays?.model) ? ['--patch', overlays.model] : []);
-      // Never dropped: the tap makes the answer stream, the instructions decide who the
-      // agent is and where its instruction chain stops. Only the model overlay is optional.
+      // Never dropped: the tap makes the answer stream, the prompt carries the
+      // preset's editing guidance (same module the sidebar preset mounts), and the
+      // instructions decide who the agent is, where its instruction chain stops,
+      // and which skills it can see. Only the model overlay is optional.
       const tapArgs = Array.isArray(overlays) ? [] : [
         ...(text(overlays?.instructions) ? ['--patch', overlays.instructions] : []),
         ...(text(overlays?.tap) ? ['--patch', overlays.tap] : []),
+        ...(text(overlays?.prompt) ? ['--patch', overlays.prompt] : []),
       ];
       // A fresh process means fresh MCP credentials: the endpoint is this Host,
       // and only the child holding the token may call the film tools.
@@ -299,13 +303,16 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
           if (dead) { try { await dead.close(); } catch { /* already gone */ } }
           throw error;
         }
-        void log?.('acp-model-fallback', { projectId, reason: String(error?.code ?? error).slice(0, 60) });
+        const reason = String(error?.code ?? error).slice(0, 120);
+        child.modelRejected = true;
+        child.modelFallbackReason = reason;
+        void log?.('acp-model-fallback', { projectId, reason: reason.slice(0, 60) });
         const previous = child.client;
         retired.add(previous);
         try { await previous.close(); } catch { /* already gone */ }
-        child.modelRejected = true;
-        // Only the model overlay goes: the tap stays, or this child would answer in
-        // committed paragraphs for the rest of its life.
+        // Only the model overlay goes: tap + prompt + instructions stay, or this
+        // child would answer in committed paragraphs without guidance for the
+        // rest of its life.
         await startChild(tapArgs);
       }
       child.wiring = wiring;
@@ -381,7 +388,7 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
       // model decides whether images may be sent at all), so they are computed
       // per spawn rather than per session.
       let overlays = {};
-      try { overlays = (await spawnArgs?.()) ?? {}; } catch (error) { void log?.('acp-spawn-args-failed', { projectId, reason: String(error?.code ?? error).slice(0, 60) }); }
+      try { overlays = (await spawnArgs?.(projectId, project.path)) ?? {}; } catch (error) { void log?.('acp-spawn-args-failed', { projectId, reason: String(error?.code ?? error).slice(0, 60) }); }
       await ensureChild(child, projectId, project, overlays);
       try {
         return await openSession(child, session, project);
@@ -393,12 +400,14 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
         // conversation and a dead panel. Only the first Session of a child can be
         // affected: no other conversation exists on it yet.
         if (child.modelRejected) throw error;
-        void log?.('acp-model-fallback', { projectId, reason: String(error?.code ?? error).slice(0, 60) });
+        const reason = String(error?.code ?? error).slice(0, 120);
+        child.modelRejected = true;
+        child.modelFallbackReason = reason;
+        void log?.('acp-model-fallback', { projectId, reason: reason.slice(0, 60) });
         const previous = child.client;
         retired.add(previous);
         child.client = undefined;
         child.ready = undefined;
-        child.modelRejected = true;
         try { await previous?.close(); } catch { /* already gone */ }
         await ensureChild(child, projectId, project, overlays);
         return await openSession(child, session, project);
@@ -711,17 +720,39 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
     diagnose(projectId, conversation) {
       const child = children.get(projectId);
       const session = child ? sessionOf(child, conversation) : undefined;
+      // What the Session is actually running — the only trustworthy answer to
+      // "menu says cbcn, is the child on official?" (see playbooks/turn-interrupt-fix).
+      const pick = (category, id) => session?.configOptions?.find(item => item && (item.category === category || item.id === id));
+      const valueOf = option => {
+        try {
+          const parsed = JSON.parse(option?.currentValue ?? '""');
+          return Array.isArray(parsed) ? parsed.join('/') : String(parsed ?? '');
+        } catch { return String(option?.currentValue ?? ''); }
+      };
+      const modelValue = session ? valueOf(pick('model', 'model')) : '';
+      const effortValue = session ? valueOf(pick('thought_level', 'reasoning_effort')) : '';
+      const stats = session?.turnStats ?? { deltas: 0, seals: 0, syncs: 0, textCommits: 0 };
       return {
         sessionId: session?.sessionId ?? null,
         key: session?.key ?? null,
         inflight: Boolean(session?.inflight),
         imageEnabled: child?.imageEnabled === true,
+        // Applied model on this conversation's Session (not the sidebar label).
+        model: modelValue || null,
+        effort: effortValue || null,
+        // When the spawn overlay was refused, the child dropped it and continued
+        // on the profile default — the panel must be able to see that reason.
+        modelFallback: child?.modelRejected === true
+          ? { rejected: true, reason: String(child.modelFallbackReason ?? 'ACP_REQUEST_FAILED').slice(0, 120) }
+          : { rejected: false, reason: null },
         // Whether this child ever said hello on the live channel, and what the last
         // turn received: the two facts that separate "no tap" from "no frames".
         stream: {
           connected: child?.streamConnected === true,
-          deltas: session?.turnStats?.deltas ?? 0,
-          textCommits: session?.turnStats?.textCommits ?? 0,
+          deltas: stats.deltas,
+          seals: stats.seals,
+          syncs: stats.syncs,
+          textCommits: stats.textCommits,
           lastAt: child?.streamLastAt ?? 0,
         },
         configOptions: session ? session.configOptions.map(option => ({ id: option.id, category: option.category, options: Array.isArray(option.options) ? option.options.length : 0 })) : [],
@@ -755,7 +786,16 @@ export function createAcpAgentService({ verifier, store, emit, approvals, log, c
       if (!child) return undefined;
       const session = sessionOf(child, conversation);
       if (!session.sessionId) return undefined;
-      return { sessionId: session.sessionId, resumed: session.reopened === true };
+      // Same facts diagnose() exposes: the shell's start() hand-over can tell
+      // "menu label" from "Session actually running" without a second RPC.
+      const snapshot = this.diagnose(projectId, conversation);
+      return {
+        sessionId: session.sessionId,
+        resumed: session.reopened === true,
+        model: snapshot.model,
+        effort: snapshot.effort,
+        modelFallback: snapshot.modelFallback,
+      };
     },
     /** Test seam: the ACP session id chosen for a conversation, once ensured. */
     sessionOf(projectId, conversation) {

@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { MODEL_REPO, modelBases } from '../host/download-sources.mjs';
+import { createStallWatch, stallReason, linkSignals, DEFAULT_CONNECT_MS, DEFAULT_IDLE_MS } from '../host/download-stall.mjs';
 
 export const SENSE_VOICE = Object.freeze({
   id: 'sensevoice-small',
@@ -90,38 +91,69 @@ export async function modelState({ env, home } = {}) {
   };
 }
 
-async function downloadOne(file, dir, { base, source, fetchImpl = globalThis.fetch, onEvent, signal }) {
+async function downloadOne(file, dir, {
+  base, source, fetchImpl = globalThis.fetch, onEvent, signal,
+  connectMs = DEFAULT_CONNECT_MS, idleMs = DEFAULT_IDLE_MS,
+}) {
   const target = join(dir, file.name);
   const part = target + '.part';
   const url = base + file.name;
-  const response = await fetchImpl(url, { redirect: 'follow', signal });
-  if (!response || !response.ok) {
-    throw Object.assign(new Error('下载模型失败（HTTP ' + (response?.status ?? '?') + '）：' + url), { code: 'MODEL_DOWNLOAD_FAILED' });
+  const stall = createStallWatch({ connectMs, idleMs });
+  const linked = linkSignals(stall.signal, signal);
+  try {
+    const response = await fetchImpl(url, { redirect: 'follow', signal: linked });
+    if (!response || !response.ok) {
+      throw Object.assign(new Error('下载模型失败（HTTP ' + (response?.status ?? '?') + '）：' + url), { code: 'MODEL_DOWNLOAD_FAILED' });
+    }
+    stall.connected();
+    const hash = createHash('sha256');
+    let seen = 0;
+    const body = Readable.fromWeb(response.body);
+    body.on('data', chunk => {
+      stall.activity();
+      seen += chunk.length;
+      hash.update(chunk);
+      if (typeof onEvent === 'function') onEvent({ phase: 'downloading', source, file: file.name, seen, total: file.bytes });
+    });
+    const onAbort = () => {
+      try { body.destroy(stallReason(stall.signal.reason) || new Error('下载已中止')); } catch { /* ignore */ }
+    };
+    if (stall.signal.aborted) onAbort();
+    else stall.signal.addEventListener('abort', onAbort, { once: true });
+    if (signal && !signal.aborted) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    try {
+      await pipeline(body, createWriteStream(part));
+    } finally {
+      stall.signal.removeEventListener?.('abort', onAbort);
+      signal?.removeEventListener?.('abort', onAbort);
+    }
+    if (file.bytes > 0 && seen !== file.bytes) {
+      await unlink(part).catch(() => undefined);
+      throw Object.assign(new Error('下载不完整：' + file.name + ' 收到 ' + seen + ' 字节，应为 ' + file.bytes), { code: 'MODEL_DOWNLOAD_INCOMPLETE' });
+    }
+    const digest = hash.digest('hex');
+    if (file.sha256 && digest !== file.sha256) {
+      await unlink(part).catch(() => undefined);
+      throw Object.assign(new Error('模型校验失败：' + file.name + ' 的 sha256 是 ' + digest.slice(0, 12) + '…，应为 ' + file.sha256.slice(0, 12) + '…'), { code: 'MODEL_CHECKSUM' });
+    }
+    await rename(part, target);
+    return { name: file.name, bytes: seen, sha256: digest, source };
+  } catch (error) {
+    const stalled = stallReason(error) || (error?.name === 'AbortError' ? stallReason(error.cause) : null);
+    if (stalled) throw stalled;
+    throw error;
+  } finally {
+    stall.clear();
   }
-  const hash = createHash('sha256');
-  let seen = 0;
-  const body = Readable.fromWeb(response.body);
-  body.on('data', chunk => {
-    seen += chunk.length;
-    hash.update(chunk);
-    if (typeof onEvent === 'function') onEvent({ phase: 'downloading', source, file: file.name, seen, total: file.bytes });
-  });
-  await pipeline(body, createWriteStream(part));
-  if (file.bytes > 0 && seen !== file.bytes) {
-    await unlink(part).catch(() => undefined);
-    throw Object.assign(new Error('下载不完整：' + file.name + ' 收到 ' + seen + ' 字节，应为 ' + file.bytes), { code: 'MODEL_DOWNLOAD_INCOMPLETE' });
-  }
-  const digest = hash.digest('hex');
-  if (file.sha256 && digest !== file.sha256) {
-    await unlink(part).catch(() => undefined);
-    throw Object.assign(new Error('模型校验失败：' + file.name + ' 的 sha256 是 ' + digest.slice(0, 12) + '…，应为 ' + file.sha256.slice(0, 12) + '…'), { code: 'MODEL_CHECKSUM' });
-  }
-  await rename(part, target);
-  return { name: file.name, bytes: seen, sha256: digest, source };
 }
 
 /** Download whatever is missing. Resolves with the state; throws only on a real failure. */
-export async function ensureModels({ env, home, fetchImpl, onEvent, signal } = {}) {
+export async function ensureModels({
+  env, home, fetchImpl, onEvent, signal,
+  connectMs = DEFAULT_CONNECT_MS, idleMs = DEFAULT_IDLE_MS,
+} = {}) {
   const before = await modelState({ env, home });
   if (before.ready) return { ...before, downloaded: [] };
   const dir = before.dir;
@@ -137,7 +169,9 @@ export async function ensureModels({ env, home, fetchImpl, onEvent, signal } = {
       if (signal?.aborted) throw Object.assign(new Error('已取消', { cause: 'ABORTED' }), { code: 'ABORTED' });
       if (typeof onEvent === 'function') onEvent({ phase: 'connecting', source: source.id, file: file.name });
       try {
-        done = await downloadOne(spec, dir, { base: source.base, source: source.id, fetchImpl, onEvent, signal });
+        done = await downloadOne(spec, dir, {
+          base: source.base, source: source.id, fetchImpl, onEvent, signal, connectMs, idleMs,
+        });
         break;
       } catch (error) {
         if (error?.code === 'ABORTED') throw error;

@@ -130,14 +130,17 @@ export function createFrameTool({ isProjectAgent, projectOf, http, attachments, 
       if (!bytes || bytes.byteLength < 1) throw new Error('Studio returned an empty picture.');
       if (bytes.byteLength > MAX_PICTURE_BYTES) throw new Error('The rendered picture is larger than this tool accepts.');
 
-      const store = attachments?.();
+      const store = typeof attachments === 'function' ? attachments() : attachments;
       if (!store || typeof store.saveImage !== 'function') throw new Error('No attachment store is mounted, so the picture cannot reach the model.');
       const size = jpegSize(bytes);
       const ref = await store.saveImage({
         data: bytes, mediaType: 'image/jpeg',
         name: `${project.projectId}-${poster ? 'poster' : `${Math.round(at * 1000)}ms`}.jpg`,
       });
-      const takesImages = await routeTakesImages(llm?.(), exec);
+      // Host may pass the llm service itself or a getter (attachments style). Calling a
+      // non-function used to surface as a bare TypeError in mcp-tool-failed (2026-11-16).
+      const llmService = typeof llm === 'function' ? llm() : llm;
+      const takesImages = await routeTakesImages(llmService, exec);
       const where = poster ? '封面' : `第 ${at} 秒`;
       if (takesImages === false) {
         return { text: `已用 Studio 渲染${where}的画面（${ref.width ?? size?.width ?? '?'}×${ref.height ?? size?.height ?? '?'} px），但当前模型不支持读图，你看不到这张画面。需要人亲眼看，或换成支持图像输入的模型再渲染一次。` };

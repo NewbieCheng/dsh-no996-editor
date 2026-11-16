@@ -7,35 +7,34 @@
   if(typeof window.__dshEsSetShortcut!=='function'){
     window.__dshEsSetShortcut=function(){ return false; };
   }
-  // A drop may be refused by the window; a paste is not. Explorer's "copy" then
-  // Ctrl+V in the composer gives the same File objects, so keep that door open.
-  window.addEventListener('paste',function(event){
-    var dt=event.clipboardData;
-    if(!dt)return;
-    var files=[];
-    try{ files=dt.files&&dt.files.length?Array.prototype.slice.call(dt.files):[]; }catch(e){ files=[]; }
-    if(!files.length){
-      try{
-        Array.prototype.forEach.call(dt.items||[],function(item){
-          if(item.kind!=='file')return;
-          var f=item.getAsFile&&item.getAsFile();
-          if(f)files.push(f);
-        });
-      }catch(e){}
-    }
-    if(!files.length)return;
-    try{ if(typeof window.__no996AttachFiles==='function'){ event.preventDefault(); window.__no996AttachFiles(files); } }catch(e){}
-  },true);
+  // Paste is owned by the upstream composer. An earlier capture-phase paste here
+  // called __no996AttachFiles and only preventDefault'd — React still heard the
+  // same paste, so one Ctrl+V produced two pills. Host-caught *drops* still arrive
+  // via the no996:attach-files message below.
   // The host page catches a file drag when this frame cannot see one (a cross-origin
   // frame may be skipped by the OS drag path) and hands the files here.
+  // When the host overlay takes the drop, this frame never sees `drop`/`dragleave`,
+  // so React's pageDropping overlay ("松手即可附上") would stick forever. A synthetic
+  // drop with no files only clears that flag (letGo returns early without re-attaching).
+  function clearPageDropping(){
+    try{
+      document.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true}));
+    }catch(e){
+      try{ document.dispatchEvent(new Event('dragleave',{bubbles:true})); }catch(e2){}
+    }
+  }
   window.addEventListener('message',function(event){
     var data=event.data;
     if(!data||data.type!=='no996:attach-files'||!data.files)return;
     var files=[];
     try{ files=Array.prototype.slice.call(data.files); }catch(e){ return; }
     if(!files.length)return;
+    clearPageDropping();
     try{ if(typeof window.__no996AttachFiles==='function') window.__no996AttachFiles(files); }catch(e){}
   });
+  // OS→browser cancels never fire dragend here; leaving the window still does.
+  window.addEventListener('dragend',clearPageDropping,true);
+  window.addEventListener('blur',clearPageDropping);
   // A dropped file's real path lives with the desktop window (Electron's webUtils),
   // and this frame is cross-origin to it: ask the page that has it, and treat no
   // answer as "no path" — the project copy is the fallback, as for a pasted file.
@@ -158,42 +157,7 @@
       }
     }catch(e){}
   }
-  // The pinned build cannot update itself, so the About panel's failed update
-  // check is noise. Say what this build is, and drop the update row plus the
-  // GitHub / 示例 / 官网 links: they point at upstream, not at this wrapper.
-  // Matched by exact label rather than by an ancestor panel: inside that page the
-  // update line and the footer links sit in different containers, so a walk up
-  // from the line never reached the links.
-  function tuneAbout(){
-    try{
-      var walker=document.createTreeWalker(document.body||document.documentElement,4,null);
-      var node,footerRow=null;
-      while((node=walker.nextNode())){
-        var text=(node.nodeValue||'').trim();
-        if(!text)continue;
-        if(text.indexOf('更新没能完成')>=0){node.nodeValue='基于 OpenFilm 开发';continue;}
-        if(text.indexOf('发现新版本')>=0||text==='检查更新'){
-          var row=node.parentElement;
-          if(row)row.style.display='none';
-          continue;
-        }
-        if(text==='GitHub'||text==='示例'||text==='官网'){
-          var el=node.parentElement;
-          if(!el)continue;
-          if(text==='GitHub')footerRow=el.parentElement;
-          el.style.display='none';
-        }
-      }
-      if(footerRow&&!document.querySelector('[data-no996-version]')){
-        var tag=document.createElement('div');
-        tag.setAttribute('data-no996-version','1');
-        tag.textContent='兼容 OpenFilm '+(globalThis.__no996OpenfilmVersion||'0.3.2');
-        tag.style.cssText='margin-top:6px;text-align:left;font-size:11px;color:#8a8a93';
-        footerRow.appendChild(tag);
-      }
-    }catch(e){}
-  }
-
+  // About / nav-foot branding ships in SettingsModal (React A1 patch), not DOM injection.
   function watchVersion(){
     if(location.protocol==='dsh-app:')return;
     fetch('/__dsh/shell-version',{cache:'no-store',credentials:'same-origin'})
@@ -211,8 +175,8 @@
   }
   setTimeout(watchVersion,1200);
   setInterval(watchVersion,4000);
-  setInterval(function(){disableExtras();tuneAbout();},700);
-  addEventListener('resize',function(){ disableExtras(); tuneAbout(); });
+  setInterval(function(){disableExtras();},700);
+  addEventListener('resize',function(){ disableExtras(); });
 
   // Transcript files. The chat is a page on the editor origin, so it cannot do two
   // things a film conversation needs: draw a picture that lives in the project (the
@@ -579,6 +543,12 @@
       envRefs.hint.style.display=ready?'none':'';
       envRefs.install.style.display=ready?'none':'';
       envRefs.guide.style.display=ready?'none':'';
+      if(envRefs.fallback){
+        var tools=(env&&env.tools)||{}, asr=(env&&env.asr)||{};
+        var toolBad=(tools.ffmpeg&&tools.ffmpeg.status!=='ok')||(tools.ffprobe&&tools.ffprobe.status!=='ok');
+        var asrBad=asr.ready!==true&&(asr.error||asr.phase==='failed'||(!asr.installing&&!asr.unknown));
+        envRefs.fallback.style.display=(toolBad||asrBad)&&!ready?'':'none';
+      }
     }
     function renderEnv(){
       var card=panel().firstChild, body=card.children[4], foot=card.children[5];
@@ -604,10 +574,12 @@
       envRefs.skip=button('以后再说','ghost');
       envRefs.skip.addEventListener('click',function(){ try{sessionStorage.setItem('no996.onboard.skip','1');}catch(e){} close(); showPicker(); });
       envRefs.guide=guideButton();
+      envRefs.fallback=fallbackButton();
       envRefs.install=installButton();
       // 次要动作靠左、主动作最右，整排贴右下角。
       foot.appendChild(envRefs.skip);
       foot.appendChild(envRefs.guide);
+      foot.appendChild(envRefs.fallback);
       foot.appendChild(envRefs.install);
       foot.appendChild(envRefs.next);
       updateEnv();
@@ -639,6 +611,18 @@
     function guideButton(){
       var b=button('安装方法','ghost');
       b.addEventListener('click',function(){ if(window.__no996CheckTools)window.__no996CheckTools(); });
+      return b;
+    }
+    function fallbackButton(){
+      var b=button('复制兜底提示','ghost');
+      b.style.display='none';
+      b.addEventListener('click',function(){
+        var tools=(env&&env.tools)||{}, asr=(env&&env.asr)||{};
+        var toolBad=(tools.ffmpeg&&tools.ffmpeg.status!=='ok')||(tools.ffprobe&&tools.ffprobe.status!=='ok');
+        var asrBad=asr.ready!==true;
+        var kind=toolBad&&asrBad?'both':asrBad&&!toolBad?'asr':'tools';
+        try{ window.dispatchEvent(new CustomEvent('no996-fallback-prompt',{detail:{kind:kind}})); }catch(e){}
+      });
       return b;
     }
 
@@ -751,6 +735,115 @@
       try{ templates=await rpc('template:list',{}); }catch(e){ templates={templates:[]}; }
     }
     setTimeout(boot,1200);
+  })();
+
+  // Workbench brand marks (L1/L2). Follows the host light/dark class only —
+  // no workbench palette picker and no DSH theme sync.
+  (function(){
+    var RING='M 239 262 L 239 345 L 450 346 L 171 625 L 295 625 L 443 478 L 445 723 L 541 723 L 543 479 L 689 635 L 761 577 L 751 563 L 609 408 L 509 407 L 569 345 L 775 345 L 775 262 Z M 601 16 L 530 8 L 470 9 L 422 15 L 381 24 L 337 38 L 303 52 L 273 67 L 241 86 L 208 109 L 170 141 L 143 168 L 105 214 L 77 256 L 58 291 L 38 338 L 24 382 L 14 427 L 9 467 L 8 530 L 12 573 L 18 606 L 31 652 L 46 690 L 68 733 L 93 772 L 123 811 L 166 856 L 191 878 L 226 904 L 268 929 L 302 945 L 348 961 L 407 973 L 443 974 L 319 846 L 286 831 L 257 813 L 220 783 L 187 748 L 153 700 L 127 650 L 109 600 L 100 554 L 97 510 L 99 467 L 107 417 L 122 367 L 148 310 L 171 272 L 208 226 L 244 191 L 290 157 L 334 133 L 365 120 L 421 104 L 477 96 L 522 95 L 567 99 L 622 111 L 674 130 L 725 158 L 768 190 L 811 232 L 841 269 L 861 300 L 876 328 L 891 364 L 900 391 L 910 435 L 993 409 L 987 381 L 974 340 L 954 293 L 935 258 L 907 215 L 867 166 L 831 130 L 810 112 L 786 94 L 745 68 L 712 51 L 678 37 L 651 28 Z';
+    var ARROW='M 1014 452 L 801 510 L 851 548 L 510 847 L 408 744 L 337 808 L 337 810 L 505 971 L 507 971 L 924 612 L 967 662 Z';
+
+    function brandSvg(dark,size){
+      var ring=dark?'#FFFFFF':'#051D43';
+      var arrow=dark?'#FF7200':'#FF6400';
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8.22 0 1039.44 983" width="'+size+'" height="'+size+'" role="img" aria-label="今天不加班" style="display:block;flex:none;"><path fill="'+ring+'" fill-rule="evenodd" d="'+RING+'"/><path fill="'+arrow+'" fill-rule="evenodd" d="'+ARROW+'"/></svg>';
+    }
+
+    function isDarkMode(){
+      var root=document.documentElement;
+      if(root&&root.classList){
+        if(root.classList.contains('light'))return false;
+        if(root.classList.contains('dark'))return true;
+      }
+      if(root&&root.getAttribute&&root.getAttribute('data-theme')==='light')return false;
+      return true;
+    }
+
+    // refreshBrandMarks used to rewrite .innerHTML on every MutationObserver tick.
+    // That re-fired the observer forever (same class of bug as the old settings
+    // appearance injector): React never finished mounting #root → panel 20s "no boot".
+    var lastBrandDark=null;
+    function refreshBrandMarks(force){
+      if(typeof document.querySelectorAll!=='function')return;
+      var dark=isDarkMode();
+      if(!force&&dark===lastBrandDark)return;
+      lastBrandDark=dark;
+      var marks=document.querySelectorAll('[data-no996-studio-brand] .n996-sb-svg');
+      for(var i=0;i<marks.length;i++){
+        var s=Number(marks[i].getAttribute('data-size')||'20');
+        marks[i].innerHTML=brandSvg(dark,s);
+      }
+    }
+
+    function syncStudioBrand(){
+      if(typeof document.querySelectorAll!=='function')return;
+      var dark=isDarkMode();
+      var candidates=document.querySelectorAll('header svg, header img, [role="banner"] svg, [role="banner"] img, img[alt*="OpenFilm" i], svg[aria-label*="OpenFilm" i], img[alt*="DeepSeek" i], svg[aria-label*="DeepSeek" i]');
+      for(var i=0;i<candidates.length;i++){
+        var el=candidates[i];
+        if(el.closest('[data-no996-studio-brand]')||el.getAttribute('data-no996-replaced')==='1')continue;
+        var rect=el.getBoundingClientRect();
+        if(!rect||rect.width<14||rect.width>180||rect.height<14||rect.height>64)continue;
+        // Skip small icon-only action buttons inside the header
+        var btn=el.closest('button');
+        if(btn&&!el.getAttribute('alt')&&!el.getAttribute('aria-label')&&rect.left>260)continue;
+        el.setAttribute('data-no996-replaced','1');
+        el.style.display='none';
+        var wrap=document.createElement('span');
+        wrap.setAttribute('data-no996-studio-brand','');
+        wrap.title='今天不加班 · 剪辑工作台';
+        var svgSpan=document.createElement('span');
+        svgSpan.className='n996-sb-svg';
+        svgSpan.setAttribute('data-size','20');
+        svgSpan.innerHTML=brandSvg(dark,20);
+        wrap.appendChild(svgSpan);
+        if(rect.width>48){
+          var lbl=document.createElement('span');
+          lbl.className='n996-sb-label';
+          lbl.textContent='今天不加班';
+          wrap.appendChild(lbl);
+        }
+        el.parentNode.insertBefore(wrap,el);
+      }
+
+      // L1 welcome / empty starter heading badge
+      var headings=document.querySelectorAll('h2');
+      for(var j=0;j<headings.length;j++){
+        var h2=headings[j];
+        var txt=(h2.textContent||'').trim();
+        if(!txt||h2.parentElement.querySelector('[data-no996-starter-brand]'))continue;
+        if(/^(让想法成为影片|开始剪辑|Let's make|Start|OpenFilm)/i.test(txt)||h2.closest('[data-starters]')){
+          var badge=document.createElement('div');
+          badge.setAttribute('data-no996-starter-brand','');
+          badge.setAttribute('data-no996-studio-brand','');
+          badge.style.cssText='display:inline-flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;font-weight:600;opacity:0.9;';
+          var bsvg=document.createElement('span');
+          bsvg.className='n996-sb-svg';
+          bsvg.setAttribute('data-size','18');
+          bsvg.innerHTML=brandSvg(dark,18);
+          var blbl=document.createElement('span');
+          blbl.textContent='今天不加班 · 剪辑工作台';
+          badge.appendChild(bsvg);
+          badge.appendChild(blbl);
+          h2.parentElement.insertBefore(badge,h2);
+        }
+      }
+      refreshBrandMarks(false);
+    }
+
+    if(typeof MutationObserver==='function'){
+      var obs=new MutationObserver(function(){
+        // Disconnect while we mutate so our own inserts/innerHTML cannot re-enter.
+        obs.disconnect();
+        try{ syncStudioBrand(); }
+        finally{
+          if(document.body)obs.observe(document.body,{childList:true,subtree:true});
+        }
+      });
+      if(document.body)obs.observe(document.body,{childList:true,subtree:true});
+      else if(typeof document.addEventListener==='function')document.addEventListener('DOMContentLoaded',function(){ if(document.body)obs.observe(document.body,{childList:true,subtree:true}); syncStudioBrand(); });
+    }
+    syncStudioBrand();
   })();
 
 })()

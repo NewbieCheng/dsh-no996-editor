@@ -39,6 +39,8 @@ test('a missing folder is created, and the file stays under the instruction cap'
   assert.equal(result.created, true);
   assert.ok(existsSync(result.file));
   assert.ok(Buffer.byteLength(INSTRUCTIONS, 'utf8') <= 8 * 1024);
+  // Slim state card: the full workflow lives in the prompt overlay, not here.
+  assert.ok(Buffer.byteLength(INSTRUCTIONS, 'utf8') <= 2 * 1024, 'project AGENTS.md is a pointer, not a manual');
 });
 
 test('the instructions keep the verification rule the preset gives', () => {

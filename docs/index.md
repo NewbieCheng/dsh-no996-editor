@@ -30,6 +30,8 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 | 升上游 OpenFilm | [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md) |
 | 发版 | [`playbooks/release.md`](playbooks/release.md) |
 | 排障 | [`playbooks/incident.md`](playbooks/incident.md)（症状 → 根因 → 现在靠什么挡住） |
+| 修「长思考中断 / 只见思考 / 菜单模型≠实跑」 | [`playbooks/turn-interrupt-fix.md`](playbooks/turn-interrupt-fix.md)（证据 → 分阶段修复 → 真机剧本） |
+| XXX 藏服务商/画布 + 接不加班配音 | [`XXX-no996-surface-and-voice.md`](XXX-no996-surface-and-voice.md) |
 | 做画面/动效 | [`MOTION.md`](MOTION.md) + skill `openfilm-motion` |
 | 剪片语法 | skill `openfilm-editing` |
 | 口播转写 | [`TRANSCRIBE.md`](TRANSCRIBE.md) |

@@ -40,8 +40,8 @@ function officialFacadeFactory(bridge) {
   const permissionOption = state => {
     if (!state || typeof state !== 'object') return null;
     const choices = [
-      { value: 'danger-full-access', name: '完全访问（不再逐步询问）' },
-      { value: 'workspace-write', name: '只用工作区（关键步骤会问）' },
+      { value: 'danger-full-access', name: '完全访问' },
+      { value: 'workspace-write', name: '只用工作区' },
     ];
     // `current` is what the Host applied. A value we do not name is still shown,
     // as itself: hiding the whole row lost the choice entirely (the row went
@@ -288,15 +288,38 @@ function officialFacadeFactory(bridge) {
       // The Host knows whether the stored ACP Session was reopened; only then may
       // the shell skip its "could not open the previous session" hand-over.
       let resumed = false;
+      let appliedModel = null;
+      let modelFallback = null;
       try {
         const state = await rpc('agent:session', { projectId: id, conversation: conversationId });
         resumed = state && state.resumed === true;
+        if (typeof state?.model === 'string' && state.model) appliedModel = state.model.slice(0, 80);
+        if (state?.modelFallback && typeof state.modelFallback === 'object') modelFallback = state.modelFallback;
       } catch { /* an older Host: leave it unknown rather than claiming a resume */ }
       // The shell calls start(agent, cwd, resume) and compares the answer with the
       // conversation it asked to resume: reporting our page-local key there made
       // every reload look like a failed resume. The conversation keeps its id; only
       // a fresh conversation (no resume argument) gets a new one.
-      return { ok: true, key, info: { sessionId: conversationId, resumed, agentInfo: { name: 'DeepSeek Harness' }, authMethods: [], mcp: false, models: null, modes: null, configOptions } };
+      //
+      // `appliedModel` / `modelFallback` are the honesty fields for "menu said X,
+      // child runs Y": configOptions.currentValue should already match the Session,
+      // and when a spawn overlay was refused the fallback reason rides along.
+      return {
+        ok: true,
+        key,
+        info: {
+          sessionId: conversationId,
+          resumed,
+          ...(appliedModel ? { appliedModel } : {}),
+          ...(modelFallback ? { modelFallback } : {}),
+          agentInfo: { name: 'DeepSeek Harness' },
+          authMethods: [],
+          mcp: false,
+          models: null,
+          modes: null,
+          configOptions,
+        },
+      };
     },
     cancel: async (key) => {
       const scope = scopeOf(key);
@@ -440,7 +463,19 @@ function officialFacadeFactory(bridge) {
     return result;
   };
   const chat = {
-    ...methods('chat', ['reveal', 'saveRefImage', 'describePaths', 'unsaved', 'snapshot', 'changes', 'undo']),
+    ...methods('chat', ['reveal', 'saveRefImage', 'unsaved', 'snapshot', 'changes', 'undo']),
+    // A dropped file already named by the host (Electron webUtils / __no996HostPath)
+    // must not round-trip through a Host fs probe: that capability was never wired,
+    // and denying it left every path-referenced pill in `failed` so the composer
+    // refused to send ("移除后再发送"). Size comes from the File record
+    // (`one.size ?? item.size`); folders are rare for media drops.
+    describePaths: async (paths) => {
+      if (!Array.isArray(paths)) return [];
+      return paths.map((path) => {
+        if (typeof path !== 'string' || !path.trim()) return { error: 'That is not a file.' };
+        return { path };
+      });
+    },
     // The trace tab: what this turn called and what came back, one event a line.
     // A turn the Host never watched has no log, which the tab draws as "nothing".
     log: async (project, turnId) => {

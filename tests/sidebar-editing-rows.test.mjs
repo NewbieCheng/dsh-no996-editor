@@ -99,6 +99,12 @@ test('only the navigation entry switches the sidebar, not any button with that t
   assert.ok(source.includes('if (target === entry || entry.contains(target)) setMode(\'editing\');'));
 });
 
+test('sidebar always boots into 工作区 even if localStorage had editing', () => {
+  assert.equal(source.includes("localStorage?.getItem(MODE_KEY) === 'editing'"), false);
+  assert.equal(source.includes('localStorage?.setItem(MODE_KEY'), false);
+  assert.ok(source.includes('localStorage?.removeItem(MODE_KEY)'));
+});
+
 test('a replaced label span still gets the switch, and a lost header stays findable', () => {
   assert.ok(source.includes('else header.insertBefore(trigger, header.firstChild);'));
   assert.ok(source.includes('for (const header of doc.querySelectorAll(`[${SWITCH_HOST}]`))'));

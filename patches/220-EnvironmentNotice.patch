@@ -1,0 +1,212 @@
+diff --git a/apps/desktop/shell/EnvironmentNotice.tsx b/apps/desktop/shell/EnvironmentNotice.tsx
+new file mode 100644
+index 0000000..1f0b36a
+--- /dev/null
++++ b/apps/desktop/shell/EnvironmentNotice.tsx
+@@ -0,0 +1,206 @@
++import { useCallback, useEffect, useRef, useState } from 'react';
++
++/**
++ * Local-deps notice: ffmpeg/ffprobe and (optionally) the ASR model.
++ * Opens on `no996-check-tools` or `no996-fallback-prompt` (detail.kind).
++ * Copy button asks Host for a platform-aware prompt to paste into DSH main chat
++ * with full access — the shell never installs or rewrites PATH itself.
++ */
++
++type Status = 'ok' | 'missing' | 'unusable' | 'timeout';
++type Platform = 'win32' | 'darwin' | 'linux';
++type Kind = 'tools' | 'asr' | 'both' | 'path-fix';
++
++const LABELS: Record<Status, string> = { missing: '未找到', unusable: '无法使用', timeout: '检查超时' };
++
++const INSTRUCTIONS: Record<Platform, string> = {
++  win32: 'Windows：可先运行 winget search ffmpeg，确认可信来源和准确软件包 ID 后再安装；也可从 ffmpeg.org 下载页面选择可信构建，将包含两个工具的目录加入 PATH。',
++  darwin: 'macOS：如果已安装 Homebrew，可运行 brew install ffmpeg；也可查看 ffmpeg.org 下载页面。',
++  linux: 'Debian / Ubuntu：可运行 sudo apt install ffmpeg。其他 Linux 发行版请使用对应软件包管理器或查看 ffmpeg.org 下载页面。',
++};
++
++const FIXED = '安装后可能需要重启 DSH 才能识别。重启或刷新前请先保存未保存的编辑。';
++
++async function hostRpc<T>(channel: string, payload: Record<string, unknown> = {}): Promise<T> {
++  const reply = await fetch('/__dsh/official-rpc', {
++    method: 'POST',
++    credentials: 'same-origin',
++    cache: 'no-store',
++    headers: { 'content-type': 'application/json' },
++    body: JSON.stringify({ channel, payload }),
++  });
++  if (!reply.ok) throw new Error('HTTP ' + reply.status);
++  return reply.json() as Promise<T>;
++}
++
++export function EnvironmentNotice() {
++  const [open, setOpen] = useState(false);
++  const [busy, setBusy] = useState(false);
++  const [status, setStatus] = useState('');
++  const [issues, setIssues] = useState<string[]>([]);
++  const [guide, setGuide] = useState('');
++  const [showGuide, setShowGuide] = useState(false);
++  const [showChoices, setShowChoices] = useState(false);
++  const [installed, setInstalled] = useState<boolean | null>(null);
++  const [directory, setDirectory] = useState('');
++  const [feedback, setFeedback] = useState('');
++  const [fallback, setFallback] = useState('');
++  const [kind, setKind] = useState<Kind>('tools');
++  const [machine, setMachine] = useState('');
++  const generation = useRef(0);
++
++  const run = useCallback(async (wanted: Kind = 'tools') => {
++    const current = (generation.current += 1);
++    setOpen(true);
++    setBusy(true);
++    setKind(wanted);
++    setStatus(wanted === 'asr' ? '正在检查转写模型…' : '正在检查本机依赖…');
++    setShowGuide(false);
++    setShowChoices(false);
++    setFallback('');
++    setFeedback('');
++    setIssues([]);
++    try {
++      const value = await hostRpc<{
++        platform?: Platform;
++        arch?: string;
++        tools?: Record<string, { status?: Status }>;
++        asr?: { ready?: boolean; error?: string; installing?: boolean };
++      }>('environment:check', {});
++      if (current !== generation.current) return;
++      const platform = value?.platform;
++      const tools = value?.tools;
++      const asr = value?.asr;
++      const okTools = platform && ['win32', 'darwin', 'linux'].includes(platform) && tools?.ffmpeg && tools?.ffprobe &&
++        (['ok', 'missing', 'unusable', 'timeout'] as string[]).includes(tools.ffmpeg.status as string) &&
++        (['ok', 'missing', 'unusable', 'timeout'] as string[]).includes(tools.ffprobe.status as string);
++      if (!okTools) throw new Error('invalid response');
++      setBusy(false);
++      setMachine([platform, value?.arch].filter(Boolean).join(' · '));
++
++      const badTools = ['ffmpeg', 'ffprobe'].filter(name => tools![name].status !== 'ok');
++      const asrBad = asr && asr.ready !== true;
++      const checkAsr = wanted === 'asr' || wanted === 'both';
++      const checkTools = wanted === 'tools' || wanted === 'both' || wanted === 'path-fix';
++
++      if (checkTools && !badTools.length && (!checkAsr || !asrBad)) {
++        setShowChoices(false);
++        setShowGuide(false);
++        setStatus(checkAsr
++          ? '检查通过：视频工具与转写模型均可用。请回到原操作重试。'
++          : '检查通过：ffmpeg 和 ffprobe 均可用。请回到原操作重试。');
++        return;
++      }
++
++      const nextIssues: string[] = [];
++      if (checkTools) nextIssues.push(...badTools.map(name => `${name}：${LABELS[tools![name].status as Status]}`));
++      if (checkAsr && asrBad) {
++        nextIssues.push(asr?.error
++          ? `转写模型：${asr.error.slice(0, 120)}`
++          : (asr?.installing ? '转写模型：正在下载' : '转写模型：未安装'));
++      }
++      setIssues(nextIssues);
++      setShowChoices(true);
++      setShowGuide(checkTools && badTools.length > 0);
++      if (platform) setGuide(INSTRUCTIONS[platform] + ' 安装后请确认工具可用，再返回此处重新检查。');
++      setStatus('本机依赖需要注意：' + nextIssues.join('；') + '。可复制兜底提示词到 DSH 主会话（完全访问）。');
++      if (wanted === 'tools' && asrBad) setKind('both');
++      else if (wanted === 'asr' && badTools.length) setKind('both');
++      else setKind(wanted === 'path-fix' ? 'path-fix' : wanted);
++    } catch {
++      if (current !== generation.current) return;
++      setBusy(false);
++      setShowChoices(true);
++      setShowGuide(false);
++      setIssues([]);
++      setStatus('环境检查暂时失败。仍可复制兜底提示词到 DSH 主会话；或重载插件后再检查。');
++    }
++  }, []);
++
++  useEffect(() => {
++    const onCheck = () => void run('tools');
++    const onFallback = (event: Event) => {
++      const detail = (event as CustomEvent<{ kind?: Kind }>).detail;
++      const next = detail?.kind;
++      void run(next === 'asr' || next === 'both' || next === 'path-fix' ? next : 'tools');
++    };
++    window.addEventListener('no996-check-tools', onCheck);
++    window.addEventListener('no996-fallback-prompt', onFallback);
++    (window as unknown as { __no996CheckTools?: () => void }).__no996CheckTools = onCheck;
++    return () => {
++      window.removeEventListener('no996-check-tools', onCheck);
++      window.removeEventListener('no996-fallback-prompt', onFallback);
++    };
++  }, [run]);
++
++  if (!open) return null;
++
++  const copy = async () => {
++    const usePath = installed === true || kind === 'path-fix';
++    if (usePath && !directory.trim()) {
++      setFeedback('请先输入已安装的工具目录。');
++      return;
++    }
++    setFeedback('正在生成提示词…');
++    try {
++      const payload = await hostRpc<{ prompt?: string }>('environment:fallback-prompt', {
++        kind: usePath ? 'path-fix' : kind,
++        directory: directory.trim(),
++        mode: usePath ? 'installed' : '',
++      });
++      const prompt = typeof payload?.prompt === 'string' ? payload.prompt : '';
++      if (!prompt) throw new Error('empty prompt');
++      try {
++        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') throw new Error('no clipboard');
++        await navigator.clipboard.writeText(prompt);
++        setFallback('');
++        setFeedback('已复制。请粘贴到 DSH 主会话，并开「完全访问」后再让它下载/修路径。');
++      } catch {
++        setFallback(prompt);
++        setFeedback('复制失败，请选择下方文本手动复制到 DSH 主会话。');
++      }
++    } catch {
++      setFeedback('生成提示词失败。请确认插件已重载后再试。');
++    }
++  };
++
++  return (
++    <section
++      aria-label="本机依赖环境检查"
++      role="region"
++      style={{ position: 'fixed', zIndex: 2147483000, right: 16, bottom: 16, width: 'min(400px, calc(100vw - 32px))', maxHeight: '70vh', overflow: 'auto', boxSizing: 'border-box', padding: 16, border: '1px solid #62563d', borderRadius: 12, background: '#252321', color: '#f1eee8', boxShadow: '0 8px 30px rgba(0,0,0,.4)', font: '13px/1.6 system-ui,sans-serif' }}
++    >
++      <strong>本机依赖检查</strong>
++      {machine ? <p style={{ margin: '4px 0 0', opacity: 0.75, fontSize: 12 }}>{machine}</p> : null}
++      <p role="status" aria-live="polite">{status}</p>
++      {showGuide && (
++        <div>
++          <p>{guide}</p>
++          <p>{FIXED}</p>
++        </div>
++      )}
++      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
++        <button type="button" onClick={() => setShowGuide(v => !v)} aria-expanded={showGuide} style={BUTTON}>查看手动安装方法</button>
++        {showChoices && (
++          <>
++            <button type="button" style={BUTTON} onClick={() => { setInstalled(true); setKind('path-fix'); setFeedback('请输入包含 ffmpeg 和 ffprobe 的目录，再复制提示给主对话。'); }}>我已安装</button>
++            <button type="button" style={BUTTON} onClick={() => { setInstalled(false); setFeedback('可复制提示给主对话，走完全访问兜底下载。'); }}>尚未安装</button>
++            <button type="button" style={BUTTON} onClick={() => void copy()}>复制兜底提示词</button>
++          </>
++        )}
++        <button type="button" style={BUTTON} disabled={busy} onClick={() => void run(kind === 'path-fix' ? 'tools' : kind)}>重新检查</button>
++        <button type="button" style={BUTTON} onClick={() => setOpen(false)}>{issues.length ? '暂时跳过' : '关闭'}</button>
++      </div>
++      {(installed || kind === 'path-fix') && (
++        <label style={{ display: 'block', marginTop: 8 }}>
++          已安装的工具目录（仅用于生成提示，不会自动配置）
++          <input type="text" maxLength={2048} value={directory} onChange={event => setDirectory(event.target.value)} placeholder="例如 C:\\Program Files\\ffmpeg\\bin 或 /opt/homebrew/bin" style={{ boxSizing: 'border-box', width: '100%', marginTop: 6 }} />
++        </label>
++      )}
++      {feedback && <p role="status" aria-live="polite">{feedback}</p>}
++      {fallback && <textarea readOnly aria-label="可手动复制的 DSH 提问" value={fallback} style={{ boxSizing: 'border-box', width: '100%', minHeight: 120, marginTop: 8 }} />}
++    </section>
++  );
++}
++
++const BUTTON = { padding: '6px 10px', border: '1px solid #777', borderRadius: 6, background: '#34312d', color: '#fff', cursor: 'pointer', font: 'inherit' } as const;

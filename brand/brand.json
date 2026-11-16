@@ -6,10 +6,12 @@
   "tagline": "把一句话剪成一支片",
   "colors": {
     "accent": "#ff6400",
-    "accentDeep": "#d84700",
-    "paper": "#f5f0e5",
-    "ink": "#18171c",
-    "night": "#051d43"
+    "accentDeep": "#e55a00",
+    "paper": "#fbfbfc",
+    "ink": "#0a0b0d",
+    "night": "#051d43",
+    "navyMuted": "#0a2f5c",
+    "darkBg": "#071120"
   },
   "links": {
     "home": "https://bujiaban.top",

@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 值班的人、排查 bug 的人
 fact-source: 真实故障记录（2026-11）、%TEMP%/dsh-openfilm/plugin.log、docs/architecture
-checked: 0.15.11
+checked: 0.15.22
 rot-if: 出现新的故障类别，或某个根因被结构性消除
 -->
 
@@ -24,6 +24,31 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 判据：**重载后 `plugin.log` 的 `startedAt` 更新**才算真的重载了。管理器返回 `restart-required` 时，如实告诉用户要重启，别声称已生效。
 
 ## 2. 故障档案
+
+### 2026-11-16 · iframe 每 ~9s 重挂；`stream disconnected` + `/api/version` aborted
+
+**现象**：面板能开，但红字 `agent.events: stream disconnected`，底栏 `[网络] /api/version signal is aborted`；时间轴偶发闪一下。
+
+**证据**：`plugin.log` 里 `ticket-redeemed active` 从 2 一直涨到 10+，间隔约 9s，伴随 `bootstrap` + `drag-probe boot`。
+
+**根因**：`RecoveryGate` 探 `/api/version`（Studio 会等 npm，waitMs 4000）并与 4s Abort 赛跑 → 误判 miss → `no996-openfilm:restart` → iframe 整页重挂 → SSE 死、进行中的 version 请求被 abort → 再 miss。
+
+**改法**：探 `/api/health`；Abort 不计 miss；restart 时清 misses。补丁 `230-RecoveryGate.patch`。
+
+### 2026-11-16 · 长思考后中断；只见思考不见工具；菜单模型 ≠ 实跑
+
+**现象**：思考一两分钟后红条 `ACP_REQUEST_FAILED` / `OFFICIAL_AGENT_FAILED`；「你好」也「已中断」并报 `stream disconnected`；整轮只有冗长思考，没有工具行/回答；菜单显示 `cbcn/…` 而日志是 `deepseek-official/deepseek-flash`。
+
+**根因（多层，勿混成一个）**：
+
+1. **模型静默回退**：spawn overlay 用 `dsh-opencode-go`，acp 无适配器 → `acp-model-fallback` → 落到 official；菜单未诚实反映。
+2. **工具行被丢掉**：`ourToolName` 只认 `server=openfilm`，Host MCP 名是 `no996-openfilm` → `localToolActivity` 返回 null（阶段 2：补丁已 bake，待真机验工具行）。
+3. **两种中断**：C1=`session/prompt` `-32603`；C2=页面重载后 `OFFICIAL_AGENT_STREAM_LOST`（SSE 死了，子进程可能还在跑）。
+4. **燃料**：`openfilm_transcribe` `EXTRACT_FAILED` 连打；`openfilm_frame` 因把 `ctx.llm` 当函数调用而 `TypeError`。
+
+**改法（Host 已动；壳另轮）**：turn 日志不计 stream 占槽；diagnose/`sessionState` 暴露实跑模型与 fallback；`STREAM_LOST` 文案改为「页面连接断了」；frame 接受 llm 服务对象；转写 EXTRACT 返回「不要立刻重试」。壳：认 `no996-openfilm` 后 bake。计划全文 [`turn-interrupt-fix.md`](turn-interrupt-fix.md)。
+
+**边界**：长轮空 `-32603` 在减负后再取证；侧栏全部模型同步进 acp 不在本修范围内。
 
 ### 2026-11-15 · 每段话都说两遍，上一轮的思考跑到下一轮开头
 

@@ -21,6 +21,7 @@ import { createRequire } from 'node:module';
 import { gunzipSync } from 'node:zlib';
 import { homedir } from 'node:os';
 import { TOOL_SOURCES, knownBinaryDirs, toolSourceUrls } from '../host/download-sources.mjs';
+import { createStallWatch, stallReason, DEFAULT_CONNECT_MS, DEFAULT_IDLE_MS } from '../host/download-stall.mjs';
 
 const EXE = { win32: '.exe', darwin: '', linux: '' };
 
@@ -64,7 +65,9 @@ export function createToolInstaller({
   fetchImpl = globalThis.fetch,
   resolvePackaged = packaged,
   now = Date.now,
-  connectTimeoutMs = 20_000,
+  connectTimeoutMs = DEFAULT_CONNECT_MS,
+  /** No new bytes for this long → stall and try the next source. Total time unbounded. */
+  idleTimeoutMs = DEFAULT_IDLE_MS,
 } = {}) {
   const dir = join(home, 'no996-openfilm', 'tools');
   const suffix = EXE[platform] ?? '';
@@ -137,16 +140,6 @@ export function createToolInstaller({
     return `package/bin/${platform}/${archName}/ffprobe${suffix}`;
   }
 
-  async function fetchWithConnectTimeout(url) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), connectTimeoutMs);
-    try {
-      return await fetchImpl(url, { redirect: 'follow', signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
   async function download(tool, current) {
     const urls = toolSourceUrls(tool, { platform, arch });
     const failures = [];
@@ -157,15 +150,22 @@ export function createToolInstaller({
       current.received = 0;
       current.total = 0;
       current.speed = 0;
+      const stall = createStallWatch({
+        connectMs: connectTimeoutMs,
+        idleMs: idleTimeoutMs,
+        now,
+      });
       try {
-        const response = await fetchWithConnectTimeout(source.url);
+        const response = await fetchImpl(source.url, { redirect: 'follow', signal: stall.signal });
         if (!response.ok) throw new Error('HTTP ' + response.status);
+        stall.connected();
         current.phase = 'downloading';
         const chunks = [];
         let received = 0;
         let lastAt = now();
         let lastBytes = 0;
         const onBytes = (bytes, total) => {
+          stall.activity();
           const at = now();
           const seconds = (at - lastAt) / 1000;
           if (seconds >= 0.4) {
@@ -178,19 +178,54 @@ export function createToolInstaller({
         };
         if (response.body && typeof response.body.getReader === 'function') {
           const reader = response.body.getReader();
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(Buffer.from(value));
-            received += value.byteLength;
-            onBytes(received, Number(response.headers?.get?.('content-length')) || 0);
+          const abortRead = () => {
+            const reason = stallReason(stall.signal.reason) || stall.signal.reason
+              || Object.assign(new Error('下载已中止'), { code: 'DOWNLOAD_STALL' });
+            try { reader.cancel?.(reason); } catch { /* ignore */ }
+            return reason;
+          };
+          if (stall.signal.aborted) throw abortRead();
+          const onAbort = () => { abortRead(); };
+          stall.signal.addEventListener('abort', onAbort, { once: true });
+          try {
+            for (;;) {
+              if (stall.signal.aborted) throw abortRead();
+              const chunk = await Promise.race([
+                reader.read(),
+                new Promise((_, reject) => {
+                  if (stall.signal.aborted) reject(abortRead());
+                  else stall.signal.addEventListener('abort', () => reject(abortRead()), { once: true });
+                }),
+              ]);
+              const { done, value } = chunk;
+              if (done) break;
+              chunks.push(Buffer.from(value));
+              received += value.byteLength;
+              onBytes(received, Number(response.headers?.get?.('content-length')) || 0);
+            }
+          } finally {
+            stall.signal.removeEventListener('abort', onAbort);
           }
         } else {
-          const buffer = Buffer.from(await response.arrayBuffer());
+          // No streaming body: whole buffer is one activity pulse after headers.
+          stall.activity();
+          const buffer = Buffer.from(await Promise.race([
+            response.arrayBuffer(),
+            new Promise((_, reject) => {
+              if (stall.signal.aborted) {
+                reject(stallReason(stall.signal.reason) || stall.signal.reason);
+                return;
+              }
+              stall.signal.addEventListener('abort', () => {
+                reject(stallReason(stall.signal.reason) || stall.signal.reason);
+              }, { once: true });
+            }),
+          ]));
           chunks.push(buffer);
           received = buffer.byteLength;
           onBytes(received, received);
         }
+        stall.clear();
         const gz = Buffer.concat(chunks);
         current.phase = 'verifying';
         if (tool === 'ffmpeg') return { binary: gunzipSync(gz), source: source.id };
@@ -198,7 +233,12 @@ export function createToolInstaller({
         if (!member) throw new Error('压缩包里没有 ffprobe');
         return { binary: member, source: source.id };
       } catch (error) {
-        failures.push(source.id + ': ' + String(error?.message || error).slice(0, 120));
+        stall.clear();
+        const stalled = stallReason(error) || (error?.name === 'AbortError' ? stallReason(error.cause) : null);
+        const message = stalled
+          ? stalled.message
+          : String(error?.message || error).slice(0, 120);
+        failures.push(source.id + ': ' + message);
       }
     }
     throw new Error('所有下载源都失败（' + failures.join('；') + '）');

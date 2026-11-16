@@ -136,3 +136,73 @@ test('a packaged binary needs no network and is reported as packaged', async (t)
   assert.equal(snap.tools.ffmpeg.source, 'packaged');
   await installer.install('ffmpeg');
 });
+
+function hangingBody() {
+  let rejectPending = null;
+  return {
+    getReader() {
+      return {
+        read() {
+          return new Promise((_, reject) => { rejectPending = reject; });
+        },
+        cancel(reason) {
+          rejectPending?.(reason || Object.assign(new Error('cancelled'), { code: 'DOWNLOAD_STALL' }));
+        },
+      };
+    },
+  };
+}
+
+test('a stalled body aborts that source and the next source can still win', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'openfilm-tools-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const gz = gzipSync(Buffer.from('FFMPEG'));
+  const urls = [];
+  const installer = createToolInstaller({
+    home, platform: 'win32', arch: 'x64', resolvePackaged: noPackages,
+    connectTimeoutMs: 200, idleTimeoutMs: 40,
+    fetchImpl: async (url, { signal } = {}) => {
+      urls.push(url);
+      if (url.includes('npmmirror')) {
+        return { ok: true, headers: new Map([['content-length', '999']]), body: hangingBody() };
+      }
+      return { ok: true, headers: new Map(), arrayBuffer: async () => {
+        if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+        return gz;
+      } };
+    },
+  });
+  await installer.install('ffmpeg');
+  const snap = await installer.snapshot();
+  assert.equal(snap.tools.ffmpeg.ready, true);
+  assert.equal(snap.tools.ffmpeg.sourceId, 'github');
+  assert.equal(urls.length, 2);
+  assert.match(urls[0], /npmmirror/);
+});
+
+test('a hung connect aborts and tries the next source', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'openfilm-tools-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const gz = gzipSync(Buffer.from('FFMPEG'));
+  const installer = createToolInstaller({
+    home, platform: 'win32', arch: 'x64', resolvePackaged: noPackages,
+    connectTimeoutMs: 40, idleTimeoutMs: 500,
+    fetchImpl: async (url, { signal } = {}) => {
+      if (url.includes('npmmirror')) {
+        await new Promise((resolve, reject) => {
+          const onAbort = () => reject(Object.assign(new Error('The operation was aborted'), {
+            name: 'AbortError',
+            cause: signal?.reason,
+          }));
+          if (signal?.aborted) onAbort();
+          else signal?.addEventListener('abort', onAbort, { once: true });
+        });
+      }
+      return { ok: true, headers: new Map(), arrayBuffer: async () => gz };
+    },
+  });
+  await installer.install('ffmpeg');
+  const snap = await installer.snapshot();
+  assert.equal(snap.tools.ffmpeg.ready, true);
+  assert.equal(snap.tools.ffmpeg.sourceId, 'github');
+});

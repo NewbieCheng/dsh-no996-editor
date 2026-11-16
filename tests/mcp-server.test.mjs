@@ -71,11 +71,15 @@ test('tools/call runs against the token’s project agent and renders output', a
 });
 
 test('tool failures and unknown tools are results, not transport errors', async () => {
-  const { mcp } = endpoint();
+  const logs = [];
+  const { mcp } = endpoint({ log: (event, fields) => logs.push({ event, fields }) });
   const failed = await post(mcp, { jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'openfilm_guide', arguments: { topic: 'boom' } } });
   assert.equal(failed.status, 200);
   assert.equal(failed.body.result.isError, true);
   assert.match(failed.body.result.content[0].text, /manual unavailable/);
+  const logged = logs.find(entry => entry.event === 'mcp-tool-failed');
+  assert.equal(logged?.fields.tool, 'openfilm_guide');
+  assert.match(String(logged?.fields.message ?? ''), /manual unavailable/);
   const unknown = await post(mcp, { jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'nope' } });
   assert.equal(unknown.body.result.isError, true);
   const badArgs = await post(mcp, { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'openfilm_plain', arguments: [1] } });

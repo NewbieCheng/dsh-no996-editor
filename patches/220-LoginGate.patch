@@ -1,9 +1,9 @@
 diff --git a/apps/desktop/shell/LoginGate.tsx b/apps/desktop/shell/LoginGate.tsx
 new file mode 100644
-index 0000000..564155f
+index 0000000..ecdb2e6
 --- /dev/null
 +++ b/apps/desktop/shell/LoginGate.tsx
-@@ -0,0 +1,618 @@
+@@ -0,0 +1,623 @@
 +'use client';
 +
 +/**

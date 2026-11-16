@@ -40,7 +40,7 @@ import { createGuideTool } from '../tools/guide-tool.mjs';
 import { createStoryboardTool } from '../tools/storyboard-tool.mjs';
 import { templateCatalog } from '../film/template-catalog.mjs';
 import { readActiveTemplates, renderTemplateBlock, syncTemplateBlock, withTemplateBlock, writeActiveTemplates } from '../film/template-prompts.mjs';
-import { writeOverlay, PERSONA } from '../acp/agent-overlays.mjs';
+import { writeOverlay, writePromptOverlay, PERSONA } from '../acp/agent-overlays.mjs';
 import { instructionChain } from '../acp/instruction-inventory.mjs';
 import { createStudioHttp } from './studio-http.mjs';
 import { createFrameTool } from '../tools/frame-tool.mjs';
@@ -75,6 +75,8 @@ import { registerArchiveBridge } from '../project/archive-bridge.mjs';
 import { registerAuthBridge, dispatchAuthAction } from '../auth/auth-bridge.mjs';
 import { createWorkbenchAuth, parseAuthActionBody } from '../auth/workbench-auth.mjs';
 import { createLoginRememberStore } from '../auth/login-remember.mjs';
+import { createVoiceBridge, installVoiceBridgeGlobal } from '../voice/voice-bridge.mjs';
+import { installNo996Provider, preferNo996ForTts } from '../voice/install-no996-provider.mjs';
 import { createArchiveWatcher } from '../project/workspace-archive.mjs';
 import { createPluginLog } from '../host/plugin-log.mjs';
 import { createBridgeTrace } from '../host/bridge-trace.mjs';
@@ -89,10 +91,12 @@ import { createChatRoutes } from './studio-controller/routes/chat.mjs';
 import { createBootstrapRoute } from './studio-controller/routes/bootstrap.mjs';
 import { createDebugUrlRoute } from './studio-controller/routes/debug-url.mjs';
 import { createDiagnoseRoute } from './studio-controller/routes/diagnose.mjs';
+import { createEnvironmentRoute } from './studio-controller/routes/environment.mjs';
 import { createDiagnosticsRoutes } from './studio-controller/routes/diagnostics.mjs';
 import { createEditingRoutes } from './studio-controller/routes/editing.mjs';
 import { createSystemRoutes } from './studio-controller/routes/system.mjs';
 import { createTurnLog } from './studio-controller/turns.mjs';
+import { buildFallbackPayload } from '../host/fallback-prompt.mjs';
 
 /**
  * Host-only route and Studio lifecycle. `createProxy` receives the private
@@ -122,6 +126,17 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // the Workspace registry reports `available: false` instead of guessing.
   const archive = createArchiveWatcher(ctx);
   const workbenchAuth = createWorkbenchAuth({ dev: process.env.NO996_OPENFILM_DEV === '1' });
+  const voiceBridge = createVoiceBridge({ auth: workbenchAuth });
+  const disposeVoiceBridge = installVoiceBridgeGlobal(voiceBridge);
+  void voiceBridge.refreshReady().catch(() => {});
+  void installNo996Provider().then((info) => {
+    if (info.written) log.info('no996-provider-installed', { file: info.providerFile });
+    return preferNo996ForTts({ force: true });
+  }).then((pref) => {
+    if (pref?.changed) log.info('no996-tts-preferred', pref);
+  }).catch((error) => {
+    log.warn('no996-provider-install', { message: String(error?.message || error).slice(0, 200) });
+  });
   const loginRemember = createLoginRememberStore();
   let permissionsPromise;
   let httpClient;
@@ -189,6 +204,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
         try {
           const value = parseAuthActionBody(raw);
           const result = await dispatchAuthAction(workbenchAuth, value);
+          void voiceBridge.refreshReady().catch(() => {});
           return { status: 200, body: result };
         } catch (error) {
           const status = Number(error?.status) || 400;
@@ -398,7 +414,54 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       }
       // Coalesce simultaneous requests but always probe again after completion.
       if (!componentCheck) componentCheck = detectHostComponents().finally(() => { componentCheck = undefined; });
-      return componentCheck;
+      const tools = await componentCheck;
+      const asr = await transcribeService.status();
+      return {
+        ...tools,
+        arch: process.arch,
+        asr: {
+          ready: asr.ready === true,
+          installing: asr.installing === true,
+          phase: asr.phase || 'idle',
+          error: typeof asr.error === 'string' ? asr.error.slice(0, 300) : '',
+          dir: typeof asr.dir === 'string' ? asr.dir : '',
+        },
+      };
+    }
+    if (channel === 'environment:fallback-prompt') {
+      const body = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+      const kindRaw = typeof body.kind === 'string' ? body.kind : 'tools';
+      const kind = ['tools', 'asr', 'both', 'path-fix'].includes(kindRaw) ? kindRaw : 'tools';
+      const directory = typeof body.directory === 'string' ? body.directory.slice(0, 2048) : '';
+      const mode = body.mode === 'installed' || kind === 'path-fix' ? 'installed' : '';
+      let error = typeof body.error === 'string' ? body.error.slice(0, 500) : '';
+      if (!error && (kind === 'asr' || kind === 'both')) {
+        try {
+          const asr = await transcribeService.status();
+          if (asr?.error) error = String(asr.error).slice(0, 500);
+        } catch { /* status is best-effort for the prompt */ }
+      }
+      if (!error && (kind === 'tools' || kind === 'both') && typeof toolInstaller?.snapshot === 'function') {
+        try {
+          const snap = await toolInstaller.snapshot();
+          const parts = ['ffmpeg', 'ffprobe']
+            .map(name => snap?.tools?.[name])
+            .filter(row => row?.error)
+            .map(row => String(row.error).slice(0, 160));
+          if (parts.length) error = parts.join('；');
+        } catch { /* ignore */ }
+      }
+      const dshHome = process.env.DSH_HOME || join(homedir(), '.dsh');
+      return buildFallbackPayload(kind === 'path-fix' ? 'path-fix' : kind, {
+        platform: process.platform,
+        arch: process.arch,
+        env: process.env,
+        error,
+        directory,
+        mode: kind === 'path-fix' ? 'installed' : mode,
+        home: dshHome,
+        toolsDir: join(dshHome, 'no996-openfilm', 'tools'),
+      });
     }
     if (
       channel === 'auth:status' || channel === 'auth:logout' || channel === 'auth:action' || channel === 'account:balance'
@@ -429,13 +492,18 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       }
       if (channel === 'auth:status') {
         const status = await workbenchAuth.status();
-        const wallet = balanceFromPrefs(await preferences.get());
+        const guest = status.guest === true;
+        const wallet = guest || status.dev === true
+          ? { available_points: 0, points_balance: 0, period_points_balance: 0, expert_points_balance: 0, period_expires_at: null }
+          : balanceFromPrefs(await preferences.get());
         return {
           loggedIn: status.loggedIn === true,
           dev: status.dev === true,
+          guest,
           account: typeof status.account === 'string' ? status.account : '',
           displayName: typeof status.displayName === 'string' ? status.displayName : '',
           // Chip uses cached available points (permanent + period). Fresh pull is account:balance.
+          // Guest / dev never show a leftover wallet from a previous real login.
           credits: wallet.available_points,
           balance: wallet,
         };
@@ -443,11 +511,20 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       if (channel === 'account:balance') {
         const refresh = !(payload && typeof payload === 'object' && payload.refresh === false);
         const cached = balanceFromPrefs(await preferences.get());
-        if (!refresh) return { ...cached, stale: false, source: 'cache' };
+        if (!refresh) {
+          if (workbenchAuth.guest || workbenchAuth.dev) {
+            return { available_points: 0, points_balance: 0, period_points_balance: 0, expert_points_balance: 0, period_expires_at: null, stale: false, source: workbenchAuth.dev ? 'dev' : 'guest', ...(workbenchAuth.dev ? { dev: true } : { guest: true }) };
+          }
+          return { ...cached, stale: false, source: 'cache' };
+        }
         if (workbenchAuth.dev) {
           const live = await workbenchAuth.balance();
           await preferences.set(balanceCachePatch(live));
           return { ...balanceFromPrefs(await preferences.get()), stale: false, source: 'dev', dev: true };
+        }
+        if (workbenchAuth.guest) {
+          const live = await workbenchAuth.balance();
+          return { ...live, stale: false, source: 'guest', guest: true };
         }
         try {
           const live = await workbenchAuth.balance();
@@ -469,12 +546,15 @@ export function createStudioController(ctx, createProxy, { officialShell = false
         if (workbenchAuth.dev) return { loggedIn: true, dev: true };
         await workbenchAuth.logout();
         await preferences.set(clearBalanceCachePatch());
+        void voiceBridge.refreshReady().catch(() => {});
         return { loggedIn: false };
       }
       if (workbenchAuth.dev) return { ok: true, dev: true };
       const action = payload && typeof payload === 'object' ? payload : {};
       try {
-        return await dispatchAuthAction(workbenchAuth, action);
+        const result = await dispatchAuthAction(workbenchAuth, action);
+        void voiceBridge.refreshReady().catch(() => {});
+        return result;
       } catch (error) {
         // Page needs the workbench message, not a bare 503. Tokens never leave Host.
         return {
@@ -711,7 +791,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     // the model overlay may be refused by the child (a provider the acp profile has
     // no adapter for) and is dropped on the retry, while the tap is what makes the
     // answer stream at all and must survive every spawn (ADR-0010 §2.5).
-    spawnArgs: async () => {
+    spawnArgs: async (projectId, projectPath) => {
       const overlays = {};
       try {
         const selection = ctx.agentDefaultModel?.currentSelection?.();
@@ -736,12 +816,26 @@ export function createStudioController(ctx, createProxy, { officialShell = false
         await writeFile(overlay, `- insert:\n    - id: no996-openfilm-stream-tap\n      name: ${JSON.stringify(pathToFileURL(tap).href)}\n`, 'utf8');
         overlays.tap = overlay;
       } catch { /* streaming falls back to the committed message */ }
-      // Who the agent is, and where its instruction chain stops: a film folder is its
-      // own instruction root, so a repository above it cannot inject its manual into
-      // a film chat (see src/agent-overlays.mjs). Never dropped on a model fallback.
+      // Who the agent is, where its instruction chain stops, and which skills it
+      // can see: a film folder is its own instruction root, so a repository above
+      // it cannot inject its manual into a film chat, and the global skill catalog
+      // (~50 entries in ~/.agents/skills) never enters a film turn
+      // (see src/agent-overlays.mjs). Project-local skills stay available as an
+      // escape hatch: <project>/.agents/skills and <project>/.dsh/skills.
+      // Never dropped on a model fallback.
       try {
-        overlays.instructions = await writeOverlay();
+        const extraSkillDirs = typeof projectPath === 'string' && projectPath
+          ? [join(projectPath, '.agents', 'skills'), join(projectPath, '.dsh', 'skills')]
+          : [];
+        overlays.instructions = await writeOverlay({ extraSkillDirs });
       } catch { /* the profile's own persona stays */ }
+      // The sidebar preset's editing guidance, reused verbatim in the film child:
+      // the same openfilm-prompt.mjs the preset mounts as openfilm-video-prompt.
+      // Inserted by file URL like the tap; a prompt that cannot load must not
+      // take the child down with it.
+      try {
+        overlays.prompt = await writePromptOverlay();
+      } catch { /* the persona + project instructions still apply */ }
       return overlays;
     },
     permissionMode: async projectId => {
@@ -846,7 +940,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // a renderer-supplied id.
   const projectOfAgent = agent => (mcpAgents.get(agent?.id) === agent ? { projectId: agent.projectId, path: agent.path, available: true } : undefined);
   const filmTools = [
-    createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: ctx.llm }),
+    createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: () => ctx.llm }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createLibraryTool({
       isProjectAgent,
@@ -940,7 +1034,24 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       const admission = ctx.connection.admit({ headers });
       return !('rejection' in admission) && admission.peer.id === ctx.connection.browserPeer.id;
     };
-    const pending = Promise.resolve().then(() => createProxy({ upstream, webOrigin: browserOrigin, authenticateBrowser, desktop, officialShell, log, beforeProjectDelete, ...(officialShell ? { officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile: projectFiles.read, openProjectFile: projectFiles.open } : {}) })).then(async next => {
+    const pending = Promise.resolve().then(() => createProxy({
+      upstream,
+      webOrigin: browserOrigin,
+      authenticateBrowser,
+      desktop,
+      officialShell,
+      log,
+      beforeProjectDelete,
+      rewriteLibraryVoices: async () => {
+        try {
+          await voiceBridge.refreshReady();
+          return await voiceBridge.libraryVoicesPayload();
+        } catch {
+          return { version: 1, providers: [{ id: 'no996', name: '不加班', models: [{ id: 'workbench-tts', name: '不加班配音' }] }], voices: [] };
+        }
+      },
+      ...(officialShell ? { officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile: projectFiles.read, openProjectFile: projectFiles.open } : {}),
+    })).then(async next => {
       if (!next || typeof next.bootstrap !== 'function' || typeof next.close !== 'function' || typeof next.editorOrigin !== 'string' || disposed) {
         await next?.close?.();
         throw new Error('Studio proxy is unavailable');
@@ -997,6 +1108,31 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     },
     isDisposed: () => disposed,
   }));
+  // Who the film agent is told to be, and which instruction files it reads. The
+  // chain is computed here (not in the route) so the routes stay about evidence.
+  // Shared by /diagnose (per-turn evidence) and /environment (what the film
+  // agent can load: preset, skill gate, tools, chain).
+  const describeInstructions = path => {
+    const chain = instructionChain({
+      cwd: path,
+      dshHome: process.env.DSH_HOME || join(homedir(), '.dsh'),
+      agentsHome: join(homedir(), '.agents'),
+    });
+    // The resident budget: identity + instruction files. Everything else (guides,
+    // skills, library, templates) is read on demand, so this number is the one that
+    // must not grow with the number of styles or templates (agent-plan §7).
+    const persona = Buffer.byteLength(PERSONA, 'utf8');
+    const files = chain.files.reduce((sum, entry) => sum + entry.bytes, 0);
+    const total = persona + files;
+    return {
+      persona,
+      ...chain,
+      budget: { persona, files, total, limit: 6144, ok: total <= 6144 },
+    };
+  };
+  const projectPathOf = async projectId => {
+    try { return (await verifyOfficialProject(projectId))?.path ?? null; } catch { return null; }
+  };
   // Diagnose (evidence for "the panel shows nothing") lives in its own module.
   const diagnose = createDiagnoseRoute({
     ctx,
@@ -1010,31 +1146,24 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     permissions,
     agentService,
     getLastProxy: () => lastProxy,
-    // Who the film agent is told to be, and which instruction files it reads. The
-    // chain is computed here (not in the route) so the route stays about evidence.
-    instructions: path => {
-      const chain = instructionChain({
-        cwd: path,
-        dshHome: process.env.DSH_HOME || join(homedir(), '.dsh'),
-        agentsHome: join(homedir(), '.agents'),
-      });
-      // The resident budget: identity + instruction files. Everything else (guides,
-      // skills, library, templates) is read on demand, so this number is the one that
-      // must not grow with the number of styles or templates (agent-plan §7).
-      const persona = Buffer.byteLength(PERSONA, 'utf8');
-      const files = chain.files.reduce((sum, entry) => sum + entry.bytes, 0);
-      const total = persona + files;
-      return {
-        persona,
-        ...chain,
-        budget: { persona, files, total, limit: 6144, ok: total <= 6144 },
-      };
-    },
-    projectPathOf: async projectId => {
-      try { return (await verifyOfficialProject(projectId))?.path ?? null; } catch { return null; }
-    },
+    instructions: describeInstructions,
+    projectPathOf,
   });
   const [unregisterDiagnose] = diagnose.disposers;
+  // Environment (evidence for "what can the film agent load"): preset activation,
+  // the ACP child's skill gate, the film tool catalog, and the same instruction
+  // chain for the named project. Read-only; rendered on the bundle detail page.
+  const environment = createEnvironmentRoute({
+    ctx,
+    register: registerRoute,
+    track: trackRoute,
+    skillsDir: fileURLToPath(new URL('../../skills', import.meta.url)),
+    filmTools: () => [guideTool, ...filmTools, transcribeTool].map(tool => ({ name: tool?.name, description: tool?.description })),
+    instructions: describeInstructions,
+    projectPathOf,
+    activeTemplatesOf: async path => readActiveTemplates(path),
+  });
+  const [unregisterEnvironment] = environment.disposers;
 
   // Attachment bytes (validated digest → object store) live in their own module.
   const assets = createAssetRoutes({ ctx, register: registerRoute, track: trackRoute });
@@ -1190,6 +1319,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   return async () => {
     const closingAt = Date.now();
     disposed = true;
+    try { disposeVoiceBridge(); } catch { /* already cleared */ }
     // Stop the ACP children before the routes go away: a child that outlives the
     // Host keeps holding the project's Session open.
     try { await acpAgentService?.close?.(); } catch { /* already closed */ }

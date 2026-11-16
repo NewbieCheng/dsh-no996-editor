@@ -7,9 +7,12 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 
 test('health observes a lost upstream and the next start cleans up and recovers', async () => {
   let server, starts = 0, closes = 0, disposals = 0;
+  const previousUpdateCheck = process.env.OPENFILM_NO_UPDATE_CHECK;
+  delete process.env.OPENFILM_NO_UPDATE_CHECK;
   const runtime = createStudioRuntime({
     loadStudio: async () => async () => {
       starts++;
+      assert.equal(process.env.OPENFILM_NO_UPDATE_CHECK, '1', 'embedded Studio must not probe npm for updates');
       server = createServer((req, res) => {
         assert.equal(req.url, '/api/health');
         res.setHeader('content-type', 'application/json');
@@ -33,7 +36,11 @@ test('health observes a lost upstream and the next start cleans up and recovers'
     assert.equal(starts, 2);
     assert.equal(closes, 1);
     assert.equal(disposals, 1);
-  } finally { await runtime.close(); }
+  } finally {
+    await runtime.close();
+    if (previousUpdateCheck === undefined) delete process.env.OPENFILM_NO_UPDATE_CHECK;
+    else process.env.OPENFILM_NO_UPDATE_CHECK = previousUpdateCheck;
+  }
   assert.equal(closes, 2);
   assert.equal(disposals, 2);
 });

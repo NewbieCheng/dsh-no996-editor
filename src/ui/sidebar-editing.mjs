@@ -114,7 +114,9 @@ function readView(doc) {
 export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
   if (!doc || typeof doc.createElement !== 'function') return () => {};
   let mode = 'workspaces';
-  try { mode = doc.defaultView?.localStorage?.getItem(MODE_KEY) === 'editing' ? 'editing' : 'workspaces'; } catch { /* private mode */ }
+  // Always start DSH in the native 工作区 slot; clear any legacy persisted mode
+  // so restarting DSH or reloading the plugin never lands in 剪辑区 unasked.
+  try { doc.defaultView?.localStorage?.removeItem(MODE_KEY); } catch { /* private mode */ }
   let view = readView(doc);
   let query = '';
   let projects = [];
@@ -879,7 +881,6 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
 
   const setMode = next => {
     mode = next === 'editing' ? 'editing' : 'workspaces';
-    try { doc.defaultView?.localStorage?.setItem(MODE_KEY, mode); } catch { /* private mode */ }
     applyMode();
   };
 
@@ -969,7 +970,6 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     if (list) list.style.display = 'none';
     if (lostTicks === 3 && mode === 'editing') {
       mode = 'workspaces';
-      try { doc.defaultView?.localStorage?.setItem(MODE_KEY, mode); } catch { /* private mode */ }
       if (mounted?.header) mounted.header.removeAttribute('data-no996-editing');
       pageLog('switch-lost', 'reverted-workspaces');
     }

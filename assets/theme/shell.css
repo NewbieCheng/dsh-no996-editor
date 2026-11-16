@@ -1,12 +1,9 @@
-/* Official desktop shell overrides.
+/* Official desktop shell overrides (L1).
  *
  * Rules for this file:
  * - Scope every rule to a stable anchor (`[data-*]`, `[role]`, semantic tags).
  *   Never target generated/hashed class names from the Vite build.
- * - No layout rewrites here. If a change needs new structure, it belongs in the
- *   upstream source patch (see docs/UI-PLAYBOOK.md).
- * - Keep it small. This file is injected in development and baked into the
- *   vendored build at packaging time.
+ * - No layout rewrites here.
  */
 ::selection {
   background: var(--n996-accent);
@@ -16,4 +13,17 @@
 :focus-visible {
   outline: 2px solid var(--n996-accent);
   outline-offset: 2px;
+}
+
+[data-no996-studio-brand] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
+}
+
+[data-no996-studio-brand] .n996-sb-label {
+  font: 600 13px/1.2 var(--n996-font);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }

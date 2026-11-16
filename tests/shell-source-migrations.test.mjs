@@ -28,9 +28,10 @@ test('the recovery overlay is source, not injection', () => {
 test('the environment notice is source, not injection', () => {
   assert.doesNotMatch(injection, /no996-environment/);
   assert.doesNotMatch(injection, /__no996CheckTools=/);
-  assert.match(bundle, /视频工具环境检查/);
+  assert.match(bundle, /本机依赖检查|视频工具环境检查/);
   assert.match(bundle, /environment:check/);
-  assert.match(bundle, /尚未配置或安装/);
+  assert.match(bundle, /environment:fallback-prompt/);
+  assert.match(bundle, /复制兜底提示词|尚未配置或安装/);
 });
 
 test('the template picker is fully in the shell source now', () => {
@@ -56,6 +57,20 @@ test('the login gate is a component, not a page script', () => {
   assert.match(bundle, /记住本机账号和密码/);
 });
 
+test('workbench palette picker is gone; brand sync cannot re-enter', () => {
+  // Brand mark injection mutates the DOM. A boolean uiSyncing flag was not
+  // enough: MutationObserver delivers our own innerHTML after the flag clears,
+  // which froze the page (#root never mounted → panel 20s no boot). The sync
+  // must disconnect while it runs, and only rewrite SVG fills when theme flips.
+  assert.match(injection, /syncStudioBrand/);
+  assert.match(injection, /obs\.disconnect\(\)/);
+  assert.match(injection, /lastBrandDark/);
+  assert.doesNotMatch(injection, /工作台配色/);
+  assert.doesNotMatch(injection, /data-n996-settings-appearance/);
+  assert.doesNotMatch(injection, /no996\.openfilm\.theme/);
+  assert.doesNotMatch(injection, /no996\.openfilm\.accent/);
+});
+
 test('both components are mounted by the shell entry', () => {
   // The entry is upstream source; the patch series is what carries it. Find the
   // patch through series.json rather than guessing its number.
@@ -67,5 +82,17 @@ test('both components are mounted by the shell entry', () => {
   assert.match(patch, /EnvironmentNotice/);
   const starters = series.patches.find(entry => entry.source.endsWith('apps/desktop/chat/src/components/ProjectStarters.tsx'));
   assert.ok(starters, 'series records the starters component');
-  assert.match(readFileSync(join(root, 'patches', starters.file), 'utf8'), /TemplatePicker/);
+  const startersPatch = readFileSync(join(root, 'patches', starters.file), 'utf8');
+  assert.match(startersPatch, /TemplatePicker/);
+  assert.match(startersPatch, /asrModelsMissing|editor\.asrHint/);
+  assert.match(startersPatch, /openfilm\.settings\.card/);
+  assert.match(startersPatch, /environment:fallback-prompt|editor\.asrFallback/);
+  const models = series.patches.find(entry => entry.source.endsWith('packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx'));
+  assert.ok(models, 'series records ModelsSection deep-link for Local services');
+  assert.match(readFileSync(join(root, 'patches', models.file), 'utf8'), /openfilm\.settings\.card/);
+  const notice = series.patches.find(entry => entry.source.endsWith('apps/desktop/shell/EnvironmentNotice.tsx'));
+  assert.ok(notice, 'series records EnvironmentNotice');
+  const noticePatch = readFileSync(join(root, 'patches', notice.file), 'utf8');
+  assert.match(noticePatch, /environment:fallback-prompt/);
+  assert.match(noticePatch, /no996-fallback-prompt/);
 });

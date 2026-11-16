@@ -1,35 +1,35 @@
 :root{
   --n996-accent: #ff6400;
-  --n996-accentDeep: #d84700;
-  --n996-paper: #f5f0e5;
-  --n996-ink: #18171c;
+  --n996-accentDeep: #e55a00;
+  --n996-paper: #fbfbfc;
+  --n996-ink: #0a0b0d;
   --n996-night: #051d43;
+  --n996-navyMuted: #0a2f5c;
+  --n996-darkBg: #071120;
   --n996-font: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --n996-radius: 10px;
   --n996-gap: 8px;
 }
 /* Shared tokens for every surface we restyle.
  *
- * Brand colours are NOT here: they come from brand/brand.json and are emitted
- * before this file by src/theme.mjs. This file only holds the shape of the
- * design system (radii, rhythm, motion) so a rename never has to touch CSS.
+ * Brand colours are NOT hardcoded here: base values come from brand/brand.json
+ * and are emitted before this file by src/ui/theme.mjs. This file holds the
+ * design system shape only — no user-selectable workbench palettes.
  */
 :root {
   --n996-accent-ink: #ffffff;
   --n996-radius-sm: 6px;
   --n996-radius-lg: 14px;
   --n996-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+  --n996-shadow-selected: 0 0 0 3px color-mix(in srgb, var(--n996-accent) 16%, transparent), 0 8px 20px color-mix(in srgb, var(--n996-accent) 10%, transparent);
   --n996-transition: 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-/* Official desktop shell overrides.
+/* Official desktop shell overrides (L1).
  *
  * Rules for this file:
  * - Scope every rule to a stable anchor (`[data-*]`, `[role]`, semantic tags).
  *   Never target generated/hashed class names from the Vite build.
- * - No layout rewrites here. If a change needs new structure, it belongs in the
- *   upstream source patch (see docs/UI-PLAYBOOK.md).
- * - Keep it small. This file is injected in development and baked into the
- *   vendored build at packaging time.
+ * - No layout rewrites here.
  */
 ::selection {
   background: var(--n996-accent);
@@ -39,4 +39,17 @@
 :focus-visible {
   outline: 2px solid var(--n996-accent);
   outline-offset: 2px;
+}
+
+[data-no996-studio-brand] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
+}
+
+[data-no996-studio-brand] .n996-sb-label {
+  font: 600 13px/1.2 var(--n996-font);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }

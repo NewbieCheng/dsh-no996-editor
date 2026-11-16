@@ -177,7 +177,11 @@ export function createStudioPanel(React) {
       window.addEventListener('message', receive);
       // A frame that never boots cannot report its own failure; surface silence.
 
-      return () => { clearTimeout(timer); watchNavigationRef.current = null; window.removeEventListener('message', receive); };
+      return () => {
+        clearTimeout(timer);
+        watchNavigationRef.current = null;
+        window.removeEventListener('message', receive);
+      };
     }, [state.status, state.url, attempt]);
 
     React.useEffect(() => {

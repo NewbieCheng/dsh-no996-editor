@@ -1,0 +1,19 @@
+diff --git a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
+index 4c99bb2..37d3cda 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
+@@ -44,6 +44,14 @@ export function ModelsSection() {
+   const [card, setCard] = React.useState<string | null>(null);
+   /* asks the custom services to open their form (counted, so asking again opens it again) */
+   const [addCustom, setAddCustom] = React.useState(0);
++  /* Empty chat "Install ASR" sets this before opening Settings → Services. */
++  React.useEffect(() => {
++    try {
++      if (sessionStorage.getItem('openfilm.settings.card') !== 'local') return;
++      sessionStorage.removeItem('openfilm.settings.card');
++      setCard('local');
++    } catch { /* private mode */ }
++  }, []);
+   /* Local services opens its own card (LocalModelsDialog), not a service's */
+   const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
+   const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;

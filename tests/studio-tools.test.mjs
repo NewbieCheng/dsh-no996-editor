@@ -61,6 +61,19 @@ test('a model that cannot see images is told the truth instead of being sent one
   assert.match(value.text, /不支持读图/);
 });
 
+test('llm may be the service object itself, not only a getter', async () => {
+  const { http } = fakeHttp();
+  const tool = createFrameTool({
+    ...link, http,
+    attachments: () => ({ async saveImage() { return { attachmentId: 'att-1', bytes: 4, width: 10, height: 10 }; } }),
+    // Host historically passed ctx.llm directly; calling it as a function was the
+    // bare TypeError behind mcp-tool-failed openfilm_frame (2026-11-16).
+    llm: { async resolveModelInfo() { return { inputModalities: ['text', 'image'] }; } },
+  });
+  const value = await run(tool, { at: 1 });
+  assert.equal(value.image.attachmentId, 'att-1');
+});
+
 test('page facts come back as text, not as a picture', async () => {
   const { calls, http } = fakeHttp({ 'GET /api/projects/film123/media': { duration: 12, width: 1080, height: 1920 } });
   const tool = createFilmTool({ ...link, http });

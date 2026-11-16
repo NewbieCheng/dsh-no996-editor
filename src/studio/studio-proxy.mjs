@@ -29,7 +29,10 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_NOT_RUNNING: '当前没有可取消的回合',
   OFFICIAL_AGENT_MODEL_UNAVAILABLE: '当前拿不到模型列表，稍后再试',
   OFFICIAL_AGENT_UNAVAILABLE: '项目或对话子进程暂时不可用',
-  OFFICIAL_AGENT_STREAM_LOST: '事件流断了，输出可能不完整，请重试',
+  // Distinct from OFFICIAL_AGENT_FAILED: the child often finished; the page's
+  // EventSource died (refresh / remount). Saying "子进程出错" here caused 2026-11-16
+  // "你好" turns to look like ACP crashes when the log was STREAM_LOST.
+  OFFICIAL_AGENT_STREAM_LOST: '页面连接断了（请勿中途刷新），输出可能不完整，请重试',
   OFFICIAL_AGENT_INPUT: '请求内容无效',
   OFFICIAL_AGENT_CLOSED: '对话已关闭',
   OFFICIAL_AGENT_PROJECT_UNVERIFIED: '项目校验失败，刷新面板再试',
@@ -38,7 +41,7 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
 });
 
-export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, log } = {}) {
+export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, log } = {}) {
   // A proxy without a logger is valid (tests, embedders); the calls are no-ops.
   const say = typeof log?.write === 'function' ? log : { write() {}, info() {}, warn() {}, error() {} };
   if (typeof officialShell !== 'boolean') throw new TypeError('officialShell must be a boolean');
@@ -48,6 +51,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   if (readProjectFile !== undefined && typeof readProjectFile !== 'function') throw new TypeError('readProjectFile must be a function');
   if (openProjectFile !== undefined && typeof openProjectFile !== 'function') throw new TypeError('openProjectFile must be a function');
   if (beforeProjectDelete !== undefined && typeof beforeProjectDelete !== 'function') throw new TypeError('beforeProjectDelete must be a function');
+  if (rewriteLibraryVoices !== undefined && typeof rewriteLibraryVoices !== 'function') throw new TypeError('rewriteLibraryVoices must be a function');
   const web = new URL(webOrigin);
   if (desktop ? !['dsh-app://app', 'app://app'].includes(webOrigin) :
       web.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(web.hostname) || !web.port || web.origin !== webOrigin || web.username || web.password) throw new TypeError('Invalid DSH origin');
@@ -275,6 +279,20 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
             let value = body.toString('utf8');
             if (!Buffer.from(value).equals(body)) return fail(res, 502);
             value = value.replaceAll(filmUpstream.origin, filmOrigin);
+            // XXX surface: replace the curated vendor voice library with 不加班
+            // clones + platform voices (see docs/XXX-no996-surface-and-voice.md).
+            if (!film && rewriteLibraryVoices && req.method === 'GET' && url.pathname.replace(/\/+$/, '') === '/api/library/voices' && type.includes('application/json') && status === 200) {
+              try {
+                const payload = await rewriteLibraryVoices();
+                if (payload && typeof payload === 'object' && Array.isArray(payload.voices)) {
+                  value = JSON.stringify(payload);
+                  finalStatus = 200;
+                  out['content-type'] = 'application/json; charset=utf-8';
+                }
+              } catch {
+                /* keep upstream body on bridge failure */
+              }
+            }
             if (status >= 500 && !film) {
               recordFailure(req.method, url.pathname, status, value);
               say.warn('upstream-5xx', { method: req.method, path: url.pathname, status });
@@ -403,7 +421,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
   });
   report(true);
 })();
-</script>${officialShell && officialPage ? shellUiInjection() : ''}${theme.injection(themeSurfaceFor(url.pathname, officialShell))}${styleLabInjection()}<style>[data-app-menu]>[role="menuitem"]:not(:first-child),[data-community-menu]{display:none!important}</style>`;
+</script><script>(function(){if(globalThis.__no996SurfaceHide)return;globalThis.__no996SurfaceHide=1;var VENDOR=/^(ElevenLabs|Inworld|Cartesia|OpenAI|Google|Microsoft Azure|OpenRouter|fal\\.ai|Groq|Pexels|Pixabay|Brave Search|Tavily|Keenable|Doubao|Mimo|服务商|Services)$/i;var KEEP=/^(OpenFilm|不加班|no996|本地服务|Local services)$/i;function hideVoiceServices(root){var nav=root.querySelector('nav[data-studio-host-panel]');if(!nav)return;var boxes=[].slice.call(nav.children);var fold=-1;for(var i=0;i<boxes.length;i++){var t=(boxes[i].textContent||'').replace(/\\s+/g,' ').trim();if(/^(服务商|Services)$/i.test(t)){fold=i;boxes[i].setAttribute('data-no996-hide-services','');boxes[i].style.display='none';}}if(fold>=0){for(var j=fold+1;j<boxes.length;j++){boxes[j].setAttribute('data-no996-hide-services','');boxes[j].style.display='none';}}}function hideProviderChips(root){var buttons=root.querySelectorAll('button');for(var i=0;i<buttons.length;i++){var b=buttons[i];if(b.getAttribute('data-work-mode')){b.style.display='none';continue;}var label=(b.textContent||'').replace(/\\s+/g,' ').trim();if(!label)continue;if(/^还有\\s*\\d+|\\d+\\s*more$/i.test(label)||/^Fewer|收起$/i.test(label)){b.style.display='none';continue;}if(VENDOR.test(label)&&!KEEP.test(label))b.style.display='none';}}function forceEdit(){try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&k.indexOf('openfilm.canvas.open:')===0)localStorage.setItem(k,'0');}}catch(e){}}function tick(){try{forceEdit();hideVoiceServices(document);hideProviderChips(document);}catch(e){}}tick();new MutationObserver(tick).observe(document.documentElement,{childList:true,subtree:true});})()</script>${officialShell && officialPage ? shellUiInjection() : ''}${theme.injection(themeSurfaceFor(url.pathname, officialShell))}${styleLabInjection()}<style>[data-app-menu]>[role="menuitem"]:not(:first-child),[data-community-menu]{display:none!important}</style>`;
               value = value.replace(/<head(?:\s[^>]*)?>/i, match => match + host);
               if (value.includes('__no996Diag')) diag.injected += 1;
               else diag.refusals += 1;
@@ -561,7 +579,8 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
         const needsProject = value.channel !== 'template:list' && value.channel !== 'template:create'
           && value.channel !== 'project:create-blank'
           && value.channel !== 'prefs:get' && value.channel !== 'prefs:set'
-          && value.channel !== 'environment:check' && value.channel !== 'client:log'
+          && value.channel !== 'environment:check' && value.channel !== 'environment:fallback-prompt'
+          && value.channel !== 'client:log'
           // Evidence about a drag this page is handling: no project, no data.
           && value.channel !== 'probe:drag'
           && value.channel !== 'auth:status' && value.channel !== 'auth:logout' && value.channel !== 'auth:action'

@@ -72,6 +72,9 @@ export function createWorkbenchAuth({
   let loaded = false;
   let refreshGate = null;
   let writeQueue = Promise.resolve();
+  // In-memory only: survives neither Host reload nor process restart. Used when the
+  // real workbench is unreachable (e.g. abroad) so the shell can still be debugged.
+  let guest = false;
 
   async function load() {
     if (loaded) return session;
@@ -206,6 +209,30 @@ export function createWorkbenchAuth({
     };
   }
 
+  function guestSnapshot() {
+    return {
+      loggedIn: true,
+      guest: true,
+      baseUrl: 'guest',
+      userId: 0,
+      account: 'guest@local',
+      displayName: '游客',
+      expiresAt: '',
+    };
+  }
+
+  function zeroBalance({ guest: asGuest = false, asDev = false } = {}) {
+    return {
+      points_balance: 0,
+      expert_points_balance: 0,
+      period_points_balance: 0,
+      period_expires_at: null,
+      available_points: 0,
+      ...(asDev ? { dev: true } : {}),
+      ...(asGuest ? { guest: true } : {}),
+    };
+  }
+
   function statusSnapshot() {
     if (!session?.refreshToken) {
       return { loggedIn: false, baseUrl: base };
@@ -223,8 +250,10 @@ export function createWorkbenchAuth({
   return {
     baseUrl: base,
     dev,
+    get guest() { return guest === true; },
     async status() {
       if (dev) return devSnapshot();
+      if (guest) return guestSnapshot();
       await load();
       if (!session?.refreshToken) return statusSnapshot();
       // Soft-probe: if access looks stale, refresh once; failure → logged out.
@@ -235,6 +264,15 @@ export function createWorkbenchAuth({
         try { await refresh(); } catch { /* statusSnapshot after clear */ }
       }
       return statusSnapshot();
+    },
+    /** Enter a no-token guest session (Host memory only). No workbench call. */
+    async enterGuest() {
+      if (dev) return devSnapshot();
+      await load();
+      // A real session already opens the workbench; do not mask it with guest.
+      if (session?.refreshToken) return statusSnapshot();
+      guest = true;
+      return guestSnapshot();
     },
     async captcha(type = 'click') {
       // Default matches workbench / 清流: click challenge, not typed image code.
@@ -321,6 +359,10 @@ export function createWorkbenchAuth({
     },
     async logout() {
       if (dev) return devSnapshot();
+      if (guest) {
+        guest = false;
+        return { loggedIn: false, baseUrl: base };
+      }
       await load();
       const refreshToken = session?.refreshToken;
       const accessToken = session?.accessToken;
@@ -352,16 +394,8 @@ export function createWorkbenchAuth({
      * Tokens never leave Host.
      */
     async balance() {
-      if (dev) {
-        return {
-          points_balance: 0,
-          expert_points_balance: 0,
-          period_points_balance: 0,
-          period_expires_at: null,
-          available_points: 0,
-          dev: true,
-        };
-      }
+      if (dev) return zeroBalance({ asDev: true });
+      if (guest) return zeroBalance({ guest: true });
       const token = await this.accessToken();
       if (!token) throw publicError('AUTH_REQUIRED', '请先登录', 401);
       const data = await workbench('/api/v1/account/balance', { token });

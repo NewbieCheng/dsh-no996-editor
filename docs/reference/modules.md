@@ -8,54 +8,59 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。111 个模块、16145 行。
+> 生成命令：`npm run docs:gen`。116 个模块、17400 行。
 > 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 0 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
-| `src/studio/studio-controller.mjs` | 1225 | createStudioController | 读源码：`acp-profile-models.test.mjs`、`declaration-order.test.mjs`、`mcp-endpoint-path.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/studio/studio-controller.mjs` | 1320 | createStudioController | 读源码：`acp-profile-models.test.mjs`、`declaration-order.test.mjs`、`mcp-endpoint-path.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1064 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
-| `src/studio/studio-proxy.mjs` | 854 | startStudioProxy | `panel-sse-e2e.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
-| `src/acp/acp-agent-service.mjs` | 767 | catalogFromConfigOptions, createAcpAgentService | `acp-agent-service.test.mjs`、`acp-catalog.test.mjs`、`acp-rpc-round-trip.test.mjs`、`panel-sse-e2e.test.mjs` |
-| `src/official/official-facade.mjs` | 524 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
-| `src/auth/workbench-auth.mjs` | 392 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth.test.mjs` |
-| `src/studio/studio-panel.mjs` | 363 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
-| `src/acp/acp-client.mjs` | 346 | createAcpClient, resolveAcpCommand | `acp-agent-service.test.mjs`、`acp-client.test.mjs` |
+| `src/studio/studio-proxy.mjs` | 858 | startStudioProxy | `panel-sse-e2e.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
+| `src/acp/acp-agent-service.mjs` | 807 | catalogFromConfigOptions, createAcpAgentService | `acp-agent-service.test.mjs`、`acp-catalog.test.mjs`、`acp-rpc-round-trip.test.mjs`、`panel-sse-e2e.test.mjs` |
+| `src/official/official-facade.mjs` | 559 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
+| `src/auth/workbench-auth.mjs` | 426 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth.test.mjs` |
+| `src/studio/studio-panel.mjs` | 367 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
+| `src/acp/acp-client.mjs` | 350 | createAcpClient, resolveAcpCommand | `acp-agent-service.test.mjs`、`acp-client.test.mjs` |
+| `src/tools/tool-installer.mjs` | 296 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
 | `src/host/preferences.mjs` | 263 | balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch, createPreferencesStore, onboardingCopy, productMeta | `preferences-custom.test.mjs`、`preferences.test.mjs` |
 | `src/studio/studio-controller/routes/editing.mjs` | 258 | createEditingRoutes | `editing-routes.test.mjs` |
-| `src/tools/tool-installer.mjs` | 256 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
 | `src/asr/transcribe-service.mjs` | 255 | CACHE_VERSION, createTranscribeService, fingerprint | **无** |
 | `src/official/official-permission.mjs` | 237 | FULL_ACCESS, PROJECT_PERMISSIONS_DOMAIN, WORKSPACE_WRITE, openProjectPermissions | `official-permission.test.mjs` |
+| `src/studio/studio-entry.js` | 224 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/acp/acp-stream-tap.mjs` | 204 | apply, name | 读源码：`acp-stream-tap.test.mjs` |
 | `src/ui/client-entry.js` | 197 | — | **无** |
+| `src/asr/asr-models.mjs` | 192 | SENSE_VOICE, ensureModels, libraryCacheRoot, modelState, modelsRoot, senseVoiceDir… | `asr-models.test.mjs` |
 | `src/film/script-plan.mjs` | 186 | planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt… | `storyboard.test.mjs` |
-| `src/studio/studio-entry.js` | 183 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
+| `src/host/fallback-prompt.mjs` | 185 | buildFallbackPayload, createFallbackPrompt | `fallback-prompt.test.mjs` |
 | `src/official/official-chat-store.mjs` | 181 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
 | `src/tools/cli-tool.mjs` | 180 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
+| `src/acp/agent-overlays.mjs` | 176 | PERSONA, ROOT_MARKERS, defaultPromptHref, defaultSkillsDir, overlayYaml, promptOverlayYaml… | `agent-overlays.test.mjs` |
 | `src/film/storyboard.mjs` | 176 | KINDS, MOTIONS, STORYBOARD_FILE, VERSION, normalizeStoryboard, planFromStoryboard… | `storyboard.test.mjs` |
-| `src/studio/studio-runtime.mjs` | 170 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
+| `src/tools/transcribe-tool.mjs` | 176 | createTranscribeTool | `transcribe-tool.test.mjs` |
+| `src/studio/studio-runtime.mjs` | 173 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
+| `src/ui/sidebar-brand.mjs` | 172 | brandSvgMarkup, findSidebarBrandSlot, installSidebarBrand | `sidebar-brand.test.mjs` |
 | `src/studio/studio-debug-redirect.mjs` | 168 | startLocalConsole | `studio-debug-redirect.test.mjs` |
 | `src/tools/clip-tool.mjs` | 167 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`tool-schema.test.mjs` |
-| `src/tools/transcribe-tool.mjs` | 167 | createTranscribeTool | `transcribe-tool.test.mjs` |
+| `src/tools/mcp-server.mjs` | 165 | MCP_PROTOCOL_VERSION, createMcpEndpoint, createMcpTokens, mcpServerEntry | `mcp-server.test.mjs` |
 | `src/studio/studio-debug.mjs` | 162 | redeemStudioSession, startStudioDebug | `studio-debug-theme.test.mjs` |
+| `src/tools/frame-tool.mjs` | 162 | createFrameTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/project/project-files.mjs` | 161 | PROJECT_ID, createProjectFiles, openCommand, projectFileError, projectFilePath, relativeProjectPath | `project-files.test.mjs` |
-| `src/tools/frame-tool.mjs` | 159 | createFrameTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
-| `src/tools/mcp-server.mjs` | 159 | MCP_PROTOCOL_VERSION, createMcpEndpoint, createMcpTokens, mcpServerEntry | `mcp-server.test.mjs` |
-| `src/asr/asr-models.mjs` | 158 | SENSE_VOICE, ensureModels, libraryCacheRoot, modelState, modelsRoot, senseVoiceDir… | `asr-models.test.mjs` |
 | `src/official/official-templates.mjs` | 157 | installTemplate, listTemplates | `official-templates.test.mjs`、`template-registration.test.mjs` |
 | `src/asr/asr-pipeline.mjs` | 156 | TRANSCRIBE_LIMITS, assembleTranscript, createTranscribePipeline | `asr-pipeline.test.mjs` |
+| `src/ui/env-section.mjs` | 153 | createEnvSection | **无** |
 | `src/tools/storyboard-tool.mjs` | 147 | createStoryboardTool | `storyboard.test.mjs` |
 | `src/official/official-chat-rpc.mjs` | 145 | createOfficialChatRpc | `acp-rpc-round-trip.test.mjs`、`official-chat-rpc.test.mjs` |
 | `src/film/timeline-operations.mjs` | 142 | TimelineEditError, applyTimelineOperations | `timeline-operations.test.mjs` |
+| `src/auth/auth-bridge.mjs` | 141 | dispatchAuthAction, registerAuthBridge | `workbench-auth.test.mjs` |
 | `src/asr/asr-audio.mjs` | 140 | TARGET, extractPcm, parseProbeOutput, probeMedia, resolveFfmpeg, runFfmpeg | `asr-audio.test.mjs`、`asr-media.test.mjs` |
-| `src/auth/auth-bridge.mjs` | 134 | dispatchAuthAction, registerAuthBridge | `workbench-auth.test.mjs` |
 | `src/film/template-prompts.mjs` | 134 | BLOCK_BEGIN, BLOCK_END, BLOCK_MAX, PROMPT_MAX, TEMPLATES_FILE, readActiveTemplates… | `template-prompts.test.mjs` |
 | `src/project/workspace-archive.mjs` | 131 | createArchiveWatcher | `workspace-archive.test.mjs` |
 | `src/acp/acp-profile-models.mjs` | 128 | activeProfileDir, applyAcpModelProviders, providerBlocks, readProfileDefaultModel | `acp-profile-models.test.mjs` |
 | `src/auth/login-remember.mjs` | 124 | createLoginRememberStore | `login-remember.test.mjs` |
 | `src/asr/asr-wav.mjs` | 123 | openWav, parseWavHeader | `asr-wav.test.mjs` |
+| `src/studio/studio-controller/routes/environment.mjs` | 123 | createEnvironmentRoute | `environment-route.test.mjs` |
 | `src/asr/asr-silence.mjs` | 119 | createSilenceSegmenter, findSpeechRuns, percentile, rmsOf | `asr-silence.test.mjs` |
 | `src/official/official-approvals.mjs` | 118 | createOfficialApprovals | **无** |
 | `src/project/editing-prefs.mjs` | 118 | createEditingPrefs | `editing-prefs.test.mjs` |
@@ -68,27 +73,28 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/acp/acp-session-store.mjs` | 109 | createAcpSessionStore | `acp-session-store.test.mjs` |
 | `src/studio/studio-controller/routes/diagnose.mjs` | 107 | createDiagnoseRoute | `diagnose-route.test.mjs` |
 | `src/studio/studio-controller/routes/system.mjs` | 107 | createSystemRoutes | 读源码：`system-routes.test.mjs` |
+| `src/studio/drop-catcher.mjs` | 106 | installDropCatcher | `drop-catcher.test.mjs` |
 | `src/tools/library-tool.mjs` | 106 | LIBRARY_KINDS, createLibraryTool | `studio-tools.test.mjs`、`template-prompts.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/assets-tool.mjs` | 105 | createAssetsTool, flattenFiles | `assets-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/studio/studio-library-mirror.mjs` | 104 | SENSE_VOICE_PATHS, ensureStudioLibraryMirror | `studio-library-mirror.test.mjs` |
+| `src/host/download-stall.mjs` | 103 | DEFAULT_CONNECT_MS, DEFAULT_IDLE_MS, createStallWatch, linkSignals, stallReason | `download-stall.test.mjs` |
 | `src/studio/studio-proxy/upstream.mjs` | 103 | COMMAND_FAILURE, RESPONSE_HEADERS, SAFE_HEADERS, ancestorsFor, fail, friendlyCommandFailure… | **无** |
-| `src/project/project-instructions.mjs` | 102 | INSTRUCTIONS, ensureProjectInstructions, upgradeProjectInstructions | `project-instructions.test.mjs` |
 | `src/acp/instruction-inventory.mjs` | 100 | headOf, instructionChain, projectRootOf | `agent-overlays.test.mjs` |
+| `src/project/project-instructions.mjs` | 100 | INSTRUCTIONS, ensureProjectInstructions, upgradeProjectInstructions | `project-instructions.test.mjs` |
 | `src/host/bridge-trace.mjs` | 99 | createBridgeTrace | `bridge-trace.test.mjs` |
 | `src/studio/studio-http.mjs` | 98 | createStudioHttp | `studio-http.test.mjs` |
 | `src/host/host-components.mjs` | 96 | createHostComponentDetector | `host-components.test.mjs` |
 | `src/ui/brand.mjs` | 96 | brandCssVars, brandVersion, getBrand, replaceTitle, validateBrand | `brand.test.mjs` |
 | `src/asr/asr-segments.mjs` | 95 | SEGMENT_LIMITS, normalizeSegments, planSegments | `asr-segments.test.mjs` |
-| `src/studio/drop-catcher.mjs` | 93 | installDropCatcher | `drop-catcher.test.mjs` |
 | `src/asr/asr-sensevoice.mjs` | 89 | createSenseVoiceRecognizer, loadSherpa | **无** |
 | `src/host/download-sources.mjs` | 89 | MODEL_BASES, MODEL_REPO, TOOL_SOURCES, augmentPath, knownBinaryDirs, modelBases… | `download-sources.test.mjs` |
 | `src/tools/get-tool.mjs` | 87 | createGetTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
+| `src/studio/studio-controller/turns.mjs` | 84 | createTurnLog | `turn-log.test.mjs` |
 | `src/ui/theme.mjs` | 82 | THEME_SURFACES, createTheme, theme, themeSurfaceFor | `theme.test.mjs` |
 | `src/host/preset-report.mjs` | 80 | reportPresetStatus | `preset-report.test.mjs` |
 | `src/film/template-catalog.mjs` | 79 | catalogText, scoreTemplate, searchTemplates, templateCatalog | `storyboard.test.mjs` |
 | `src/project/project-trash.mjs` | 79 | TRASH_DIR, createProjectTrash | `project-trash.test.mjs` |
 | `src/studio/studio-controller/routes/diagnostics.mjs` | 79 | createDiagnosticsRoutes | `client-log-route.test.mjs`、`drag-probe-route.test.mjs` |
-| `src/acp/agent-overlays.mjs` | 76 | PERSONA, ROOT_MARKERS, overlayYaml, writeOverlay | `agent-overlays.test.mjs` |
 | `src/studio/studio-controller/routes/bootstrap.mjs` | 76 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/film/timeline-layout.mjs` | 71 | layoutTimeline | `timeline-layout.test.mjs` |
 | `src/asr/asr-refine.mjs` | 65 | REFINE_REASONS, buildRefinePrompt, parseRefineReply, refineTranscript | `asr-refine.test.mjs` |
@@ -113,7 +119,6 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-controller/routes/assets.mjs` | 37 | createAssetRoutes | **无** |
 | `src/studio/panel-keepalive.mjs` | 36 | createActivationStore | `panel-keepalive.test.mjs` |
 | `src/ui/style-lab.mjs` | 36 | styleLabInjection, styleLabVersion | `style-lab.test.mjs` |
-| `src/studio/studio-controller/turns.mjs` | 35 | createTurnLog | **无** |
 | `src/asr/asr-media.mjs` | 34 | createMediaEdge | `asr-media.test.mjs` |
 | `src/official/official-model-catalog.mjs` | 34 | officialModelOptions | **无** |
 | `src/tools/guide-tool.mjs` | 34 | createGuideTool | `tool-schema.test.mjs` |
@@ -131,6 +136,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 - `src/asr/transcribe-service.mjs`（255 行）
 - `src/ui/client-entry.js`（197 行）
+- `src/ui/env-section.mjs`（153 行）
 - `src/official/official-approvals.mjs`（118 行）
 - `src/studio/studio-proxy/upstream.mjs`（103 行）
 - `src/asr/asr-sensevoice.mjs`（89 行）
@@ -139,7 +145,6 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 - `src/studio/studio-proxy/websocket.mjs`（58 行）
 - `src/official/official-shell.mjs`（40 行）
 - `src/studio/studio-controller/routes/assets.mjs`（37 行）
-- `src/studio/studio-controller/turns.mjs`（35 行）
 - `src/official/official-model-catalog.mjs`（34 行）
 - `src/host/dsh-ai.mjs`（29 行）
 - `src/studio/studio-controller/http-body.mjs`（15 行）

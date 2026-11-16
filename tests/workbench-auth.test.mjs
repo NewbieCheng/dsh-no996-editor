@@ -159,3 +159,53 @@ test('dispatchAuthAction routes register and verification', async () => {
   assert.equal(seen[1][1].inviteCode, 'INVITE');
   assert.throws(() => parseAuthActionBody('{'), /无效/);
 });
+
+test('guest session is memory-only, zero balance, and clears on logout', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'nof-auth-guest-'));
+  const auth = createWorkbenchAuth({
+    home,
+    fetchImpl: async () => { throw new Error('workbench must not be called for guest'); },
+  });
+  assert.equal((await auth.status()).loggedIn, false);
+  const entered = await auth.enterGuest();
+  assert.equal(entered.loggedIn, true);
+  assert.equal(entered.guest, true);
+  assert.equal(entered.displayName, '游客');
+  assert.equal(auth.guest, true);
+  const status = await auth.status();
+  assert.equal(status.guest, true);
+  const balance = await auth.balance();
+  assert.equal(balance.available_points, 0);
+  assert.equal(balance.guest, true);
+  const bridged = await dispatchAuthAction(auth, { action: 'guest' });
+  assert.equal(bridged.guest, true);
+  assert.equal(bridged.loggedIn, true);
+  const left = await auth.logout();
+  assert.equal(left.loggedIn, false);
+  assert.equal(auth.guest, false);
+  assert.equal((await auth.status()).loggedIn, false);
+});
+
+test('enterGuest does not mask a real persisted session', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'nof-auth-guest-real-'));
+  const auth = createWorkbenchAuth({
+    home,
+    fetchImpl: async (url) => {
+      if (String(url).endsWith('/api/v1/auth/login')) {
+        return {
+          ok: true, status: 200,
+          text: async () => JSON.stringify({
+            data: { access_token: 'a1', refresh_token: 'r1', expires_at: '2099-01-01T00:00:00Z', user_id: 7 },
+          }),
+        };
+      }
+      throw new Error(String(url));
+    },
+  });
+  await auth.login({ account: 'a@b.com', password: 'StrongPass!9', captchaId: 'c', captchaCode: 'x' });
+  const again = await auth.enterGuest();
+  assert.equal(again.guest, undefined);
+  assert.equal(again.loggedIn, true);
+  assert.equal(again.account, 'a@b.com');
+  assert.equal(auth.guest, false);
+});

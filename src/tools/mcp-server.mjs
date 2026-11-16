@@ -69,7 +69,13 @@ export function createMcpEndpoint({ tools, resolveToken, serverInfo = { name: 'n
       return { content: [{ type: 'text', text: bounded(textOf(tool, args, value)) }] };
     } catch (error) {
       // Tool failures are model-visible results, never transport errors.
-      void log?.('mcp-tool-failed', { tool: name, code: String(error?.code ?? error?.name ?? 'NONE').slice(0, 40) });
+      // `message` is truncated on purpose: without it a bare TypeError/EXTRACT_FAILED
+      // cannot be told apart from the next one in plugin.log (2026-11-16 frame/transcribe).
+      void log?.('mcp-tool-failed', {
+        tool: name,
+        code: String(error?.code ?? error?.name ?? 'NONE').slice(0, 40),
+        message: String(error?.message ?? error).slice(0, 200),
+      });
       return { content: [{ type: 'text', text: bounded(String(error?.message ?? 'The tool failed')) }], isError: true };
     }
   };
