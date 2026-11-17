@@ -44,7 +44,9 @@ function createFakeCtx() {
       return { sessionId, agentPreset: req.agentPreset };
     },
     async projections({ sessionId }) {
-      return existing.has(sessionId) ? { kind: 'sequenced', asOfSeq: 1, values: {} } : null;
+      return existing.has(sessionId)
+        ? { kind: 'sequenced', asOfSeq: 1, values: { contextPressure: { contextWindow: 128000, projectedTokens: 16000 } } }
+        : null;
     },
     async modelCatalog() {
       return {
@@ -83,6 +85,8 @@ function createFakeCtx() {
             data: { message: { id: 'msg-1', content: [{ type: 'reasoning', text: '先看分镜' }, { type: 'text', text: '好的，开始剪辑。' }] } },
           },
         });
+        pushFrame(sid, { type: 'event', event: { type: 'compaction/start', seq: 10 } });
+        pushFrame(sid, { type: 'event', event: { type: 'compaction/end', seq: 11 } });
         pushFrame(sid, { type: 'event', event: { type: 'turn/end', data: { stopReason: 'end_turn' } } });
       });
       return { accepted: true };
@@ -95,7 +99,13 @@ function createFakeCtx() {
     async *follow(req, signal) {
       assert.equal(req.assistantStream, true, 'follow must opt into assistantStream');
       const sid = req.address.sessionId;
-      yield { type: 'snapshot', cursor: 0, records: [], hasMore: false, projections: { asOfSeq: 0, values: {} } };
+      yield {
+        type: 'snapshot',
+        cursor: 0,
+        records: [],
+        hasMore: false,
+        projections: { asOfSeq: 0, values: { contextPressure: { contextWindow: 128000, projectedTokens: 4096 } } },
+      };
       while (!signal.aborted) {
         const q = queues.get(sid);
         if (q && q.length > 0) {
@@ -177,6 +187,9 @@ test('native agent creates preset-bound sessions per conversation, streams frame
     assert.equal(events.some(e => e.event.update?.sessionUpdate === 'agent_thought_chunk'), false);
     assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call' && e.event.update?.toolName === 'openfilm_film'));
     assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call' && e.event.update?.toolName === 'pwsh' && e.event.update?.kind === 'execute' && e.event.update?.title === 'bash'));
+    assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call' && e.event.update?.toolName === 'compaction'));
+    assert.ok(events.some(e => e.event.update?.sessionUpdate === 'usage_update' && e.event.update?.used === 4096 && e.event.update?.size === 128000));
+    assert.ok(events.some(e => e.event.update?.sessionUpdate === 'usage_update' && e.event.update?.used === 16000 && e.event.update?.size === 128000));
     assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call_update' && e.event.update?.status === 'completed' && e.event.update?.rawOutput));
 
     // Second conversation opens a distinct DSH session

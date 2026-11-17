@@ -218,11 +218,59 @@ export function createDshNativeAgentService({
     }
   }
 
+  function emitUsage(projectId, session, used, size) {
+    if (typeof used !== 'number' || !Number.isFinite(used) || used < 0 ||
+        typeof size !== 'number' || !Number.isFinite(size) || size <= 0) return false;
+    session.lastUsage = { used: Math.round(used), size: Math.round(size) };
+    void Promise.resolve(emit(projectId, {
+      key: session.key ?? 'dsh-native',
+      kind: 'update',
+      update: { sessionUpdate: 'usage_update', used: session.lastUsage.used, size: session.lastUsage.size },
+    })).catch(() => {});
+    return true;
+  }
+
+  function applyProjectionUsage(projectId, session, projections) {
+    const values = projections?.values ?? projections;
+    const pressure = values?.contextPressure;
+    if (!pressure || typeof pressure !== 'object') return false;
+    const size = pressure.contextWindow;
+    const used = pressure.projectedTokens ?? pressure.pressureTokens;
+    return emitUsage(projectId, session, used, size);
+  }
+
+  async function syncUsage(projectId, session, fallbackUsage) {
+    if (!text(session?.sessionId)) return;
+    try {
+      if (typeof ctx.sessionController.projections === 'function') {
+        const snap = await ctx.sessionController.projections({ sessionId: session.sessionId }, new AbortController().signal);
+        if (applyProjectionUsage(projectId, session, snap)) return;
+      }
+    } catch { /* fall through to fallbackUsage */ }
+    if (fallbackUsage && typeof fallbackUsage === 'object') {
+      const used = fallbackUsage.inputTokens ?? fallbackUsage.promptTokens ?? fallbackUsage.totalTokens;
+      if (typeof used === 'number' && used >= 0) {
+        try {
+          const catalog = await ctx.sessionController.modelCatalog?.();
+          const target = session.model ?? catalog?.default;
+          const group = catalog?.groups?.find(g => g.id === target?.provider);
+          const model = group?.models?.find(m => m.id === target?.model);
+          const size = model?.contextWindow ?? model?.limits?.contextWindow ?? session.lastUsage?.size;
+          if (typeof size === 'number' && size > 0) emitUsage(projectId, session, used, size);
+        } catch { /* ignore */ }
+      }
+    }
+  }
+
   async function handleFollowFrame(projectState, session, frame, streamState) {
     const { projectId } = projectState;
     const key = session.key ?? 'dsh-native';
 
-    if (!frame || typeof frame !== 'object' || frame.type === 'snapshot') return;
+    if (!frame || typeof frame !== 'object') return;
+    if (frame.type === 'snapshot') {
+      applyProjectionUsage(projectId, session, frame.projections);
+      return;
+    }
 
     if (frame.type === 'assistant-stream') {
       const inner = frame.frame;
@@ -352,27 +400,49 @@ export function createDshNativeAgentService({
         }
       }
       streamState.streamedText = false;
-      if (data.usage !== undefined) {
-        try {
-          const liveSession = ctx.sessions?.get?.(session.sessionId);
-          const size = liveSession?.requestContext?.()?.contextWindow;
-          const meter = ctx.get?.('tokenMeter');
-          if (typeof size === 'number' && size > 0 && meter) {
-            const used = meter.measure(liveSession)?.totalTokens;
-            if (typeof used === 'number') {
-              void Promise.resolve(emit(projectId, {
-                key,
-                kind: 'update',
-                update: { sessionUpdate: 'usage_update', used, size },
-              })).catch(() => {});
-            }
-          }
-        } catch { /* usage is advisory */ }
-      }
+      void syncUsage(projectId, session, data.usage);
+      return;
+    }
+
+    if (event.type === 'compaction/start') {
+      const compactId = `compact:${event.seq ?? Date.now()}`;
+      streamState.activeCompactId = compactId;
+      void Promise.resolve(emit(projectId, {
+        key,
+        kind: 'update',
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: compactId,
+          title: 'read',
+          toolName: 'compaction',
+          kind: 'read',
+          status: 'in_progress',
+          rawInput: { path: '自动压缩历史上下文…' },
+        },
+      })).catch(() => {});
+      return;
+    }
+
+    if (event.type === 'compaction/end') {
+      const compactId = streamState.activeCompactId ?? `compact:${event.seq ?? Date.now()}`;
+      streamState.activeCompactId = undefined;
+      void Promise.resolve(emit(projectId, {
+        key,
+        kind: 'update',
+        update: {
+          sessionUpdate: 'tool_call_update',
+          toolCallId: compactId,
+          status: 'completed',
+          content: [{ type: 'content', content: { type: 'text', text: '上下文已自动压缩' } }],
+          rawOutput: '上下文已自动压缩',
+        },
+      })).catch(() => {});
+      void syncUsage(projectId, session);
       return;
     }
 
     if (event.type === 'turn/end') {
+      void syncUsage(projectId, session);
       const reason = data.stopReason === 'cancelled' || session.inflight?.cancelled ? 'cancelled' : 'end_turn';
       settleTurn(projectId, session, { ok: true, stopReason: reason });
       return;

@@ -101,8 +101,15 @@ export function createEnvironmentRoute({
           return { projectId, ...chain, activeTemplates: active };
         } catch (error) { return { projectId, error: String(error?.code ?? error?.message ?? error).slice(0, 120) }; }
       })();
+      const web = (() => {
+        try {
+          const service = ctx.get?.('web');
+          return { available: Boolean(service) };
+        } catch { return { available: false }; }
+      })();
       const body = JSON.stringify({
         preset,
+        web,
         // What the ACP child boots with: identity, instruction boundary, skill gate,
         // and the preset's prompt module reused verbatim (never a copy).
         child: {

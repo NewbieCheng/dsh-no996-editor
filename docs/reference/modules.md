@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。114 个模块、16740 行。
+> 生成命令：`npm run docs:gen`。114 个模块、16817 行。
 > 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 0 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -18,7 +18,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-controller.mjs` | 1232 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1105 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
 | `src/studio/studio-proxy.mjs` | 873 | startStudioProxy | `proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
-| `src/native/dsh-native-agent-service.mjs` | 716 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
+| `src/native/dsh-native-agent-service.mjs` | 786 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
 | `src/official/official-facade.mjs` | 559 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/auth/workbench-auth.mjs` | 426 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth.test.mjs` |
 | `src/studio/studio-panel.mjs` | 367 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
@@ -54,9 +54,9 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/asr/asr-audio.mjs` | 140 | TARGET, extractPcm, parseProbeOutput, probeMedia, resolveFfmpeg, runFfmpeg | `asr-audio.test.mjs`、`asr-media.test.mjs` |
 | `src/film/template-prompts.mjs` | 134 | BLOCK_BEGIN, BLOCK_END, BLOCK_MAX, PROMPT_MAX, TEMPLATES_FILE, readActiveTemplates… | `template-prompts.test.mjs` |
 | `src/project/workspace-archive.mjs` | 131 | createArchiveWatcher | `workspace-archive.test.mjs` |
+| `src/studio/studio-controller/routes/environment.mjs` | 130 | createEnvironmentRoute | `environment-route.test.mjs` |
 | `src/auth/login-remember.mjs` | 124 | createLoginRememberStore | `login-remember.test.mjs` |
 | `src/asr/asr-wav.mjs` | 123 | openWav, parseWavHeader | `asr-wav.test.mjs` |
-| `src/studio/studio-controller/routes/environment.mjs` | 123 | createEnvironmentRoute | `environment-route.test.mjs` |
 | `src/asr/asr-silence.mjs` | 119 | createSilenceSegmenter, findSpeechRuns, percentile, rmsOf | `asr-silence.test.mjs` |
 | `src/official/official-approvals.mjs` | 118 | createOfficialApprovals | **无** |
 | `src/project/editing-prefs.mjs` | 118 | createEditingPrefs | `editing-prefs.test.mjs` |
