@@ -20,7 +20,7 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 | 视频工具环境检查卡 | `assets/shell-ui.js` | 需要 Host 能力，上游没有这个界面 | 上游有环境检查或迁进 A1 |
 | Host 截走 drop 后清 pageDropping | `assets/shell-ui.js`（`clearPageDropping`） | 正式修法已在 `patches/010-App.patch` 并 bake 进壳；注入侧仍双保险 | 确认真机 Host drop 不再卡「松手即可附上」后，可删注入侧 `clearPageDropping` |
 | 工作区下拉开关 | `src/ui/sidebar-editing.mjs` | 侧栏标题行没有官方插槽；`sidebar.workspaces` 是 single 槽 | DSH 开出标题行插槽后删除 |
-| XXX 表面收敛（藏服务商/画布/多余 Services chips） | `assets/theme/studio.css` + `studio-proxy.mjs` 文案隐藏脚本 | L2 为 dist；本轮要可逆隐藏而非删供应商 | 产品恢复第三方配音 / 画布后删规则与脚本；见 `docs/XXX-no996-surface-and-voice.md` |
+| XXX 表面收敛（藏服务商/画布/多余 Services chips） | `assets/theme/studio.css` + `studio-proxy.mjs` 文案隐藏脚本 | L2 为 dist；本轮要可逆隐藏而非删供应商 | 产品恢复第三方配音 / 画布后删规则与脚本 |
 | XXX 音色库改写为不加班 | `studio-proxy` `rewriteLibraryVoices` | 不改 VoicesPane 源码，复用官方列表 UI | 上游 VoicesPane 原生支持 no996 后改补丁 |
 
 ## 1.1 已经不在注入里的（别再加回来）

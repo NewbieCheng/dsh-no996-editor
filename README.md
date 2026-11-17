@@ -1,6 +1,6 @@
 # 不加班剪辑 · No996 Studio
 
-把 **OpenFilm 0.3.2** 视频工作台做成 DSH 插件：官方 Studio 与桌面壳整页常驻在侧边栏，右侧对话由 Host 交给 `dsh --profile acp` 子进程（会话就是 DSH 会话，模型、审批、思考、续聊都是 DSH 的）。
+把 **OpenFilm 0.3.2** 视频工作台做成 DSH 插件：官方 Studio 与桌面壳整页常驻在侧边栏，右侧对话在 Host 进程内直连 DSH 原生 `SessionController`（绑定 `openfilm-video-editing` 预设）。
 
 版本以 `package.json` 与 [CHANGELOG.md](CHANGELOG.md) 为准；"现在到哪了"看 [docs/STATE.md](docs/STATE.md)。仓库：`NewbieCheng/dsh-openfilm`，分支 `main`。
 
@@ -45,7 +45,7 @@
 | [docs/playbooks/upstream-bump.md](docs/playbooks/upstream-bump.md) | 维护者 | 三处 pin、补丁系列、升级与冲突 |
 | [docs/playbooks/incident.md](docs/playbooks/incident.md) | 排障的人 | 症状 → 根因 → 现在靠什么挡住 |
 
-专题：[注入链与剪辑导演方案](docs/topics/agent-plan.md)、[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)、[DSH 外壳改造案例](docs/DSH-SHELL-INTEGRATION.md)。
+专题：[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)、[DSH 外壳改造案例](docs/DSH-SHELL-INTEGRATION.md)。
 通用 skill（独立仓库）：[dsh-harness-remix](https://github.com/NewbieCheng/dsh-harness-remix)（DSH UI 改造 + 后端衔接）。
 
 ## 能力与边界

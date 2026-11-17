@@ -17,15 +17,12 @@ rot-if: 新增或废弃一条 ADR
 |---|---|---|---|
 | [0001](ADR-0001-repo-boundary.md) | 独立仓分发，不做工作台分支 | 生效 | 两边代码不共享 |
 | [0002](ADR-0002-panel-overlay.md) | 面板挂 `shell.overlay` 常驻，`main` 只放占位 | 生效 | 自己同步矩形与生命周期 |
-| [0003](ADR-0003-acp-boundary.md) | 对话交给 `dsh --profile acp`，旧进程内回合路径已删除 | 生效 | 多一个进程、多一份 profile |
 | [0004](ADR-0004-upstream-patches.md) | 上游用构建快照 + 按文件拆的可重放补丁 | 生效 | 每次升级要重放整条补丁系列 |
 | [0005](ADR-0005-session-ownership.md) | 会话/归档/增量归 DSH，不建自己的真相 | 生效 | 没有官方 API 的操作只能拒绝 |
 | [0006](ADR-0006-narrow-sidebar-injection.md) | 侧栏只做一处窄注入，不占 single 槽 | 生效 | 依赖 DSH DOM 结构 |
 | [0007](ADR-0007-docs-and-baseline.md) | 文档按寿命分层 + 工程基线进 CI | 生效 | 每次事实变化要重生成 |
 | [0008](ADR-0008-controller-split.md) | 两个巨型闭包分两步拆（两步都已完成） | 生效 | 迁移期要改 6 个读源码的测试 |
 | [0009](ADR-0009-ui-change-strategy.md) | 界面改动先改源码（补丁 + 重建），注入降级为例外并逐个迁出 | 生效 | 每次升上游要重放补丁、重建快照 |
-| [0010](ADR-0010-live-streaming.md) | 真流式：子进程 tap 必须随每个存活子进程注入，帧带 attempt，提交覆盖增量 | 生效 | 私有通道随 DSH 版本漂移，每次升级要复测帧形状 |
-| [0011](ADR-0011-director-contract.md) | 一条对话一条 ACP 会话；身份/指令边界写进子进程配置；剪辑先有分镜再动时间轴 | 生效 | 同项目并发的权限请求只能归到最近发起的那条会话 |
 
 ## 模板
 

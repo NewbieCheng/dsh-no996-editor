@@ -15,7 +15,7 @@
 
 - **不加班配音兼容层**：把工作台已有的音色列表 / 语音合成接到 OpenFilm 官方 Provider 合同上（`added provider` `no996`），**不新造配音服务**。复用 `GET /v1/audio/voices`、`GET /api/v1/models/default-tts`、`POST /api/v1/ai/audio/speech`；登录态走 Host `workbench-auth`。Agent 仍用 `openfilm_get`（`voice` / `tts`），音频落 `assets/audio/vo/`。
 - **音色页**：代理改写 `/api/library/voices`，只展示该账号的复刻音色 + 平台音色。
-- **表面收敛（可逆，未删上游）**：隐藏音色抽屉「服务商」分类与 ElevenLabs 等第三方；Settings → 服务里**保留 OpenFilm、不加班、本地服务**，其余第三方 chips /「还有 N 个」收起；顶栏画布切换暂时隐藏。说明见 [`docs/XXX-no996-surface-and-voice.md`](docs/XXX-no996-surface-and-voice.md)。
+- **表面收敛（可逆，未删上游）**：隐藏音色抽屉「服务商」分类与 ElevenLabs 等第三方；Settings → 服务里**保留 OpenFilm、不加班、本地服务**，其余第三方 chips /「还有 N 个」收起；顶栏画布切换暂时隐藏。说明见 `docs/XXX-no996-surface-and-voice.md`。
 - **待真机**：登录后选音色 → Speak / 对话配音 → 文件进项目素材。
 
 ## 0.15.22 —— 模板提示词可注入；文档砍掉一半
@@ -30,8 +30,8 @@
 
 ## 0.15.21 —— 剪辑导演：一条对话一条会话、身份与指令边界、分镜契约
 
-按 [`docs/topics/agent-plan.md`](docs/topics/agent-plan.md) 落地 P0–P4。三条决定见
-[ADR-0011](docs/decisions/ADR-0011-director-contract.md)。
+按 `docs/topics/agent-plan.md` 落地 P0–P4。三条决定见
+ADR-0011。
 
 **P0 会话与注入（真 bug，不是观感）**
 
@@ -107,7 +107,7 @@
 **同一版顺手修的**：状态行把"思考"也算成在干活，和思考行各画一次「正在思考」，屏幕上出现两行一样的字。
 `StatusLine` 不再统计 `kind:'thought'`（思考自己有行、自己有时钟）。
 
-**发现但未修（写进 [`docs/topics/agent-plan.md`](docs/topics/agent-plan.md) P0）**：
+**发现但未修（写进 `docs/topics/agent-plan.md` P0）**：
 
 - ACP 会话按 `projectId` 唯一，页面的对话 id 与 `resume` 没被 Host 使用 → 同一项目里新建对话会接着旧对话聊（串会话）。
 - ACP 子进程的身份提示词是 `You are a coding agent`，且影片库放在插件仓库内，`dsh-agent-instructions`
@@ -141,7 +141,7 @@ tap 覆盖层塞进了同一个数组**；`ensure()` 在模型覆盖层被拒时
 - 测试：`fake-acp-agent.mjs` 现在会扮演 tap（hello/start/delta/sync/seal），新增
   "live frames keep their attempt identity"（传输）与"a turn reports the live frames it received"
   （服务，含 tap 缺失时的 `acp-stream-silent`）；"模型覆盖层被拒"用例改为断言 tap 仍在。
-- 文档：[`ADR-0010`](docs/decisions/ADR-0010-live-streaming.md)、`ARCHITECTURE.md` §1/§3、`STATUS.md` §2.1/§4。
+- 文档：`ADR-0010`、`ARCHITECTURE.md` §1/§3、`STATUS.md` §2.1/§4。
 
 **未完成**：面板实机验收（用户手动）。判据见 `STATUS.md` §4：`acp-stream-hello` 出现、每轮
 `acp-stream.deltas > 0`、字是连续长出来的。

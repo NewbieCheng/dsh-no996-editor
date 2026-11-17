@@ -30,12 +30,9 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 | 升上游 OpenFilm | [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md) |
 | 发版 | [`playbooks/release.md`](playbooks/release.md) |
 | 排障 | [`playbooks/incident.md`](playbooks/incident.md)（症状 → 根因 → 现在靠什么挡住） |
-| 修「长思考中断 / 只见思考 / 菜单模型≠实跑」 | [`playbooks/turn-interrupt-fix.md`](playbooks/turn-interrupt-fix.md)（证据 → 分阶段修复 → 真机剧本） |
-| XXX 藏服务商/画布 + 接不加班配音 | [`XXX-no996-surface-and-voice.md`](XXX-no996-surface-and-voice.md) |
 | 做画面/动效 | [`MOTION.md`](MOTION.md) + skill `openfilm-motion` |
 | 剪片语法 | skill `openfilm-editing` |
 | 口播转写 | [`TRANSCRIBE.md`](TRANSCRIBE.md) |
-| 对话行为、提示词注入 | [`topics/agent-plan.md`](topics/agent-plan.md) + [ADR-0011](decisions/ADR-0011-director-contract.md) |
 | 品牌/法务 | [`BRAND.md`](BRAND.md) |
 | DSH 外壳改造案例 | [`DSH-SHELL-INTEGRATION.md`](DSH-SHELL-INTEGRATION.md) |
 
