@@ -12,13 +12,14 @@ const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.u
 
 test('the pinned openfilm kernel matches the bundled desktop shell', () => {
   const pkg = read('package.json');
-  const pinned = /^https:\/\/registry\.npmjs\.org\/openfilm\/-\/openfilm-(\d+\.\d+\.\d+)\.tgz$/
+  const pinned = /^(?:https:\/\/registry\.npmjs\.org\/openfilm\/-\/openfilm-(\d+\.\d+\.\d+)\.tgz|(\d+\.\d+\.\d+))$/
     .exec(String(pkg.dependencies.openfilm));
-  assert.ok(pinned, 'dependencies.openfilm must be a pinned npmjs tarball URL');
+  assert.ok(pinned, 'dependencies.openfilm must be a pinned npmjs tarball URL or exact semver');
+  const pinnedVersion = pinned[1] || pinned[2];
   const manifest = read('vendor/official-shell/manifest.json');
-  assert.equal(manifest.version, pinned[1],
+  assert.equal(manifest.version, pinnedVersion,
     'vendor/official-shell was built from a different OpenFilm than package.json pins: '
-    + `kernel ${pinned[1]} vs shell ${manifest.version}. Rebuild the shell (scripts/build-official-shell.mjs) `
+    + `kernel ${pinnedVersion} vs shell ${manifest.version}. Rebuild the shell (scripts/build-official-shell.mjs) `
     + 'or keep the kernel pin where the shell is.');
 });
 

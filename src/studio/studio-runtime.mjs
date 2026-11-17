@@ -5,11 +5,11 @@ import { ensureStudioLibraryMirror } from './studio-library-mirror.mjs';
 const require = createRequire(import.meta.url);
 const dependency = require('../../package.json').dependencies?.openfilm;
 const match = typeof dependency === 'string'
-  ? /^https:\/\/registry\.npmjs\.org\/openfilm\/-\/openfilm-(\d+\.\d+\.\d+)\.tgz$/.exec(dependency)
+  ? /^(?:https:\/\/registry\.npmjs\.org\/openfilm\/-\/openfilm-(\d+\.\d+\.\d+)\.tgz|(\d+\.\d+\.\d+))$/.exec(dependency)
   : null;
-if (!match) throw new Error('OpenFilm dependency must be an exact official npm release URL');
+if (!match) throw new Error('OpenFilm dependency must be an exact official npm release version or URL');
 /** The pinned release is declared once in package.json. */
-export const OPENFILM_VERSION = match[1];
+export const OPENFILM_VERSION = match[1] || match[2];
 const failure = (code, message) => Object.assign(new Error(message), { code });
 
 /**

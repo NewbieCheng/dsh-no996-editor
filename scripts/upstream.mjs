@@ -16,7 +16,8 @@ const SHELL = join(ROOT, 'vendor', 'official-shell');
 const DEFAULT_REPO = 'https://github.com/openfilm/openfilm.git';
 
 export function versionFromTarball(url) {
-  const match = /openfilm-(\d+\.\d+\.\d+)\.tgz/.exec(String(url ?? ''));
+  const str = String(url ?? '').trim();
+  const match = /openfilm-(\d+\.\d+\.\d+)\.tgz/.exec(str) || /^(\d+\.\d+\.\d+)$/.exec(str);
   return match ? match[1] : '';
 }
 

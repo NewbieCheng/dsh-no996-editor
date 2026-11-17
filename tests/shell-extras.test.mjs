@@ -83,7 +83,8 @@ test('About branding lives in SettingsModal (source or patch), not the injection
   const { fileURLToPath } = await import('node:url');
   const root = join(fileURLToPath(new URL('..', import.meta.url)));
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  const pinned = /openfilm-([0-9][0-9.]*)\.tgz/.exec(String(pkg.dependencies.openfilm))[1];
+  const dep = String(pkg.dependencies.openfilm || '');
+  const pinned = (/openfilm-([0-9][0-9.]*)\.tgz/.exec(dep) || /^([0-9]+\.[0-9]+\.[0-9]+)$/.exec(dep))[1];
   const modal = join(root, '.upstream/openfilm/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx');
   const zh = join(root, '.upstream/openfilm/packages/openfilm/studio/ui/src/i18n/zh-CN.ts');
   const text = existsSync(modal) && existsSync(zh)

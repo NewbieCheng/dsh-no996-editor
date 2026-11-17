@@ -2,6 +2,10 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.15.32 —— 修复 DSH `0.2.2-rc.3` 启用 `blockExoticSubdeps` 导致无法安装的问题
+
+- **依赖规范**：将 `dependencies.openfilm` 由完整 tarball URL 改为标准版本 `"0.3.2"`（仍保留在 `bundledDependencies` 中离线随包分发），解决 DSH `0.2.2-rc.3` 下 `pnpm` 开启 `blockExoticSubdeps` 时报 `ERR_PNPM_EXOTIC_SUBDEP` 阻塞更新的问题。
+
 ## 0.15.31 —— 默认 API Key 全能力托管、`no996/auto` 智能识图路由与右侧用户计费首页
 
 - **系统默认 API Key 与 Host 托管**：登录/注册及发送首条消息时由 Host 自动签发并持久化系统默认 `sk-no996-` 密钥（权限 `0600`、不泄露明文至渲染层），支持通过右侧面板一键探活与安全轮换。
