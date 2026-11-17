@@ -976,24 +976,48 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     startRetry();
   };
 
-  const COLLAPSE_INIT_KEY = 'no996.openfilm.workspaceCollapsedInit';
-  const collapseFilmWorkspaceOnce = () => {
+  const hiddenSessionIds = new Set();
+  let hiddenSeeded = false;
+  const syncHiddenIds = data => {
+    if (!data || !Array.isArray(data.hiddenSessionIds)) return;
+    hiddenSessionIds.clear();
+    for (const id of data.hiddenSessionIds) {
+      if (typeof id === 'string' && id) hiddenSessionIds.add(id);
+    }
+  };
+  const hideFilmSessionsInWorkspaces = () => {
     try {
-      if (doc.defaultView?.localStorage?.getItem(COLLAPSE_INIT_KEY) === '1') return;
-      const rows = doc.querySelectorAll('button[aria-expanded="true"], [role="button"][aria-expanded="true"]');
-      for (const row of rows) {
-        const label = (row.textContent || '').trim();
+      if (!hiddenSeeded && typeof fetchSessions === 'function') {
+        hiddenSeeded = true;
+        void Promise.resolve(fetchSessions()).then(data => {
+          syncHiddenIds(data);
+          hideFilmSessionsInWorkspaces();
+        }).catch(() => {});
+      }
+      // Hide dedicated film workspace folder(s) from the general Workspaces view
+      const folderButtons = doc.querySelectorAll('button[aria-expanded], [role="button"][aria-expanded]');
+      for (const btn of folderButtons) {
+        const label = (btn.textContent || '').trim();
         if (label === 'Projects' || label === 'OpenFilm') {
-          row.click();
-          doc.defaultView?.localStorage?.setItem(COLLAPSE_INIT_KEY, '1');
-          return;
+          const group = btn.closest('[data-workspace-id], section, li, div');
+          const target = group && group !== doc.body ? group : btn;
+          if (target.style.display !== 'none') target.style.display = 'none';
         }
+      }
+      if (hiddenSessionIds.size === 0) return;
+      const links = doc.querySelectorAll('a[href*="/sessions/"], [data-session-id]');
+      for (const el of links) {
+        const sid = el.getAttribute?.('data-session-id')
+          || (/\/sessions\/([A-Za-z0-9_-]+)/.exec(el.getAttribute?.('href') || '')?.[1] ?? '');
+        if (!sid || !hiddenSessionIds.has(sid)) continue;
+        const row = el.closest('li, [role="listitem"]') ?? el;
+        if (row && row.style.display !== 'none') row.style.display = 'none';
       }
     } catch { /* ignore */ }
   };
 
   const mount = () => {
-    collapseFilmWorkspaceOnce();
+    hideFilmSessionsInWorkspaces();
     const found = findHeader(doc);
     if (!found) { noteLoss('no-header'); return; }
     if (lostReason) {

@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。114 个模块、16698 行。
+> 生成命令：`npm run docs:gen`。114 个模块、16740 行。
 > 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 0 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -16,7 +16,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
 | `src/studio/studio-controller.mjs` | 1232 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
-| `src/ui/sidebar-editing.mjs` | 1081 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
+| `src/ui/sidebar-editing.mjs` | 1105 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
 | `src/studio/studio-proxy.mjs` | 873 | startStudioProxy | `proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
 | `src/native/dsh-native-agent-service.mjs` | 716 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
 | `src/official/official-facade.mjs` | 559 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
@@ -24,8 +24,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-panel.mjs` | 367 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
 | `src/voice/voice-bridge.mjs` | 351 | VOICE_BRIDGE, createVoiceBridge, installVoiceBridgeGlobal | `voice-bridge.test.mjs` |
 | `src/tools/tool-installer.mjs` | 296 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
+| `src/studio/studio-controller/routes/editing.mjs` | 276 | createEditingRoutes | `editing-routes.test.mjs` |
 | `src/host/preferences.mjs` | 263 | balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch, createPreferencesStore, onboardingCopy, productMeta | `preferences-custom.test.mjs`、`preferences.test.mjs` |
-| `src/studio/studio-controller/routes/editing.mjs` | 258 | createEditingRoutes | `editing-routes.test.mjs` |
 | `src/asr/transcribe-service.mjs` | 255 | CACHE_VERSION, createTranscribeService, fingerprint | **无** |
 | `src/official/official-permission.mjs` | 237 | FULL_ACCESS, PROJECT_PERMISSIONS_DOMAIN, WORKSPACE_WRITE, openProjectPermissions | `official-permission.test.mjs` |
 | `src/studio/studio-entry.js` | 224 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |

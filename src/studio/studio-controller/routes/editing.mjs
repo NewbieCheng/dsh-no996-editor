@@ -104,7 +104,25 @@ export function createEditingRoutes({
             || String(right.updatedAt).localeCompare(String(left.updatedAt)));
           item.sessions = sessions;
         }
-        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ projects: items }));
+        const hidden = new Set(acpSessions.all().map(r => r.sessionId).filter(Boolean));
+        for (const item of items) {
+          if (item.sessionId) hidden.add(item.sessionId);
+          for (const s of item.sessions ?? []) {
+            if (s?.sessionId) hidden.add(s.sessionId);
+          }
+        }
+        try {
+          if (typeof ctx.sessionController?.list === 'function') {
+            const listed = await ctx.sessionController.list({}, AbortSignal.timeout(1000));
+            const rows = Array.isArray(listed?.sessions) ? listed.sessions : (Array.isArray(listed) ? listed : []);
+            for (const row of rows) {
+              if (row?.agentPreset === 'openfilm-video-editing' && typeof row.id === 'string' && row.id) {
+                hidden.add(row.id);
+              }
+            }
+          }
+        } catch { /* best-effort preset scan */ }
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ projects: items, hiddenSessionIds: [...hidden] }));
       } catch {
         res.writeHead(503).end('EDITING_SESSIONS_UNAVAILABLE');
       }
