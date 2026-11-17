@@ -45,10 +45,13 @@ test('the agent manual has a size budget', () => {
 
 test('nested markdown files are scanned', () => {
   const root = temp();
-  mkdirSync(join(root, 'docs'));
-  writeFileSync(join(root, 'docs', 'x.md'), '[dead](gone.md)');
+  mkdirSync(join(root, 'docs', 'playbooks', 'archive'), { recursive: true });
+  mkdirSync(join(root, 'skills', 'example', 'references'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'playbooks', 'archive', 'x.md'), '[dead](gone.md)');
+  writeFileSync(join(root, 'skills', 'example', 'references', 'y.md'), '[dead](gone.md)');
   assert.ok(markdownFiles(root).some((file) => file.endsWith('x.md')));
-  assert.equal(checkDocs({ root, agentsLimit: 1024 }).problems.length, 1);
+  assert.ok(markdownFiles(root).some((file) => file.endsWith('y.md')));
+  assert.equal(checkDocs({ root, agentsLimit: 1024 }).problems.length, 2);
 });
 
 test('the repository brand passes its own check', () => {
@@ -133,6 +136,13 @@ test('checked older than package.json warns, and three minors behind fails', () 
 
   const far = metaRoot({ version: '0.15.1', docs: { 'x.md': GOOD_HEADER.replace('checked: 0.15.1', 'checked: 0.11.0') + '# ok\n' } });
   assert.ok(checkDocs({ root: far, agentsLimit: 1024, strictMeta: true }).problems.some((line) => line.includes('minors behind')));
+});
+
+test('an explicitly historical archive retains its historical status', () => {
+  const dir = metaRoot({ docs: { 'archive.md': GOOD_HEADER.replace('checked: 0.15.1', 'checked: historical') + '# archive\n' } });
+  const result = checkDocs({ root: dir, agentsLimit: 1024, strictMeta: true });
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(result.warnings, []);
 });
 
 test('generated reference pages match the tree', async () => {

@@ -2,10 +2,13 @@ import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const outputIndex = process.argv.indexOf('--outfile');
+if (outputIndex !== -1 && !process.argv[outputIndex + 1]) throw new Error('--outfile needs a path');
+const outfile = outputIndex === -1 ? 'client.js' : process.argv[outputIndex + 1];
 await build({
   absWorkingDir: root,
   entryPoints: ['src/studio/studio-entry.js'],
-  outfile: 'client.js',
+  outfile,
   bundle: true,
   format: 'iife',
   platform: 'browser',

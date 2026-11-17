@@ -24,8 +24,9 @@ test('the npm package whitelist does not ship films', () => {
   assert.equal(files.some(entry => entry === 'films' || entry.startsWith('films/')), false);
 });
 
-test('the storage reference explains where the library lives', () => {
+test('the storage reference protects user projects without assuming one library path', () => {
   const storage = read('docs/reference/storage.md');
-  assert.match(storage, /films\/Projects/);
-  assert.match(storage, /studio\.json/);
+  assert.match(storage, /用户数据/);
+  assert.match(storage, /不要移动、删除或迁移/);
+  assert.match(storage, /项目默认位置和已有项目位置可能不同/);
 });

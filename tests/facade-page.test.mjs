@@ -27,6 +27,9 @@ function createPage() {
     if (channel === 'agent:thinking') {
       return { id: 'thinking', name: 'Thinking', currentValue: 'high', options: [{ value: 'off', name: 'Off' }, { value: 'high', name: 'High' }] };
     }
+    if (channel === 'agent:attach') {
+      return { ok: true, sessionId: 'session-1', resumed: true, key: payload.key, usage: { used: 4096, size: 128000 } };
+    }
     if (channel === 'agent:session') return { ok: true, sessionId: 'session-1', resumed: true };
     if (channel === 'agent:permission') {
       return { available: true, decided: true, remembered: 'danger-full-access', current: 'danger-full-access', names: [], fullAccess: 'danger-full-access', workspace: 'workspace-write' };
@@ -82,9 +85,13 @@ function createPage() {
 
 test('the injected page code builds the three menu rows from the RPC layer', async () => {
   const page = createPage();
-  const probed = await page.native.localAgents.probe();
+  const probed = await page.native.localAgents.probe('deepseek', 'preview-model-val');
   assert.equal(probed.ok, true);
   assert.deepEqual(plain(probed.info.configOptions.map(option => option.id)), ['model', 'thinking', 'permission']);
+  const probeModels = page.calls.find(call => call.channel === 'agent:models');
+  const probeThinking = page.calls.find(call => call.channel === 'agent:thinking');
+  assert.equal(probeModels?.payload?.model, 'preview-model-val');
+  assert.equal(probeThinking?.payload?.model, 'preview-model-val');
   const permission = probed.info.configOptions.at(-1);
   assert.equal(permission.currentValue, 'danger-full-access');
   assert.deepEqual(plain(permission.options.map(option => option.value)), ['danger-full-access', 'workspace-write']);
@@ -93,15 +100,30 @@ test('the injected page code builds the three menu rows from the RPC layer', asy
   assert.equal(started.ok, true);
   assert.ok(started.key.startsWith('dsh-'));
   assert.deepEqual(plain(started.info.configOptions.map(option => option.id)), ['model', 'thinking', 'permission']);
+  assert.deepEqual(plain(started.info.usage), { used: 4096, size: 128000 });
+  assert.ok(page.events.some(e => e.kind === 'update' && e.update?.sessionUpdate === 'usage_update' && e.update?.used === 4096));
   // The Host said this conversation continues: the shell must not show its
   // "could not open the previous session" hand-over.
   assert.equal(started.info.resumed, true);
   assert.ok(String(started.info.sessionId).startsWith('dsh-'), 'a fresh conversation gets a new id');
+  const attach = page.calls.find(call => call.channel === 'agent:attach');
+  assert.ok(attach, 'start must attach the page key before menus');
+  assert.equal(attach.payload.key, started.key);
 
   // A reload asks to resume the conversation it already knows; the answer must
   // carry that same id, or the shell reports a failed resume every time.
   const reopened = await page.native.localAgents.start('deepseek', 'C:\\fake', 'conversation-1', { projectId: PROJECT });
   assert.equal(reopened.info.sessionId, 'conversation-1');
+});
+
+test('setOption returns refreshed configOptions so thinking tiers follow the model', async () => {
+  const page = createPage();
+  const started = await page.native.localAgents.start('deepseek', 'C:\\fake', null, { projectId: PROJECT });
+  const modelValue = started.info.configOptions[0].options[1].value;
+  const result = plain(await page.native.localAgents.setOption(started.key, 'model', modelValue));
+  assert.equal(result.ok, true);
+  assert.ok(Array.isArray(result.result?.configOptions));
+  assert.deepEqual(result.result.configOptions.map(option => option.id), ['model', 'thinking', 'permission']);
 });
 
 test('the page sends a turn, forwards the chosen options and finishes on the terminal event', async () => {
@@ -127,7 +149,8 @@ test('the page sends a turn, forwards the chosen options and finishes on the ter
 
   const updates = page.events.filter(event => event.kind === 'update');
   const done = page.events.find(event => event.kind === 'done');
-  assert.equal(updates.length, 1);
+  assert.equal(updates.filter(event => event.update?.sessionUpdate === 'agent_message_chunk').length, 1);
+  assert.equal(updates.filter(event => event.update?.sessionUpdate === 'usage_update').length, 1);
   assert.equal(done.turnId, 'turn-1');
   assert.equal(done.ok, true);
 });

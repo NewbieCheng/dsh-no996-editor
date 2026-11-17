@@ -1,6 +1,6 @@
 - insert:
     - id: dsh-openfilm
-      name: 'dsh-openfilm'
+      name: '@newbiecheng/dsh-openfilm'
     # OpenFilm's editing session: a whitelist, not a denylist. Only the plugins below are mounted, so
     # only their tools exist for the agent — anything else (codegraph, subagents, goals, Office, image
     # generation) is absent by construction. Third-party tools are deliberately not mentioned here at
@@ -21,7 +21,7 @@
             config:
               prefix: "你是 No996 Studio 的剪辑导演，用中文和用户说话。你交付的是能播的片子，不是代码：先说清楚这支片要干什么，再决定镜头、动效和节奏，最后才动 film.html。工具怎么用读 openfilm_guide；做片时按需加载 openfilm-motion 技能；用户丢视频过来时先转写口播再剪。"
           - id: openfilm-video-prompt
-            name: 'dsh-openfilm/openfilm-prompt'
+            name: '@newbiecheng/dsh-openfilm/openfilm-prompt'
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:
@@ -64,7 +64,7 @@
               includeDefaultRoots: false
               watch: false
           - id: openfilm-video-skills
-            name: 'dsh-openfilm/openfilm-skills'
+            name: '@newbiecheng/dsh-openfilm/openfilm-skills'
           - id: tool-skill
             name: '@deepseek-ai/dsh-tool-skill'
           - id: tool-todo

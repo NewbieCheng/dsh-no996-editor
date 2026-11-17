@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..7d337af 100644
+index 0ef8753..12b2496 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -322,7 +322,118 @@ index 0ef8753..7d337af 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -649,6 +849,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -543,9 +743,13 @@ interface LiveSession {
+   /** the project and the conversation it is the session of */
+   projectId: string;
+   conversation: string;
++  /** attachLocalAgentSession opened a fresh session when a resume failed; carry history on first send */
++  needsHistoryCarryOver?: boolean;
+ }
+ 
+ const sessions = new Map<string, LiveSession>();
++const attaching = new Map<string, Promise<LiveSession | null>>();
++const lastAttachedSessionKey = new Map<LocalAgentId, string>();
+ 
+ /**
+  * Forget this agent's sessions here (the shell closes its side): the next turn starts a new one, signed
+@@ -553,6 +757,96 @@ const sessions = new Map<string, LiveSession>();
+  */
+ export function forgetLocalAgentSessions(agent: LocalAgentId): void {
+   for (const [k, s] of sessions) if (s.agent === agent) sessions.delete(k);
++  attaching.clear();
++  lastAttachedSessionKey.delete(agent);
++}
++
++/**
++ * dsh-openfilm: bind the page key and read context usage + configOptions when a
++ * conversation is opened or switched — without waiting for the first prompt.
++ */
++export async function attachLocalAgentSession({
++  projectId,
++  conversation,
++  resume = null,
++  agent,
++  cwd,
++  meta,
++  onOptions,
++}: {
++  projectId: string;
++  conversation: string;
++  resume?: string | null;
++  agent: LocalAgentId;
++  cwd: string;
++  meta?: Record<string, unknown>;
++  onOptions?: (options: LocalAgentSessionInfo['configOptions']) => void;
++}): Promise<LocalAgentSessionInfo | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge) return null;
++  listen();
++  const sessionKey = `${projectId}:${conversation}:${agent}`;
++  lastAttachedSessionKey.set(agent, sessionKey);
++  const existing = sessions.get(sessionKey);
++  if (existing && existing.cwd === cwd) {
++    if (onOptions && existing.info.configOptions) onOptions(existing.info.configOptions);
++    tellContext();
++    return existing.info;
++  }
++  let pending = attaching.get(sessionKey);
++  if (!pending) {
++    pending = (async () => {
++      const started = await bridge.start(agent, cwd, resume, meta as LocalAgentTurnMeta | undefined);
++      if (!started.ok) return null;
++      const session: LiveSession = {
++        key: started.key,
++        agent,
++        cwd,
++        info: started.info,
++        projectId,
++        conversation,
++        needsHistoryCarryOver: Boolean(resume && (!started.info.resumed || started.info.sessionId !== resume)),
++      };
++      sessions.set(sessionKey, session);
++      const initialUsage = (started.info as LocalAgentSessionInfo & { usage?: { used?: unknown; size?: unknown } }).usage;
++      if (initialUsage && typeof initialUsage.used === 'number' && typeof initialUsage.size === 'number' && initialUsage.size > 0) {
++        contextByKey.set(started.key, { used: initialUsage.used, size: initialUsage.size });
++      }
++      tellContext();
++      return session;
++    })().finally(() => {
++      if (attaching.get(sessionKey) === pending) attaching.delete(sessionKey);
++    });
++    attaching.set(sessionKey, pending);
++  }
++  const session = await pending;
++  if (!session) return null;
++  onOptions?.(session.info.configOptions);
++  return session.info;
++}
++
++/**
++ * dsh-openfilm: push a model/thinking/permission selection straight to the
++ * currently attached live session so changes apply before a turn is sent.
++ */
++export async function applyLiveSessionOption(
++  agent: LocalAgentId,
++  configId: string,
++  value: unknown,
++): Promise<LocalAgentSessionInfo['configOptions'] | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge?.setOption) return null;
++  const preferredKey = lastAttachedSessionKey.get(agent);
++  const target = (preferredKey ? sessions.get(preferredKey) : undefined)
++    ?? [...sessions.values()].reverse().find((s) => s.agent === agent);
++  if (!target) return null;
++  const res = await bridge.setOption(target.key, configId, value).catch(() => null);
++  const updated = res?.ok ? res.result?.configOptions : undefined;
++  if (Array.isArray(updated) && updated.length) {
++    target.info.configOptions = updated;
++    return updated;
++  }
++  return null;
+ }
+ /* ── how full the agent's context is (ACP usage_update): tokens in the conversation now, of its context window, as
+    the agent's own chat shows it. By session: each conversation has its own. ── */
+@@ -649,6 +943,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -330,3 +441,38 @@ index 0ef8753..7d337af 100644
    else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
    else if (event.kind === 'permission') {
      const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
+@@ -807,6 +1102,9 @@ export async function runLocalAgentTurn({
+   if (onStarted) startedHooks.set(turn, onStarted);
+ 
+   const sessionKey = `${projectId}:${conversation}:${agent}`;
++  lastAttachedSessionKey.set(agent, sessionKey);
++  const inflightAttach = attaching.get(sessionKey);
++  if (inflightAttach) await inflightAttach.catch(() => null);
+   let session = sessions.get(sessionKey);
+   if (!session || session.cwd !== cwd) {
+     const started = await bridge.start(agent, cwd, resume, meta);
+@@ -815,6 +1113,10 @@ export async function runLocalAgentTurn({
+     }
+     session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
+     sessions.set(sessionKey, session);
++    const initialUsage = (started.info as LocalAgentSessionInfo & { usage?: { used?: unknown; size?: unknown } }).usage;
++    if (initialUsage && typeof initialUsage.used === 'number' && typeof initialUsage.size === 'number' && initialUsage.size > 0) {
++      contextByKey.set(started.key, { used: initialUsage.used, size: initialUsage.size });
++    }
+     tellContext();
+     onSessionInfo?.(started.info);
+     /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
+@@ -822,6 +1124,13 @@ export async function runLocalAgentTurn({
+       text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
+       turn.notice('agent.sessionNotResumed');
+     }
++  } else {
++    onSessionInfo?.(session.info);
++    if (session.needsHistoryCarryOver) {
++      session.needsHistoryCarryOver = false;
++      text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
++      turn.notice('agent.sessionNotResumed');
++    }
+   }
+   /* a turn the agent was working on by itself ends as the person writes */
+   endUnprompted(session.key);

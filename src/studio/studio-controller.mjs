@@ -15,7 +15,7 @@ import { augmentPath } from '../host/download-sources.mjs';
 import { applyStudioLibraryPatch } from './studio-library-patch.mjs';
 import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 
@@ -29,7 +29,7 @@ const templatesRoot = fileURLToPath(new URL('../../vendor/templates/', import.me
 
 /** The ACP path is the default; an explicit 0 is the escape hatch. */
 /** Page events the Host will record; anything else is refused. */
-const CLIENT_EVENTS = new Set(['recovery-shown', 'restart-click', 'picker-placed', 'session-expired', 'permission-shown', 'permission-chosen', 'switch-lost', 'switch-remounted']);
+const CLIENT_EVENTS = new Set(['recovery-shown', 'restart-click', 'picker-placed', 'session-expired', 'permission-shown', 'permission-chosen', 'switch-lost', 'switch-remounted', 'agent-attach-failed']);
 import { redeemStudioSession, startStudioDebug } from './studio-debug.mjs';
 import { startLocalConsole } from './studio-debug-redirect.mjs';
 import { createDshAskAgent } from '../host/dsh-ai.mjs';
@@ -1223,6 +1223,8 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     closingDebug?.then(bridge => bridge.close()).catch(() => {});
     try { eventHub.close(); } catch { /* already closed */ }
     try { bridgeTrace.close(); } catch { /* already closed */ }
+    const perm = await permissionsPromise?.catch?.(() => undefined);
+    try { await perm?.close?.(); } catch { /* already closed */ }
     const chat = await officialStorePromise?.catch(() => undefined);
     try { await chat?.close(); }
     finally { await runtime.close(); }

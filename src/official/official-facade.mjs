@@ -59,7 +59,8 @@ function officialFacadeFactory(bridge) {
       currentValue: current,
       options,
     };
-  };  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear']);
+  };
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -140,6 +141,7 @@ function officialFacadeFactory(bridge) {
   // is per chat: the Host keeps one ACP Session per conversation, so every call must
   // name which one it means (otherwise a new chat continues the previous one).
   const agentKeys = new Map();
+  const activeConversationByProject = new Map();
   const scopeOf = (key) => {
     const value = agentKeys.get(key);
     if (!value) return undefined;
@@ -218,21 +220,23 @@ function officialFacadeFactory(bridge) {
     ...methods('localAgents', ['signIn', 'disconnect', 'probe', 'running', 'ack', 'steer', 'adopt', 'cancel', 'setOption', 'answerPermission', 'answerQuestion', 'close']),
     list: async () => [],
     ack: async () => ({ ok: true }),
-    probe: async () => {
+    probe: async (_agent, model) => {
       // The model menu calls probe() and reads `info.configOptions`; returning a
       // bare {ok} crashed it with "cannot read properties of undefined".
       const info = { sessionId: 'probe', agentInfo: { name: 'DeepSeek Harness' }, authMethods: [], mcp: false, models: null, modes: null, configOptions: [] };
       const match = /^\/projects\/([A-Za-z0-9_-]{6,40})\/?$/.exec(globalThis.location?.pathname || '');
       if (match) {
+        const conversation = activeConversationByProject.get(match[1]) || '';
+        const modelArg = typeof model === 'string' && model ? { model } : {};
         try {
-          const option = await rpc('agent:models', { projectId: match[1], conversation: '' });
+          const option = await rpc('agent:models', { projectId: match[1], conversation, ...modelArg });
           if (option && option.id === 'model' && Array.isArray(option.options)) info.configOptions = [option];
         } catch { /* keep the empty list */ }
         // The thinking menu is a second select option; a model with no declared
         // efforts omits it rather than showing a dead control.
         try {
-          const thinking = await rpc('agent:thinking', { projectId: match[1], conversation: '' });
-          if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options) && thinking.options.length > 1) {
+          const thinking = await rpc('agent:thinking', { projectId: match[1], conversation, ...modelArg });
+          if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options) && thinking.options.length > 0) {
             info.configOptions = [...info.configOptions, thinking];
           }
         } catch { /* keep the model option alone */ }
@@ -268,6 +272,27 @@ function officialFacadeFactory(bridge) {
       // ask about this conversation's Session rather than the project's default.
       const conversationId = typeof resume === 'string' && resume ? resume : key;
       agentKeys.set(key, { projectId: id, conversation: conversationId });
+      activeConversationByProject.set(id, conversationId);
+      // Open the EventSource before attach so a replayed usage_update has a live
+      // SSE client; otherwise the ring stays at 0% until the first prompt.
+      try { await ensureAgentSource(id); } catch { /* prompt will retry */ }
+      // Bind the page key and push context usage before the menus are read.
+      // Failures used to be swallowed — then usage stayed at 0% with no log line.
+      let attachedUsage = null;
+      try {
+        const attachResult = await rpc('agent:attach', { projectId: id, conversation: conversationId, key });
+        if (attachResult?.usage && typeof attachResult.usage.used === 'number' && typeof attachResult.usage.size === 'number' && attachResult.usage.size > 0) {
+          attachedUsage = { used: attachResult.usage.used, size: attachResult.usage.size };
+          emitAgent({ key, kind: 'update', update: { sessionUpdate: 'usage_update', used: attachedUsage.used, size: attachedUsage.size } });
+        }
+      } catch (error) {
+        try {
+          void rpc('client:log', {
+            event: 'agent-attach-failed',
+            detail: String((error && error.message) || error).slice(0, 180),
+          });
+        } catch { /* diagnostic only */ }
+      }
       // The composer's model menu reads ACP config options, so publish the Host
       // catalog here; a missing catalog leaves the menu empty instead of broken.
       // Thinking intensity rides along: without it the menu shows its built-in
@@ -279,7 +304,7 @@ function officialFacadeFactory(bridge) {
       } catch { configOptions = []; }
       try {
         const thinking = await rpc('agent:thinking', { projectId: id, conversation: conversationId });
-        if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options)) configOptions = [...configOptions, thinking];
+        if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options) && thinking.options.length > 0) configOptions = [...configOptions, thinking];
       } catch { /* the model row alone still works */ }
       try {
         const permission = permissionOption(await rpc('agent:permission', { projectId: id }));
@@ -310,6 +335,7 @@ function officialFacadeFactory(bridge) {
         info: {
           sessionId: conversationId,
           resumed,
+          ...(attachedUsage ? { usage: attachedUsage } : {}),
           ...(appliedModel ? { appliedModel } : {}),
           ...(modelFallback ? { modelFallback } : {}),
           agentInfo: { name: 'DeepSeek Harness' },
@@ -336,16 +362,42 @@ function officialFacadeFactory(bridge) {
       const scope = scopeOf(key);
       if (!scope) throw unavailable('localAgents.setOption');
       if (typeof value !== 'string') throw unavailable('localAgents.setOption');
-      if (optionId === 'model') return await rpc('agent:select-model', { projectId: scope.projectId, conversation: scope.conversation, value });
+      const refreshMenu = async () => {
+        const configOptions = [];
+        try {
+          const option = await rpc('agent:models', { projectId: scope.projectId, conversation: scope.conversation });
+          if (option && option.id === 'model' && Array.isArray(option.options)) configOptions.push(option);
+        } catch { /* keep whatever we have */ }
+        try {
+          const thinking = await rpc('agent:thinking', { projectId: scope.projectId, conversation: scope.conversation });
+          if (thinking && thinking.id === 'thinking' && Array.isArray(thinking.options) && thinking.options.length > 0) {
+            configOptions.push(thinking);
+          }
+        } catch { /* model row alone still works */ }
+        try {
+          const permission = permissionOption(await rpc('agent:permission', { projectId: scope.projectId }));
+          if (permission) configOptions.push(permission);
+        } catch { /* keep other rows */ }
+        return configOptions;
+      };
+      if (optionId === 'model') {
+        await rpc('agent:select-model', { projectId: scope.projectId, conversation: scope.conversation, value });
+        // Shell replaces configOptions from result when present — required so the
+        // thought_level row switches to the new model's real effort list.
+        return { ok: true, result: { configOptions: await refreshMenu() } };
+      }
       // Thinking intensity travels as its own option: the Host applies it through
       // the model selection, so the two can never disagree.
-      if (optionId === 'thinking') return await rpc('agent:select-thinking', { projectId: scope.projectId, conversation: scope.conversation, value });
+      if (optionId === 'thinking') {
+        await rpc('agent:select-thinking', { projectId: scope.projectId, conversation: scope.conversation, value });
+        return { ok: true, result: { configOptions: await refreshMenu() } };
+      }
       // The permission row in the same menu sets the preset the tools run under:
       // it replaces the floating chip that used to cover the timeline.
       if (optionId === 'permission') {
         const result = await rpc('agent:permission-set', { projectId: scope.projectId, preset: value });
         if (!result || result.ok !== true) throw new Error('没有应用成功，可重试或在 DSH 里改权限');
-        return result;
+        return { ok: true, result: { configOptions: await refreshMenu() } };
       }
       throw unavailable('localAgents.setOption');
     },

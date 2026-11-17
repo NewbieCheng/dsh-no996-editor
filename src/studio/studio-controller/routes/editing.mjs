@@ -105,12 +105,36 @@ export function createEditingRoutes({
           item.sessions = sessions;
         }
         const hidden = new Set(acpSessions.all().map(r => r.sessionId).filter(Boolean));
+        const projectPaths = new Set(
+          items
+            .map(item => String(item.path || '').replace(/[\\/]+$/, '').toLowerCase())
+            .filter(Boolean),
+        );
         for (const item of items) {
           if (item.sessionId) hidden.add(item.sessionId);
           for (const s of item.sessions ?? []) {
             if (s?.sessionId) hidden.add(s.sessionId);
           }
         }
+        const hiddenWorkspaces = new Set();
+        const hiddenFolders = new Set(['Projects', 'OpenFilm']);
+        try {
+          const registry = typeof ctx.get === 'function' ? ctx.get('workspaceRegistry') : undefined;
+          if (registry && typeof registry.list === 'function') {
+            const listed = await registry.list();
+            const rows = Array.isArray(listed) ? listed : (Array.isArray(listed?.workspaces) ? listed.workspaces : []);
+            for (const row of rows) {
+              const rawPath = row?.path ?? row?.root ?? row?.cwd ?? row?.workspace?.path ?? '';
+              const norm = String(rawPath).replace(/[\\/]+$/, '').toLowerCase();
+              const isFilmFolder = norm && (projectPaths.has(norm) || /[\\/]openfilm[\\/]projects$/i.test(norm));
+              if (!isFilmFolder) continue;
+              const wid = row?.id ?? row?.workspaceId ?? row?.workspace?.id;
+              if (typeof wid === 'string' && wid) hiddenWorkspaces.add(wid);
+              const wtitle = row?.title ?? row?.name ?? row?.workspace?.title ?? row?.workspace?.name ?? basename(String(rawPath));
+              if (typeof wtitle === 'string' && wtitle.trim()) hiddenFolders.add(wtitle.trim());
+            }
+          }
+        } catch { /* best-effort workspace scan */ }
         try {
           if (typeof ctx.sessionController?.list === 'function') {
             const listed = await ctx.sessionController.list({}, AbortSignal.timeout(1000));
@@ -122,7 +146,12 @@ export function createEditingRoutes({
             }
           }
         } catch { /* best-effort preset scan */ }
-        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ projects: items, hiddenSessionIds: [...hidden] }));
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({
+          projects: items,
+          hiddenSessionIds: [...hidden],
+          hiddenWorkspaceIds: [...hiddenWorkspaces],
+          hiddenFolderNames: [...hiddenFolders],
+        }));
       } catch {
         res.writeHead(503).end('EDITING_SESSIONS_UNAVAILABLE');
       }
@@ -212,30 +241,47 @@ export function createEditingRoutes({
       const projectId = typeof body.projectId === 'string' ? body.projectId : '';
       if (!/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) { res.writeHead(400).end('BAD_PROJECT'); return; }
       try { await verifyOfficialProject(projectId); } catch { res.writeHead(404).end('UNKNOWN_PROJECT'); return; }
-      const record = acpSessions.get(projectId);
       const one = typeof body.sessionId === 'string' && /^[A-Za-z0-9_-]{6,60}$/.test(body.sessionId) ? body.sessionId : null;
-      // A conversation row deletes one Studio chat session (and unbinds the ACP
-      // Session only when it is that same conversation). The folder row deletes
-      // every conversation of the project; the project folder and film stay.
+      // A conversation row deletes one Studio chat session (and unbinds the DSH
+      // Session for that conversation). The folder row deletes every conversation
+      // of the project; the project folder and film stay.
       try { await getAcpAgentService()?.reset?.(projectId); } catch { /* the binding still goes */ }
       let remaining = 0;
+      let deletedConversationKey = one;
       try {
         const store = await officialStore();
         const data = await store.load(projectId);
-        const sessions = Array.isArray(data?.sessions)
-          ? data.sessions.filter(item => (one === null ? false : item?.id !== one))
-          : [];
+        const rawSessions = Array.isArray(data?.sessions) ? data.sessions : [];
+        if (one !== null) {
+          const hit = rawSessions.find(item => item?.id === one);
+          const mapped = hit?.agentSessions?.deepseek;
+          if (typeof mapped === 'string' && mapped) deletedConversationKey = mapped;
+        }
+        const sessions = rawSessions.filter(item => (one === null ? false : item?.id !== one));
         remaining = sessions.length;
         const last = (one === null || data?.last === one) ? (sessions[0]?.id ?? null) : (data?.last ?? null);
         if (Number.isSafeInteger(data?.revision)) await store.saveSessions(projectId, { sessions, last, expectedRevision: data.revision });
       } catch { /* a stale transcript is cosmetic; the binding still goes */ }
-      if (one === null || !record || record.sessionId === one) acpSessions.remove(projectId);
-      if (record && typeof record.sessionId === 'string' && (one === null || record.sessionId === one)) {
-        // Archive the DSH Session rather than deleting its files: DSH keeps its
-        // own index, and an archived Session is recoverable.
+      const archiveSessionId = async sid => {
+        if (!sid) return;
         try {
-          if (archive.available && archive.isArchived(record.sessionId) !== true) await archive.archive(record.sessionId, { stopActivity: true });
+          if (archive.available && archive.isArchived(sid) !== true) await archive.archive(sid, { stopActivity: true });
         } catch { /* best effort */ }
+      };
+      if (one === null) {
+        const boundRows = acpSessions.all().filter(r => r.projectId === projectId);
+        acpSessions.remove(projectId);
+        for (const row of boundRows) await archiveSessionId(row.sessionId);
+      } else {
+        const targetRecord = (typeof acpSessions.getSession === 'function'
+          ? (acpSessions.getSession(projectId, deletedConversationKey) ?? (deletedConversationKey !== one ? acpSessions.getSession(projectId, one) : undefined))
+          : undefined) ?? (acpSessions.get(projectId)?.sessionId === one ? acpSessions.get(projectId) : undefined);
+        if (typeof acpSessions.removeSession === 'function') {
+          acpSessions.removeSession(projectId, deletedConversationKey);
+          if (deletedConversationKey !== one) acpSessions.removeSession(projectId, one);
+        }
+        if (acpSessions.get(projectId)?.sessionId === one) acpSessions.remove(projectId);
+        await archiveSessionId(targetRecord?.sessionId);
       }
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, remaining }));
     },

@@ -129,6 +129,19 @@ function createFakeCtx() {
   return {
     ctx: {
       sessionController,
+      llm: {
+        async resolveModelInfo(provider, model) {
+          const catalog = await sessionController.modelCatalog();
+          const group = catalog.groups.find(g => g.id === provider);
+          const hit = group?.models.find(m => m.id === model);
+          return {
+            id: model,
+            name: hit?.name ?? model,
+            context: { contextWindow: 128000 },
+            ...(hit?.reasoning ? { reasoning: hit.reasoning } : {}),
+          };
+        },
+      },
       on(event, fn) {
         const set = listeners.get(event) ?? new Set();
         set.add(fn);
@@ -230,6 +243,177 @@ test('native agent resumes existing sessionId from store when projections finds 
     const state = service.sessionState(project.projectId, '');
     assert.equal(state?.sessionId, seeded.sessionId);
     assert.equal(state?.resumed, true);
+  } finally {
+    await service.close();
+  }
+});
+
+test('attach binds page key and pushes usage before any prompt', async () => {
+  const project = makeProject();
+  const { ctx } = createFakeCtx();
+  const store = createDshSessionStore();
+  const events = [];
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async () => project,
+    store,
+    emit: async (projectId, event) => { events.push({ projectId, event }); return true; },
+    defaultSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'medium' }),
+  });
+
+  try {
+    const attached = await service.attach(project.projectId, 'conv-new', { key: 'dsh-page-key' });
+    assert.equal(attached.ok, true);
+    assert.equal(attached.key, 'dsh-page-key');
+    assert.ok(attached.usage?.size > 0, 'usage size must be known without a prompt');
+    // Give follow() a tick to also emit its snapshot.
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const usage = events.filter(e => e.event.update?.sessionUpdate === 'usage_update');
+    assert.ok(usage.length >= 1, 'at least one usage_update must be emitted');
+    assert.ok(usage.some(e => e.event.key === 'dsh-page-key'), 'usage must use the page key, not dsh-native');
+    assert.equal(service.activeKey(project.projectId, 'conv-new'), 'dsh-page-key');
+  } finally {
+    await service.close();
+  }
+});
+
+test('resume restores stored model/effort and thinking labels stay Chinese', async () => {
+  const project = makeProject();
+  const { ctx, created } = createFakeCtx();
+  const seeded = await ctx.sessionController.create({ cwd: project.path, agentPreset: 'openfilm-video-editing' });
+  const store = createDshSessionStore();
+  store.setSession(project.projectId, 'conv-old', {
+    sessionId: seeded.sessionId,
+    cwd: project.path,
+    selection: { provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'high' },
+  });
+
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async () => project,
+    store,
+    emit: async () => true,
+    defaultSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'low' }),
+  });
+
+  try {
+    await service.attach(project.projectId, 'conv-old', { key: 'dsh-resume' });
+    assert.equal(created.length, 1, 'must resume, not create');
+    const state = service.sessionState(project.projectId, 'conv-old');
+    assert.equal(state?.resumed, true);
+    assert.equal(state?.model, 'deepseek-official/deepseek-chat');
+    assert.equal(state?.effort, 'high');
+    assert.equal(state?.modelSource, 'store');
+
+    const catalog = await service.modelCatalog(project.projectId, 'conv-old');
+    assert.equal(catalog.default.model, 'deepseek-chat');
+
+    const thinking = await service.thinkingOption(project.projectId, 'conv-old');
+    assert.equal(thinking?.currentValue, 'high');
+    assert.deepEqual(thinking?.options.map(o => o.name), ['低', '中', '高']);
+
+    const diag = service.diagnose(project.projectId, 'conv-old');
+    assert.equal(diag.modelSource, 'store');
+    assert.equal(diag.key, 'dsh-resume');
+    assert.ok(diag.usage?.size > 0);
+  } finally {
+    await service.close();
+  }
+});
+
+test('selectModel refreshes effort to a supported tier and refuses unsupported thinking', async () => {
+  const project = makeProject();
+  const { ctx } = createFakeCtx();
+  // Extend catalog with a two-tier model.
+  const baseCatalog = ctx.sessionController.modelCatalog;
+  ctx.sessionController.modelCatalog = async () => {
+    const catalog = await baseCatalog();
+    catalog.groups[0].models.push({
+      id: 'muse-spark',
+      name: 'Muse Spark',
+      reasoning: { defaultEffort: 'high', efforts: ['off', 'high'] },
+    });
+    return catalog;
+  };
+
+  const store = createDshSessionStore();
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async () => project,
+    store,
+    emit: async () => true,
+    defaultSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'medium' }),
+  });
+
+  try {
+    await service.send(project.projectId, { conversation: '', key: 'dsh-switch', turnId: 't-switch', text: 'hi' });
+    await service.selectThinking(project.projectId, 'medium', '');
+    await service.selectModel(project.projectId, { provider: 'deepseek-official', model: 'muse-spark' }, '');
+    const thinking = await service.thinkingOption(project.projectId, '');
+    assert.deepEqual(thinking?.options.map(o => ({ value: o.value, name: o.name })), [
+      { value: 'off', name: '关闭' },
+      { value: 'high', name: '高' },
+    ]);
+    assert.equal(thinking?.currentValue, 'high', 'medium must drop to model default when unsupported');
+    await assert.rejects(
+      () => service.selectThinking(project.projectId, 'medium', ''),
+      error => error.code === 'OFFICIAL_AGENT_INPUT',
+    );
+    const remembered = store.getSession(project.projectId, '');
+    assert.equal(remembered?.selection?.model, 'muse-spark');
+    assert.equal(remembered?.selection?.reasoningEffort, 'high');
+  } finally {
+    await service.close();
+  }
+});
+
+test('probe/attach on blank conversation never creates ghost DSH session or workspace', async () => {
+  const project = makeProject();
+  const { ctx, created } = createFakeCtx();
+  let workspaceCreated = 0;
+  ctx.get = name => (name === 'workspaceRegistry'
+    ? { list: async () => [], create: async () => { workspaceCreated += 1; return { id: 'ws-bad' }; } }
+    : undefined);
+
+  const baseCatalog = ctx.sessionController.modelCatalog;
+  ctx.sessionController.modelCatalog = async () => {
+    const catalog = await baseCatalog();
+    catalog.groups[0].models.push({
+      id: 'muse-spark',
+      name: 'Muse Spark',
+      reasoning: { defaultEffort: 'high', efforts: ['off', 'high'] },
+    });
+    return catalog;
+  };
+
+  const store = createDshSessionStore();
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async () => project,
+    store,
+    emit: async () => true,
+    defaultSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'medium' }),
+  });
+
+  try {
+    const previewValue = Buffer.from(JSON.stringify(['deepseek-official', 'muse-spark'])).toString('base64url');
+    const catalog = await service.modelCatalog(project.projectId, '', previewValue);
+    assert.equal(catalog.default.model, 'muse-spark');
+    const previewThinking = await service.thinkingOption(project.projectId, '', previewValue);
+    assert.deepEqual(previewThinking?.options.map(o => o.name), ['关闭', '高']);
+    assert.equal(previewThinking?.currentValue, 'high');
+
+    const attached = await service.attach(project.projectId, 'conv-blank', { key: 'dsh-blank-key' });
+    assert.equal(attached.ok, true);
+    assert.equal(attached.sessionId, null);
+    assert.equal(attached.usage?.size, 128000);
+    assert.equal(created.length, 0, 'preview and blank attach must not create ghost DSH sessions');
+    assert.equal(store.all().length, 0);
+
+    await service.send(project.projectId, { conversation: 'conv-blank', key: 'dsh-blank-key', turnId: 't1', text: '开工' });
+    assert.equal(created.length, 1);
+    assert.equal(created[0].cwd, project.path);
+    assert.equal(workspaceCreated, 0, 'film sessions must never call workspaceRegistry.create');
   } finally {
     await service.close();
   }

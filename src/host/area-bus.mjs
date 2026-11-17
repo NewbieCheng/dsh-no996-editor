@@ -12,9 +12,13 @@ function normalizeProjectId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(value) ? value : null;
 }
 
+function normalizeSessionId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value) ? value : null;
+}
+
 export function createAreaBus() {
   const listeners = new Set();
-  const state = { projectId: null, ready: false, pending: null };
+  const state = { projectId: null, ready: false, pending: null, pendingSessionId: null };
   function emit(event) {
     for (const listener of [...listeners]) {
       try { listener(event); } catch { /* one broken listener must not starve the other */ }
@@ -27,18 +31,29 @@ export function createAreaBus() {
       return () => { listeners.delete(listener); };
     },
     /** Ask the panel to navigate; a request made before it mounts is kept. */
-    navigate(projectId) {
+    navigate(projectId, sessionId) {
       const id = normalizeProjectId(projectId);
       if (!id) return false;
+      const sid = normalizeSessionId(sessionId);
       state.pending = id;
-      emit({ type: 'navigate', projectId: id });
+      state.pendingSessionId = sid;
+      emit({ type: 'navigate', projectId: id, ...(sid ? { sessionId: sid } : {}) });
       return true;
     },
-    /** Take the pending request (the panel flushes it once it is listening). */
+    /** Take the pending project request (kept for callers expecting a projectId string). */
     takePending() {
       const id = state.pending;
       state.pending = null;
+      state.pendingSessionId = null;
       return id;
+    },
+    /** Take both the pending projectId and optional conversation sessionId. */
+    takePendingTarget() {
+      const projectId = state.pending;
+      const sessionId = state.pendingSessionId;
+      state.pending = null;
+      state.pendingSessionId = null;
+      return projectId ? { projectId, ...(sessionId ? { sessionId } : {}) } : null;
     },
     /** The official shell has a live frame again. */
     reportReady() {

@@ -2,7 +2,7 @@
 id: development
 reader: 新开发者、智能体
 fact-source: package.json、cordis.patch.yml、src/*.mjs、scripts/*
-checked: 0.15.25
+checked: 0.15.29
 rot-if: 启动时序、请求路径、模块职责或构建方式变化
 -->
 
@@ -27,11 +27,11 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 │ 同源 fetch / SSE
 ┌──────────────────── DSH Host 进程（Cordis Loader） ──────────────────────────┐
 │ index.js → apply(ctx)                                                         │
-│ ├─ ctx.tools.register(openfilm_* × 10)     只对本项目会话可见                 │
+│ ├─ ctx.tools.register(openfilm_*)     只对本项目会话可见                 │
 │ └─ createStudioController(ctx, startStudioProxy)                              │
 │    ├─ Studio 运行时：openfilm/studio.startStudio({port:0}) → 临时端口          │
 │    ├─ 代理：47822，校验 cookie/Host/Origin，转发 HTTP+WS                       │
-│    ├─ 官方对话桥：official-rpc → ACP 子进程（dsh --profile acp）；事件 → SSE │
+│    ├─ 官方对话桥：official-rpc → Host 原生 sessionController；事件 → SSE    │
 │    ├─ 主题层：assets/theme/*.css 注入（开发期）                                │
 │    └─ 调试控制台：127.0.0.1:47821（可关）                                      │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -90,19 +90,17 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 | `src/official/official-shell.mjs` | 校验 manifest（版本、commit、逐文件 sha256） | 高：改 ui 必须重生成 manifest |
 | `src/project/workspace-archive.mjs` / `archive-bridge.mjs` | 归档集合的唯一 Host 视图 + 浏览器路由 | 高：浏览器可触达的写路径 |
 
-`src/` 按故障域分目录：`host/` `studio/` `acp/` `official/` `auth/` `tools/` `film/` `asr/` `project/` `ui/`（见 `AGENTS.md` §3）。
+`src/` 按故障域分目录，见 `AGENTS.md` §3。
 
-### 对话桥（ACP）
+### 对话桥（原生 DSH 会话）
 
-面板的对话不再由 Host 手工模拟回合：`acp-client.mjs`（ndjson 线级客户端）、`acp-agent-service.mjs`（每项目一个 `dsh --profile acp`；会话 id 存 `acp-session-store.mjs`）、`mcp-server.mjs`、`src/project/project-instructions.mjs`。外层：`src/official/official-chat-rpc.mjs`、`official-chat-store.mjs`、`official-event-hub.mjs` / `official-event-stream.mjs`、`official-facade.mjs`、`official-permission.mjs`、`official-approvals.mjs`。
+`src/native/dsh-native-agent-service.mjs` 在 Host 内驱动 `ctx.sessionController`；`src/native/dsh-session-store.mjs` 保存项目和对话到会话的映射。`src/official/official-chat-rpc.mjs` 将页面请求交给服务，事件经 SSE 返回页面；影片预设及指令边界见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
-OpenFilm 对话跑的是 **acp 子进程**，不是侧栏主会话。菜单/侧栏选的 provider 若在 acp 没有适配器（例如 `dsh-opencode-go`），会 `acp-model-fallback` 落到 profile 默认（常为 DeepSeek official）。**以 `plugin.log` 的 `acp-session-model` / `acp-default-model` 和 `/diagnose` 的 `turns.model` 为准**，不要只看菜单字面；排障见 。
+旧 ACP 故障记录只作为历史参考，不能把旧子进程日志当作当前实现的必备证据。排障先看 [`playbooks/incident.md`](playbooks/incident.md) 和当前 `native-*` 日志。
 
-旧路径（进程内回合服务、事件翻译层、Host 侧会话绑定、审批桥）已按 `docs/ARCHITECTURE.md §10` 删除；`NO996_OPENFILM_ACP` 变量不再存在。
+### 影片工具
 
-### 影片工具（10 个，只对项目会话可见）
-
-`openfilm_film`、`openfilm_frame`、`openfilm_clip`、`openfilm_draft`、`openfilm_assets`、`openfilm_library`、`openfilm_get`、`openfilm_export`、`openfilm_cli`（只留 `doctor`）、`openfilm_guide`。
+影片工具只对项目会话可见；注册和实际工具列表以 `src/tools/` 与运行时为准，避免在多处手抄数量。常用工具包括 `openfilm_film`、`openfilm_frame`、`openfilm_clip`、`openfilm_storyboard`、`openfilm_transcribe` 和 `openfilm_guide`。
 
 `openfilm_cli` 只留 `doctor`：`look` / `render` 会启动 Studio，而内核在没有 `.film/opened` 时会在人的浏览器里开剪辑窗口。看画面用 `openfilm_frame`。
 
@@ -142,12 +140,13 @@ OpenFilm 对话跑的是 **acp 子进程**，不是侧栏主会话。菜单/侧�
 
 ```sh
 npm ci
-npm run check       # lint(strict) + test + docs/brand/templates/patches
+npm run check:quick # 开发中：变更文件语法、文本规则、可识别的相关测试；仍可能漏检
+npm run check       # 提交前：全量 lint + test + docs/brand/templates/patches
 npm run build       # src/studio/studio-entry.js → client.js
 npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 ```
 
-发版步骤（版本、CHANGELOG、STATUS、打包、回滚）见 [`playbooks/release.md`](playbooks/release.md)。
+安装 / 更新 / 发版（版本、CHANGELOG、STATE、打包、回滚）见 [`playbooks/publish.md`](playbooks/publish.md)。
 
 ---
 
@@ -158,16 +157,16 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 | `brand/brand.json`、`assets/theme/*.css` | 否 | 保存 + 刷新 | iframe 重载，未保存编辑丢失 |
 | `assets/shell-ui.js` / `login-city.js` / `shell-login.js` | 否 | 保存 + 刷新（读盘 + mtime） | 同上；改注入清单要重载 Host |
 | `src/studio/studio-entry.js` / `studio-panel.mjs` / `panel-keepalive.mjs` | **是** | 刷新 | 同上 |
-| Host 源码 `index.js`、`src/*.mjs` | 否 | 重载插件（disable→enable）+ 刷新 | Studio 子进程重建 |
+| Host 源码 `index.js`、`src/**/*.mjs` | 否 | 重载插件 + 刷新；如要求整应用重启则按提示重启 | 活动中的工作台可能中断 |
 | `vendor/templates/**` | 否 | 下一次请求即生效 | 无 |
 | `vendor/official-shell/ui/**` | 是（上游） | 部署产物后重启 Studio | 清单不匹配 → `OFFICIAL_SHELL_UNAVAILABLE` |
-| `cordis.patch.yml` | 否 | 重新 `install_bundle` 或重启 Host | 已有会话不迁移 |
-| `src/native/openfilm-persona.mjs`（persona、指令根标记） | 否 | 重载插件 + 刷新；**下一次 spawn 才生效** | 已开的子进程继续用旧 persona，直到它退出 |
-| `skills/**` | 否 | `node scripts/install-skills.mjs`（`--force` 覆盖同名） | 只影响之后新建的会话 |
+| `cordis.patch.yml` | 否 | 重新 `dsh plugin add`（registry）或重启 Host | 已有会话不迁移 |
+| 预设和 persona 配置（`cordis.patch.yml`） | 否 | 重载配置或重启 Host 后，新建会话验证 | 现有会话不自动迁移 |
+| `skills/**` | 否 | 重载插件或重启 Host 后新建影片会话验证 | 影片预设从本包注册技能；已有会话不自动迁移 |
 | `vendor/templates/<id>/prompt.md` | 否 | 下一次 `openfilm_library take=<id>` 即生效 | 无 |
 | `src/native/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
 
-**重载前先 `touch index.js src/*.mjs`**：加载器只重新求值 mtime 变了的模块，未 touch 的引入方会继续用旧 import——症状就是"改了没生效"。`npm run dev` 会替你 touch。
+Host 模块重载可能受模块缓存影响；修改后应核验实际运行版本。如果重载未应用变更，保存工作并按管理器提示完整重启 DSH，再验证原页面。现有 `npm run dev` 不应被视为递归监听整个 `src/` 的保证。
 
 **本插件默认不是热加载的。** DSH 的客户端 HMR 只在用 `pnpm run dev:web` 从同一 checkout 起服务时成立；本插件是已安装的第三方包，不在这条链路上。
 
@@ -198,7 +197,7 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 - 覆盖重点：事件翻译与顺序、思考与工具行、错误分类、模板复制/限额/链接拒绝、草稿原子性与冲突、会话归属、`.film/opened`、CLI 动词收窄、诊断判词。
 - 上游界面断言在 `tests/kernel-shell-match.test.mjs`：检查补丁里必须出现的标记（`data-thought`、`data-tool-name`、`kind:'image'`、`InlinePicture`），改界面时补丁要一起更新。
 - 新增行为必须带测试；本仓历史 bug 大多是"逻辑没问题但顺序/形状假设错"。
-- CI（`.github/workflows/ci.yml`）跑 `windows-latest`：`npm ci` → lint → test → docs/brand/templates/patches → 无构建产物 → 工作区干净。**只在 Windows 跑是有意的**（支持面就是 Windows 桌面集成，见 workflow 顶部注释）；加系统进矩阵要同时做真机验收。
+- CI（`.github/workflows/ci.yml`）跑 `windows-latest`：`npm ci` → `npm run check` → 无构建产物 → 工作区干净。**只在 Windows 跑是有意的**（支持面就是 Windows 桌面集成，见 workflow 顶部注释）；加系统进矩阵要同时做真机验收。
 - 行尾统一 LF（`.gitattributes`）：Windows runner 默认 `core.autocrlf=true`，不锁行尾时逐字节比较与钉死哈希会在 runner 上假红。
 
 ---

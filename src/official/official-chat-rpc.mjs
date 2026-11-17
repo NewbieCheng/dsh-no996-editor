@@ -68,8 +68,9 @@ export function createOfficialChatRpc(store, agent, options = {}) {
         await unarchive(payload.projectId);
         return await inspect(payload.projectId);
       }
-      if (channel === 'agent:models' && exact(payload, ['projectId'], ['conversation']) && typeof agent?.modelCatalog === 'function') {
-        return officialModelOptions(await agent.modelCatalog(payload.projectId, conversationOf(payload))).option;
+      if (channel === 'agent:models' && exact(payload, ['projectId'], ['conversation', 'model']) && typeof agent?.modelCatalog === 'function') {
+        const model = typeof payload.model === 'string' && payload.model.length > 0 && payload.model.length <= 512 ? payload.model : undefined;
+        return officialModelOptions(await agent.modelCatalog(payload.projectId, conversationOf(payload), model)).option;
       }
       if (channel === 'agent:select-model' && exact(payload, ['projectId', 'value'], ['conversation']) &&
           typeof payload.value === 'string' && typeof agent?.modelCatalog === 'function' && typeof agent?.selectModel === 'function') {
@@ -89,10 +90,11 @@ export function createOfficialChatRpc(store, agent, options = {}) {
       // throw, the catch below turned that into OFFICIAL_CHAT_UNAVAILABLE, and the
       // person saw a red 503 toast for a menu nobody opened. Degrading to null
       // keeps the reason in the log and the panel usable.
-      if (channel === 'agent:thinking' && exact(payload, ['projectId'], ['conversation'])) {
+      if (channel === 'agent:thinking' && exact(payload, ['projectId'], ['conversation', 'model'])) {
         if (typeof agent?.thinkingOption !== 'function') return null;
         try {
-          return await agent.thinkingOption(payload.projectId, conversationOf(payload));
+          const model = typeof payload.model === 'string' && payload.model.length > 0 && payload.model.length <= 512 ? payload.model : undefined;
+          return await agent.thinkingOption(payload.projectId, conversationOf(payload), model);
         } catch (error) {
           const reason = String(error?.code ?? error?.message ?? error).slice(0, 120);
           if (typeof options.log === 'function') options.log('agent-thinking-unavailable', { reason });
@@ -103,6 +105,13 @@ export function createOfficialChatRpc(store, agent, options = {}) {
       if (channel === 'agent:select-thinking' && exact(payload, ['projectId', 'value'], ['conversation']) &&
           typeof payload.value === 'string' && typeof agent?.selectThinking === 'function') {
         return await agent.selectThinking(payload.projectId, payload.value, conversationOf(payload));
+      }
+      // Bind the page agent key and push context usage before the first prompt.
+      // Without this the composer ring stays at 0% until a message is sent.
+      if (channel === 'agent:attach' && exact(payload, ['projectId', 'key'], ['conversation']) &&
+          typeof payload.key === 'string' && payload.key.length > 0 && payload.key.length <= 80 &&
+          typeof agent?.attach === 'function') {
+        return await agent.attach(payload.projectId, conversationOf(payload), { key: payload.key });
       }
       // One-shot permission answer from the panel. The Host resolves the owning
       // DSH agent from its own pending record; the page only names the question.

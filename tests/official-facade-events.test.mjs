@@ -5,6 +5,8 @@ import { officialFacadeSource } from '../src/official/official-facade.mjs';
 
 function setup({ promptResult = { ok: true }, EventSourceAvailable = true } = {}) {
   const sources = [], calls = [], events = [], timers = new Map();
+  // A rejected mocked RPC may be supplied before start's async setup completes.
+  if (promptResult && typeof promptResult.catch === 'function') promptResult.catch(() => {});
   let nextTimer = 0;
   class MockEventSource {
     constructor(url) { this.url = url; this.readyState = 0; this.handlers = {}; sources.push(this); }
@@ -26,7 +28,16 @@ function setup({ promptResult = { ok: true }, EventSourceAvailable = true } = {}
   facade.localAgents.onEvent(event => events.push(event));
   return { facade, sources, calls, events, fireTimers: () => { for (const fn of [...timers.values()]) fn(); } };
 }
-async function start(env) { return (await env.facade.localAgents.start('deepseek', '', null, { projectId: 'project1' })).key; }
+async function start(env) {
+  const pending = env.facade.localAgents.start('deepseek', '', null, { projectId: 'project1' });
+  // Current start waits for SSE before attach; complete that initial handshake.
+  const initial = env.sources[0];
+  if (initial) { initial.open(); initial.ready(); }
+  const { key } = await pending;
+  // Each prompt test exercises its own reconnect/admission handshake below.
+  if (initial) { initial.error(); env.sources.length = 0; }
+  return key;
+}
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const done = (key, turnId, extra = {}) => ({ key, turnId, kind: 'done', ok: true, stopReason: 'end_turn', ...extra });
 

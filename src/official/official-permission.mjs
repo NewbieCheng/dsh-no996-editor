@@ -46,13 +46,19 @@ export async function openProjectPermissions(ctx, { z, onFailure } = {}) {
   // A domain this build cannot open (a schema it disagrees with, a storage that
   // moved) must not take the menu row and the default down with it — that is
   // exactly how the permission row disappeared once, with nothing in the log.
+  let domain = null;
   let table = null;
   try {
-    const domain = await ctx.storageDomain.open({
-      name: PROJECT_PERMISSIONS_DOMAIN, version: 1, layout: 'per-record',
-      tables: { projects: { valueSchema: record } },
-    });
-    table = domain.table('projects');
+    const existing = typeof ctx.storageDomain.get === 'function' ? ctx.storageDomain.get(PROJECT_PERMISSIONS_DOMAIN) : undefined;
+    if (existing && typeof existing.table === 'function') {
+      table = existing.table('projects');
+    } else {
+      domain = await ctx.storageDomain.open({
+        name: PROJECT_PERMISSIONS_DOMAIN, version: 1, layout: 'per-record',
+        tables: { projects: { valueSchema: record } },
+      });
+      table = domain.table('projects');
+    }
   } catch (failure) {
     if (typeof onFailure === 'function') {
       try {
@@ -232,6 +238,12 @@ export async function openProjectPermissions(ctx, { z, onFailure } = {}) {
         await table.delete(projectId);
         return true;
       } catch { return false; }
+    },
+
+    async close() {
+      if (domain && typeof domain.close === 'function') {
+        try { await domain.close(); } catch { /* already closed */ }
+      }
     },
   });
 }

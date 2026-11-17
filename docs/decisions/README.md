@@ -2,13 +2,13 @@
 id: decisions
 reader: 维护者、要推翻某个设计的人
 fact-source: docs/decisions/README.md 的历史条目（已迁入）、CHANGELOG、源码
-checked: 0.15.25
+checked: 0.15.29
 rot-if: 新增或废弃一条 ADR
 -->
 
 # 决策记录（ADR）
 
-> 一条决策一个文件，**只追加不修改**。要推翻某条，写新的 ADR 并标注 `Supersedes:`。
+> 一条决策一个文件，**只追加不修改**。正文保留当时的事实和取舍，`checked: historical` 不代表已经按当前版本逐项复核；现状与状态以本索引、源码及当前手册为准。要推翻某条，写新的 ADR 并标注 `Supersedes:`。
 > 判据：这个决定错了会让谁付出什么代价？写不出代价的，不是决策，是偏好。
 
 ## 索引

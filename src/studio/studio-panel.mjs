@@ -44,22 +44,30 @@ export function createStudioPanel(React) {
     const readyRef = React.useRef(false);
     const urlRef = React.useRef(null);
 
-    // Ask the official shell to show one project. The injected bridge owns the
-    // history call; this side only has to reach a frame that is really loaded.
-    const postNavigate = projectId => {
+    // Ask the official shell to show one project (and optionally select a conversation).
+    // The injected bridge owns the history call and session selection event; this side
+    // only has to reach a frame that is really loaded.
+    const postNavigate = (target, sessionId) => {
+      const projectId = typeof target === 'string' ? target : target?.projectId;
+      const sid = typeof sessionId === 'string' ? sessionId : (typeof target === 'object' ? target?.sessionId : undefined);
       const frame = iframeRef.current;
       if (!frame || !frame.contentWindow || !readyRef.current || typeof projectId !== 'string') return false;
       let origin = '*';
       try { origin = new URL(urlRef.current).origin; } catch { /* keep the wildcard */ }
       try {
-        frame.contentWindow.postMessage({ type: 'no996-openfilm:navigate', version: 1, projectId }, origin);
+        frame.contentWindow.postMessage({
+          type: 'no996-openfilm:navigate',
+          version: 1,
+          projectId,
+          ...(typeof sid === 'string' && sid ? { sessionId: sid } : {}),
+        }, origin);
         return true;
       } catch { return false; }
     };
 
     React.useEffect(() => {
       const off = areaBus.subscribe(event => {
-        if (event.type === 'navigate') postNavigate(event.projectId);
+        if (event.type === 'navigate') postNavigate(event.projectId, event.sessionId);
       });
       return off;
     }, []);
@@ -143,7 +151,7 @@ export function createStudioPanel(React) {
             // The frame can act on a navigation request now; a click made while the
             // panel was still booting is flushed here instead of being dropped.
             areaBus.reportReady();
-            const pending = areaBus.takePending();
+            const pending = typeof areaBus.takePendingTarget === 'function' ? areaBus.takePendingTarget() : areaBus.takePending();
             if (pending) postNavigate(pending);
           }
           setBoot({ hasNative: data.hasNative === true, rendered: data.rendered === true });

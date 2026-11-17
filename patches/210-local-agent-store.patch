@@ -1,8 +1,67 @@
 diff --git a/apps/desktop/chat/src/state/local-agent-store.ts b/apps/desktop/chat/src/state/local-agent-store.ts
-index a3c7f97..2d4085e 100644
+index a3c7f97..c4b660b 100644
 --- a/apps/desktop/chat/src/state/local-agent-store.ts
 +++ b/apps/desktop/chat/src/state/local-agent-store.ts
-@@ -365,9 +365,14 @@ export function agentModelSummary(
+@@ -18,7 +18,7 @@ import {
+   type LocalAgentSessionInfo,
+   type RosterAgent,
+ } from '@/lib/desktop-bridge';
+-import { forgetLocalAgentSessions } from '@/lib/local-agent-run';
++import { applyLiveSessionOption, forgetLocalAgentSessions } from '@/lib/local-agent-run';
+ 
+ export type AgentPick = LocalAgentId;
+ 
+@@ -44,7 +44,7 @@ interface LocalAgentStore extends Persisted {
+   pick(agent: LocalAgentId): void;
+   setPref(agent: LocalAgentId, configId: string, value: unknown): void;
+   /** The option list a session reported, kept for the menu. */
+-  noteOptions(agent: LocalAgentId, options: ConfigOptions | null): void;
++  noteOptions(agent: LocalAgentId, options: ConfigOptions | null, opts?: { syncPrefs?: boolean }): void;
+   /** No option list yet: ask for one (a session opened and closed, nothing said, nothing spent). */
+   /** Ask the agent for its options once; one that failed is asked again only on `retry` (the menu opened, Retry). */
+   ensureOptions(agent: LocalAgentId, opts?: { retry?: boolean }): Promise<void>;
+@@ -142,7 +142,7 @@ export function agentOptions(state: Pick<LocalAgentStore, 'options' | 'roster'>
+     const picked = model && state.prefs?.[agent]?.[model.id];
+     // Until the new model answers, none of the previous model's effort/speed/context options belong in its menu.
+     if (model && picked != null && picked !== model.currentValue) {
+-      return options?.filter((o) => o.category === 'model' || o.category === 'mode' || o.category === 'permissions');
++      return options?.filter((o) => o.category === 'model' || o.category === 'mode' || o.category === 'permission' || o.category === 'permissions');
+     }
+     return options;
+   }
+@@ -241,11 +241,30 @@ export const useLocalAgents = create<LocalAgentStore>((set, get) => ({
+     const prefs = { ...get().prefs, [agent]: { ...(changingModel ? {} : before), [configId]: value } };
+     set({ prefs });
+     save(get());
++    if (agent === 'deepseek') {
++      void applyLiveSessionOption(agent, configId, value).then((updated) => {
++        if (!updated) return;
++        const currentVal = get().prefs[agent]?.[configId];
++        if (currentVal !== undefined && currentVal !== value) return;
++        get().noteOptions(agent, updated, { syncPrefs: true });
++      });
++    }
+     if (get().options[agent]?.some((o) => o.id === configId && o.category === 'model')) void get().ensureOptions(agent);
+   },
+-  noteOptions(agent, options) {
++  noteOptions(agent, options, opts) {
+     if (!options) return;
+     let prefs = get().prefs;
++    if (opts?.syncPrefs) {
++      const synced: Record<string, unknown> = { ...(prefs[agent] ?? {}) };
++      for (const option of options) {
++        if (option.currentValue !== undefined && (option.category === 'model' || option.category === 'thought_level')) {
++          synced[option.id] = option.currentValue;
++        } else if (option.category === 'thought_level') {
++          delete synced[option.id];
++        }
++      }
++      prefs = { ...prefs, [agent]: synced };
++    }
+     /* Before Cursor's parameterized picker, a model id included effort/speed/context in brackets. Keep that
+        selection when replacing the old catalog with the model and its separately configurable parameters. */
+     const legacy = agent === 'cursor' && typeof prefs.cursor?.model === 'string' ? /^([^\[]+)\[([^\]]*)\]$/.exec(prefs.cursor.model) : null;
+@@ -365,9 +384,14 @@ export function agentModelSummary(
      const value = optionValue(options, prefs, modelOpt.id);
      const choice = modelOpt.options?.find((o) => o.value === value);
      const raw = value === 'default' && choice?.description ? choice.description : optionLabel(options, modelOpt.id, value);

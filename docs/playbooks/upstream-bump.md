@@ -2,7 +2,7 @@
 id: playbooks-upstream
 reader: 维护上游的人
 fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official/official-shell.mjs
-checked: 0.15.25
+checked: 0.15.29
 rot-if: 上游目录结构或补丁流程变化
 -->
 
@@ -21,7 +21,7 @@ rot-if: 上游目录结构或补丁流程变化
 | `vendor/official-shell/manifest.json` | `version` + `commit` | 界面快照的上游身份 |
 | `src/official/official-shell.mjs` | `OFFICIAL_COMMIT` | 加载时校验，不一致直接 `OFFICIAL_SHELL_UNAVAILABLE` |
 
-`npm run upstream:status` 会把这三处和补丁系列放在一起对账；不一致时退出码为 1。
+`npm run upstream:status` 对账 tarball 版本、manifest 和补丁系列；它**不读取** `OFFICIAL_COMMIT` 或打包脚本常量，需人工核对；检测到的不一致会返回非零退出码。
 
 ---
 
@@ -49,7 +49,7 @@ vendor/official-shell/
 
 | 命令 | 要 checkout | 做什么 |
 |---|---|---|
-| `npm run upstream:status` | 否 | 对账三处 pin + 补丁系列；`--online` 额外查 npm 最新版 |
+| `npm run upstream:status` | 否 | 对账 tarball、manifest 与补丁系列；`--online` 额外查 npm 最新版；源码常量需另查 |
 | `npm run upstream:fetch` | 否 | 把固定 commit clone/checkout 到 `.upstream/openfilm`（可用 `NO996_UPSTREAM_DIR` 改） |
 | `npm run upstream:verify` | 是 | 逐个 `git apply --check`，报告哪个文件冲突 |
 | `npm run shell:dev` | 是 | 应用补丁 → 构建壳 → 复制到 `.dev/shell`；DSH 带 `NO996_OPENFILM_DEV_SHELL=1` 启动时直接读它（跳过 manifest 校验） |
@@ -74,11 +74,13 @@ npm run patches:check
 node --test tests/*.test.mjs
 ```
 
+`upstream:fetch` 会对 checkout 执行 `git checkout --force`，`shell:dev` 会应用补丁并重建 `.dev/shell`；先确认路径与用户改动，避免覆盖。
+
 `build-official-shell.mjs` 的硬约束：
 
 - 只接受固定 commit；工作树里出现计划外的改动直接失败。
 - 只收白名单扩展名的 dist 文件；符号链接、计划外文件直接失败。
-- **拒绝覆盖已有目录**：正式快照必须先输出到临时目录再替换，不能原地重写。
+- **拒绝覆盖已有目录**：脚本固定写入 `vendor/official-shell`，不支持输出目录参数。现有目录存在时会失败；更换快照前须确认目标、保留备份并经授权，不要直接删除或覆盖。
 
 ---
 
@@ -88,15 +90,17 @@ node --test tests/*.test.mjs
 # 1. 读上游 release notes，确认 startStudio 契约、鉴权/Origin、Node/Chromium 要求
 # 2. 更新 package.json 的 tarball URL
 npm install
-# 3. 取新 commit 的 checkout（先不要动 manifest）
-npm run upstream:verify -- --dir <new-checkout>
-# 4. 按报告修冲突；每修好一个文件，重跑 verify
-# 5. 构建 + 快照 + 重算 manifest（version/commit 一起改）
-node scripts/build-official-shell.mjs <openfilm-checkout> -- --dir <new-checkout>
+# 3. 准备新 commit 的 checkout；检查并更新相关脚本中固定的版本/commit
+# 4. verify 要求 checkout HEAD 与当前 manifest commit 一致；
+#    新版本先在隔离副本完成 pin 更新，再 npm run upstream:verify -- --dir <new-checkout>
+# 5. 先构建上游，再打包；脚本只接受一个 checkout 参数
+node scripts/build-official-shell.mjs <new-checkout>
 # 6. 更新 src/official/official-shell.mjs 的 OFFICIAL_COMMIT
 npm run upstream:status           # 必须 problems none
 node --test tests/*.test.mjs
 ```
+
+`scripts/build-official-shell.mjs` 自身也固定 `COMMIT` 和 `VERSION`，升级时必须同步检查；不要假定只改上述三处就能打包。涉及上游 checkout 的覆盖或替换前先确认路径并保护未保存改动。
 
 **冲突处理原则：**
 

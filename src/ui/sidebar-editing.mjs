@@ -307,11 +307,12 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     return span;
   };
 
-  const openProject = project => {
+  const openProject = (project, sessionId) => {
     try { doc.defaultView?.localStorage?.setItem('no996.openfilm.lastProject', project.projectId); } catch { /* private mode */ }
-    // Ask the panel to show the project; a request made before the panel is
-    // mounted is queued by the bus and flushed when it becomes ready.
-    areaBus.navigate(project.projectId);
+    // Ask the panel to show the project (and select the clicked conversation
+    // when opened from a session row); queued if the panel is not mounted yet.
+    const targetSessionId = typeof sessionId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(sessionId) ? sessionId : undefined;
+    areaBus.navigate(project.projectId, targetSessionId);
     findPanelEntry(doc)?.click();
     closePopover();
     closeMenus();
@@ -425,7 +426,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
         open.addEventListener('click', event => {
           event.preventDefault();
           event.stopPropagation();
-          openProject(project);
+          openProject(project, session.sessionId);
         });
         const childMore = rowAction(child, '对话操作', anchor => openRowMenu(anchor, project, session));
         child.append(open, childMore);
@@ -461,6 +462,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     }
     try {
       const data = await fetchSessions?.();
+      syncHiddenIds(data);
       const projects = Array.isArray(data?.projects) ? data.projects : [];
       // A quiet reload that finds the same list must not repaint: the poll below
       // runs every 10 s, and rebuilding rows under the pointer would eat clicks.
@@ -977,12 +979,30 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
   };
 
   const hiddenSessionIds = new Set();
+  const hiddenWorkspaceIds = new Set();
+  const hiddenFolderNames = new Set(['Projects', 'OpenFilm']);
   let hiddenSeeded = false;
   const syncHiddenIds = data => {
-    if (!data || !Array.isArray(data.hiddenSessionIds)) return;
-    hiddenSessionIds.clear();
-    for (const id of data.hiddenSessionIds) {
-      if (typeof id === 'string' && id) hiddenSessionIds.add(id);
+    if (!data || typeof data !== 'object') return;
+    if (Array.isArray(data.hiddenSessionIds)) {
+      hiddenSessionIds.clear();
+      for (const id of data.hiddenSessionIds) {
+        if (typeof id === 'string' && id) hiddenSessionIds.add(id);
+      }
+    }
+    if (Array.isArray(data.hiddenWorkspaceIds)) {
+      hiddenWorkspaceIds.clear();
+      for (const id of data.hiddenWorkspaceIds) {
+        if (typeof id === 'string' && id) hiddenWorkspaceIds.add(id);
+      }
+    }
+    if (Array.isArray(data.hiddenFolderNames)) {
+      hiddenFolderNames.clear();
+      hiddenFolderNames.add('Projects');
+      hiddenFolderNames.add('OpenFilm');
+      for (const name of data.hiddenFolderNames) {
+        if (typeof name === 'string' && name.trim()) hiddenFolderNames.add(name.trim());
+      }
     }
   };
   const hideFilmSessionsInWorkspaces = () => {
@@ -994,11 +1014,18 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
           hideFilmSessionsInWorkspaces();
         }).catch(() => {});
       }
-      // Hide dedicated film workspace folder(s) from the general Workspaces view
+      if (hiddenWorkspaceIds.size > 0) {
+        for (const wid of hiddenWorkspaceIds) {
+          for (const el of doc.querySelectorAll(`[data-workspace-id="${wid}"]`)) {
+            if (el && el.style.display !== 'none') el.style.display = 'none';
+          }
+        }
+      }
+      // Hide dedicated/legacy film workspace folder(s) from the general Workspaces view
       const folderButtons = doc.querySelectorAll('button[aria-expanded], [role="button"][aria-expanded]');
       for (const btn of folderButtons) {
         const label = (btn.textContent || '').trim();
-        if (label === 'Projects' || label === 'OpenFilm') {
+        if (hiddenFolderNames.has(label)) {
           const group = btn.closest('[data-workspace-id], section, li, div');
           const target = group && group !== doc.body ? group : btn;
           if (target.style.display !== 'none') target.style.display = 'none';

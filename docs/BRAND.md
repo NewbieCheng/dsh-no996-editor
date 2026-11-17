@@ -2,13 +2,13 @@
 id: brand
 reader: 产品 / 设计 / 维护者
 fact-source: brand/brand.json、assets/theme/*.css
-checked: 0.15.25
+checked: 0.15.29
 rot-if: 品牌字段、法务要求或替换流程变化
 -->
 
 # 品牌层（不加班剪辑 / No996 Studio）
 
-> 目标：换名字、换颜色、换图标时，只改一个文件，不漏掉任何一个界面；同时**不删除上游的版权与商标声明**。
+> 品牌数据集中维护，但并非所有界面都由同一文件生成；更名时须逐处核验，并**保留上游版权与商标声明**。
 
 ---
 
@@ -41,10 +41,10 @@ rot-if: 品牌字段、法务要求或替换流程变化
 | 主题颜色 | `brandCssVars()` → `--n996-*` | 已接（`src/ui/theme.mjs`） |
 | 页面标题（tab / 历史） | 代理把上游 `<title>` 换成 `brand.name` | 已接（`replaceTitle`） |
 | 面板标题 / 侧栏名 | `locale/*.json`（当前已是品牌名） | 文案已改；尚未从 brand 生成 |
-| 官方壳的标题/文案 | 上游 i18n + 源码补丁 | 待接（补丁里读 `brand.name`） |
-| 登录页 | `assets/shell-login.js` 里的硬编码 | 待接 |
-| 关于/版本 | 面板「关于」 | 待接（同时显示我们的版本 + 上游版本 + commit） |
-| 安装包/README | `package.json`、`README.md` | 部分（包名仍是 `dsh-openfilm`，这是 npm 身份，先不动） |
+| 官方壳的标题/文案 | 上游 i18n + 源码补丁 | 不保证全部从 brand 生成 |
+| 登录页 | 上游壳 `LoginGate.tsx` 补丁；`assets/shell-login.js` 是参考实现 | 改动时核对两者，真机验收 |
+| 关于/版本 | 面板「关于」 | 核对源码与实际页面，不假定与 brand 同步 |
+| 安装包/README | `package.json`、`README.md` | npm 包名是独立身份，改品牌不自动改包名 |
 
 **原则：** 品牌是数据，不是散落在模板字符串里的常量。新增界面时先问"这里的名字从哪来"，答不上来就不许硬编码。
 

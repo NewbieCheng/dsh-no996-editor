@@ -2,19 +2,19 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.15.26
+checked: 0.15.30
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
 # 现在到哪了
 
-> 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。
+> 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.15.26**（`package.json`）。GitLab Release 测试包通道待你登录后上传验证。
+- 当前版本 **0.15.30**（`package.json`，包名 `@newbiecheng/dsh-openfilm`，小写 scope——DSH 版本检测只认小写包名）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 
 ## 能用
 
-项目与对话（一个项目一条子进程、**一条对话一条 ACP 会话**）、模型与思考强度菜单、审批、取消、
+项目与对话（Host 原生会话，**一条对话一条 DSH 会话**）、模型与思考强度菜单、审批、取消、
 逐字流式回答、思考行（默认收起，最高 280px）、工具行、内联图片、归档、模板安装/检索/**模板提示词注入**、
 抽帧、时间轴落盘编辑、导出、CLI 兜底、本机口播转写、分镜（`.film/storyboard.json`）与字幕 SRT。
 
@@ -26,7 +26,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 | 剪辑导演身份与注入链 | 问"你是谁/这是哪个仓库"：答剪辑导演，不出现版本号、MIT、四层界面 |
 | 分镜到时间轴 | 丢一段口播视频：先转写 → 出分镜 → `op=plan` 说清还缺哪个片段 |
 | 拖放附件可发送 | 从资源管理器拖一段 mp4 进对话：附件 pill 为 ready（无 `describePaths` 失败）、可发送；松手后「松手即可附上」遮罩消失 |
-| 技能隔离（preset 直引） | 同项目新开对话问“你有哪些 skill”：只见到 `openfilm-director/editing/motion` 3 个，无 Office/imagegen 等全局 skill；`/diagnose` 应显示子进程只挂 `skills/` 根 |
+| 技能隔离（preset 直引） | 同项目新开对话问“你有哪些 skill”：只见到 `openfilm-director/editing/motion` 3 个，无 Office/imagegen 等全局 skill；`/diagnose` 应显示影片预设的技能根及注入情况 |
 | 环境查看页 | 打开插件详情页：看到「剪辑环境」区（预设状态、3 个隔离技能、11 个影片工具）；填项目 ID 能查到该片的指令链与预算 |
 
 ## 下一步

@@ -16,5 +16,10 @@ node_modules/
 # 发布产物不进 git（用 npm pack 生成到 dist/）
 dist/
 
+# GitLab npm 发布凭据（只放本机 / CI variable，绝不入库）
+.npmrc.gitlab
+.gitlab-npm-token.tmp
+.npmrc
+
 # 本机影片库（用户数据，不进 git、不进 npm 包）
 /films/

@@ -24,10 +24,10 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 | POST | `/api/no996-openfilm/debug-url` | exact | `src/studio/studio-controller/routes/debug-url.mjs:22` |
 | POST | `/api/no996-openfilm/diagnose` | exact | `src/studio/studio-controller/routes/diagnose.mjs:27` |
 | POST | `/api/no996-openfilm/drag-probe` | exact | `src/studio/studio-controller/routes/diagnostics.mjs:47` |
-| POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio/studio-controller/routes/editing.mjs:159` |
-| POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio/studio-controller/routes/editing.mjs:204` |
-| POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio/studio-controller/routes/editing.mjs:249` |
-| POST | `/api/no996-openfilm/editing-prefs` | exact | `src/studio/studio-controller/routes/editing.mjs:134` |
+| POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio/studio-controller/routes/editing.mjs:188` |
+| POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio/studio-controller/routes/editing.mjs:233` |
+| POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio/studio-controller/routes/editing.mjs:295` |
+| POST | `/api/no996-openfilm/editing-prefs` | exact | `src/studio/studio-controller/routes/editing.mjs:163` |
 | GET | `/api/no996-openfilm/editing-sessions` | exact | `src/studio/studio-controller/routes/editing.mjs:33` |
 | GET | `/api/no996-openfilm/environment` | exact | `src/studio/studio-controller/routes/environment.mjs:51` |
 | POST | `/api/no996-openfilm/system/check` | exact | `src/studio/studio-controller/routes/system.mjs:71` |

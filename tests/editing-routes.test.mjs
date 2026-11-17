@@ -113,3 +113,49 @@ test('every editing route refuses a foreign peer or the wrong method', async () 
     assert.ok(res.status >= 400, `${route.path} answered ${res.status}`);
   }
 });
+
+test('deleting one conversation unbinds its mapped agentSessions.deepseek key without touching other sessions', async () => {
+  const removed = [];
+  const archived = [];
+  const saved = [];
+  const routes = mount({
+    acpSessions: {
+      all: () => [],
+      get: () => undefined,
+      getSession: (pid, conv) => (pid === 'abcdef123456' && conv === 'dsh-conv-1' ? { sessionId: 'dsh-sess-1' } : undefined),
+      remove: () => {},
+      removeSession: (pid, conv) => { removed.push([pid, conv]); },
+    },
+    archive: {
+      available: true,
+      isArchived: () => false,
+      archive: async sid => { archived.push(sid); },
+    },
+    officialStore: async () => ({
+      load: async () => ({
+        revision: 4,
+        last: 'session_1',
+        sessions: [
+          { id: 'session_1', agentSessions: { deepseek: 'dsh-conv-1' } },
+          { id: 'session_2', agentSessions: { deepseek: 'dsh-conv-2' } },
+        ],
+      }),
+      saveSessions: async (pid, payload) => { saved.push([pid, payload]); return 5; },
+    }),
+  });
+  const route = routeOf(routes, '/api/no996-openfilm/editing-delete');
+  const res = fakeRes();
+  const payload = JSON.stringify({ projectId: 'abcdef123456', sessionId: 'session_1' });
+  await route.handler({
+    method: 'POST',
+    headers: {},
+    url: '/api/no996-openfilm/editing-delete',
+    async *[Symbol.asyncIterator]() { yield Buffer.from(payload); },
+  }, res);
+  assert.equal(res.status, 200);
+  assert.deepEqual(JSON.parse(res.body), { ok: true, remaining: 1 });
+  assert.deepEqual(removed, [['abcdef123456', 'dsh-conv-1'], ['abcdef123456', 'session_1']]);
+  assert.deepEqual(archived, ['dsh-sess-1']);
+  assert.equal(saved[0][1].sessions.length, 1);
+  assert.equal(saved[0][1].sessions[0].id, 'session_2');
+});

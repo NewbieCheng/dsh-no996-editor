@@ -1,12 +1,16 @@
 {
-  "name": "dsh-openfilm",
-  "version": "0.15.26",
+  "name": "@newbiecheng/dsh-openfilm",
+  "version": "0.15.30",
   "description": "OpenFilm video studio as a DSH plugin: the official Studio + Chat shell, bridged to a DSH session.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://gitlab.com/NewbieCheng/dsh-openfilm.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://gitlab.com/api/v4/projects/89041706/packages/npm/"
   },
   "keywords": [
     "dsh",
@@ -20,6 +24,7 @@
     "lint": "node scripts/lint.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:fast": "node --test --experimental-test-isolation=none tests/*.test.mjs",
+    "check:quick": "node scripts/check-quick.mjs",
     "check": "npm run lint -- --strict && npm run status:check && npm run login:sync -- --check && npm test && npm run docs:check && npm run brand:check && npm run templates:check && npm run patches:check",
     "dev": "node scripts/dev.mjs",
     "templates:build": "node scripts/templates-build.mjs",
@@ -43,7 +48,7 @@
     "upstream:verify": "node scripts/upstream.mjs verify",
     "shell:dev": "node scripts/upstream.mjs shell:dev",
     "shell:bake": "node scripts/theme-bake.mjs",
-    "release:check": "node scripts/release-check.mjs",
+    "release:check": "node scripts/run-release-check.mjs",
     "login:sync": "node scripts/sync-shell-login.mjs"
   },
   "devDependencies": {

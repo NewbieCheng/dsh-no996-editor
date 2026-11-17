@@ -112,10 +112,28 @@ test('the thinking menu degrades to null instead of failing the panel', async ()
 
 test('the thinking menu still answers when the Host can build it', async () => {
   const option = { id: 'thinking', name: 'Thinking', category: 'thought_level', type: 'select', options: [] };
-  const dispatch = createOfficialChatRpc(store(), { thinkingOption: async () => option }, {
+  const seen = [];
+  const dispatch = createOfficialChatRpc(store(), { thinkingOption: async (projectId, conv, model) => { seen.push({ projectId, conv, model }); return option; } }, {
     state: async projectId => ({ projectId, archived: false, available: true, sessionId: 'session-a' }),
   });
-  assert.equal(await dispatch('agent:thinking', { projectId: 'project1' }), option);
+  assert.equal(await dispatch('agent:thinking', { projectId: 'project1', conversation: 'c1', model: 'm1' }), option);
+  assert.deepEqual(seen, [{ projectId: 'project1', conv: 'c1', model: 'm1' }]);
+});
+
+test('agent:attach binds the page key through the Host agent', async () => {
+  const seen = [];
+  const dispatch = createOfficialChatRpc(store(), {
+    attach: async (projectId, conversation, opts) => {
+      seen.push({ projectId, conversation, key: opts?.key });
+      return { ok: true, key: opts.key, usage: { used: 100, size: 1000 } };
+    },
+  }, {
+    state: async projectId => ({ projectId, archived: false, available: true, sessionId: 'session-a' }),
+  });
+  const result = await dispatch('agent:attach', { projectId: 'project1', conversation: 'conv-1', key: 'dsh-abc' });
+  assert.equal(result.ok, true);
+  assert.equal(result.key, 'dsh-abc');
+  assert.deepEqual(seen, [{ projectId: 'project1', conversation: 'conv-1', key: 'dsh-abc' }]);
 });
 
 test('our own failure codes survive instead of being flattened', async () => {

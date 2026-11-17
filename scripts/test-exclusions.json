@@ -1,4 +1,4 @@
 {
-  "src/client-entry.js": "浏览器端打包入口：与 src/studio-*.js 一起被 esbuild 打进 client.js，只能由面板端到端测试覆盖",
-  "src/studio-entry.js": "同上：客户端入口，产物是 client.js，单测没有可断言的边界"
+  "src/ui/client-entry.js": "浏览器端打包入口；运行时界面行为需要客户端集成或真机验收",
+  "src/studio/studio-entry.js": "客户端入口；源码断言不等同于运行时界面验收"
 }

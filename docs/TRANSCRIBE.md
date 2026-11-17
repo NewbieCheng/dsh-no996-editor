@@ -2,13 +2,13 @@
 id: transcribe
 reader: 用转写的人、维护者
 fact-source: src/asr/transcribe-service.mjs、scripts/asr-*.mjs
-checked: 0.15.25
+checked: 0.15.29
 rot-if: 模型、路由或权重来源变化
 -->
 
 # 本地口播转写（openfilm_transcribe）
 
-> 用户丢一个口播视频过来，先出带时间码的文稿，再按文稿剪。**全部在本机 CPU 上跑**，音频不出这台电脑。
+> 本地识别在本机 CPU 处理音频；默认可选的文字校对会调用当前 DSH 会话模型，转写文本可能发送给该模型服务。需要完全本地处理时设置 `refine: false`，并确认模型提供方及部署方式。
 
 ## 为什么是这个形状
 
@@ -19,7 +19,7 @@ rot-if: 模型、路由或权重来源变化
 | ffmpeg 抽 16 kHz 单声道 PCM | 500 MB 视频 → 10 分钟音轨约 19 MB（约 1/20），且**视频不进 Node 堆** |
 | 能量（RMS）切段，不再上一个 VAD 模型 | 口播是单人声 + 真停顿，RMS 包络够用；少一个运行时、少 2 MB 权重、少一类失败 |
 | 逐段解码，段间让出事件循环 | 单段 ≤ 15 秒，Host 不会被长时间占住 |
-| 缓存键是**文件内容**指纹（大小 + mtime + 头尾各 256 KB） | 复制/改名命中缓存；改过的文件必然重转 |
+| 缓存键是快速指纹（大小 + mtime + 头尾各 256 KB） | 并非全文件哈希；复制可能改变 mtime，中间内容变更也不一定被发现 |
 
 ## 流水线
 
@@ -50,9 +50,11 @@ rot-if: 模型、路由或权重来源变化
 
 模型不随 npm 包发布，首次使用时下载到：
 
-    $DSH_HOME/no996-openfilm/models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/
+    <OpenFilm library cache>/models/sensevoice-small/
       model.int8.onnx   239 233 841 B   sha256 c71f0ce0…
       tokens.txt            315 894 B
+
+默认缓存为 `~/.openfilm/library`；可用 `OPENFILM_LIBRARY_CACHE` 覆盖，或通过 `OPENFILM_SHARED_HOME` / `OPENFILM_HOME` 指定 OpenFilm 根目录。
 
 三条入口都能启动，且**单飞**（同一时刻只有一个下载）：
 
@@ -92,7 +94,7 @@ rot-if: 模型、路由或权重来源变化
 - **没有说话人分离**：多人时是一整段文本。
 - **没有逐字时间戳**：句级时间按段内字重插值，够字幕，不够卡拉 OK 高亮。要逐字就换 Paraformer-zh（同一套 sherpa 接口）。
 - **热词/术语表未做**：目前靠 `refine` 事后纠错。
-- **面板 UI 没有安装按钮**：Host 路由已就绪（`/api/no996-openfilm/asr`），按钮本身待做。
+- **安装界面**：空态引导及本地服务安装路径的真实 GUI 行为以 `STATE.md` 的验收记录为准。
 - **首次 228 MB 下载**：内网/离线机器需要预置到上面的目录。
 
 ## 文件

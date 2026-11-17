@@ -17,31 +17,31 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 /** Pure so the rules are testable without a git repo or a release on disk. */
-export function releaseProblems({ version, changelog, statusText, tags = [], dirty = false, lockVersion = null }) {
+export function releaseProblems({ version, changelog, statusText, tags = [], dirty = false, lockVersion = null, allowedTag = '' }) {
   const problems = [];
   if (!version) {
     problems.push('package.json has no version');
     return problems;
   }
-  if (dirty) problems.push('working tree is not clean — commit or stash first (`--allow-dirty` to skip)');
-  if (lockVersion && lockVersion !== version) problems.push(`package-lock.json says ${lockVersion}, package.json is ${version}`);
-  if (changelog !== null && !new RegExp(`^##\\s+${version.replace(/\./g, '\\.')}(\\b|\\s)`, 'm').test(changelog)) {
+  if (dirty) problems.push('working tree is not clean — commit or stash first');
+  if (!lockVersion || lockVersion !== version) problems.push(`package-lock.json says ${lockVersion ?? 'missing'}, package.json is ${version}`);
+  if (changelog === null || !new RegExp(`^##\\s+${version.replace(/\./g, '\\.')}(\\b|\\s)`, 'm').test(changelog)) {
     problems.push(`CHANGELOG.md has no "## ${version}" section`);
   }
-  if (statusText !== null && !statusText.includes(`**${version}**`)) {
+  if (statusText === null || !statusText.includes(`**${version}**`)) {
     problems.push(`docs/STATE.md does not state **${version}** as the current version`);
   }
-  if (tags.includes(`v${version}`)) {
+  if (tags.includes(`v${version}`) && allowedTag !== `v${version}`) {
     problems.push(`tag v${version} already exists — bump the version before releasing`);
   }
   return problems;
 }
 
-function git(...args) {
+export function gitOutput(args, run = execFileSync) {
   try {
-    return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return '';
+    return run('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch (cause) {
+    throw new Error(`cannot inspect git ${args.join(' ')}; release check stopped`, { cause });
   }
 }
 
@@ -56,14 +56,14 @@ function readIfPresent(path) {
 export function inspectRepo() {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'));
-  const tags = git('tag', '--list', 'v*').split('\n').filter(Boolean);
+  const tags = gitOutput(['tag', '--list', 'v*']).split('\n').filter(Boolean);
   return {
     version: pkg.version,
     lockVersion: lock.version,
     changelog: readIfPresent(join(ROOT, 'CHANGELOG.md')),
     statusText: readIfPresent(join(ROOT, 'docs', 'STATE.md')),
     tags,
-    dirty: git('status', '--porcelain') !== '',
+    dirty: gitOutput(['status', '--porcelain']) !== '',
   };
 }
 

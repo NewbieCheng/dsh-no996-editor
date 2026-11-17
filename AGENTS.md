@@ -6,19 +6,30 @@
 
 ## 0. 一句话
 
-把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.26`。
+把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.29`。
 
 ## 1. 红线（违反即回退）
 
 1. **不碰用户既有项目和会话。** 模板安装只新建目录；不迁移、不删除、不改写别人的 `film.html`。
 2. **自动化测试禁止真实模型调用。** 只用 mock 与 `mkdtemp`。
-3. **只推 `NewbieCheng/dsh-openfilm`。**
+3. **源码只推 GitHub `NewbieCheng/dsh-openfilm`。** 插件只从 GitLab Package Registry 安装/更新（包名 **`@newbiecheng/dsh-openfilm`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 GitLab 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
 4. **未验证不得声称完成。** 真机 GUI 里看到行为才算“好了”。
 5. **不要把 `openfilm_draft` 当保存**（纯内存草稿）；**不要把 Studio 代理当安全边界**（本机回环集成，不是沙箱）。
 
+### 1.1 装 / 更 / 发（最短清单）
+
+开发、验证、提交、推送、发布到更新的 **AI 最短 SOP** 和完整步骤只认 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。源码只推 GitHub，GitLab 只作包 registry；提交、推送、发包和更新分别按用户授权执行，不要自动串联。先检查工作区并保留他人的改动。
+
+| 事 | 命令 / 动作 |
+|---|---|
+| 装 | `dsh plugin --profile desktop add @newbiecheng/dsh-openfilm` → 整应用重启 |
+| 更 | DSH「版本」一键更新，或 `add @newbiecheng/dsh-openfilm@<版>` → 重启 |
+| 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ 授权后运行 `powershell -File .\scripts\gitlab-npm-publish.ps1` → `npm view` + 真机「版本」区 |
+| 包丢了 | `dsh plugin --profile desktop install`（勿在 Windows 手删 `@NewbieCheng`/`@newbiecheng` 目录） |
+
 ## 2. 四层界面，两级手段
 
-四层（L0 我们的壳 / L1 官方桌面壳 / L2 Studio 编辑器 / L3 影片）优先 **token → CSS → 源码补丁**。见 ，判断流程与反模式见 。L2 只有 dist，只能 CSS 注入。
+四层（L0 我们的壳 / L1 官方桌面壳 / L2 Studio 编辑器 / L3 影片）按改动位置选择 token、CSS 或上游源码补丁；上游源码与构建方式见 [`docs/playbooks/upstream-bump.md`](docs/playbooks/upstream-bump.md)，注入边界见 [`docs/reference/injection-registry.md`](docs/reference/injection-registry.md)。不要假定 L2 只能注入 CSS。
 
 ### 2.1 对话边界与预设注入链
 
@@ -61,8 +72,8 @@ openfilm_library(kind=template, take=<id>)
 
 ## 4. 最短路径与生效矩阵
 
-- **提交前唯一必跑**：`npm run check`（lint + test + docs/brand/templates/patches）。改客户端源码需 `npm run build`；改 `_kit`/`shots` 需 `npm run templates:build`；改源码/路由需 `npm run docs:gen`。
-- **生效方式**：改主题/CSS 刷新即生效；改 `src/studio/studio-entry.js` 等需 `npm run build` 后刷新；改 `index.js` / `src/**/*.mjs` 需重载插件并刷新（`touch index.js src/**/*.mjs` 确保 loader 重求值）；改 `cordis.patch.yml` / `skills/**` 影响之后新建的会话。
+- 日常先跑 `npm run check:quick`（变更代码语法 + 能自动识别的相关测试；动态依赖可能漏检，补跑相关测试）；**提交前必跑** `npm run check`（完整 lint + test + docs/brand/templates/patches）。改客户端源码需 `npm run build`；改 `_kit`/`shots` 需 `npm run templates:build`；改源码/路由需 `npm run docs:gen`。
+- **生效方式**：改主题/CSS 刷新即生效；改 `src/studio/studio-entry.js` 等需 `npm run build` 后刷新；改 `index.js` / `src/**/*.mjs` 需重载插件并刷新；若模块缓存导致未生效，保存工作并按提示完整重启 DSH；改 `cordis.patch.yml` / `skills/**` 影响之后新建的会话。
 
 ## 5. 端口、证据与规范
 

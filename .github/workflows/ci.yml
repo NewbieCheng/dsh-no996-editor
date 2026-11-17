@@ -38,23 +38,8 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund
 
-      - name: Lint
-        run: npm run lint -- --strict
-
-      - name: Tests
-        run: npm test
-
-      - name: Docs
-        run: npm run docs:check
-
-      - name: Brand
-        run: npm run brand:check
-
-      - name: Templates
-        run: npm run templates:check
-
-      - name: Patches
-        run: npm run patches:check
+      - name: Full repository check
+        run: npm run check
 
       - name: No build artifacts in git
         shell: bash

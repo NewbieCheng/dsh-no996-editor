@@ -1,10 +1,36 @@
 # 更新记录
 
-## 0.15.26 —— GitLab Release 测试包通道
+> 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
-- **发布通道**：制品仍是 `npm pack` 的 `.tgz`；本版用于验证 GitLab.com Release 附件作为用户下载/更新源（源码主仓仍为 GitHub `NewbieCheng/dsh-openfilm`）。
-- **清单**：补 `engines.dsh`、`repository.url`（GitLab 镜像地址，安装器不依赖该字段）。
-- **用户更新**：下新 tgz → `dsh plugin --profile <p> add <tgz>` 或插件管理器安装 → 按 `restart-required` 整应用重启。无自动 latest。
+## 0.15.30 —— 同文件夹切换对话、上下文用量与思考强度对齐、主工作区隔离
+
+- **剪辑区同文件夹切换对话**：点击左侧「剪辑区」任意子对话行时携带目标 `sessionId` 直达对应对话，修复同项目下切换对话无响应及跨项目未定位到所点对话的问题；单条对话删除同步按 `agentSessions.deepseek` 解绑归档。
+- **上下文用量与思考强度**：打开或切换历史对话时即刻绑定页面 key 并读取 `ctx.llm.resolveModelInfo` 上下文窗口与 `projections` 用量，告别 0% 空态；`probe` 透传当前会话与预览模型，思考强度展示真实中文档位（告别「默认」），模型 Pill 与 Host 实时会话严格一致，且不再因探针创建 `""` 幽灵空会话。
+- **主工作区防污染**：不再在创建影片会话时调用 `workspaceRegistry.create` 向主「工作区」写入多余 `Projects`/影片文件夹，且将 `workspaceRegistry` 从顶层硬依赖降为按需读取。
+- **稳定性**：补齐 `pathToFileURL` 导入、`agent-attach-failed` 客户端事件白名单与卸载时 `storageDomain` 关闭。
+
+## 0.15.29 —— 小写 scope，恢复「版本」Tab
+
+- **根因**：DSH `PACKAGE_NAME` 只允许小写 scope（`@[a-z0-9]…`）。`@NewbieCheng/…` 过不了校验，Host 不标 `update: registry`，插件详情页就没有「版本」区（`dsh-ops` 能显示是因为包名全小写）。
+- **修复**：包名、cordis 模块名、客户端 ModuleLoader id、npmrc scope 一律改为 `@newbiecheng/dsh-openfilm`；用户需删掉旧 `@NewbieCheng/…` 依赖后按手册重装。
+
+## 0.15.28 —— 客户端 ModuleLoader id 对齐 scope 包名
+
+- **根因**：包名改成 scoped 后，客户端仍用 `id: 'dsh-openfilm'` 注册，Host 能起、侧栏「视频创作」挂不上；对照 `@michengai/dsh-archive-manager` 的 id 必须等于 npm 包名。
+- **修复**：`studio-entry.js` / `client-entry.js` 的 ModuleLoader id 改为与包名一致。
+
+## 0.15.27 —— Registry 为唯一安装通道；cordis 模块名对齐 scope
+
+- **手册**：安装/更新/发版收敛到 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)（其后删除 `release.md` / 旧跳转稿，只留这一篇）。
+- **加载**：`cordis.patch.yml` 的 Host / prompt / skills 模块名改为 `@newbiecheng/dsh-openfilm…`（与 npm 包名一致，否则 registry 安装后挂不上）。
+- **用户侧**：只从 GitLab Package Registry 安装；本机 desktop 亦切离 `link:`。
+
+## 0.15.26 —— GitLab Package Registry（DSH 原生更新）
+
+- **包名**：`@newbiecheng/dsh-openfilm`（带 scope，供 GitLab npm registry）。
+- **发布通道**：发到 GitLab Package Registry（npm 协议），不再依赖 GitHub Release / 本地 tgz 作为用户更新源；源码主仓仍只推 GitHub。
+- **清单**：`publishConfig.registry`、`engines.dsh`、`repository.url`、`manifestVersion`。
+- **用户更新**：配置 `@newbiecheng` scope → registry 后，`dsh plugin add @newbiecheng/dsh-openfilm`；之后走 DSH「版本」Tab 检测与一键更新。
 
 ## 0.15.25 —— 不加班配音真正进 openfilm get list
 

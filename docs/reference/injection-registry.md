@@ -2,7 +2,7 @@
 id: injection-registry
 reader: 改界面的人、reviewer
 fact-source: assets/shell-ui.js、assets/shell-login.js、assets/theme/*.css、src/ui/sidebar-editing.mjs
-checked: 0.15.26
+checked: 0.15.29
 rot-if: 新增/撤掉任何一处没走源码的改动
 -->
 
@@ -16,11 +16,10 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 
 | 注入 | 文件 | 为什么不是源码 | 退出条件 |
 |---|---|---|---|
-| 模板选择弹窗 | `assets/shell-ui.js` | 历史上先做的注入；上游有模板入口 | 模板主路径迁进 A1 后删除 |
 | 视频工具环境检查卡 | `assets/shell-ui.js` | 需要 Host 能力，上游没有这个界面 | 上游有环境检查或迁进 A1 |
 | Host 截走 drop 后清 pageDropping | `assets/shell-ui.js`（`clearPageDropping`） | 正式修法已在 `patches/010-App.patch` 并 bake 进壳；注入侧仍双保险 | 确认真机 Host drop 不再卡「松手即可附上」后，可删注入侧 `clearPageDropping` |
 | 工作区下拉开关 | `src/ui/sidebar-editing.mjs` | 侧栏标题行没有官方插槽；`sidebar.workspaces` 是 single 槽 | DSH 开出标题行插槽后删除 |
-| 表面收敛（藏服务商/画布/多余菜单） | `assets/theme/studio.css` + `src/studio/studio-proxy.mjs`（`__no996SurfaceHide`） | L2 为 dist；本轮要可逆隐藏而非删供应商 | 产品恢复第三方配音 / 画布后删规则与脚本 |
+| 表面收敛（藏服务商/画布/多余菜单） | `assets/theme/studio.css` + `src/studio/studio-proxy.mjs`（`__no996SurfaceHide`） | 当前通过可逆隐藏保留供应商；上游源码仍可用补丁改造 | 产品恢复第三方配音 / 画布后删规则与脚本 |
 | 音色库改写为不加班 | `studio-proxy` `rewriteLibraryVoices` | 不改 VoicesPane 源码，复用官方列表 UI | 上游 VoicesPane 原生支持 no996 后改补丁 |
 
 ## 1.0 隐藏的 OpenFilm 设置项与界面清单
@@ -40,6 +39,7 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 
 | 东西 | 现在在哪 |
 |---|---|
+| 模板选择弹窗 | 上游壳源码补丁（不再依赖注入层创建弹窗） |
 | 账号条 / 登录态 | `packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx`（React 源码，补丁） |
 | 设置 About / 侧栏「兼容 OpenFilm」/ 语言说明 | `SettingsModal.tsx` + `studio/ui/src/i18n/*`（撤掉 `tuneAbout`；先前误以为它导致空壳已回退，根因实为品牌 MutationObserver） |
 | 故障恢复（静默自愈，无卡片） | `apps/desktop/shell/RecoveryGate.tsx`（探活 + `no996-openfilm:restart`；面板侧退避重拉；2026-11 去掉阻塞卡） |

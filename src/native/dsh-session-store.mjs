@@ -53,11 +53,47 @@ export function createDshSessionStore({ file, fs } = {}) {
     return record && typeof record === 'object' && record.sessions && typeof record.sessions === 'object' ? record : undefined;
   };
   const keyOf = conversation => (typeof conversation === 'string' && CONVERSATION.test(conversation) ? conversation : '');
+  const selectionOf = (record, key) => {
+    const raw = record?.selections?.[key];
+    if (raw && typeof raw.provider === 'string' && raw.provider && typeof raw.model === 'string' && raw.model) {
+      return {
+        provider: raw.provider,
+        model: raw.model,
+        ...(typeof raw.reasoningEffort === 'string' && raw.reasoningEffort ? { reasoningEffort: raw.reasoningEffort } : {}),
+      };
+    }
+    // Legacy project-level "provider/model" string from older builds.
+    if (key === '' && typeof record?.model === 'string' && record.model.includes('/')) {
+      const slash = record.model.indexOf('/');
+      const provider = record.model.slice(0, slash);
+      const model = record.model.slice(slash + 1);
+      if (provider && model) return { provider, model };
+    }
+    return undefined;
+  };
+  const writeSelection = (record, key, selection) => {
+    if (!selection || typeof selection.provider !== 'string' || !selection.provider ||
+        typeof selection.model !== 'string' || !selection.model) return;
+    record.selections ??= {};
+    record.selections[key] = {
+      provider: selection.provider,
+      model: selection.model,
+      ...(typeof selection.reasoningEffort === 'string' && selection.reasoningEffort
+        ? { reasoningEffort: selection.reasoningEffort }
+        : {}),
+    };
+  };
   return {
     get(projectId) {
       const record = recordOf(projectId);
       const sessionId = record?.sessions[''];
-      return typeof sessionId === 'string' ? { sessionId, ...(typeof record.cwd === 'string' ? { cwd: record.cwd } : {}) } : undefined;
+      if (typeof sessionId !== 'string') return undefined;
+      const selection = selectionOf(record, '');
+      return {
+        sessionId,
+        ...(typeof record.cwd === 'string' ? { cwd: record.cwd } : {}),
+        ...(selection ? { selection } : {}),
+      };
     },
     set(projectId, value) {
       if (!recordOf(projectId) && (typeof projectId !== 'string' || !PROJECT_ID.test(projectId))) return;
@@ -66,22 +102,40 @@ export function createDshSessionStore({ file, fs } = {}) {
       record.sessions ??= {};
       record.sessions[''] = value.sessionId;
       if (typeof value.cwd === 'string') record.cwd = value.cwd;
-      if (typeof value.model === 'string') record.model = value.model;
+      if (value.selection) writeSelection(record, '', value.selection);
+      else if (typeof value.model === 'string') record.model = value.model;
       flush();
     },
     getSession(projectId, conversation) {
       const record = recordOf(projectId);
-      const sessionId = record?.sessions[keyOf(conversation)];
-      return typeof sessionId === 'string' ? { sessionId, ...(typeof record.cwd === 'string' ? { cwd: record.cwd } : {}) } : undefined;
+      const key = keyOf(conversation);
+      const sessionId = record?.sessions[key];
+      if (typeof sessionId !== 'string') return undefined;
+      const selection = selectionOf(record, key);
+      return {
+        sessionId,
+        ...(typeof record.cwd === 'string' ? { cwd: record.cwd } : {}),
+        ...(selection ? { selection } : {}),
+      };
     },
     setSession(projectId, conversation, value) {
       if (typeof projectId !== 'string' || !PROJECT_ID.test(projectId)) return;
       if (!value || typeof value.sessionId !== 'string' || !value.sessionId) return;
       const record = data.projects[projectId] ?? (data.projects[projectId] = { sessions: {} });
+      const key = keyOf(conversation);
       record.sessions ??= {};
-      record.sessions[keyOf(conversation)] = value.sessionId;
+      record.sessions[key] = value.sessionId;
       if (typeof value.cwd === 'string') record.cwd = value.cwd;
-      if (typeof value.model === 'string') record.model = value.model;
+      if (value.selection) writeSelection(record, key, value.selection);
+      else if (typeof value.model === 'string') record.model = value.model;
+      flush();
+    },
+    /** Update only the remembered model/effort for a conversation (sessionId unchanged). */
+    setSelection(projectId, conversation, selection) {
+      if (typeof projectId !== 'string' || !PROJECT_ID.test(projectId)) return;
+      const record = recordOf(projectId);
+      if (!record) return;
+      writeSelection(record, keyOf(conversation), selection);
       flush();
     },
     remove(projectId) {

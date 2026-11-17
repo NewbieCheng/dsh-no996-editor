@@ -13,13 +13,14 @@
  *   node scripts/lint.mjs            # errors fail, warnings print
  *   node scripts/lint.mjs --strict   # warnings fail too (CI)
  */
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const STRICT = process.argv.includes('--strict')
+const CHANGED = process.argv.includes('--changed')
 
 const SKIP_DIRS = new Set(['node_modules', 'vendor', 'dist', '.git', '.upstream', '.dev', '.asr-home', '.npm-cache', '.codegraph', '.tmp-chrome', '.tmp-frames'])
 const CODE_DIRS = ['src', 'scripts', 'tests']
@@ -73,11 +74,21 @@ function stripLineComment(line) {
 }
 
 // --- R1: every file must parse ------------------------------------------------
-function checkSyntax(files) {
-  for (const file of files) {
-    const result = spawnSync(process.execPath, ['--check', file], { stdio: 'ignore' })
-    if (result.status !== 0) errors.push(`${rel(file)}: does not parse (node --check)`)
+async function checkSyntax(files) {
+  // Bound parallelism: check every file with Node itself, but avoid serial startup cost.
+  let next = 0
+  async function worker() {
+    while (next < files.length) {
+      const file = files[next++]
+      const ok = await new Promise(resolve => {
+        const child = spawn(process.execPath, ['--check', file], { stdio: 'ignore' })
+        child.once('error', () => resolve(false))
+        child.once('close', code => resolve(code === 0))
+      })
+      if (!ok) errors.push(`${rel(file)}: syntax check failed (node --check)`)
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(4, files.length) }, worker))
 }
 
 // --- R2: no merge markers -----------------------------------------------------
@@ -173,7 +184,25 @@ function reportSizes(files) {
 }
 
 const files = codeFiles()
-checkSyntax(files)
+let syntaxFiles = files
+if (CHANGED) {
+  const queries = [
+    ['ls-files', '-m', '-o', '--exclude-standard', '-z'],
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'],
+  ]
+  const changed = new Set()
+  for (const args of queries) {
+    const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' })
+    if (result.status !== 0 || result.error) {
+      console.error('lint: cannot determine changed files; run full lint instead')
+      process.exit(1)
+    }
+    for (const path of result.stdout.split('\0').filter(Boolean)) changed.add(path.replace(/\\/g, '/'))
+  }
+  syntaxFiles = files.filter(file => changed.has(rel(file)))
+  console.log(`lint: changed-file syntax only (${syntaxFiles.length} files); run full check before committing`)
+}
+await checkSyntax(syntaxFiles)
 checkMergeMarkers(files)
 checkRequire(files)
 checkConsole(files)

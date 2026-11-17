@@ -2,7 +2,7 @@
 id: reference-packaging-and-distribution
 reader: 打包发布者、排查坏包或跨平台环境问题的开发者
 fact-source: package.json, scripts/build-official-shell.mjs, scripts/release-check.mjs, src/host/download-sources.mjs, src/host/download-stall.mjs, src/tools/tool-installer.mjs, cordis.patch.yml
-checked: 0.15.26
+checked: 0.15.29
 rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载源或跨平台工具配置
 -->
 
@@ -10,28 +10,30 @@ rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载�
 
 本文说明 OpenFilm 源码如何构建进插件包、发布包如何避免缺依赖变成"坏包"，以及 FFmpeg / SenseVoice 模型的多源切换与 Windows / macOS 适配边界。
 
+**安装 / 更新 / 发版步骤**不在这里——只认 [`playbooks/publish.md`](../playbooks/publish.md)。
+
 ## 1. OpenFilm 源码打包流水线
 
 ```text
-F:\Dev\_upstream\openfilm（上游 0.3.2）
-  ├─ 应用 patches/010..390-*.patch（39 个源码补丁，由 patches/series.json 约束 sha256）
-  ├─ 构建静态前端产物 → node scripts/build-official-shell.mjs
+上游 checkout（固定版本；目录可配置）
+  ├─ 应用 patches/ 中的源码补丁（由 patches/series.json 约束 sha256）
+  ├─ 先构建静态前端，再用 node scripts/build-official-shell.mjs 打包快照
   │    └─ 输出 vendor/official-shell/ui/ + vendor/official-shell/manifest.json（逐文件 sha256）+ patch.diff
   ├─ npm run shell:bake
   │    └─ 将主题变量烘焙进 vendor/official-shell/ui/assets/no996-theme.css 并重算 manifest
   ├─ npm run build
   │    └─ esbuild 将 src/studio/studio-entry.js 等打包为单文件 client.js
-  └─ npm pack（依据 package.json 的 files 与 bundledDependencies）
-       └─ 生成 dsh-openfilm-<version>.tgz
+  └─ `scripts/pack-tgz.mjs` + `scripts/gitlab-npm-publish.ps1`
+       └─ 发布 `@newbiecheng/dsh-openfilm` 到 GitLab Package Registry（见 [`playbooks/publish.md`](../playbooks/publish.md)）
 ```
 
 ## 2. 分发依赖矩阵（防坏包机制）
 
-为保证用户从 GitHub Release 或插件市场下载 `.tgz` 后开箱可用，依赖按"随包内置"与"平台按需"两层隔离：
+用户从 **GitLab Package Registry** 安装；tarball 仍按 `files` + `bundledDependencies` 打齐，依赖按"随包内置"与"平台按需"两层隔离：
 
 | 类别 | 包含项 | 分发方式 | 说明 |
 |---|---|---|---|
-| 核心运行引擎与契约 | `openfilm@0.3.2`、`zod` | `bundledDependencies` | 随 `.tgz` 离线打包，用户安装插件时无需联网拉取这两个 npm 包 |
+| 核心运行引擎与契约 | `openfilm@0.3.2`、`zod` | `bundledDependencies` | 随包内置，用户装插件时无需再拉这两个 npm 包 |
 | 插件壳与预设资产 | `index.js`、`client.js`、`src/`、`vendor/official-shell/ui/`、`vendor/templates/`、`vendor/providers/no996/`、`skills/`、`assets/`、`locale/`、`cordis.patch.yml` | `package.json` `files` | `vendor/official-shell/ui/` 带 `manifest.json` sha256 校验 |
 | 媒体与本地语音原生包 | `ffmpeg-static`、`ffprobe-static`、`sherpa-onnx-node` | `optionalDependencies` | 设为可选依赖，防止某平台缺少预编译二进制时阻塞整个插件安装 |
 

@@ -397,11 +397,16 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     if(event.source!==parent||parent===window||!(event.origin===parentOrigin||(${desktop}&&event.origin==='null')))return;
     const data=event.data;
     if(data&&typeof data==='object'&&!Array.isArray(data)&&Object.keys(data).length===2&&data.type==='no996-openfilm:project-snapshot-request'&&data.version===1)report(true);
-    // The sidebar area asks the shell to show one project. Only the history call
-    // is made here: the shell's own router owns what a project change means, and
-    // its patched history wrapper reports the new path back to the parent.
+    // The sidebar area asks the shell to show one project (and optionally switch
+    // to a specific conversation inside that project). Dispatch the in-page event
+    // even when already on /projects/id so same-folder switches work.
     if(data&&typeof data==='object'&&!Array.isArray(data)&&data.type==='no996-openfilm:navigate'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
       const target='/projects/'+data.projectId;
+      const sessionId=typeof data.sessionId==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(data.sessionId)?data.sessionId:'';
+      if(sessionId){
+        globalThis.__no996PendingSession={projectId:data.projectId,sessionId:sessionId};
+        try{dispatchEvent(new CustomEvent('no996-openfilm:select-session',{detail:{projectId:data.projectId,sessionId:sessionId}}))}catch(_){}
+      }
       if(location.pathname!==target&&location.pathname!==target+'/'){
         try{
           history.pushState({},'',target);

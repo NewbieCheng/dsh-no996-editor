@@ -8,7 +8,7 @@ import { installDragProbe } from './drag-probe.mjs';
 import { installDropCatcher } from './drop-catcher.mjs';
 
 window.__ModuleLoader__.load({
-  id: 'dsh-openfilm',
+  id: '@newbiecheng/dsh-openfilm',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
@@ -148,10 +148,12 @@ window.__ModuleLoader__.load({
         // when DSH already owns them — that must never wipe 视频创作.
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL, locale: NS }, PanelSeat));
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: PANEL, order: 21, locale: NS, label: () => t('panel') }, PanelIcon));
-        // Bundle detail page: what the film agent can load (preset, isolated
-        // skills, film tools, per-project chain). List slot, append-only: no
-        // official UI is replaced and nothing else moves.
-        ctx.slots.inject('plugins.detail.section', () => ctx.slots.register({ name: 'plugins.detail.section', id: 'no996-openfilm-env', order: 10, locale: NS, label: () => t('envTitle') }, EnvSection));
+        // Our OWN bundle's detail page: what the film agent can load (preset,
+        // isolated skills, film tools, per-project chain). Use the keyed config
+        // slot scoped to our package name: the list `plugins.detail.section`
+        // renders on EVERY plugin's detail page, which leaked this panel into
+        // other bundles. Keying by package keeps it on ours only.
+        ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: '@newbiecheng/dsh-openfilm', locale: NS, label: () => t('envTitle') }, EnvSection));
         // `shell.overlay` is rendered for the whole frame lifetime, so the panel
         // it hosts survives page switches instead of reloading Studio each time.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'no996-openfilm-panel', order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));

@@ -4,9 +4,12 @@
   function normalizeProjectId(value) {
     return typeof value === "string" && /^[A-Za-z0-9_-]{6,40}$/.test(value) ? value : null;
   }
+  function normalizeSessionId(value) {
+    return typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value) ? value : null;
+  }
   function createAreaBus() {
     const listeners = /* @__PURE__ */ new Set();
-    const state = { projectId: null, ready: false, pending: null };
+    const state = { projectId: null, ready: false, pending: null, pendingSessionId: null };
     function emit(event) {
       for (const listener of [...listeners]) {
         try {
@@ -25,18 +28,29 @@
         };
       },
       /** Ask the panel to navigate; a request made before it mounts is kept. */
-      navigate(projectId) {
+      navigate(projectId, sessionId) {
         const id = normalizeProjectId(projectId);
         if (!id) return false;
+        const sid = normalizeSessionId(sessionId);
         state.pending = id;
-        emit({ type: "navigate", projectId: id });
+        state.pendingSessionId = sid;
+        emit({ type: "navigate", projectId: id, ...sid ? { sessionId: sid } : {} });
         return true;
       },
-      /** Take the pending request (the panel flushes it once it is listening). */
+      /** Take the pending project request (kept for callers expecting a projectId string). */
       takePending() {
         const id = state.pending;
         state.pending = null;
+        state.pendingSessionId = null;
         return id;
+      },
+      /** Take both the pending projectId and optional conversation sessionId. */
+      takePendingTarget() {
+        const projectId = state.pending;
+        const sessionId = state.pendingSessionId;
+        state.pending = null;
+        state.pendingSessionId = null;
+        return projectId ? { projectId, ...sessionId ? { sessionId } : {} } : null;
       },
       /** The official shell has a live frame again. */
       reportReady() {
@@ -75,7 +89,9 @@
       const watchNavigationRef = React.useRef(null);
       const readyRef = React.useRef(false);
       const urlRef = React.useRef(null);
-      const postNavigate = (projectId2) => {
+      const postNavigate = (target, sessionId) => {
+        const projectId2 = typeof target === "string" ? target : target?.projectId;
+        const sid = typeof sessionId === "string" ? sessionId : typeof target === "object" ? target?.sessionId : void 0;
         const frame = iframeRef.current;
         if (!frame || !frame.contentWindow || !readyRef.current || typeof projectId2 !== "string") return false;
         let origin = "*";
@@ -84,7 +100,12 @@
         } catch {
         }
         try {
-          frame.contentWindow.postMessage({ type: "no996-openfilm:navigate", version: 1, projectId: projectId2 }, origin);
+          frame.contentWindow.postMessage({
+            type: "no996-openfilm:navigate",
+            version: 1,
+            projectId: projectId2,
+            ...typeof sid === "string" && sid ? { sessionId: sid } : {}
+          }, origin);
           return true;
         } catch {
           return false;
@@ -92,7 +113,7 @@
       };
       React.useEffect(() => {
         const off = areaBus.subscribe((event) => {
-          if (event.type === "navigate") postNavigate(event.projectId);
+          if (event.type === "navigate") postNavigate(event.projectId, event.sessionId);
         });
         return off;
       }, []);
@@ -164,7 +185,7 @@
               setSilent(false);
               clearTimeout(timer);
               areaBus.reportReady();
-              const pending = areaBus.takePending();
+              const pending = typeof areaBus.takePendingTarget === "function" ? areaBus.takePendingTarget() : areaBus.takePending();
               if (pending) postNavigate(pending);
             }
             setBoot({ hasNative: data.hasNative === true, rendered: data.rendered === true });
@@ -973,12 +994,13 @@
       span.innerHTML = open ? '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M1.5 4.4A1 1 0 0 1 2.5 3.4h3l1.2 1.4h6.3a1 1 0 0 1 1 1v1.7H1.5z"/><path d="M1.8 7.5h12.9l-1.3 4.9a1 1 0 0 1-1 .7H3.6a1 1 0 0 1-1-.8z"/></svg>' : '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M1.5 4.5A1 1 0 0 1 2.5 3.5h3l1.2 1.4h5.8a1 1 0 0 1 1 1v6.6a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1z"/></svg>';
       return span;
     };
-    const openProject = (project) => {
+    const openProject = (project, sessionId) => {
       try {
         doc.defaultView?.localStorage?.setItem("no996.openfilm.lastProject", project.projectId);
       } catch {
       }
-      areaBus.navigate(project.projectId);
+      const targetSessionId = typeof sessionId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(sessionId) ? sessionId : void 0;
+      areaBus.navigate(project.projectId, targetSessionId);
       findPanelEntry(doc)?.click();
       closePopover();
       closeMenus();
@@ -1096,7 +1118,7 @@
           open.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
-            openProject(project);
+            openProject(project, session.sessionId);
           });
           const childMore = rowAction(child, "\u5BF9\u8BDD\u64CD\u4F5C", (anchor) => openRowMenu(anchor, project, session));
           child.append(open, childMore);
@@ -1128,6 +1150,7 @@
       }
       try {
         const data = await fetchSessions?.();
+        syncHiddenIds(data);
         const projects2 = Array.isArray(data?.projects) ? data.projects : [];
         const key = JSON.stringify(projects2);
         if (quiet && key === lastKey) return;
@@ -1640,12 +1663,30 @@
       startRetry();
     };
     const hiddenSessionIds = /* @__PURE__ */ new Set();
+    const hiddenWorkspaceIds = /* @__PURE__ */ new Set();
+    const hiddenFolderNames = /* @__PURE__ */ new Set(["Projects", "OpenFilm"]);
     let hiddenSeeded = false;
     const syncHiddenIds = (data) => {
-      if (!data || !Array.isArray(data.hiddenSessionIds)) return;
-      hiddenSessionIds.clear();
-      for (const id of data.hiddenSessionIds) {
-        if (typeof id === "string" && id) hiddenSessionIds.add(id);
+      if (!data || typeof data !== "object") return;
+      if (Array.isArray(data.hiddenSessionIds)) {
+        hiddenSessionIds.clear();
+        for (const id of data.hiddenSessionIds) {
+          if (typeof id === "string" && id) hiddenSessionIds.add(id);
+        }
+      }
+      if (Array.isArray(data.hiddenWorkspaceIds)) {
+        hiddenWorkspaceIds.clear();
+        for (const id of data.hiddenWorkspaceIds) {
+          if (typeof id === "string" && id) hiddenWorkspaceIds.add(id);
+        }
+      }
+      if (Array.isArray(data.hiddenFolderNames)) {
+        hiddenFolderNames.clear();
+        hiddenFolderNames.add("Projects");
+        hiddenFolderNames.add("OpenFilm");
+        for (const name of data.hiddenFolderNames) {
+          if (typeof name === "string" && name.trim()) hiddenFolderNames.add(name.trim());
+        }
       }
     };
     const hideFilmSessionsInWorkspaces = () => {
@@ -1658,10 +1699,17 @@
           }).catch(() => {
           });
         }
+        if (hiddenWorkspaceIds.size > 0) {
+          for (const wid of hiddenWorkspaceIds) {
+            for (const el of doc.querySelectorAll(`[data-workspace-id="${wid}"]`)) {
+              if (el && el.style.display !== "none") el.style.display = "none";
+            }
+          }
+        }
         const folderButtons = doc.querySelectorAll('button[aria-expanded], [role="button"][aria-expanded]');
         for (const btn of folderButtons) {
           const label = (btn.textContent || "").trim();
-          if (label === "Projects" || label === "OpenFilm") {
+          if (hiddenFolderNames.has(label)) {
             const group = btn.closest("[data-workspace-id], section, li, div");
             const target = group && group !== doc.body ? group : btn;
             if (target.style.display !== "none") target.style.display = "none";
@@ -2098,7 +2146,7 @@
 
   // src/studio/studio-entry.js
   window.__ModuleLoader__.load({
-    id: "dsh-openfilm",
+    id: "@newbiecheng/dsh-openfilm",
     factory(require2) {
       const React = require2("react");
       const h = React.createElement;
@@ -2255,7 +2303,7 @@
           const t = ctx.locale.bind(NS);
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
-          ctx.slots.inject("plugins.detail.section", () => ctx.slots.register({ name: "plugins.detail.section", id: "no996-openfilm-env", order: 10, locale: NS, label: () => t("envTitle") }, EnvSection));
+          ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "@newbiecheng/dsh-openfilm", locale: NS, label: () => t("envTitle") }, EnvSection));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
           try {
             ctx.slots.inject("sidebar.brand.mark", () => {

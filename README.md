@@ -6,7 +6,22 @@
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/NewbieCheng/dsh-openfilm/releases) 下载 `dsh-openfilm-*.tgz`，在 DSH 插件管理器里安装该包（或用 `install_bundle` 指定本地路径）。
+包名：`@newbiecheng/dsh-openfilm`（GitLab Package Registry）。
+
+1. 在用户 `~/.npmrc`（或 DSH profile 目录 `.npmrc`）加上 scope（token 可只读；公开项目按 GitLab 权限）：
+
+```
+@newbiecheng:registry=https://gitlab.com/api/v4/projects/89041706/packages/npm/
+//gitlab.com/api/v4/projects/89041706/packages/npm/:_authToken=<gitlab-token>
+```
+
+2. 安装：
+
+```powershell
+dsh plugin --profile desktop add @newbiecheng/dsh-openfilm
+```
+
+或在 DSH 插件管理器按包名安装。安装 / 更新 / 发版手册：[`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
 
 需要：
 
@@ -14,17 +29,17 @@
 - Node.js 22.2+
 - `ffmpeg` / `ffprobe`（读视频信息、部分处理）；缺了会在界面里提示，不会自动安装
 
-更新前先保存未保存的编辑；安装后按管理器提示重启 DSH 或刷新页面。发布包已内置 OpenFilm 运行时、官方界面与模板，不需要另外装 OpenFilm，但下载发布包需要联网。
+更新：从 registry 安装的包可在 DSH「版本」Tab 检测并一键更新；出现 `restart-required` 时按提示重启 DSH。更新前先保存未保存的编辑。发布包已内置 OpenFilm 运行时、官方界面与模板，不需要另外装 OpenFilm。
 
 ## 用起来
 
-- 侧边栏「视频创作」打开工作台；官方界面的对话列由 Host 通过 ACP 驱动一个 DSH 子进程，会话与侧边栏是同一份。
-- **一条对话 = 一条 ACP 会话**：同一个项目里新建对话就是新会话，不会带上上一轮；回到旧对话还在原处。工作目录就是项目文件夹，归档与 DSH 侧边栏是同一份集合。
+- 侧边栏「视频创作」打开工作台；官方界面的对话列由 Host 进程内的 DSH 原生 `sessionController` 驱动。
+- **一条对话 = 一条原生 DSH 会话**：同一个项目里新建对话就是新会话；回到旧对话使用对应会话。工作目录是项目文件夹。
 - 对话里能看到思考、工具调用（真名 + 参数 + 结果摘要）、内联图片；审批走 DSH 自己的界面，不会被静默放行。
 - 图片：当前模型支持看图时内联发送；不支持时落成临时文件并以绝对路径引用。上传兜底单文件上限 256 MiB；更大的视频请先剪辑或转码。
 - 项目首次被面板打开时，Host 会在项目文件夹写一份 `AGENTS.md`（编辑指令，已存在则绝不覆盖）。
 - 本地口播转写：`openfilm_transcribe`，视频/音频 → 带时间码文稿；首次下载 228 MB 权重。
-- **剪辑导演**：子进程的 persona 是"剪辑导演"而不是"编码 agent"；影片文件夹是指令链的根，仓库/单仓上层的手册不会进入影片对话。
+- **剪辑导演**：影片会话的 persona 是「剪辑导演」；影片文件夹是指令链的根，仓库上层的手册不会进入影片对话。
 - **分镜契约**：`openfilm_storyboard` 读写 `.film/storyboard.json`，`from-script` 把口播按句切成镜头、`subtitles` 出 SRT，`plan` 把分镜翻成 `openfilm_clip` 的操作并说清还缺哪个片段。
 - **模板可发现**：`openfilm_library kind=template` 列出内置模板，选中才读它的使用说明（`vendor/templates/<id>/prompt.md`）。
 - 常驻上下文有预算（persona + 指令文件 ≤ 6 KB），风格库/镜头卡/模板全文都按需读。
@@ -39,9 +54,8 @@
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 开发者 | 进程模型与边界（不含进度） |
 | [docs/STATE.md](docs/STATE.md) | 所有人 | 唯一写进度的一篇：当前版本、能用、待真机验、明确不做 |
 | [docs/decisions/](docs/decisions/README.md) | 维护者 | 每条设计决定的理由与代价（ADR） |
-|  | 改界面的人 | 四层界面、手段分级、DOM 锚点、模型/权限来源 |
-|  | 改界面的人 | 决策表、标准流程、验证、反模式 |
-| [docs/playbooks/release.md](docs/playbooks/release.md) | 发版的人 | 版本、打包、发布、回滚 |
+| [docs/decisions/ADR-0009-ui-change-strategy.md](docs/decisions/ADR-0009-ui-change-strategy.md) | 改界面的人 | 界面改动方式的历史决策；当前注入清单见 reference |
+| [docs/playbooks/publish.md](docs/playbooks/publish.md) | 装/更/发的人与智能体 | 安装、更新、发版、回滚（唯一手册） |
 | [docs/playbooks/upstream-bump.md](docs/playbooks/upstream-bump.md) | 维护者 | 三处 pin、补丁系列、升级与冲突 |
 | [docs/playbooks/incident.md](docs/playbooks/incident.md) | 排障的人 | 症状 → 根因 → 现在靠什么挡住 |
 
@@ -66,4 +80,4 @@
 
 `dsh-openfilm` packages the official OpenFilm 0.3.2 studio and desktop shell as a DSH plugin. The Host starts the official Studio on a loopback port, reverse-proxies it, and bridges the shell's chat column to a DSH session (models, approvals and cancellation stay DSH's). The official UI is vendored as a pinned build with a reviewable, replayable source patch series.
 
-Install from GitHub Releases into DSH. Node 22.2+, DSH with `session-controller`/`storageDomain`/`webServer`, and `ffmpeg`/`ffprobe` for video metadata. Upstream is MIT; its license, notices and trademark terms are preserved under `vendor/official-shell`. Product names and marks here do not imply upstream endorsement.
+Install `@newbiecheng/dsh-openfilm` from the GitLab Package Registry (see `docs/playbooks/publish.md`). Node 22.2+, DSH with `session-controller`/`storageDomain`/`webServer`, and `ffmpeg`/`ffprobe` for video metadata. Upstream is MIT; its license, notices and trademark terms are preserved under `vendor/official-shell`. Product names and marks here do not imply upstream endorsement.

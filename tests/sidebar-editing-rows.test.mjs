@@ -119,3 +119,8 @@ test('the shipped label is hidden on every pass, so a recreated label cannot sho
   assert.ok(source.includes('if (found.span) mounted.span = found.span;'));
   assert.equal(source.includes('mounted.span === found.span'), false);
 });
+
+test('clicking a child session row forwards its sessionId through areaBus.navigate', () => {
+  assert.ok(source.includes('openProject(project, session.sessionId)'));
+  assert.ok(source.includes('areaBus.navigate(project.projectId, targetSessionId)'));
+});

@@ -37,31 +37,18 @@ export function markdownFiles(root = ROOT) {
   for (const name of readdirSync(root)) {
     if (extname(name) === '.md') found.push(join(root, name));
   }
-  for (const dir of ['docs', join('skills')]) {
-    const base = join(root, dir);
-    if (!existsSync(base)) continue;
-    for (const name of readdirSync(base)) {
-      if (extname(name) !== '.md') continue;
-      found.push(join(base, name));
-    }
-    // skills/<name>/SKILL.md
-    if (dir === 'skills') {
-      for (const name of readdirSync(base)) {
-        const nested = join(base, name, 'SKILL.md');
-        if (existsSync(nested)) found.push(nested);
-      }
-    }
-  }
+  // All documentation and skill pages, not just the first directory level.
+  for (const dir of ['docs', 'skills']) walkMarkdown(join(root, dir), found);
   return [...new Set(found)];
 }
 
 /** Every markdown file under a directory, recursively. */
 function walkMarkdown(dir, out = []) {
   if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) walkMarkdown(full, out);
-    else if (extname(name) === '.md') out.push(full);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkMarkdown(full, out);
+    else if (entry.isFile() && extname(entry.name) === '.md') out.push(full);
   }
   return out;
 }

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..79a2084 100644
+index 9c7041b..b0f03ec 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -10,10 +10,12 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
@@ -15,7 +15,15 @@ index 9c7041b..79a2084 100644
  import { ModelPopover } from '@/components/ModelPopover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -69,6 +71,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
+@@ -32,6 +34,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+ import {
+   answerLocalAgentPermission,
+   answerLocalAgentQuestion,
++  attachLocalAgentSession,
+   cancelLocalAgentTurn,
+   canSteer,
+   createLocalAgentTurn,
+@@ -69,6 +72,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
  import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
@@ -24,7 +32,7 @@ index 9c7041b..79a2084 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -156,6 +160,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -156,6 +161,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -33,10 +41,52 @@ index 9c7041b..79a2084 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -188,6 +194,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -183,11 +190,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   /* ── sessions ── */
+   const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
+   const [sessionId, setSessionId] = React.useState<string>(() => {
+-    const last = loadLastSession(projectKey);
+     const list = loadSessions(projectKey);
++    const pendingHost = window as unknown as { __no996PendingSession?: { projectId?: string; sessionId?: string } };
++    const pending = pendingHost.__no996PendingSession;
++    if (pending && pending.projectId === project.id && pending.sessionId) {
++      pendingHost.__no996PendingSession = undefined;
++      if (list.some((s) => s.id === pending.sessionId)) return pending.sessionId;
++    }
++    const last = loadLastSession(projectKey);
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
    React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
++  /* dsh-openfilm: the sidebar editing area switches conversations inside the same
++     project folder (and across projects) via a custom window event. */
++  React.useEffect(() => {
++    const onSelect = (event: Event) => {
++      const detail = (event as CustomEvent<{ projectId?: string; sessionId?: string }>).detail;
++      const targetSessionId = detail?.sessionId;
++      if (!detail || detail.projectId !== project.id || !targetSessionId) return;
++      const pendingHost = window as unknown as { __no996PendingSession?: { projectId?: string; sessionId?: string } };
++      if (pendingHost.__no996PendingSession?.sessionId === targetSessionId) {
++        pendingHost.__no996PendingSession = undefined;
++      }
++      const list = loadSessions(projectKey);
++      if (list.some((s) => s.id === targetSessionId)) {
++        setSessionId(targetSessionId);
++        composerRef.current?.focus();
++        return;
++      }
++      void refreshChatSessions(projectKey).then((changed) => {
++        if (!changed) return;
++        const nextList = loadSessions(projectKey);
++        setSessions(nextList);
++        if (nextList.some((s) => s.id === targetSessionId)) {
++          setSessionId(targetSessionId);
++          composerRef.current?.focus();
++        }
++      }).catch(() => {});
++    };
++    window.addEventListener('no996-openfilm:select-session', onSelect);
++    return () => window.removeEventListener('no996-openfilm:select-session', onSelect);
++  }, [project.id, projectKey]);
 +  /* dsh-openfilm: the sidebar outside this page (and Studio itself) can add or
 +     delete a conversation while this list sits in state. Re-read on a slow tick and
 +     when the window comes back, so both sides agree without a reload. A deleted
@@ -64,7 +114,7 @@ index 9c7041b..79a2084 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -352,6 +382,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -352,6 +419,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const [openedFile, setOpenedFile] = React.useState<AttachmentPreviewItem | null>(null);
    const attachInputRef = React.useRef<HTMLInputElement>(null);
    const [dropping, setDropping] = React.useState(false);
@@ -73,7 +123,7 @@ index 9c7041b..79a2084 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -378,10 +410,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -378,10 +447,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -137,7 +187,36 @@ index 9c7041b..79a2084 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -964,6 +1049,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -407,6 +529,28 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+     });
+     return pills;
+   }, []);
++  /* dsh-openfilm: attach the current conversation on open/switch so context usage
++     and real model/thinking options populate without waiting for a user prompt. */
++  const resumeSessionId = shownSessionItem?.agentSessions?.[agent] ?? null;
++  const hasOwnAgentPrefs = Boolean(shownSessionItem?.agentPrefs?.[agent] && Object.keys(shownSessionItem.agentPrefs[agent]!).length > 0);
++  React.useEffect(() => {
++    if (!sessionId) return undefined;
++    let cancelled = false;
++    void attachLocalAgentSession({
++      projectId: projectKey,
++      conversation: sessionId,
++      resume: resumeSessionId,
++      agent,
++      cwd: project.path,
++      meta: { projectId: project.id, sessionId },
++      onOptions: (options) => {
++        if (cancelled || !options) return;
++        useLocalAgents.getState().noteOptions(agent, options, { syncPrefs: !hasOwnAgentPrefs });
++      },
++    }).catch(() => {});
++    return () => { cancelled = true; };
++  }, [project.id, project.path, projectKey, sessionId, resumeSessionId, agent, hasOwnAgentPrefs]);
++
+   /* how full the agent's context is in this conversation: said only once it is nearly full */
+   const agentContext = useAgentContext(projectKey, sessionId, agent);
+   const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
+@@ -964,6 +1108,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -151,7 +230,7 @@ index 9c7041b..79a2084 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -996,6 +1088,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -996,6 +1147,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -163,7 +242,7 @@ index 9c7041b..79a2084 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1028,9 +1125,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1028,9 +1184,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -176,7 +255,7 @@ index 9c7041b..79a2084 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1 py-2.5 pl-3.5 pr-2">
-@@ -1081,6 +1179,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1081,6 +1238,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
          <div className="min-w-0 flex-1" />
@@ -185,7 +264,7 @@ index 9c7041b..79a2084 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1115,6 +1215,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1115,6 +1274,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -202,7 +281,7 @@ index 9c7041b..79a2084 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1132,6 +1242,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1132,6 +1301,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -210,7 +289,7 @@ index 9c7041b..79a2084 100644
                  />
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
-@@ -1143,7 +1254,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1143,7 +1313,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    >
                      {blank ? (
                        <div ref={thread.contentRef}>
@@ -2277,7 +2356,7 @@ index 4f7aa72..3f4ea6d 100644
    }, [project, thumbnail]);
  
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..7d337af 100644
+index 0ef8753..12b2496 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -2600,7 +2679,118 @@ index 0ef8753..7d337af 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -649,6 +849,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -543,9 +743,13 @@ interface LiveSession {
+   /** the project and the conversation it is the session of */
+   projectId: string;
+   conversation: string;
++  /** attachLocalAgentSession opened a fresh session when a resume failed; carry history on first send */
++  needsHistoryCarryOver?: boolean;
+ }
+ 
+ const sessions = new Map<string, LiveSession>();
++const attaching = new Map<string, Promise<LiveSession | null>>();
++const lastAttachedSessionKey = new Map<LocalAgentId, string>();
+ 
+ /**
+  * Forget this agent's sessions here (the shell closes its side): the next turn starts a new one, signed
+@@ -553,6 +757,96 @@ const sessions = new Map<string, LiveSession>();
+  */
+ export function forgetLocalAgentSessions(agent: LocalAgentId): void {
+   for (const [k, s] of sessions) if (s.agent === agent) sessions.delete(k);
++  attaching.clear();
++  lastAttachedSessionKey.delete(agent);
++}
++
++/**
++ * dsh-openfilm: bind the page key and read context usage + configOptions when a
++ * conversation is opened or switched — without waiting for the first prompt.
++ */
++export async function attachLocalAgentSession({
++  projectId,
++  conversation,
++  resume = null,
++  agent,
++  cwd,
++  meta,
++  onOptions,
++}: {
++  projectId: string;
++  conversation: string;
++  resume?: string | null;
++  agent: LocalAgentId;
++  cwd: string;
++  meta?: Record<string, unknown>;
++  onOptions?: (options: LocalAgentSessionInfo['configOptions']) => void;
++}): Promise<LocalAgentSessionInfo | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge) return null;
++  listen();
++  const sessionKey = `${projectId}:${conversation}:${agent}`;
++  lastAttachedSessionKey.set(agent, sessionKey);
++  const existing = sessions.get(sessionKey);
++  if (existing && existing.cwd === cwd) {
++    if (onOptions && existing.info.configOptions) onOptions(existing.info.configOptions);
++    tellContext();
++    return existing.info;
++  }
++  let pending = attaching.get(sessionKey);
++  if (!pending) {
++    pending = (async () => {
++      const started = await bridge.start(agent, cwd, resume, meta as LocalAgentTurnMeta | undefined);
++      if (!started.ok) return null;
++      const session: LiveSession = {
++        key: started.key,
++        agent,
++        cwd,
++        info: started.info,
++        projectId,
++        conversation,
++        needsHistoryCarryOver: Boolean(resume && (!started.info.resumed || started.info.sessionId !== resume)),
++      };
++      sessions.set(sessionKey, session);
++      const initialUsage = (started.info as LocalAgentSessionInfo & { usage?: { used?: unknown; size?: unknown } }).usage;
++      if (initialUsage && typeof initialUsage.used === 'number' && typeof initialUsage.size === 'number' && initialUsage.size > 0) {
++        contextByKey.set(started.key, { used: initialUsage.used, size: initialUsage.size });
++      }
++      tellContext();
++      return session;
++    })().finally(() => {
++      if (attaching.get(sessionKey) === pending) attaching.delete(sessionKey);
++    });
++    attaching.set(sessionKey, pending);
++  }
++  const session = await pending;
++  if (!session) return null;
++  onOptions?.(session.info.configOptions);
++  return session.info;
++}
++
++/**
++ * dsh-openfilm: push a model/thinking/permission selection straight to the
++ * currently attached live session so changes apply before a turn is sent.
++ */
++export async function applyLiveSessionOption(
++  agent: LocalAgentId,
++  configId: string,
++  value: unknown,
++): Promise<LocalAgentSessionInfo['configOptions'] | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge?.setOption) return null;
++  const preferredKey = lastAttachedSessionKey.get(agent);
++  const target = (preferredKey ? sessions.get(preferredKey) : undefined)
++    ?? [...sessions.values()].reverse().find((s) => s.agent === agent);
++  if (!target) return null;
++  const res = await bridge.setOption(target.key, configId, value).catch(() => null);
++  const updated = res?.ok ? res.result?.configOptions : undefined;
++  if (Array.isArray(updated) && updated.length) {
++    target.info.configOptions = updated;
++    return updated;
++  }
++  return null;
+ }
+ /* ── how full the agent's context is (ACP usage_update): tokens in the conversation now, of its context window, as
+    the agent's own chat shows it. By session: each conversation has its own. ── */
+@@ -649,6 +943,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -2608,11 +2798,105 @@ index 0ef8753..7d337af 100644
    else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
    else if (event.kind === 'permission') {
      const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
+@@ -807,6 +1102,9 @@ export async function runLocalAgentTurn({
+   if (onStarted) startedHooks.set(turn, onStarted);
+ 
+   const sessionKey = `${projectId}:${conversation}:${agent}`;
++  lastAttachedSessionKey.set(agent, sessionKey);
++  const inflightAttach = attaching.get(sessionKey);
++  if (inflightAttach) await inflightAttach.catch(() => null);
+   let session = sessions.get(sessionKey);
+   if (!session || session.cwd !== cwd) {
+     const started = await bridge.start(agent, cwd, resume, meta);
+@@ -815,6 +1113,10 @@ export async function runLocalAgentTurn({
+     }
+     session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
+     sessions.set(sessionKey, session);
++    const initialUsage = (started.info as LocalAgentSessionInfo & { usage?: { used?: unknown; size?: unknown } }).usage;
++    if (initialUsage && typeof initialUsage.used === 'number' && typeof initialUsage.size === 'number' && initialUsage.size > 0) {
++      contextByKey.set(started.key, { used: initialUsage.used, size: initialUsage.size });
++    }
+     tellContext();
+     onSessionInfo?.(started.info);
+     /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
+@@ -822,6 +1124,13 @@ export async function runLocalAgentTurn({
+       text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
+       turn.notice('agent.sessionNotResumed');
+     }
++  } else {
++    onSessionInfo?.(session.info);
++    if (session.needsHistoryCarryOver) {
++      session.needsHistoryCarryOver = false;
++      text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
++      turn.notice('agent.sessionNotResumed');
++    }
+   }
+   /* a turn the agent was working on by itself ends as the person writes */
+   endUnprompted(session.key);
 diff --git a/apps/desktop/chat/src/state/local-agent-store.ts b/apps/desktop/chat/src/state/local-agent-store.ts
-index a3c7f97..2d4085e 100644
+index a3c7f97..c4b660b 100644
 --- a/apps/desktop/chat/src/state/local-agent-store.ts
 +++ b/apps/desktop/chat/src/state/local-agent-store.ts
-@@ -365,9 +365,14 @@ export function agentModelSummary(
+@@ -18,7 +18,7 @@ import {
+   type LocalAgentSessionInfo,
+   type RosterAgent,
+ } from '@/lib/desktop-bridge';
+-import { forgetLocalAgentSessions } from '@/lib/local-agent-run';
++import { applyLiveSessionOption, forgetLocalAgentSessions } from '@/lib/local-agent-run';
+ 
+ export type AgentPick = LocalAgentId;
+ 
+@@ -44,7 +44,7 @@ interface LocalAgentStore extends Persisted {
+   pick(agent: LocalAgentId): void;
+   setPref(agent: LocalAgentId, configId: string, value: unknown): void;
+   /** The option list a session reported, kept for the menu. */
+-  noteOptions(agent: LocalAgentId, options: ConfigOptions | null): void;
++  noteOptions(agent: LocalAgentId, options: ConfigOptions | null, opts?: { syncPrefs?: boolean }): void;
+   /** No option list yet: ask for one (a session opened and closed, nothing said, nothing spent). */
+   /** Ask the agent for its options once; one that failed is asked again only on `retry` (the menu opened, Retry). */
+   ensureOptions(agent: LocalAgentId, opts?: { retry?: boolean }): Promise<void>;
+@@ -142,7 +142,7 @@ export function agentOptions(state: Pick<LocalAgentStore, 'options' | 'roster'>
+     const picked = model && state.prefs?.[agent]?.[model.id];
+     // Until the new model answers, none of the previous model's effort/speed/context options belong in its menu.
+     if (model && picked != null && picked !== model.currentValue) {
+-      return options?.filter((o) => o.category === 'model' || o.category === 'mode' || o.category === 'permissions');
++      return options?.filter((o) => o.category === 'model' || o.category === 'mode' || o.category === 'permission' || o.category === 'permissions');
+     }
+     return options;
+   }
+@@ -241,11 +241,30 @@ export const useLocalAgents = create<LocalAgentStore>((set, get) => ({
+     const prefs = { ...get().prefs, [agent]: { ...(changingModel ? {} : before), [configId]: value } };
+     set({ prefs });
+     save(get());
++    if (agent === 'deepseek') {
++      void applyLiveSessionOption(agent, configId, value).then((updated) => {
++        if (!updated) return;
++        const currentVal = get().prefs[agent]?.[configId];
++        if (currentVal !== undefined && currentVal !== value) return;
++        get().noteOptions(agent, updated, { syncPrefs: true });
++      });
++    }
+     if (get().options[agent]?.some((o) => o.id === configId && o.category === 'model')) void get().ensureOptions(agent);
+   },
+-  noteOptions(agent, options) {
++  noteOptions(agent, options, opts) {
+     if (!options) return;
+     let prefs = get().prefs;
++    if (opts?.syncPrefs) {
++      const synced: Record<string, unknown> = { ...(prefs[agent] ?? {}) };
++      for (const option of options) {
++        if (option.currentValue !== undefined && (option.category === 'model' || option.category === 'thought_level')) {
++          synced[option.id] = option.currentValue;
++        } else if (option.category === 'thought_level') {
++          delete synced[option.id];
++        }
++      }
++      prefs = { ...prefs, [agent]: synced };
++    }
+     /* Before Cursor's parameterized picker, a model id included effort/speed/context in brackets. Keep that
+        selection when replacing the old catalog with the model and its separately configurable parameters. */
+     const legacy = agent === 'cursor' && typeof prefs.cursor?.model === 'string' ? /^([^\[]+)\[([^\]]*)\]$/.exec(prefs.cursor.model) : null;
+@@ -365,9 +384,14 @@ export function agentModelSummary(
      const value = optionValue(options, prefs, modelOpt.id);
      const choice = modelOpt.options?.find((o) => o.value === value);
      const raw = value === 'default' && choice?.description ? choice.description : optionLabel(options, modelOpt.id, value);
