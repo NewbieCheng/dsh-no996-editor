@@ -20,6 +20,74 @@ function parseToolArgs(value) {
   catch { return value; }
 }
 
+/**
+ * Map DSH native tool names onto the ACP `title` / `kind` / `rawInput` shapes
+ * that OpenFilm's compiled `localToolActivity` promotes to persistent rows
+ * (instead of collapsing into ephemeral `working`).
+ */
+function mapToolCallForUi(name, rawInput) {
+  const input = rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) ? rawInput : {};
+  const lower = String(name || '').toLowerCase();
+  if (lower.startsWith('openfilm_')) {
+    return { title: name, toolName: name, kind: 'other', rawInput: input };
+  }
+  if (lower === 'pwsh' || lower === 'bash' || lower === 'shell' || lower === 'terminal') {
+    const cmd = input.command ?? input.cmd ?? input.script ?? '';
+    return {
+      title: 'bash',
+      toolName: name,
+      kind: 'execute',
+      rawInput: { ...input, ...(typeof cmd === 'string' && cmd ? { command: cmd } : {}) },
+    };
+  }
+  if (lower === 'read' || lower === 'read_image' || lower === 'read_file' || lower === 'view_file') {
+    const p = input.path ?? input.file_path ?? input.file ?? '';
+    return {
+      title: 'read',
+      toolName: name,
+      kind: 'read',
+      rawInput: { ...input, ...(typeof p === 'string' && p ? { path: p } : {}) },
+    };
+  }
+  if (lower === 'glob' || lower === 'grep' || lower === 'search') {
+    const q = input.pattern ?? input.query ?? input.path ?? '';
+    return {
+      title: 'grep',
+      toolName: name,
+      kind: 'search',
+      rawInput: { ...input, ...(typeof q === 'string' && q ? { pattern: q, query: q } : {}) },
+    };
+  }
+  if (lower === 'write' || lower === 'edit' || lower === 'write_file' || lower === 'edit_file') {
+    const p = input.path ?? input.file_path ?? input.file ?? '';
+    return {
+      title: 'edit',
+      toolName: name,
+      kind: 'edit',
+      rawInput: { ...input, ...(typeof p === 'string' && p ? { path: p } : {}) },
+    };
+  }
+  if (lower === 'web_search' || lower === 'web_fetch') {
+    const q = input.query ?? input.url ?? '';
+    return {
+      title: name,
+      toolName: name,
+      kind: lower === 'web_search' ? 'search' : 'fetch',
+      rawInput: { ...input, ...(typeof q === 'string' && q ? { query: q } : {}) },
+    };
+  }
+  if (lower === 'skill') {
+    const s = input.name ?? input.skill ?? '';
+    return {
+      title: 'read',
+      toolName: 'skill',
+      kind: 'read',
+      rawInput: { ...input, ...(typeof s === 'string' && s ? { path: `skill:${s}` } : {}) },
+    };
+  }
+  return { title: name, toolName: name, kind: 'other', rawInput: input };
+}
+
 function convertToolContent(blocks) {
   if (!Array.isArray(blocks)) return [];
   const out = [];
@@ -205,7 +273,7 @@ export function createDshNativeAgentService({
           void Promise.resolve(emit(projectId, {
             key,
             kind: 'stream',
-            stream: { t: 'seal', attempt: streamState.attempt, turn: streamState.turn, kind: 'text', sessionId: session.sessionId, text: streamState.text },
+            stream: { t: 'seal', seal: true, attempt: streamState.attempt, turn: streamState.turn, kind: 'text', sessionId: session.sessionId, text: streamState.text },
           })).catch(() => {});
         }
         if (streamState.thought !== '') {
@@ -213,7 +281,7 @@ export function createDshNativeAgentService({
           void Promise.resolve(emit(projectId, {
             key,
             kind: 'stream',
-            stream: { t: 'seal', attempt: streamState.attempt, turn: streamState.turn, kind: 'thought', sessionId: session.sessionId, text: streamState.thought },
+            stream: { t: 'seal', seal: true, attempt: streamState.attempt, turn: streamState.turn, kind: 'thought', sessionId: session.sessionId, text: streamState.thought },
           })).catch(() => {});
         }
         streamState.text = '';
@@ -226,17 +294,18 @@ export function createDshNativeAgentService({
     const data = event.data && typeof event.data === 'object' ? event.data : {};
 
     if (event.type === 'tool/call') {
+      const mapped = mapToolCallForUi(data.name, parseToolArgs(data.arguments));
       void Promise.resolve(emit(projectId, {
         key,
         kind: 'update',
         update: {
           sessionUpdate: 'tool_call',
           toolCallId: data.callId,
-          title: data.name,
-          toolName: data.name,
-          kind: 'other',
+          title: mapped.title,
+          toolName: mapped.toolName,
+          kind: mapped.kind,
           status: 'in_progress',
-          rawInput: parseToolArgs(data.arguments),
+          rawInput: mapped.rawInput,
         },
       })).catch(() => {});
       return;
@@ -244,6 +313,8 @@ export function createDshNativeAgentService({
 
     if (event.type === 'tool/result') {
       const msg = data.message && typeof data.message === 'object' ? data.message : {};
+      const content = convertToolContent(msg.content);
+      const rawOutput = content.map(item => item?.content?.text ?? '').filter(Boolean).join('\n').slice(0, 1200);
       void Promise.resolve(emit(projectId, {
         key,
         kind: 'update',
@@ -251,7 +322,8 @@ export function createDshNativeAgentService({
           sessionUpdate: 'tool_call_update',
           toolCallId: msg.toolCallId,
           status: msg.isError === true ? 'failed' : 'completed',
-          content: convertToolContent(msg.content),
+          content,
+          ...(rawOutput ? { rawOutput } : {}),
         },
       })).catch(() => {});
       return;
@@ -270,13 +342,13 @@ export function createDshNativeAgentService({
           })).catch(() => {});
         } else if (block.type === 'text' && text(block.text)) {
           session.turnStats.textCommits += 1;
-          if (!streamState.streamedText) {
-            void Promise.resolve(emit(projectId, {
-              key,
-              kind: 'update',
-              update: { sessionUpdate: 'agent_message_chunk', messageId: msg.id, content: { type: 'text', text: block.text } },
-            })).catch(() => {});
-          }
+          // Always emit the committed paragraph so `LocalAgentTurn.claimAttempt`
+          // takes over the streamed row and `reduceTranscript` closes `正在思考`.
+          void Promise.resolve(emit(projectId, {
+            key,
+            kind: 'update',
+            update: { sessionUpdate: 'agent_message_chunk', messageId: msg.id, content: { type: 'text', text: block.text } },
+          })).catch(() => {});
         }
       }
       streamState.streamedText = false;
@@ -403,7 +475,7 @@ export function createDshNativeAgentService({
 
       let createParams = { cwd: project.path, agentPreset };
       try {
-        const registry = ctx.workspaceRegistry ?? ctx.get?.('workspaceRegistry');
+        const registry = ctx.get?.('workspaceRegistry');
         const rootDir = dirname(project.path);
         if (registry && typeof registry.create === 'function' && text(rootDir)) {
           const workspace = await registry.create(rootDir);

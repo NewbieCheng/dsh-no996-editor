@@ -73,7 +73,9 @@ function createFakeCtx() {
         pushFrame(sid, { type: 'assistant-stream', frame: { type: 'chunk', attemptId: 'att-1', index: 1, chunk: { type: 'text-delta', text: '好的，开始剪辑。' } } });
         pushFrame(sid, { type: 'assistant-stream', frame: { type: 'end', attemptId: 'att-1', index: 2, outcome: { kind: 'committed' } } });
         pushFrame(sid, { type: 'event', event: { type: 'tool/call', data: { callId: 'call-1', name: 'openfilm_film', arguments: '{"op":"read"}' } } });
+        pushFrame(sid, { type: 'event', event: { type: 'tool/call', data: { callId: 'call-2', name: 'pwsh', arguments: '{"command":"Get-Date"}' } } });
         pushFrame(sid, { type: 'event', event: { type: 'tool/result', data: { message: { toolCallId: 'call-1', isError: false, content: [{ type: 'text', text: '{"ok":true}' }] } } } });
+        pushFrame(sid, { type: 'event', event: { type: 'tool/result', data: { message: { toolCallId: 'call-2', isError: false, content: [{ type: 'text', text: '2026-11-17' }] } } } });
         pushFrame(sid, {
           type: 'event',
           event: {
@@ -163,15 +165,19 @@ test('native agent creates preset-bound sessions per conversation, streams frame
     });
     assert.equal(service.isProjectAgent({ session: { id: 'unrelated' } }), false);
 
-    // Stream + tool + done events (no duplicate agent_message_chunk after stream)
+    // Stream + tool + done events (seal carries seal: true, and agent_message_chunk arrives for claimAttempt)
     const kinds = events.map(e => e.event.kind);
     assert.ok(kinds.includes('stream'));
     assert.ok(kinds.includes('update'));
     assert.equal(kinds[kinds.length - 1], 'done');
-    assert.equal(events.some(e => e.event.update?.sessionUpdate === 'agent_message_chunk'), false);
+    const seals = events.filter(e => e.event.kind === 'stream' && e.event.stream?.t === 'seal');
+    assert.ok(seals.length >= 1);
+    assert.ok(seals.every(e => e.event.stream.seal === true), 'seal frames must carry seal: true');
+    assert.equal(events.some(e => e.event.update?.sessionUpdate === 'agent_message_chunk'), true);
     assert.equal(events.some(e => e.event.update?.sessionUpdate === 'agent_thought_chunk'), false);
     assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call' && e.event.update?.toolName === 'openfilm_film'));
-    assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call_update' && e.event.update?.status === 'completed'));
+    assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call' && e.event.update?.toolName === 'pwsh' && e.event.update?.kind === 'execute' && e.event.update?.title === 'bash'));
+    assert.ok(events.some(e => e.event.update?.sessionUpdate === 'tool_call_update' && e.event.update?.status === 'completed' && e.event.update?.rawOutput));
 
     // Second conversation opens a distinct DSH session
     await service.send(project.projectId, { conversation: 'conv-2', key: 'turn-2', turnId: 'turn-2', text: '另一条对话' });
