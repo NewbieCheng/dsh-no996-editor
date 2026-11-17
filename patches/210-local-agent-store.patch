@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/state/local-agent-store.ts b/apps/desktop/chat/src/state/local-agent-store.ts
-index a3c7f97..c4b660b 100644
+index a3c7f97..b59c82d 100644
 --- a/apps/desktop/chat/src/state/local-agent-store.ts
 +++ b/apps/desktop/chat/src/state/local-agent-store.ts
 @@ -18,7 +18,7 @@ import {
@@ -16,7 +16,7 @@ index a3c7f97..c4b660b 100644
    setPref(agent: LocalAgentId, configId: string, value: unknown): void;
    /** The option list a session reported, kept for the menu. */
 -  noteOptions(agent: LocalAgentId, options: ConfigOptions | null): void;
-+  noteOptions(agent: LocalAgentId, options: ConfigOptions | null, opts?: { syncPrefs?: boolean }): void;
++  noteOptions(agent: LocalAgentId, options: ConfigOptions | null, opts?: { syncPrefs?: boolean | 'missing' }): void;
    /** No option list yet: ask for one (a session opened and closed, nothing said, nothing spent). */
    /** Ask the agent for its options once; one that failed is asked again only on `retry` (the menu opened, Retry). */
    ensureOptions(agent: LocalAgentId, opts?: { retry?: boolean }): Promise<void>;
@@ -29,7 +29,7 @@ index a3c7f97..c4b660b 100644
      }
      return options;
    }
-@@ -241,11 +241,30 @@ export const useLocalAgents = create<LocalAgentStore>((set, get) => ({
+@@ -241,11 +241,31 @@ export const useLocalAgents = create<LocalAgentStore>((set, get) => ({
      const prefs = { ...get().prefs, [agent]: { ...(changingModel ? {} : before), [configId]: value } };
      set({ prefs });
      save(get());
@@ -50,6 +50,7 @@ index a3c7f97..c4b660b 100644
 +    if (opts?.syncPrefs) {
 +      const synced: Record<string, unknown> = { ...(prefs[agent] ?? {}) };
 +      for (const option of options) {
++        if (opts.syncPrefs === 'missing' && option.id in synced) continue;
 +        if (option.currentValue !== undefined && (option.category === 'model' || option.category === 'thought_level')) {
 +          synced[option.id] = option.currentValue;
 +        } else if (option.category === 'thought_level') {
@@ -61,7 +62,7 @@ index a3c7f97..c4b660b 100644
      /* Before Cursor's parameterized picker, a model id included effort/speed/context in brackets. Keep that
         selection when replacing the old catalog with the model and its separately configurable parameters. */
      const legacy = agent === 'cursor' && typeof prefs.cursor?.model === 'string' ? /^([^\[]+)\[([^\]]*)\]$/.exec(prefs.cursor.model) : null;
-@@ -365,9 +384,14 @@ export function agentModelSummary(
+@@ -365,9 +385,14 @@ export function agentModelSummary(
      const value = optionValue(options, prefs, modelOpt.id);
      const choice = modelOpt.options?.find((o) => o.value === value);
      const raw = value === 'default' && choice?.description ? choice.description : optionLabel(options, modelOpt.id, value);

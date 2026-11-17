@@ -69,6 +69,7 @@ export function createDshNativeAgentService({
   store,
   emit,
   prepareProject,
+  beforeSend,
   defaultSelection = () => undefined,
   agentPreset = DEFAULT_PRESET,
   log,
@@ -181,12 +182,25 @@ export function createDshNativeAgentService({
     return true;
   }
 
+  function breakdownTokens(values) {
+    const breakdown = values?.contextBreakdown;
+    if (!breakdown || typeof breakdown !== 'object') return undefined;
+    const parts = [breakdown.systemTokens, breakdown.toolsTokens, breakdown.messageTokens]
+      .filter(value => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+    if (parts.length === 0) return undefined;
+    const sum = parts.reduce((acc, value) => acc + value, 0);
+    return sum > 0 ? sum : undefined;
+  }
+
   function applyProjectionUsage(projectId, session, projections) {
     const values = projections?.values ?? projections;
     const pressure = values?.contextPressure;
     if (!pressure || typeof pressure !== 'object') return false;
     const size = pressure.contextWindow;
-    const used = pressure.projectedTokens ?? pressure.pressureTokens;
+    const pressureUsed = pressure.projectedTokens ?? pressure.pressureTokens;
+    const used = (typeof pressureUsed === 'number' && pressureUsed > 0)
+      ? pressureUsed
+      : (breakdownTokens(values) ?? pressureUsed);
     return emitUsage(projectId, session, used, size);
   }
 
@@ -237,7 +251,10 @@ export function createDshNativeAgentService({
           if (applyProjectionUsage(projectId, session, snap)) return true;
           const values = snap?.values ?? snap;
           const pressure = values?.contextPressure;
-          const used = pressure?.projectedTokens ?? pressure?.pressureTokens;
+          const pressureUsed = pressure?.projectedTokens ?? pressure?.pressureTokens;
+          const used = (typeof pressureUsed === 'number' && pressureUsed > 0)
+            ? pressureUsed
+            : (breakdownTokens(values) ?? pressureUsed);
           if (typeof used === 'number' && used >= 0) {
             const size = await contextWindowOf(session);
             if (typeof size === 'number' && size > 0) return emitUsage(projectId, session, used, size);
@@ -267,7 +284,7 @@ export function createDshNativeAgentService({
   }
 
   function persistSelection(projectId, session) {
-    if (!text(session?.sessionId) || !session.model) return;
+    if (!session?.model) return;
     const selection = {
       provider: session.model.provider,
       model: session.model.model,
@@ -275,7 +292,7 @@ export function createDshNativeAgentService({
     };
     try {
       if (typeof store.setSelection === 'function') store.setSelection(projectId, session.conversation, selection);
-      else if (typeof store.setSession === 'function') {
+      else if (text(session.sessionId) && typeof store.setSession === 'function') {
         store.setSession(projectId, session.conversation, { sessionId: session.sessionId, selection });
       }
     } catch { /* mapping loss only costs a default on next reopen */ }
@@ -339,30 +356,48 @@ export function createDshNativeAgentService({
   async function hydrateSelection(projectId, session) {
     // Live / list win over our store; store wins over leaving model unset
     // (which would fall through to catalog.default and lie in the menu).
-    const live = readLiveSelection(session.sessionId) ?? await readListedSelection(session.sessionId);
-    if (live && applySelection(session, live, live.source || 'live')) {
-      persistSelection(projectId, session);
-      void log?.('native-model-hydrate', {
-        projectId,
-        conversation: session.conversation,
-        source: live.source || 'live',
-        model: `${live.provider}/${live.model}`,
-        effort: live.reasoningEffort ?? null,
-      });
-      return;
-    }
-    if (session.model) return;
     const known = (typeof store.getSession === 'function' ? store.getSession(projectId, session.conversation) : undefined)
       ?? (session.conversation === '' ? store.get(projectId) : undefined);
-    if (known?.selection && applySelection(session, known.selection, 'store')) {
+    const storedSelection = known?.selection
+      ?? (typeof store.getSelection === 'function' ? store.getSelection(projectId, session.conversation) : undefined);
+    const live = readLiveSelection(session.sessionId) ?? await readListedSelection(session.sessionId);
+    if (live) {
+      const sameStoredModel = storedSelection?.provider === live.provider && storedSelection?.model === live.model;
+      const merged = (!text(live.reasoningEffort) && sameStoredModel && text(storedSelection?.reasoningEffort))
+        ? { ...live, reasoningEffort: storedSelection.reasoningEffort }
+        : live;
+      if (applySelection(session, merged, live.source || 'live')) {
+        if (!text(live.reasoningEffort) && text(merged.reasoningEffort) && text(session.sessionId)) {
+          try {
+            await ctx.sessionController.selectModel({
+              sessionId: session.sessionId,
+              provider: merged.provider,
+              model: merged.model,
+              reasoningEffort: merged.reasoningEffort,
+            });
+          } catch { /* best-effort reapply */ }
+        }
+        persistSelection(projectId, session);
+        void log?.('native-model-hydrate', {
+          projectId,
+          conversation: session.conversation,
+          source: live.source || 'live',
+          model: `${merged.provider}/${merged.model}`,
+          effort: merged.reasoningEffort ?? null,
+        });
+        return;
+      }
+    }
+    if (session.model) return;
+    if (storedSelection && applySelection(session, storedSelection, 'store')) {
       // Re-apply onto the live Session so the agent and the menu cannot diverge
       // (menu used to show catalog.default while the Session kept GPT/etc.).
       try {
         await ctx.sessionController.selectModel({
           sessionId: session.sessionId,
-          provider: known.selection.provider,
-          model: known.selection.model,
-          ...(text(known.selection.reasoningEffort) ? { reasoningEffort: known.selection.reasoningEffort } : {}),
+          provider: storedSelection.provider,
+          model: storedSelection.model,
+          ...(text(storedSelection.reasoningEffort) ? { reasoningEffort: storedSelection.reasoningEffort } : {}),
         });
       } catch (error) {
         void log?.('native-model-reapply-failed', {
@@ -374,8 +409,8 @@ export function createDshNativeAgentService({
         projectId,
         conversation: session.conversation,
         source: 'store',
-        model: `${known.selection.provider}/${known.selection.model}`,
-        effort: known.selection.reasoningEffort ?? null,
+        model: `${storedSelection.provider}/${storedSelection.model}`,
+        effort: storedSelection.reasoningEffort ?? null,
       });
     }
   }
@@ -705,7 +740,7 @@ export function createDshNativeAgentService({
   async function adoptDefaultSelection(projectId, session, { persist = true } = {}) {
     if (session.model) return;
     let selection;
-    try { selection = defaultSelection(); } catch { return; }
+    try { selection = await defaultSelection(); } catch { return; }
     if (!selection || !text(selection.provider) || !text(selection.model)) return;
     if (!text(session.sessionId)) {
       applySelection(session, selection, 'default');
@@ -879,6 +914,9 @@ export function createDshNativeAgentService({
       if (content.length === 0) throw failure('OFFICIAL_AGENT_INPUT', 'empty prompt');
 
       ensureFollow(projectState, session);
+      if (typeof beforeSend === 'function') {
+        await beforeSend({ projectId, conversation: session.conversation, session }).catch(() => {});
+      }
       const requestId = randomUUID();
       const turnDone = new Promise((resolve, reject) => {
         session.inflight = { turnId, cancelled: false, resolve, reject };
@@ -1044,7 +1082,9 @@ export function createDshNativeAgentService({
         await syncUsage(projectId, session);
       } else {
         if (text(key)) session.key = key;
-        if (!session.model && known?.selection) applySelection(session, known.selection, 'store');
+        const pendingSelection = known?.selection
+          ?? (typeof store.getSelection === 'function' ? store.getSelection(projectId, session.conversation) : undefined);
+        if (!session.model && pendingSelection) applySelection(session, pendingSelection, 'store');
         if (!session.model) await adoptDefaultSelection(projectId, session, { persist: false });
         if (!session.model) {
           try {

@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "6c1eef5fb5d5085fd67dfda685991e21f730cb7ed8acc7cee5341dbe74a29aac"
+    "sha256": "951ce17e4e595fe4e02ba1653bc8060d046edc517acbe152388e59d5ea3444e9"
   },
   "patches": [
     {
@@ -13,8 +13,8 @@
       "file": "010-App.patch",
       "source": "apps/desktop/chat/src/App.tsx",
       "group": "chat",
-      "sha256": "d631597ea17db721c7556d2be662d3e17ac5eae20687047f87ca5ff2d2c77379",
-      "bytes": 17264
+      "sha256": "0977df926b4d4143a742ff631af8b2f71c32d86f95ef86d65ebb5d6ab956a428",
+      "bytes": 18378
     },
     {
       "id": "020-AgentActivityRow",
@@ -29,8 +29,8 @@
       "file": "030-ContextUsage.patch",
       "source": "apps/desktop/chat/src/components/ContextUsage.tsx",
       "group": "chat",
-      "sha256": "6e71cf8560f66d51edeab717cb8f5c0fe5b4680df1754d237dd37e466e8ec707",
-      "bytes": 4010
+      "sha256": "c46e60325b27829f9a27c76d6785d953dc91b0cab62a12de9d4d0714222d511d",
+      "bytes": 4276
     },
     {
       "id": "040-ConversationSessionBar",
@@ -165,16 +165,16 @@
       "file": "200-local-agent-run.patch",
       "source": "apps/desktop/chat/src/lib/local-agent-run.ts",
       "group": "chat",
-      "sha256": "2e8ee0c3e6b1cd7cdf4d523deaf63d521c73bb66e904699101c1e17f3a33e531",
-      "bytes": 23698
+      "sha256": "b960e15e6a7fc0e171ff19cca906ff36cc16d6377131c618ab71104053ad9a79",
+      "bytes": 23831
     },
     {
       "id": "210-local-agent-store",
       "file": "210-local-agent-store.patch",
       "source": "apps/desktop/chat/src/state/local-agent-store.ts",
       "group": "chat",
-      "sha256": "fcbd731a215805b41eb28cb900db6472ac09d938b53e6d388d7010b3ca924357",
-      "bytes": 5015
+      "sha256": "1c01eb2d7af2b843b7c6bd5d0a4715d7b15c8fdf3f357d83d3430a0b9897ef3d",
+      "bytes": 5103
     },
     {
       "id": "220-EnvironmentNotice",
@@ -245,8 +245,8 @@
       "file": "300-WorkbenchAccount.patch",
       "source": "packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx",
       "group": "chat",
-      "sha256": "0f48112f6ef37910cf8a56104511cde5163cafd104f095bdfcc334aea1ce6aa0",
-      "bytes": 15613
+      "sha256": "d3716d17f8cad6d6bbae3d908864a93628628ffd8fab9549fd4734e2aa986797",
+      "bytes": 40369
     },
     {
       "id": "310-ModelsSection",

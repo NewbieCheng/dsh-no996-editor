@@ -133,10 +133,14 @@ export function createDshSessionStore({ file, fs } = {}) {
     /** Update only the remembered model/effort for a conversation (sessionId unchanged). */
     setSelection(projectId, conversation, selection) {
       if (typeof projectId !== 'string' || !PROJECT_ID.test(projectId)) return;
-      const record = recordOf(projectId);
-      if (!record) return;
+      const record = data.projects[projectId] ?? (data.projects[projectId] = { sessions: {} });
       writeSelection(record, keyOf(conversation), selection);
       flush();
+    },
+    getSelection(projectId, conversation) {
+      const record = recordOf(projectId);
+      if (!record) return undefined;
+      return selectionOf(record, keyOf(conversation));
     },
     remove(projectId) {
       if (data.projects[projectId] === undefined) return;

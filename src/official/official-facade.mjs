@@ -60,7 +60,7 @@ function officialFacadeFactory(bridge) {
       options,
     };
   };
-  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear']);
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'account:key-rotate', 'account:key-probe', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -270,7 +270,9 @@ function officialFacadeFactory(bridge) {
       const key = 'dsh-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       // The conversation id is known before the menus are read, so the probes below
       // ask about this conversation's Session rather than the project's default.
-      const conversationId = typeof resume === 'string' && resume ? resume : key;
+      const conversationId = (typeof resume === 'string' && resume)
+        ? resume
+        : ((meta && typeof meta.sessionId === 'string' && meta.sessionId) ? meta.sessionId : key);
       agentKeys.set(key, { projectId: id, conversation: conversationId });
       activeConversationByProject.set(id, conversationId);
       // Open the EventSource before attach so a replayed usage_update has a live

@@ -25,6 +25,8 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 | 看不到插件或版本区 | profile、registry 包名、安装来源与重启提示 | [安装 / 更新手册](publish.md) |
 | 面板白屏或启动超时 | 页面 origin、bootstrap 请求、Host 日志和 Studio 健康情况 | [开发文档](../DEVELOPMENT.md)；历史案例仅用于提出假设 |
 | 对话无响应或模型不符 | 会话 ID、模型选择、原生会话日志和诊断事件 | [架构](../ARCHITECTURE.md)；不要以旧 `acp-*` 日志缺失判错 |
+| 上下文圆环 0% 或 12 点小黑点 | `native-attach` 的 `usage`、`projections().contextPressure / contextBreakdown`、`ContextUsage.tsx` 是否已重编 | [架构](../ARCHITECTURE.md)；0% 不应渲染 `round` 进度弧 |
+| 思考强度需发消息才同步 | `native-select-thinking` 日志、`attach` 是否同步 `agentPrefs`、空白会话 `store.setSelection` | [架构](../ARCHITECTURE.md)；核对 `official-facade.mjs` 的 `conversationId` |
 | Windows 拖放被禁止 | DSH 与资源管理器是否以不同完整性级别运行、事件是否到达目标页面 | [历史拖放案例](incident-history.md)；不要仅凭管理员状态断言根因 |
 | 改动未生效 | 实际安装来源、是否构建、插件是否重载、原 GUI 是否刷新 | [生效矩阵](../DEVELOPMENT.md) |
 

@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.15.30
+checked: 0.15.31
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.15.30**（`package.json`，包名 `@newbiecheng/dsh-openfilm`，小写 scope——DSH 版本检测只认小写包名）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.15.31**（`package.json`，包名 `@newbiecheng/dsh-openfilm`，小写 scope——DSH 版本检测只认小写包名）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 
 ## 能用
 
@@ -39,9 +39,10 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - 对话中断修复：Host + 壳已 bake；另修了 RecoveryGate 假死循环（探 `/api/health`、忽略 abort）；Host `openfilm_*` 不再落到 ephemeral `working`（「正在处理」），而是可见工具行。**待真机**：重载插件后新一轮应看到转写/分镜等工具行；ticket `active` 不再每 ~9s 涨；长轮 `-32603`。「这段对话已经很长了」按 **token 用量 ≥85%** 触发，不是盯着屏幕的时间——上一轮超长思考/工具结果顶到上下文上限后就会出现，开新对话即可。
 - 工作台配色 / 强调色 / DSH 全局同步已拆除（设置项、`shell-ui` 注入、iframe postMessage、`dsh-global-theme`）。品牌皮肤 `assets/theme` 仍在。
 - 清配色后 20s 无 boot：品牌 logo `MutationObserver` 死循环（非 Settings About）。观察器已修；Settings About A1 已重新接回（`SettingsModal` + i18n，撤 `tuneAbout`）。**待真机**：重载后能进工作台；设置侧栏「兼容 OpenFilm」、关于「基于 OpenFilm 开发」、语言说明「不加班剪辑…」。
-- 作曲栏底部上下文用量：原生壳（`ContextUsage.tsx` + bake）；按钮只显示圆环（无「0%」文字，避免挤出 28×28 遮罩），点开弹层看百分比与用量。**待真机**：硬刷新后见空环；点开有明细；满 85% 环变强调色。
+- 作曲栏底部上下文用量与思考强度即时同步：原生壳（`ContextUsage.tsx` + bake）在 `used === 0` 时不再渲染进度圆弧（消除 12 点方向 2px 误导黑点），`0 < share < 1%` 显示 `<1%` 与最小可见弧段；Host `syncUsage` 在 `contextPressure` 为 0/缺失时回退 `contextBreakdown`；`attach` 时补齐缺失选项并把会话已存 `agentPrefs`（含思考强度）即时同步到 Host，空白会话 `selectThinking` 通过 `store.setSelection` 持久化且 `official-facade.mjs` 优先使用稳定 `meta.sessionId`。**待真机**：打开历史对话即见真实用量或干净空环；未发消息前切换思考强度后刷新/切走再切回，菜单与实际请求仍保持新档位。
 - 分镜 → 时间轴自动落地：需要 OpenFilm 的片段创建接口；在那之前 `plan` 只报 `missing`。
 - 五个内置模板补 `prompt.md`；分镜可视化（Studio 只有 dist，先看能否样式注入）。
+- 不加班工作台统一 API Key（`is_default` 不可删除可轮换）+ `no996/auto` 智能路由（支持图片理解）+ DSH Web Search/Fetch + Studio 生图/配音/搜网/预留视频桥接 + 右侧工作台首页抽屉（扣费明细/可调模型费率表/默认密钥卡片）。**待真机**：登录后首句对话自动选用 `no996/auto` 并签发默认 Key；发送图片可正常识图与扣费；右侧抽屉实时展示积分明细与模型费率。
 
 ## 明确不做
 

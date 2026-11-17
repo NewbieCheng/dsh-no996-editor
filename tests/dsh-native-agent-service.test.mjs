@@ -418,3 +418,60 @@ test('probe/attach on blank conversation never creates ghost DSH session or work
     await service.close();
   }
 });
+
+test('selectThinking on blank conversation persists before first prompt and survives attach', async () => {
+  const project = makeProject();
+  const { ctx } = createFakeCtx();
+  const store = createDshSessionStore();
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async () => project,
+    store,
+    emit: async () => true,
+    defaultSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'high' }),
+  });
+
+  try {
+    await service.attach(project.projectId, 'conv-new', { key: 'k-new' });
+    await service.selectThinking(project.projectId, 'low', 'conv-new');
+    const saved = store.getSelection(project.projectId, 'conv-new');
+    assert.equal(saved?.model, 'deepseek-chat');
+    assert.equal(saved?.reasoningEffort, 'low');
+
+    const thinking = await service.thinkingOption(project.projectId, 'conv-new');
+    assert.equal(thinking?.currentValue, 'low');
+  } finally {
+    await service.close();
+  }
+});
+
+test('attach falls back to contextBreakdown when contextPressure tokens are zero', async () => {
+  const project = makeProject();
+  const { ctx } = createFakeCtx();
+  const store = createDshSessionStore();
+  store.setSession(project.projectId, 'conv-bd', {
+    sessionId: 'dsh-bd-1',
+    cwd: project.path,
+    selection: { provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'medium' },
+  });
+  ctx.sessionController.list = async () => [{ id: 'dsh-bd-1' }];
+  ctx.sessionController.projections = async () => ({
+    values: {
+      contextPressure: { pressureTokens: 0, contextWindow: 128000 },
+      contextBreakdown: { systemTokens: 800, toolsTokens: 400, messageTokens: 300 },
+    },
+  });
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async () => project,
+    store,
+    emit: async () => true,
+  });
+
+  try {
+    const attached = await service.attach(project.projectId, 'conv-bd', { key: 'k-bd' });
+    assert.deepEqual(attached.usage, { used: 1500, size: 128000 });
+  } finally {
+    await service.close();
+  }
+});

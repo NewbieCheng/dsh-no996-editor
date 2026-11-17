@@ -55,15 +55,15 @@ export async function installNo996Provider(opts = {}) {
 }
 
 /**
- * Prefer no996 for tts when the person has not pinned another choice, or when
- * the previous choice was empty. Does not steal an explicit ElevenLabs pick
- * unless `force` is true (product default for this surface: force).
+ * Prefer no996 for media verbs when the person has not pinned another choice, or
+ * when `force: true` is explicitly passed. Never steals an explicit third-party pick.
  *
- * @param {{ env?: NodeJS.ProcessEnv, force?: boolean }} [opts]
+ * @param {{ env?: NodeJS.ProcessEnv, force?: boolean, verbs?: string[] }} [opts]
  */
-export async function preferNo996ForTts(opts = {}) {
+export async function preferNo996Defaults(opts = {}) {
   const env = opts.env || process.env;
-  const force = opts.force !== false;
+  const force = opts.force === true;
+  const verbs = Array.isArray(opts.verbs) && opts.verbs.length ? opts.verbs : ['tts', 'image', 'web-search'];
   const file = join(studioHomeDir(env), 'providers.json');
   let kept = {};
   try {
@@ -73,12 +73,28 @@ export async function preferNo996ForTts(opts = {}) {
     kept = {};
   }
   const use = kept.use && typeof kept.use === 'object' && !Array.isArray(kept.use) ? { ...kept.use } : {};
-  const before = use.tts || null;
-  if (force || !use.tts) use.tts = 'no996';
-  if (use.tts === before) return { file, changed: false, use: use.tts };
+  let changed = false;
+  for (const verb of verbs) {
+    if (force || !use[verb]) {
+      if (use[verb] !== 'no996') {
+        use[verb] = 'no996';
+        changed = true;
+      }
+    }
+  }
+  if (!changed) return { file, changed: false, use: { ...use } };
   const next = { ...kept, use };
   await writeAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
-  return { file, changed: true, use: use.tts };
+  return { file, changed: true, use: { ...use } };
+}
+
+/**
+ * Backwards-compatible wrapper for `tts` preference (defaults to non-clobbering unless `force: true`).
+ * @param {{ env?: NodeJS.ProcessEnv, force?: boolean }} [opts]
+ */
+export async function preferNo996ForTts(opts = {}) {
+  const res = await preferNo996Defaults({ env: opts.env, force: opts.force === true, verbs: ['tts'] });
+  return { file: res.file, changed: res.changed, use: res.use.tts };
 }
 
 /** Resolve shared home the same way upstream locations.mjs does (for tests). */

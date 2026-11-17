@@ -45,6 +45,7 @@ import { createFrameTool } from '../tools/frame-tool.mjs';
 import { createFilmTool } from '../tools/film-tool.mjs';
 import { createLibraryTool } from '../tools/library-tool.mjs';
 import { createGetTool } from '../tools/get-tool.mjs';
+import { createImageGenTool } from '../tools/image-gen-tool.mjs';
 import { createClipTool } from '../tools/clip-tool.mjs';
 import { createAssetsTool } from '../tools/assets-tool.mjs';
 import { createExportTool } from '../tools/export-tool.mjs';
@@ -72,8 +73,9 @@ import { registerArchiveBridge } from '../project/archive-bridge.mjs';
 import { registerAuthBridge, dispatchAuthAction } from '../auth/auth-bridge.mjs';
 import { createWorkbenchAuth, parseAuthActionBody } from '../auth/workbench-auth.mjs';
 import { createLoginRememberStore } from '../auth/login-remember.mjs';
-import { createVoiceBridge, installVoiceBridgeGlobal } from '../voice/voice-bridge.mjs';
-import { installNo996Provider, preferNo996ForTts } from '../voice/install-no996-provider.mjs';
+import { installVoiceBridgeGlobal } from '../voice/voice-bridge.mjs';
+import { createNo996StudioBridge } from '../media/no996-studio-bridge.mjs';
+import { installNo996Provider, preferNo996Defaults } from '../voice/install-no996-provider.mjs';
 import { createArchiveWatcher } from '../project/workspace-archive.mjs';
 import { createPluginLog } from '../host/plugin-log.mjs';
 import { createBridgeTrace } from '../host/bridge-trace.mjs';
@@ -101,7 +103,12 @@ import { buildFallbackPayload } from '../host/fallback-prompt.mjs';
  */
 const isElevated = createElevationProbe();
 
-export function createStudioController(ctx, createProxy, { officialShell = false } = {}) {
+export function createStudioController(ctx, createProxy, {
+  officialShell = false,
+  workbenchAuth: providedAuth = null,
+  onAuthChanged = undefined,
+  registerWalletDirtyListener = undefined,
+} = {}) {
   const log = createPluginLog();
   // What the bridge actually published to the panel, and what the page reported
   // receiving. Read through /diagnose; never exposed as user content.
@@ -120,8 +127,11 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // The one live view of DSH's durable archive set. Optional: a profile without
   // the Workspace registry reports `available: false` instead of guessing.
   const archive = createArchiveWatcher(ctx);
-  const workbenchAuth = createWorkbenchAuth({ dev: process.env.NO996_OPENFILM_DEV === '1' });
-  const voiceBridge = createVoiceBridge({ auth: workbenchAuth });
+  const workbenchAuth = providedAuth || createWorkbenchAuth({ dev: process.env.NO996_OPENFILM_DEV === '1' });
+  let walletDirtyAt = 0;
+  const markWalletDirty = () => { walletDirtyAt = Date.now(); };
+  registerWalletDirtyListener?.(markWalletDirty);
+  const voiceBridge = createNo996StudioBridge({ auth: workbenchAuth, onWalletDirty: markWalletDirty });
   const disposeVoiceBridge = installVoiceBridgeGlobal(voiceBridge);
   void voiceBridge.refreshReady().then((ready) => {
     log.info('no996-voice-ready', { ready });
@@ -142,9 +152,9 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     } catch (error) {
       log.warn('no996-provider-invalid', { message: String(error?.message || error).slice(0, 200) });
     }
-    return preferNo996ForTts({ force: true });
+    return preferNo996Defaults({ force: false });
   }).then((pref) => {
-    if (pref?.changed) log.info('no996-tts-preferred', pref);
+    if (pref?.changed) log.info('no996-media-preferred', pref);
   }).catch((error) => {
     log.warn('no996-provider-install', { message: String(error?.message || error).slice(0, 200) });
   });
@@ -211,6 +221,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
           const value = parseAuthActionBody(raw);
           const result = await dispatchAuthAction(workbenchAuth, value);
           void voiceBridge.refreshReady().catch(() => {});
+          onAuthChanged?.();
           return { status: 200, body: result };
         } catch (error) {
           const status = Number(error?.status) || 400;
@@ -471,6 +482,8 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     }
     if (
       channel === 'auth:status' || channel === 'auth:logout' || channel === 'auth:action' || channel === 'account:balance'
+      || channel === 'account:overview' || channel === 'account:traces' || channel === 'account:pricing'
+      || channel === 'account:key-rotate' || channel === 'account:key-probe'
       || channel === 'auth:remember-get' || channel === 'auth:remember-set' || channel === 'auth:remember-clear'
     ) {
       // Login + account panel live inside the official shell. Tokens stay on Host.
@@ -546,6 +559,103 @@ export function createStudioController(ctx, createProxy, { officialShell = false
           };
         }
       }
+      if (channel === 'account:overview') {
+        const status = await workbenchAuth.status();
+        const isFormal = status.loggedIn === true && status.guest !== true && status.dev !== true;
+        let balance = isFormal ? balanceFromPrefs(await preferences.get()) : { available_points: 0, points_balance: 0, period_points_balance: 0, expert_points_balance: 0, period_expires_at: null };
+        if (isFormal) {
+          try {
+            const live = await workbenchAuth.balance();
+            await preferences.set(balanceCachePatch(live));
+            balance = { ...balanceFromPrefs(await preferences.get()), stale: false };
+          } catch {
+            balance = { ...balance, stale: true };
+          }
+        }
+        const defaultKey = isFormal ? await workbenchAuth.getDefaultApiKeySummary() : { exists: false, ready: false, secretMissing: false, maskedKey: '', name: '', rpmLimit: 0, dailyTokens: 0 };
+        let capabilities = null;
+        if (isFormal) {
+          capabilities = await workbenchAuth.authedRequest('/api/v1/me/api-capabilities').catch(() => null);
+        }
+        return { status, balance, defaultKey, capabilities, walletDirtyAt };
+      }
+      if (channel === 'account:traces') {
+        const status = await workbenchAuth.status();
+        if (!(status.loggedIn === true && status.guest !== true && status.dev !== true)) {
+          return { items: [], total: 0, page: 1, page_size: 20 };
+        }
+        const body = payload && typeof payload === 'object' ? payload : {};
+        const page = Math.max(1, Number(body.page) || 1);
+        const pageSize = Math.min(50, Math.max(1, Number(body.pageSize) || 20));
+        const mode = body.mode === 'ledgers' ? 'ledgers' : 'traces';
+        if (mode === 'ledgers') {
+          const data = await workbenchAuth.authedRequest(`/api/v1/account/ledgers?page=${page}&page_size=${pageSize}`).catch(() => ({ items: [], total: 0 }));
+          return { mode, page, page_size: pageSize, items: Array.isArray(data?.items) ? data.items : [], total: Number(data?.total) || 0 };
+        }
+        const data = await workbenchAuth.authedRequest(`/api/v1/billing/traces?page=${page}&page_size=${pageSize}`).catch(() => ({ items: [], total: 0 }));
+        return { mode, page, page_size: pageSize, items: Array.isArray(data?.items) ? data.items : [], total: Number(data?.total) || 0 };
+      }
+      if (channel === 'account:pricing') {
+        const status = await workbenchAuth.status();
+        if (!(status.loggedIn === true && status.guest !== true && status.dev !== true)) {
+          return { models: [], services: [], capabilities: null };
+        }
+        const [catalog, capabilities] = await Promise.all([
+          workbenchAuth.authedRequest('/api/v1/pricing/catalog').catch(() => ({ models: [], services: [] })),
+          workbenchAuth.authedRequest('/api/v1/me/api-capabilities').catch(() => null),
+        ]);
+        return {
+          models: Array.isArray(catalog?.models) ? catalog.models : [],
+          services: Array.isArray(catalog?.services) ? catalog.services : [],
+          auto_vision_routing_enabled: Boolean(catalog?.auto_vision_routing_enabled ?? capabilities?.auto_vision_routing_enabled),
+          gateway_base_url: catalog?.gateway_base_url || capabilities?.gateway_base_url || '',
+          capabilities,
+        };
+      }
+      if (channel === 'account:key-rotate') {
+        const status = await workbenchAuth.status();
+        if (!(status.loggedIn === true && status.guest !== true && status.dev !== true)) {
+          return { ok: false, error: 'AUTH_REQUIRED', message: '请先登录正式不加班账号' };
+        }
+        const defaultKey = await workbenchAuth.rotateDefaultApiKey();
+        void voiceBridge.refreshReady().catch(() => {});
+        return { ok: true, defaultKey };
+      }
+      if (channel === 'account:key-probe') {
+        const status = await workbenchAuth.status();
+        if (!(status.loggedIn === true && status.guest !== true && status.dev !== true)) {
+          return { ok: false, error: 'AUTH_REQUIRED', message: '请先登录正式不加班账号' };
+        }
+        const started = Date.now();
+        let defaultKey = await workbenchAuth.getDefaultApiKeySummary();
+        if (!defaultKey.ready) {
+          defaultKey = await workbenchAuth.ensureDefaultApiKey();
+        }
+        if (!defaultKey.ready) {
+          return { ok: false, needsRotate: true, defaultKey, message: '默认 Key 在其他设备生成过，请点击「轮换并激活本机 Key」获取本机调用凭证。' };
+        }
+        const secret = await workbenchAuth.getDefaultApiKeySecret();
+        const base = String(workbenchAuth.baseUrl || '').replace(/\/+$/, '');
+        try {
+          const res = await fetch(`${base}/v1/models`, {
+            headers: { accept: 'application/json', authorization: `Bearer ${secret}` },
+            signal: AbortSignal.timeout(10000),
+          });
+          const latencyMs = Date.now() - started;
+          const json = await res.json().catch(() => ({}));
+          const modelsCount = Array.isArray(json?.data) ? json.data.length : 0;
+          return {
+            ok: res.ok,
+            status: res.status,
+            latencyMs,
+            modelsCount,
+            defaultKey,
+            message: res.ok ? `网关连通正常 (${latencyMs}ms · ${modelsCount} 个模型可用)` : `网关返回 HTTP ${res.status}`,
+          };
+        } catch (err) {
+          return { ok: false, latencyMs: Date.now() - started, defaultKey, message: String(err?.message || '探活请求失败').slice(0, 160) };
+        }
+      }
       if (channel === 'auth:logout') {
         // A dev session has nothing to log out of; clearing it would only bounce
         // the person back to a gate that accepts nothing.
@@ -553,6 +663,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
         await workbenchAuth.logout();
         await preferences.set(clearBalanceCachePatch());
         void voiceBridge.refreshReady().catch(() => {});
+        onAuthChanged?.();
         return { loggedIn: false };
       }
       if (workbenchAuth.dev) return { ok: true, dev: true };
@@ -560,6 +671,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       try {
         const result = await dispatchAuthAction(workbenchAuth, action);
         void voiceBridge.refreshReady().catch(() => {});
+        onAuthChanged?.();
         return result;
       } catch (error) {
         // Page needs the workbench message, not a bare 503. Tokens never leave Host.
@@ -780,7 +892,22 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     store: nativeSessions,
     emit: async (projectId, event) => deliverToPanel(projectId, event),
     prepareProject: prepareProjectInstructions,
-    defaultSelection: () => {
+    beforeSend: async () => {
+      const status = await workbenchAuth.status().catch(() => null);
+      if (status?.loggedIn && !status?.guest && !status?.dev) {
+        await workbenchAuth.ensureDefaultApiKey().catch(() => null);
+      }
+    },
+    defaultSelection: async () => {
+      try {
+        const status = await workbenchAuth.status().catch(() => null);
+        if (status?.loggedIn && !status?.guest && !status?.dev) {
+          const providers = ctx.llm?.listProviders?.() ?? [];
+          if (providers.some(p => p?.id === 'no996')) {
+            return { provider: 'no996', model: 'auto' };
+          }
+        }
+      } catch { /* ignore and fall back */ }
       try {
         const current = ctx.agentDefaultModel?.currentSelection?.();
         if (current && (current.provider || current.model)) return current;
@@ -857,6 +984,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     // "from-script" turns a transcript into shots on sentence boundaries.
     createStoryboardTool({ isProjectAgent, projectOf: projectOfAgent }),
     createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createImageGenTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, studioBridge: voiceBridge }),
     createClipTool({ isProjectAgent, projectOf: projectOfAgent }),
     createAssetsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createExportTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
