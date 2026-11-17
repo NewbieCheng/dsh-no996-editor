@@ -2,7 +2,7 @@
 id: playbooks-release
 reader: 发版的人
 fact-source: package.json、CHANGELOG.md、scripts/*、.github/workflows/ci.yml
-checked: 0.15.25
+checked: 0.15.26
 rot-if: 换发布渠道，或版本流程变化
 -->
 
@@ -46,6 +46,9 @@ gh release create v0.15.2 dist/dsh-openfilm-0.15.2.tgz --title "0.15.2" --notes-
 
 - `dist/` 与 `*.tgz` 已在 `.gitignore` 里，**不进 git**；
 - 发布包内容以 `package.json` 的 `files` 为准：`index.js`、`client.js`、`assets`、`brand`、`patches`、`skills`、`src`、`vendor`、`scripts`、`cordis.patch.yml`、`locale`、`icon.svg`、`README.md`、`CHANGELOG.md`、`AGENTS.md`、`docs`、`LICENSE`；
+- 防坏包核对（详见 [`打包与跨平台分发`](../reference/packaging-and-distribution.md)）：
+  - 确认 `bundledDependencies` 包含 `openfilm`、`zod`，且 `vendor/official-shell/manifest.json` 已随 `shell:bake` 更新；
+  - 确认 `.tgz` 中未混入单平台 `node_modules/sherpa-onnx-node/*.node` 等原生二进制；
 - 打完包做一次"装上去"验证：`install_bundle` 指本地 tgz，看插件管理器是否报 `restart-required`。
 
 ## 4. 发布后

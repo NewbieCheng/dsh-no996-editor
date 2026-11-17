@@ -2,7 +2,7 @@
 id: injection-registry
 reader: 改界面的人、reviewer
 fact-source: assets/shell-ui.js、assets/shell-login.js、assets/theme/*.css、src/ui/sidebar-editing.mjs
-checked: 0.15.25
+checked: 0.15.26
 rot-if: 新增/撤掉任何一处没走源码的改动
 -->
 
@@ -20,8 +20,21 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 | 视频工具环境检查卡 | `assets/shell-ui.js` | 需要 Host 能力，上游没有这个界面 | 上游有环境检查或迁进 A1 |
 | Host 截走 drop 后清 pageDropping | `assets/shell-ui.js`（`clearPageDropping`） | 正式修法已在 `patches/010-App.patch` 并 bake 进壳；注入侧仍双保险 | 确认真机 Host drop 不再卡「松手即可附上」后，可删注入侧 `clearPageDropping` |
 | 工作区下拉开关 | `src/ui/sidebar-editing.mjs` | 侧栏标题行没有官方插槽；`sidebar.workspaces` 是 single 槽 | DSH 开出标题行插槽后删除 |
-| XXX 表面收敛（藏服务商/画布/多余 Services chips） | `assets/theme/studio.css` + `studio-proxy.mjs` 文案隐藏脚本 | L2 为 dist；本轮要可逆隐藏而非删供应商 | 产品恢复第三方配音 / 画布后删规则与脚本 |
-| XXX 音色库改写为不加班 | `studio-proxy` `rewriteLibraryVoices` | 不改 VoicesPane 源码，复用官方列表 UI | 上游 VoicesPane 原生支持 no996 后改补丁 |
+| 表面收敛（藏服务商/画布/多余菜单） | `assets/theme/studio.css` + `src/studio/studio-proxy.mjs`（`__no996SurfaceHide`） | L2 为 dist；本轮要可逆隐藏而非删供应商 | 产品恢复第三方配音 / 画布后删规则与脚本 |
+| 音色库改写为不加班 | `studio-proxy` `rewriteLibraryVoices` | 不改 VoicesPane 源码，复用官方列表 UI | 上游 VoicesPane 原生支持 no996 后改补丁 |
+
+## 1.0 隐藏的 OpenFilm 设置项与界面清单
+
+以下为当前刻意隐藏或收拢的 OpenFilm / DSH 原生界面与设置项，全部通过可逆注入实现：
+
+| 位置 | 隐藏 / 调整内容 | 实现方式 |
+|---|---|---|
+| 设置 → 服务商（Providers） | 隐藏第三方服务商卡片与 chip（`ElevenLabs`、`Inworld`、`Cartesia`、`OpenAI`、`Google`、`Microsoft Azure`、`OpenRouter`、`fal.ai`、`Groq`、`Pexels`、`Pixabay`、`Brave Search`、`Tavily`、`Keenable`、`Doubao`、`Mimo`），仅保留 `OpenFilm`、`不加班`、`no996`、`本地服务` | `src/studio/studio-proxy.mjs`（`__no996SurfaceHide`） |
+| 设置 → 服务商展开按钮 | 隐藏「还有 N 个 / 收起」展开按钮（`[data-settings-card='providers'] button[aria-expanded]`） | `assets/theme/studio.css` |
+| 顶部 / 工作模式切换 | 隐藏画布模式开关（`[data-work-mode]`），并将 `localStorage` 中 `openfilm.canvas.open:*` 强制锁定为 `'0'` | `assets/theme/studio.css` + `studio-proxy.mjs` |
+| 语音抽屉（Voices） | 隐藏「服务商 / Services」折叠分组（`nav[data-studio-host-panel]`） | `studio-proxy.mjs`（`__no996SurfaceHide`） |
+| 顶栏菜单 | 隐藏社区菜单（`[data-community-menu]`）与多余应用菜单项（`[data-app-menu]`） | `assets/theme/studio.css` |
+| DSH 侧栏「工作区」 | 隐藏原生标题 `span` 替换为「工作区 / 剪辑区」两态开关；在「工作区」视图下隐藏剪辑专属文件夹（`Projects`/`OpenFilm`）与 `hiddenSessionIds` 会话行 | `src/ui/sidebar-editing.mjs` |
 
 ## 1.1 已经不在注入里的（别再加回来）
 
@@ -62,3 +75,15 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 1. 删代码 + 删登记行 + 更新对应测试；
 2. 在 `CHANGELOG.md` 记一行"撤销某注入"；
 3. 如果它曾是某个 bug 的临时修法，去 `playbooks/incident.md` 补一句"根因已消除"。
+
+## 5. 上游源码补丁总览（`patches/series.json`）
+
+除运行时注入与 CSS 隐藏外，针对上游 **OpenFilm 0.3.2** 的结构性改动直接以源码补丁维护于 `patches/`（共 39 个补丁，`npm run patches:check` 校验 sha256 与顺序）：
+
+| 分组 | 数量 | 覆盖范围与典型补丁 |
+|---|---|---|
+| `chat` | 28 | 对话主流程、消息流与工具活动行（`010-App`、`020-AgentActivityRow`、`030-ContextUsage`、`040-ConversationSessionBar`、`050-Markdown`、`090-TemplatePicker`、`150-agent-activity-runs`、`170-agent-transcript`、`180-chat-store`、`190-desktop-attachments`、`200-local-agent-run`、`210-local-agent-store`、`220-EnvironmentNotice`、`230-LoginGate`、`240-RecoveryGate`、`250-brand-mark`、`260-login-city`、`270-login.css`、`280-main`、`290-ProjectView`、`300-WorkbenchAccount`、`310-ModelsSection`、`320-SettingsModal`、`330-en`~`370-zh-CN`） |
+| `i18n` | 5 | `apps/desktop/chat/src/i18n/locales/*` 五语言词条补丁（`100-en-US`、`110-es`、`120-ja`、`130-ko`、`140-zh-CN`） |
+| `menus` | 2 | 模型与智能体菜单行（`060-ModelPopover`、`160-agent-menu-rows`） |
+| `onboarding` | 2 | 引导门与项目起步卡片（`070-OnboardingGate`、`080-ProjectStarters`） |
+| `shared` | 2 | 契约与 Markdown 块解析（`380-contract`、`390-markdown-blocks`） |

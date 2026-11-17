@@ -2,7 +2,7 @@
 id: index
 reader: 所有人（第一次进仓库）
 fact-source: 本目录下的文件清单
-checked: 0.15.25
+checked: 0.15.26
 rot-if: 新增/删除 docs/ 下的顶层文档
 -->
 
@@ -34,7 +34,7 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 | 口播转写 | [`TRANSCRIBE.md`](TRANSCRIBE.md) |
 | 品牌/法务 | [`BRAND.md`](BRAND.md) |
 
-参考（可以生成、随代码变）：[`reference/`](reference/)（路由、环境变量、模块、模板与风格清单、存储、安全、界面层）。
+参考（可以生成、随代码变）：[`reference/`](reference/)（路由、环境变量、模块、注入与补丁清单、[`打包与跨平台分发`](reference/packaging-and-distribution.md)、模板与风格清单、存储、安全、界面层）。
 
 ## 3. 每篇的属性块
 

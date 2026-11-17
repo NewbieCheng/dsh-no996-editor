@@ -8,8 +8,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。114 个模块、16817 行。
-> 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 0 个已登记排除。
+> 生成命令：`npm run docs:gen`。115 个模块、16822 行。
+> 没有测试直接 import 的模块：16 个（待补清单，不是失败项）；另有 0 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
@@ -18,7 +18,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-controller.mjs` | 1232 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1105 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
 | `src/studio/studio-proxy.mjs` | 873 | startStudioProxy | `proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
-| `src/native/dsh-native-agent-service.mjs` | 786 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
+| `src/native/dsh-native-agent-service.mjs` | 701 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
 | `src/official/official-facade.mjs` | 559 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/auth/workbench-auth.mjs` | 426 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth.test.mjs` |
 | `src/studio/studio-panel.mjs` | 367 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
@@ -83,6 +83,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/host/host-components.mjs` | 96 | createHostComponentDetector | `host-components.test.mjs` |
 | `src/ui/brand.mjs` | 96 | brandCssVars, brandVersion, getBrand, replaceTitle, validateBrand | `brand.test.mjs` |
 | `src/asr/asr-segments.mjs` | 95 | SEGMENT_LIMITS, normalizeSegments, planSegments | `asr-segments.test.mjs` |
+| `src/native/dsh-event-map.mjs` | 90 | convertToolContent, mapToolCallForUi, parseToolArgs | **无** |
 | `src/asr/asr-sensevoice.mjs` | 89 | createSenseVoiceRecognizer, loadSherpa | **无** |
 | `src/host/download-sources.mjs` | 89 | MODEL_BASES, MODEL_REPO, TOOL_SOURCES, augmentPath, knownBinaryDirs, modelBases… | `download-sources.test.mjs` |
 | `src/tools/get-tool.mjs` | 87 | createGetTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
@@ -137,6 +138,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 - `src/ui/env-section.mjs`（153 行）
 - `src/official/official-approvals.mjs`（118 行）
 - `src/studio/studio-proxy/upstream.mjs`（103 行）
+- `src/native/dsh-event-map.mjs`（90 行）
 - `src/asr/asr-sensevoice.mjs`（89 行）
 - `src/host/area-bus.mjs`（59 行）
 - `src/project/archive-bridge.mjs`（59 行）
