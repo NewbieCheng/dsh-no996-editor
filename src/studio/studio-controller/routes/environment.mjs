@@ -8,7 +8,7 @@
 // evidence stays on /diagnose.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { PERSONA, ROOT_MARKERS } from '../../../acp/agent-overlays.mjs';
+import { PERSONA, ROOT_MARKERS } from '../../../native/openfilm-persona.mjs';
 
 const PROJECT_ID = /^[A-Za-z0-9_-]{6,40}$/;
 

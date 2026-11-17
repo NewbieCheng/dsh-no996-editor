@@ -65,7 +65,7 @@ rot-if: 出现新的故障类别，或某个根因被结构性消除
 
 **改法**：所有帧走同一条有序队列；换轮只清空思考不 seal，思考改在 attempt 结束时 seal；帧带 `turn`，
 页面丢弃更旧的帧；快照用 `preferLonger` 覆盖、绝不拼接（`mergeStreamText` 在互不为前缀时会拼接）。
-回归测试 `tests/acp-stream-tap.test.mjs` 钉住"快照只概括它之前的 delta"。
+回归测试 `acp-stream-tap.test.mjs` 钉住"快照只概括它之前的 delta"。
 
 **边界**：思考行默认收起、展开最高 280px 是同一版改的界面，不是这个 bug 的原因。
 
@@ -207,8 +207,8 @@ iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型；**进程完�
 只有 `acp-ready` 没有 `agent-trace`。
 
 **改法**：拿不到 Host 选择时读 profile 的 `agent-default-model`
-（`readProfileDefaultModel`，`src/acp/acp-profile-models.mjs`），子进程一上来就是侧边栏那个模型与
-思考强度；`tests/acp-profile-models.test.mjs` 覆盖有/没有两种情况。
+（`readProfileDefaultModel`，`acp-profile-models.mjs`），子进程一上来就是侧边栏那个模型与
+思考强度；`acp-profile-models.test.mjs` 覆盖有/没有两种情况。
 
 **边界**：只读了 desktop 那份 profile 的 patch；`ctx.agentDefaultModel` 真给出值时仍以它为准。
 
@@ -256,7 +256,7 @@ ACP_REQUEST_FAILED`；模型菜单只剩「默认」；`plugin.log` 每两秒一
 **为什么先误判成"DSH 保留路径"**：当时 `/api/<plugin>/mcp` 看着像 DSH 的约定；换名后
 400 依旧，才回去读 handler 源码。教训写在下面"反复出现的坑"里。
 
-**改法**：`isDisposed()`；新增 `tests/chat-route.test.mjs` 直接调 handler，覆盖
+**改法**：`isDisposed()`；新增 `chat-route.test.mjs` 直接调 handler，覆盖
 405 / 503 / 200 / 500 四条路径；`mcp-self-check`（每次发凭据前 Host 自己 POST 一次
 `initialize` 并记状态码）保留——这次就是它把 400 摆到台面上。
 

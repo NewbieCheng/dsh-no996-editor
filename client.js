@@ -1639,7 +1639,24 @@
       }
       startRetry();
     };
+    const COLLAPSE_INIT_KEY = "no996.openfilm.workspaceCollapsedInit";
+    const collapseFilmWorkspaceOnce = () => {
+      try {
+        if (doc.defaultView?.localStorage?.getItem(COLLAPSE_INIT_KEY) === "1") return;
+        const rows = doc.querySelectorAll('button[aria-expanded="true"], [role="button"][aria-expanded="true"]');
+        for (const row of rows) {
+          const label = (row.textContent || "").trim();
+          if (label === "Projects" || label === "OpenFilm") {
+            row.click();
+            doc.defaultView?.localStorage?.setItem(COLLAPSE_INIT_KEY, "1");
+            return;
+          }
+        }
+      } catch {
+      }
+    };
     const mount = () => {
+      collapseFilmWorkspaceOnce();
       const found = findHeader(doc);
       if (!found) {
         noteLoss("no-header");

@@ -1,7 +1,7 @@
 <!-- doc
 id: playbooks-turn-interrupt-fix
 reader: 准备修「对话中断 / 只见思考 / 模型菜单与实跑不一致」的人
-fact-source: %TEMP%/dsh-openfilm/plugin.log（2026-11-16）、src/acp/acp-agent-service.mjs、src/official/official-facade.mjs、src/studio/studio-controller.mjs、patches/190-local-agent-run.patch、docs/decisions/ADR-0010-live-streaming.md、docs/playbooks/incident.md
+fact-source: %TEMP%/dsh-openfilm/plugin.log（2026-11-16）、acp-agent-service.mjs、src/official/official-facade.mjs、src/studio/studio-controller.mjs、patches/190-local-agent-run.patch、docs/decisions/ADR-0010-live-streaming.md、docs/playbooks/incident.md
 checked: 0.15.22
 rot-if: 模型回退策略、SSE 终态契约、或思考/工具分行渲染约定变了
 -->
@@ -86,7 +86,7 @@ C2 的时间线（「你好」那次）：思考中 → `drag-probe host boot` +
 |---|---|---|
 | 0.1 | `/diagnose` 增加或核对：本轮 `session` 模型、effort、permission preset、`stream` 计数、`textCommits`；说明 `agent-trace.kinds` 是否累计 | `src/studio/studio-controller/routes/diagnose.mjs` 等 |
 | 0.2 | 本轮 turn 日志不要被 stream 帧挤爆到丢掉 `tool_call`（今日 `TURN_LOG_EVENTS=2000`，一轮 stream 就上千）——至少按 `sessionUpdate` / `kind` 分类保留，或 stream 单独计数不占工具事件槽 | `src/studio/studio-controller/turns.mjs` |
-| 0.3 | `mcp-tool-failed` 带上 `message` 截断（现有只 `code`），方便分辨 `openfilm_frame` 的 TypeError | `src/tools/mcp-server.mjs` |
+| 0.3 | `mcp-tool-failed` 带上 `message` 截断（现有只 `code`），方便分辨 `openfilm_frame` 的 TypeError | `mcp-server.mjs` |
 | 0.4 | 写一条最小真机剧本：新对话 → 选模型 → 发「你好」→ 丢短视频要转写；同时 tail `plugin.log` | 本文 §6 |
 
 **验收**：同一轮能回答三问——实跑模型是谁？本轮有没有 `tool_call` 进 Host？`textCommits` 是否为 0？

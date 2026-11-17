@@ -1,20 +1,13 @@
-// Who the film conversation's agent is, and where its instructions stop.
-//
-// These two overlays are the P0 of docs/topics/agent-plan.md, and they are the
-// difference between "a coding agent that happens to have film tools" and a film
-// editor: identity from the child's own configuration, and an instruction chain
-// that cannot climb into the repository above the film folder.
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { PERSONA, ROOT_MARKERS, overlayYaml, writeOverlay, promptOverlayYaml, writePromptOverlay, defaultSkillsDir } from '../src/acp/agent-overlays.mjs';
-import { instructionChain, projectRootOf } from '../src/acp/instruction-inventory.mjs';
+import { PERSONA, ROOT_MARKERS } from '../src/native/openfilm-persona.mjs';
+import { instructionChain, projectRootOf } from '../src/native/instruction-inventory.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'no996-instructions-'));
 
-/** A repository with a film project inside it, as a checkout of this plugin has. */
 function repoWithFilm() {
   const root = scratch();
   writeFileSync(join(root, 'AGENTS.md'), '# plugin manual\n\nA DSH plugin at version 0.15.x, MIT.\n');
@@ -29,46 +22,8 @@ function repoWithFilm() {
 test('the persona says film director, not coding agent', () => {
   assert.match(PERSONA, /剪辑导演/);
   assert.doesNotMatch(PERSONA, /coding agent/i);
-  // Skills are on demand, not preloaded into every turn.
   assert.match(PERSONA, /按需加载 openfilm-motion/);
-  // It is an identity, not a manual: a budget, not an essay.
   assert.ok(Buffer.byteLength(PERSONA, 'utf8') <= 400, `${Buffer.byteLength(PERSONA, 'utf8')} bytes`);
-});
-
-test('the overlay overrides the persona and makes a film folder its own instruction root', () => {
-  const yaml = overlayYaml({ skillsDir: '/fake/skills' });
-  assert.match(yaml, /- id: system-prompt/);
-  assert.match(yaml, /personaPrefix: "/);
-  assert.match(yaml, /- id: agent-instructions/);
-  assert.match(yaml, /maxBytes: 65536/);
-  for (const marker of ROOT_MARKERS) assert.ok(yaml.includes(JSON.stringify(marker)), `${marker} is a marker`);
-  assert.ok(ROOT_MARKERS.includes('.film'), 'a film project folder carries .film');
-  assert.ok(ROOT_MARKERS.includes('film.html'), 'or the film itself');
-});
-
-test('the overlay isolates skills to this package instead of the global catalog', () => {
-  const yaml = overlayYaml({ skillsDir: '/fake/skills' });
-  assert.match(yaml, /- id: skill-filesystem/);
-  assert.match(yaml, /includeDefaultRoots: false/);
-  assert.ok(yaml.includes(JSON.stringify('/fake/skills')), 'only the film skills root');
-  assert.match(yaml, /watch: false/);
-  // The default root is this package's skills/ directory.
-  assert.ok(String(defaultSkillsDir()).endsWith('skills'));
-});
-
-test('the preset prompt module is reused verbatim in the child via insert', () => {
-  const yaml = promptOverlayYaml({ href: 'file:///fake/openfilm-prompt.mjs' });
-  assert.match(yaml, /- insert:/);
-  assert.match(yaml, /openfilm-video-prompt/);
-  assert.ok(yaml.includes('file:///fake/openfilm-prompt.mjs'));
-});
-
-test('the overlay is written where the child is told to read it', async () => {
-  const dir = scratch();
-  const file = await writeOverlay({ dir });
-  assert.equal(file, join(dir, 'dsh-openfilm-acp-instructions.yml'));
-  const prompt = await writePromptOverlay({ dir, href: 'file:///fake/openfilm-prompt.mjs' });
-  assert.equal(prompt, join(dir, 'dsh-openfilm-acp-prompt.yml'));
 });
 
 test('a film folder inside a repository no longer inherits the repository manual', () => {
@@ -78,8 +33,6 @@ test('a film folder inside a repository no longer inherits the repository manual
   assert.deepEqual(withFilmMarkers.files.map(entry => entry.file), [join(film, 'AGENTS.md')]);
   assert.ok(withFilmMarkers.outside.includes(join(root, 'AGENTS.md')), 'the repository manual is named as excluded');
 
-  // The old marker set is what produced the bug: the chain climbed to the checkout
-  // and read the plugin's own manual into the film conversation.
   const withGitOnly = instructionChain({ cwd: film, markers: ['.git'] });
   assert.equal(withGitOnly.root, root);
   assert.deepEqual(withGitOnly.files.map(entry => entry.file).sort(), [join(root, 'AGENTS.md'), join(film, 'AGENTS.md')].sort());

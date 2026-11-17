@@ -105,7 +105,7 @@ grep -n "section.workspaces" .dev/tmp/workspace-src.js
 | `model` | `model` | 分组：`DeepSeek`、`DeepSeek Account`、`opencode-go`、`ChatGPT subscription`… |
 | `reasoning_effort` | `thought_level` | `Provider default / Low / High / Max`（官方模型还有 `Off`） |
 
-**没有 permission 选项。** 权限是 DSH 的会话权限预设：子进程启动时用 `DSH_PERMISSION_MODE` 传入（`src/acp/acp-agent-service.mjs` 的 `ensure()`），预设存在 `~/.dsh/storages/no996_openfilm_project_permissions`，默认 `danger-full-access`。所以换模型不会、也不应该改变权限——权限是项目级，不是模型级。
+**没有 permission 选项。** 权限是 DSH 的会话权限预设：子进程启动时用 `DSH_PERMISSION_MODE` 传入（`acp-agent-service.mjs` 的 `ensure()`），预设存在 `~/.dsh/storages/no996_openfilm_project_permissions`，默认 `danger-full-access`。所以换模型不会、也不应该改变权限——权限是项目级，不是模型级。
 
 排查"权限行变灰/消失"：先确认是 DSH 主界面菜单还是面板菜单；再看 `%TEMP%\dsh-openfilm\plugin.log` 的 `permission-hint-unavailable` / `acp-default-model-failed`。
 

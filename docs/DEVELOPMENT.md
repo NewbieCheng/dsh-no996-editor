@@ -96,7 +96,7 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 
 ### 对话桥（ACP）
 
-面板的对话不再由 Host 手工模拟回合：`src/acp/acp-client.mjs`（ndjson 线级客户端）、`src/acp/acp-agent-service.mjs`（每项目一个 `dsh --profile acp`；会话 id 存 `acp-session-store.mjs`）、`src/tools/mcp-server.mjs`、`src/project/project-instructions.mjs`。外层：`src/official/official-chat-rpc.mjs`、`official-chat-store.mjs`、`official-event-hub.mjs` / `official-event-stream.mjs`、`official-facade.mjs`、`official-permission.mjs`、`official-approvals.mjs`。
+面板的对话不再由 Host 手工模拟回合：`acp-client.mjs`（ndjson 线级客户端）、`acp-agent-service.mjs`（每项目一个 `dsh --profile acp`；会话 id 存 `acp-session-store.mjs`）、`mcp-server.mjs`、`src/project/project-instructions.mjs`。外层：`src/official/official-chat-rpc.mjs`、`official-chat-store.mjs`、`official-event-hub.mjs` / `official-event-stream.mjs`、`official-facade.mjs`、`official-permission.mjs`、`official-approvals.mjs`。
 
 OpenFilm 对话跑的是 **acp 子进程**，不是侧栏主会话。菜单/侧栏选的 provider 若在 acp 没有适配器（例如 `dsh-opencode-go`），会 `acp-model-fallback` 落到 profile 默认（常为 DeepSeek official）。**以 `plugin.log` 的 `acp-session-model` / `acp-default-model` 和 `/diagnose` 的 `turns.model` 为准**，不要只看菜单字面；排障见 [`playbooks/turn-interrupt-fix.md`](playbooks/turn-interrupt-fix.md)。
 
@@ -164,10 +164,10 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 | `vendor/templates/**` | 否 | 下一次请求即生效 | 无 |
 | `vendor/official-shell/ui/**` | 是（上游） | 部署产物后重启 Studio | 清单不匹配 → `OFFICIAL_SHELL_UNAVAILABLE` |
 | `cordis.patch.yml` | 否 | 重新 `install_bundle` 或重启 Host | 已有会话不迁移 |
-| `src/acp/agent-overlays.mjs`（persona、指令根标记） | 否 | 重载插件 + 刷新；**下一次 spawn 才生效** | 已开的子进程继续用旧 persona，直到它退出 |
+| `src/native/openfilm-persona.mjs`（persona、指令根标记） | 否 | 重载插件 + 刷新；**下一次 spawn 才生效** | 已开的子进程继续用旧 persona，直到它退出 |
 | `skills/**` | 否 | `node scripts/install-skills.mjs`（`--force` 覆盖同名） | 只影响之后新建的会话 |
 | `vendor/templates/<id>/prompt.md` | 否 | 下一次 `openfilm_library take=<id>` 即生效 | 无 |
-| `src/acp/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
+| `src/native/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
 
 **重载前先 `touch index.js src/*.mjs`**：加载器只重新求值 mtime 变了的模块，未 touch 的引入方会继续用旧 import——症状就是"改了没生效"。`npm run dev` 会替你 touch。
 

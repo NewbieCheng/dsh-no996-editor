@@ -1,7 +1,7 @@
 <!-- doc
 id: adr-0011-director-contract
 reader: 设计对话行为、提示词、影片工具的人
-fact-source: src/film/storyboard.mjs、src/film/script-plan.mjs、src/acp/agent-overlays.mjs、src/acp/acp-agent-service.mjs
+fact-source: src/film/storyboard.mjs、src/film/script-plan.mjs、src/native/openfilm-persona.mjs、acp-agent-service.mjs
 checked: 0.15.21
 rot-if: ACP 会话键、分镜 schema、口播转写接口或工具面变化
 -->

@@ -23,7 +23,7 @@
 ### 2.1 对话边界与注入链（改对话行为前必读，见 [ADR-0011](docs/decisions/ADR-0011-director-contract.md)）
 
 1. **页面的对话 id 必须一路到 Host。** 每个 agent RPC 都要带 `conversation`；子进程内按对话 `session/new` / `session/resume`，id 存 `~/.dsh/no996-openfilm/acp-sessions.json`（v2，v1 读成默认对话）。漏掉就是"新建对话接着上一轮聊"。
-2. **影片文件夹是指令链的根。** `src/acp/agent-overlays.mjs` 用 `--patch` 覆盖 `agent-instructions.projectRootMarkers = [.git, .film, film.html]`（仓库/单仓上层的 `AGENTS.md` 因此不进影片对话）和 persona（"剪辑导演"）。改注入链前看 `/diagnose.instructions`：persona、逐文件字节、`outside`、`budget ≤ 6 KB`。
+2. **影片文件夹是指令链的根。** `cordis.patch.yml` 的 `preset-openfilm-video-editing` 覆盖 `agent-instructions.projectRootMarkers = [.git, .film, film.html]`（仓库/单仓上层的 `AGENTS.md` 因此不进影片对话）和 `persona`（"剪辑导演"），定义见 `src/native/openfilm-persona.mjs`。改注入链前看 `/diagnose.instructions`：persona、逐文件字节、`outside`、`budget ≤ 6 KB`。
 3. **知识按需读，不进系统提示。** persona ≤ 400 B；手册走 `openfilm_guide`，风格/镜头卡走 `skill('openfilm-motion')`，模板走 `openfilm_library kind=template`。往系统提示里塞风格库/镜头卡/模板全文是返工的开始。
 
 **剪辑的契约是分镜**：`.film/storyboard.json`（`openfilm_storyboard`：read/write/plan/from-script/subtitles）。先有分镜再动时间轴；丢视频先 `openfilm_transcribe` 再 `from-script` 按句切镜。`openfilm_clip` 加不了片段，`plan` 的 `missing` 就是这条路的出口——不要假装能加。
@@ -54,7 +54,7 @@ openfilm_library(kind=template, take=<id>)
 |---|---|
 | `src/host/` | 日志、偏好、elevation、download、trace、area-bus |
 | `src/studio/` | controller(+routes)、proxy、runtime、debug、panel、entry |
-| `src/acp/` | ACP 边车、overlays、instruction-inventory、openfilm-prompt、stream-tap |
+| `src/native/` | 原生 DSH SessionController 驱动、会话存储、指令盘点、预设技能与提示词 |
 | `src/official/` | facade / chat-rpc / events / permission / templates / shell |
 | `src/auth/` | workbench-auth、auth-bridge、login-remember |
 | `src/tools/` | `*-tool.mjs`、mcp-server、tool-installer |
@@ -78,7 +78,7 @@ openfilm_library(kind=template, take=<id>)
 | 主题/CSS、`assets/shell-*.js` | 保存 + 刷新 | iframe 重载，未保存编辑丢失；改注入清单要重载 Host |
 | 客户端源码（`src/studio/studio-entry.js` 等） | `npm run build` 后刷新 | 同 iframe 重载 |
 | Host 源码 `index.js`、`src/**/*.mjs` | 重载插件 + 刷新 | Studio 子进程重建 |
-| `src/acp/agent-overlays.mjs`（persona/根标记） | 重载插件 + 刷新，**下一次 spawn** | 已开的子进程仍用旧 persona |
+| `src/native/openfilm-persona.mjs` / `cordis.patch.yml` | 重载插件 + 刷新，**下一次建会话** | 已开会话仍用旧预设配置 |
 | `vendor/templates/**`（含 `prompt.md`） | 下一次 `take=` / prepare | 已注入的旧块要等一次 prepare |
 | `skills/**` | `node scripts/install-skills.mjs` | 只影响之后新建的会话 |
 | `vendor/official-shell/ui/**` | 部署产物后重启 Studio | 清单不匹配 → `OFFICIAL_SHELL_UNAVAILABLE` |

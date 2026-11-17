@@ -13,13 +13,11 @@ import {
 import { createToolInstaller } from '../tools/tool-installer.mjs';
 import { augmentPath } from '../host/download-sources.mjs';
 import { applyStudioLibraryPatch } from './studio-library-patch.mjs';
-import { applyAcpModelProviders } from '../acp/acp-profile-models.mjs';
 import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
-import { randomBytes } from 'node:crypto';
 
 // The running Host's own build identity. A plugin reload that re-imports this
 // module rewrites the marker; a stale marker proves the process kept old code.
@@ -40,8 +38,8 @@ import { createGuideTool } from '../tools/guide-tool.mjs';
 import { createStoryboardTool } from '../tools/storyboard-tool.mjs';
 import { templateCatalog } from '../film/template-catalog.mjs';
 import { readActiveTemplates, renderTemplateBlock, syncTemplateBlock, withTemplateBlock, writeActiveTemplates } from '../film/template-prompts.mjs';
-import { writeOverlay, writePromptOverlay, PERSONA } from '../acp/agent-overlays.mjs';
-import { instructionChain } from '../acp/instruction-inventory.mjs';
+import { PERSONA } from '../native/openfilm-persona.mjs';
+import { instructionChain } from '../native/instruction-inventory.mjs';
 import { createStudioHttp } from './studio-http.mjs';
 import { createFrameTool } from '../tools/frame-tool.mjs';
 import { createFilmTool } from '../tools/film-tool.mjs';
@@ -59,14 +57,13 @@ import { openOfficialChatStore } from '../official/official-chat-store.mjs';
 import { createOfficialChatRpc } from '../official/official-chat-rpc.mjs';
 import { createOfficialEventHub } from '../official/official-event-hub.mjs';
 import { createOfficialApprovals } from '../official/official-approvals.mjs';
-import { createAcpAgentService } from '../acp/acp-agent-service.mjs';
-import { createAcpSessionStore } from '../acp/acp-session-store.mjs';
+import { createDshNativeAgentService } from '../native/dsh-native-agent-service.mjs';
+import { createDshSessionStore } from '../native/dsh-session-store.mjs';
 import { createEditingPrefs } from '../project/editing-prefs.mjs';
 import { createProjectTrash } from '../project/project-trash.mjs';
 import { createEditingProjectDelete } from '../project/editing-project-delete.mjs';
 import { buildEditingProjects } from '../project/editing-sessions.mjs';
 import { ensureProjectInstructions, upgradeProjectInstructions } from '../project/project-instructions.mjs';
-import { createMcpEndpoint, createMcpTokens, mcpServerEntry } from '../tools/mcp-server.mjs';
 import { attachOfficialEventStream } from '../official/official-event-stream.mjs';
 import { z } from 'zod';
 import { realpath } from 'node:fs/promises';
@@ -80,14 +77,12 @@ import { installNo996Provider, preferNo996ForTts } from '../voice/install-no996-
 import { createArchiveWatcher } from '../project/workspace-archive.mjs';
 import { createPluginLog } from '../host/plugin-log.mjs';
 import { createBridgeTrace } from '../host/bridge-trace.mjs';
-import { readProfileDefaultModel } from '../acp/acp-profile-models.mjs';
 import { createChatTrace } from '../host/chat-trace.mjs';
 import { openProjectPermissions, FULL_ACCESS, WORKSPACE_WRITE } from '../official/official-permission.mjs';
 import { createProjectFiles } from '../project/project-files.mjs';
 import { readJsonBody } from './studio-controller/http-body.mjs';
 import { createRouter } from './studio-controller/router.mjs';
 import { createAssetRoutes } from './studio-controller/routes/assets.mjs';
-import { createChatRoutes } from './studio-controller/routes/chat.mjs';
 import { createBootstrapRoute } from './studio-controller/routes/bootstrap.mjs';
 import { createDebugUrlRoute } from './studio-controller/routes/debug-url.mjs';
 import { createDiagnoseRoute } from './studio-controller/routes/diagnose.mjs';
@@ -172,11 +167,6 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   })();
   const libraryPatch = applyStudioLibraryPatch({ packageRoot: studioPackageRoot, logger: log });
   if (libraryPatch.patched) log.info('studio-library-patch', libraryPatch);
-  // The panel's `dsh --profile acp` child only knows the built-in providers, so
-  // the person's own channels are copied there; without this the default model
-  // is refused and the panel falls back to its own v4-flash.
-  const providerSync = applyAcpModelProviders({ logger: log });
-  if (providerSync.patched) log.info('acp-model-providers', providerSync);
   const toolInstaller = createToolInstaller({ home: process.env.DSH_HOME || join(homedir(), '.dsh') });
   const detectHostComponents = createHostComponentDetector({ resolve: name => toolInstaller.resolveAny(name)?.path ?? null });
   let componentCheck;
@@ -308,7 +298,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // Declared here, assigned once the ACP service is built below, so the host RPC
   // handlers can tell the two paths apart without reading a const before its
   // initialization (the bone this repo has broken twice).
-  let acpAgentService = null;
+  let nativeAgentService = null;
   // A failure reason for the log, never a filesystem path (the log is shared).
   const safeDetail = error => String(error?.message ?? '').replace(/[A-Za-z]:[\\/][^\s"']*/g, '[path]').slice(0, 160);
   const officialRpc = async (channel, payload) => {
@@ -370,7 +360,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       try {
         // The child cannot change its sandbox while running, so stop it: the next
         // turn spawns under the preset just chosen, read back from the decision.
-        await acpAgentService?.reset?.(projectId);
+        await nativeAgentService?.reset?.(projectId);
         await store.decide(projectId, preset);
         return { ok: true, preset, applied: false };
       } catch (error) {
@@ -687,7 +677,8 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     }
     return permissionsPromise;
   };
-  const acpSessions = createAcpSessionStore({ file: join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'no996-openfilm', 'acp-sessions.json') });
+  const dshFilmDir = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'no996-openfilm');
+  const nativeSessions = createDshSessionStore({ file: join(dshFilmDir, 'native-sessions.json') });
   // Pin and display name of a project in the editing area; cosmetic and local to
   // this list (never the project's real name or the DSH Session title).
   const editingPrefs = createEditingPrefs({ file: join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'no996-openfilm', 'editing-prefs.json') });
@@ -704,7 +695,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       const identity = await verifyOfficialProject(projectId);
       return { ...identity, source: 'studio' };
     } catch { /* fall back to the binding */ }
-    const record = acpSessions.get(projectId);
+    const record = nativeSessions.get(projectId);
     if (record && typeof record.cwd === 'string' && record.cwd) {
       try {
         const path = await realpath(record.cwd);
@@ -716,12 +707,12 @@ export function createStudioController(ctx, createProxy, { officialShell = false
 
   const deleteEditingProject = createEditingProjectDelete({
     verifyProject: resolveDeleteTarget,
-    acpSessions,
+    acpSessions: nativeSessions,
     editingPrefs,
     officialStore,
     archive,
     trash: projectTrash,
-    reset: projectId => acpAgentService?.reset?.(projectId),
+    reset: projectId => nativeAgentService?.reset?.(projectId),
     log,
   });
   /** Read a small JSON request body; returns {} on anything malformed. */
@@ -730,34 +721,20 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // creates a Session — reading chat history must not have that side effect.
   const archiveState = async projectId => {
     await verifyOfficialProject(projectId);
-    // The child owns the Session; this Host only knows the id it recorded when the
-    // child created it, and that id is what the archive set is asked about.
-    const acp = acpSessions.get(projectId);
+    const acp = nativeSessions.get(projectId);
     if (!acp || typeof acp.sessionId !== 'string') return { sessionId: null, archived: false, available: archive.available };
     return { sessionId: acp.sessionId, archived: archive.isArchived(acp.sessionId) === true, available: archive.available };
   };
-  // The project's folder is also its conversation's workspace; a live watcher
-  // keeps Windows from moving it to the Recycle Bin. Stop that conversation
-  // first. Best effort: a missing registry must not block the delete itself.
   const beforeProjectDelete = async projectId => {
-    // The ACP child is standing in this folder; close it before the folder goes.
-    try { await acpAgentService?.reset?.(projectId); } catch { /* the delete still has to run */ }
+    try { await nativeAgentService?.reset?.(projectId); } catch { /* the delete still has to run */ }
     try {
       const current = await archiveState(projectId);
       if (current.sessionId && !current.archived) await archive.archive(current.sessionId, { stopActivity: true });
     } catch { /* the delete still has to run */ }
   };
-  // The ACP child is a different process, so its film-tool calls arrive over MCP.
-  // These records are the only synthetic agents in the Host: minted here, checked
-  // here, and resolved by the same `projectOfAgent` every tool already uses.
-  // Optional on-disk event trace (NO996_OPENFILM_TRACE=1): shape only, never text.
   const chatTrace = createChatTrace();
   if (chatTrace.enabled) void log.info('chat-trace', { enabled: true, dir: tmpdir() + '\\dsh-openfilm\\trace' });
-  const mcpTokens = createMcpTokens({ randomBytes });
-  const mcpAgents = new Map();
-  const mcpAgentFor = (projectId, path) => ({ id: `mcp:${projectId}`, path, projectId });
-  // Only the ACP child's synthetic MCP record grants tool visibility.
-  const isProjectAgent = agent => Boolean(agent && !disposed && mcpAgents.get(agent.id) === agent);
+  const isProjectAgent = agent => Boolean(agent && !disposed && nativeAgentService?.isProjectAgent?.(agent));
   // One project-scoped event fan-out feeds the official chat's stream.
   const eventHub = createOfficialEventHub();
   // Every envelope that goes to the panel is also kept, per project and turn, as
@@ -779,143 +756,40 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // The panel's conversation is an ACP child. The agent owns the Session, so the
   // panel and the sidebar share one conversation and the shell's own ACP surface
   // (thinking, tools, resume, model menu) is exactly what the page draws.
-  acpAgentService = createAcpAgentService({
+  const prepareProjectInstructions = async (projectId, projectPath) => {
+    const result = ensureProjectInstructions({ root: projectPath });
+    if (result.created) void log.info('project-instructions', { projectId });
+    else {
+      const upgraded = upgradeProjectInstructions({ root: projectPath });
+      if (upgraded.upgraded) void log.info('project-instructions-upgraded', { projectId });
+    }
+    try {
+      const active = readActiveTemplates(projectPath);
+      if (active.length > 0) {
+        const catalog = await templateCatalog(templatesRoot);
+        const chosen = active.map(id => catalog.find(item => item.id === id)).filter(Boolean);
+        const synced = syncTemplateBlock(projectPath, chosen);
+        if (synced.changed) void log.info('project-templates-synced', { projectId, count: chosen.length });
+      }
+    } catch { /* templates are a convenience: the base protocol still applies */ }
+  };
+
+  nativeAgentService = createDshNativeAgentService({
+    ctx,
     verifier: verifyOfficialProject,
-    store: acpSessions,
+    store: nativeSessions,
     emit: async (projectId, event) => deliverToPanel(projectId, event),
-    approvals,
-    // The panel starts on the model the person already chose for DSH, not on the
-    // acp profile's own default.
+    prepareProject: prepareProjectInstructions,
     defaultSelection: () => {
-      // The sidebar's current model, when this Host build exposes it. Otherwise the
-      // profile's own `agent-default-model` entry: without it the child keeps its
-      // retired default, which answers nothing and leaves the turn "still working".
       try {
         const current = ctx.agentDefaultModel?.currentSelection?.();
         if (current && (current.provider || current.model)) return current;
-      } catch { /* fall through to the profile */ }
-      return readProfileDefaultModel() ?? undefined;
-    },
-    // The panel's permission row is the child's sandbox too: DSH reads the mode
-    // from the environment at boot, so the child is spawned with the preset the
-    // person chose here.
-    // The acp profile boots with its own model, and the ACP bridge decides
-    // "may this session carry images?" from it at initialize. Overlay the
-    // person's current DSH model so a vision route is not silently downgraded
-    // to a text-only one before the first turn.
-    // Two overlays with two different lifetimes, so they must not share one array:
-    // the model overlay may be refused by the child (a provider the acp profile has
-    // no adapter for) and is dropped on the retry, while the tap is what makes the
-    // answer stream at all and must survive every spawn (ADR-0010 §2.5).
-    spawnArgs: async (projectId, projectPath) => {
-      const overlays = {};
-      try {
-        const selection = ctx.agentDefaultModel?.currentSelection?.();
-        const provider = typeof selection?.provider === 'string' ? selection.provider : '';
-        const model = typeof selection?.model === 'string' ? selection.model : '';
-        if (provider && model) {
-          const safe = value => value.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60);
-          const file = join(tmpdir(), `dsh-openfilm-acp-${safe(provider)}-${safe(model)}.yml`);
-          await writeFile(file, `- id: acp\n  config:\n    provider: ${JSON.stringify(provider)}\n    model: ${JSON.stringify(model)}\n`, 'utf8');
-          overlays.model = file;
-        }
-      } catch { /* the profile's own model stays */ }
-      // The panel's words arrive as ACP chunks only after the message is committed, so the
-      // child also carries the tap that forwards the provider deltas it sees (see
-      // src/acp-stream-tap.mjs). Loaded by absolute URL: the acp profile has no dependency
-      // on this package, and a tap that cannot load must not take the child down with it.
-      try {
-        const tap = fileURLToPath(new URL('../acp/acp-stream-tap.mjs', import.meta.url));
-        const overlay = join(tmpdir(), 'dsh-openfilm-acp-stream-tap.yml');
-        // `insert` is the patch form that appends an entry (`- id: … name: …` alone only
-        // overrides an entry that already exists).
-        await writeFile(overlay, `- insert:\n    - id: no996-openfilm-stream-tap\n      name: ${JSON.stringify(pathToFileURL(tap).href)}\n`, 'utf8');
-        overlays.tap = overlay;
-      } catch { /* streaming falls back to the committed message */ }
-      // Who the agent is, where its instruction chain stops, and which skills it
-      // can see: a film folder is its own instruction root, so a repository above
-      // it cannot inject its manual into a film chat, and the global skill catalog
-      // (~50 entries in ~/.agents/skills) never enters a film turn
-      // (see src/agent-overlays.mjs). Project-local skills stay available as an
-      // escape hatch: <project>/.agents/skills and <project>/.dsh/skills.
-      // Never dropped on a model fallback.
-      try {
-        const extraSkillDirs = typeof projectPath === 'string' && projectPath
-          ? [join(projectPath, '.agents', 'skills'), join(projectPath, '.dsh', 'skills')]
-          : [];
-        overlays.instructions = await writeOverlay({ extraSkillDirs });
-      } catch { /* the profile's own persona stays */ }
-      // The sidebar preset's editing guidance, reused verbatim in the film child:
-      // the same openfilm-prompt.mjs the preset mounts as openfilm-video-prompt.
-      // Inserted by file URL like the tap; a prompt that cannot load must not
-      // take the child down with it.
-      try {
-        overlays.prompt = await writePromptOverlay();
-      } catch { /* the persona + project instructions still apply */ }
-      return overlays;
-    },
-    permissionMode: async projectId => {
-      // A project with no recorded decision starts the way the bridge always
-      // started: full access. The menu's own default must not disagree with the
-      // sandbox the child actually boots with.
-      try {
-        const store = await permissions();
-        return store?.remembered?.(projectId) ?? store?.defaultPreset?.() ?? 'danger-full-access';
-      } catch { return undefined; }
-    },
-    // A fresh child gets a fresh bearer token for this Host's MCP endpoint, so
-    // the film tools travel with the conversation (they live here, not there).
-    mcpServers: async (projectId, projectPath) => {
-      const agent = mcpAgentFor(projectId, projectPath);
-      mcpAgents.set(agent.id, agent);
-      const token = mcpTokens.mint({ projectId, path: projectPath, agent });
-      const mcpUrl = `${webOrigin}/api/no996-openfilm/mcp-host`;
-      // The child's failure is one line: "mcp-client(no996-openfilm): initial
-      // connection or tool synchronization failed". Probe the endpoint from here so
-      // the log says what it actually answered (the reserved `/mcp` path answered
-      // 400 and cost an afternoon).
-      void fetch(mcpUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 'self-check', method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'no996-host-self-check', version: '1' } } }),
-      }).then(reply => void log.info('mcp-self-check', { projectId, status: reply.status }))
-        .catch(error => void log.info('mcp-self-check', { projectId, status: 'error', detail: String(error?.message ?? error).slice(0, 80) }));
-      return [mcpServerEntry({ url: mcpUrl, token })];
-    },
-    // The ACP profile has no OpenFilm preset, but its agent reads AGENTS.md from
-    // the workspace — which is the project folder. Written once, never overwritten.
-    prepareProject: async (projectId, projectPath) => {
-      const result = ensureProjectInstructions({ root: projectPath });
-      if (result.created) void log.info('project-instructions', { projectId });
-      // A project written by an earlier version still has the old protocol (no
-      // storyboard step). Upgrading is safe only while the file is byte-identical to
-      // what we wrote; a person's edit is never touched.
-      else {
-        const upgraded = upgradeProjectInstructions({ root: projectPath });
-        if (upgraded.upgraded) void log.info('project-instructions-upgraded', { projectId });
-      }
-      // The active templates' prompts belong in the same file (they are the project's
-      // local rules). Re-synced on every prepare: the catalog may have changed, or a
-      // template may have been deactivated elsewhere.
-      try {
-        const active = readActiveTemplates(projectPath);
-        if (active.length > 0) {
-          const catalog = await templateCatalog(templatesRoot);
-          const chosen = active.map(id => catalog.find(item => item.id === id)).filter(Boolean);
-          const synced = syncTemplateBlock(projectPath, chosen);
-          if (synced.changed) void log.info('project-templates-synced', { projectId, count: chosen.length });
-        }
-      } catch { /* templates are a convenience: the base protocol still applies */ }
-    },
-    onClosed: projectId => {
-      mcpTokens.revokeProject(projectId);
-      mcpAgents.delete(`mcp:${projectId}`);
+      } catch { /* ignore */ }
+      return undefined;
     },
     log: (event, fields) => void log.info(event, fields),
   });
-  // The panel's conversation is the ACP child; nothing is created for a host that
-  // has no official shell to drive.
-  const agentService = officialShell ? acpAgentService : null;
+  const agentService = officialShell ? nativeAgentService : null;
   const guideTool = createGuideTool(isProjectAgent);
   const unregisterGuide = ctx.tools.register(guideTool, { when: ({ agent }) => isProjectAgent(agent) });
   // One Studio client for every project tool: it resolves the live upstream, adds
@@ -954,7 +828,10 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   };
   // The project an agent may edit, resolved from the Host's own record. Never from
   // a renderer-supplied id.
-  const projectOfAgent = agent => (mcpAgents.get(agent?.id) === agent ? { projectId: agent.projectId, path: agent.path, available: true } : undefined);
+  const projectOfAgent = agent => {
+    const native = nativeAgentService?.projectOfAgent?.(agent);
+    return native ? { projectId: native.projectId, path: native.path, available: true } : undefined;
+  };
   const filmTools = [
     createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: () => ctx.llm }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
@@ -1007,14 +884,6 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   // 228 MB of weights, and the person should be able to start that from the UI.
   // The film tools, for the ACP child. No cookie admission: the caller is the
   // child process and proves itself with the per-Session bearer token above.
-  const mcpEndpoint = createMcpEndpoint({
-    tools: [guideTool, ...filmTools, transcribeTool],
-    resolveToken: token => mcpTokens.resolve(token),
-    log: (event, fields) => void log.info(event, fields),
-  });
-  // Registration, duplicate-path tolerance and rollback order live in
-  // studio-controller/router.mjs; a module has no temporal dead zone to work
-  // around, so these are plain bindings instead of a hoisted function.
   const router = createRouter({ webServer: ctx.webServer, log });
   const registerRoute = router.register;
   const trackRoute = router.track;
@@ -1086,7 +955,6 @@ export function createStudioController(ctx, createProxy, { officialShell = false
   let unregisterClientLog;
   let unregisterStandalone;
   let unregisterTemplatesPage;
-  let unregisterMcp;
   try {
   unregisterTemplateBridge = trackRoute(registerTemplateBridge(ctx, {
     webOrigin,
@@ -1118,8 +986,8 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     // Session makes the next turn open a fresh one in the (possibly moved) folder.
     rebind: async projectId => {
       await verifyOfficialProject(projectId);
-      acpSessions.remove(projectId);
-      await acpAgentService?.reset?.(projectId);
+      nativeSessions.remove(projectId);
+      await nativeAgentService?.reset?.(projectId);
       return { sessionId: null, archived: false, available: archive.available };
     },
     isDisposed: () => disposed,
@@ -1215,7 +1083,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     ctx,
     register: registerRoute,
     track: trackRoute,
-    acpSessions,
+    acpSessions: nativeSessions,
     archive,
     editingPrefs,
     verifyOfficialProject,
@@ -1226,7 +1094,7 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     deleteEditingProject,
     resolveDeleteTarget,
     log,
-    getAcpAgentService: () => acpAgentService,
+    getAcpAgentService: () => nativeAgentService,
   });
   unregisterStandalone = trackRoute(registerRoute({
     kind: 'exact', path: '/no996-openfilm/standalone',
@@ -1276,8 +1144,6 @@ export function createStudioController(ctx, createProxy, { officialShell = false
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': Buffer.byteLength(html) }).end(html);
     },
   }));
-  const chat = createChatRoutes({ register: registerRoute, track: trackRoute, mcpEndpoint, isDisposed: () => disposed, log });
-  const [unregisterMcp] = chat.disposers;
   // Debug window URL (cookie lives in the debug listener, not the browser).
   const debugUrl = createDebugUrlRoute({
     ctx,
@@ -1338,15 +1204,10 @@ export function createStudioController(ctx, createProxy, { officialShell = false
     try { disposeVoiceBridge(); } catch { /* already cleared */ }
     // Stop the ACP children before the routes go away: a child that outlives the
     // Host keeps holding the project's Session open.
-    try { await acpAgentService?.close?.(); } catch { /* already closed */ }
-    // Drop exact routes synchronously first. An async disposer that awaits
-    // Studio shutdown before unregister would let a re-enable collide on
-    // `/api/no996-openfilm/templates` (and siblings).
+    try { await nativeAgentService?.close?.(); } catch { /* already closed */ }
     rollbackRoutes();
     try { unregisterTranscribe(); } catch { /* already gone */ }
     try { unregisterTranscribeRoute(); } catch { /* already gone */ }
-    try { unregisterMcp(); } catch { /* already gone */ }
-    mcpAgents.clear();
     try { unregisterSystemCheck(); } catch { /* already gone */ }
     try { unregisterSystemInstall(); } catch { /* already gone */ }
     try { unregisterGuide(); } catch { /* already gone */ }

@@ -24,11 +24,11 @@ import {
 const MAX_RESPONSE = 32 * 1024 * 1024;
 
 const AGENT_HINTS = Object.freeze({
-  OFFICIAL_AGENT_FAILED: '对话子进程出错了，请重试；多次失败就重启 DSH',
+  OFFICIAL_AGENT_FAILED: '对话请求未能完成，请重试',
   OFFICIAL_AGENT_BUSY: '上一条还在进行中，等它结束或先取消',
   OFFICIAL_AGENT_NOT_RUNNING: '当前没有可取消的回合',
   OFFICIAL_AGENT_MODEL_UNAVAILABLE: '当前拿不到模型列表，稍后再试',
-  OFFICIAL_AGENT_UNAVAILABLE: '项目或对话子进程暂时不可用',
+  OFFICIAL_AGENT_UNAVAILABLE: '项目或对话服务暂时不可用',
   // Distinct from OFFICIAL_AGENT_FAILED: the child often finished; the page's
   // EventSource died (refresh / remount). Saying "子进程出错" here caused 2026-11-16
   // "你好" turns to look like ACP crashes when the log was STREAM_LOST.

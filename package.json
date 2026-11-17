@@ -64,7 +64,8 @@
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
-    "./openfilm-prompt": "./src/acp/openfilm-prompt.mjs",
+    "./openfilm-prompt": "./src/native/openfilm-prompt.mjs",
+    "./openfilm-skills": "./src/native/openfilm-skills.mjs",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
-import { apply as applyPrompt } from '../src/acp/openfilm-prompt.mjs';
+import { apply as applyPrompt } from '../src/native/openfilm-prompt.mjs';
 
 const root = process.env.DSH_PINNED_SOURCE;
 test('pinned Cordis scope confines the real OpenFilm prompt and disposes it', { skip: !root && 'set DSH_PINNED_SOURCE to the pinned DSH source checkout' }, async () => {

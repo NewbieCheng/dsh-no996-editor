@@ -48,7 +48,7 @@ rot-if: 拆分完成或策略改变
 | `src/studio/studio-controller/routes/system.mjs` | asr、system/check、system/install + 共享快照 | 完成（3 条） |
 | `src/studio/studio-controller/routes/diagnostics.mjs` | client-log（枚举事件、512 B、仅本机浏览器） | 完成（1 条） |
 | `src/studio/studio-controller/routes/assets.mjs` | attachment（64-hex 摘要 → 对象库） | 完成（1 条） |
-| `src/studio/studio-controller/routes/chat.mjs` | mcp（唯一跳过 cookie 准入的路由） | 完成（1 条） |
+| `routes/chat.mjs` | mcp（唯一跳过 cookie 准入的路由） | 完成（1 条） |
 | `src/studio/studio-controller/routes/editing.mjs` | editing-sessions/prefs/archive/delete/delete-project | 完成（5 条） |
 
 | `src/studio/studio-controller/routes/bootstrap.mjs` | bootstrap（auth → Studio up → 代理写编辑器 origin） | 完成（1 条） |

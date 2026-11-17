@@ -17,32 +17,19 @@ test('trackRoute is declared before the first route that uses it', () => {
   assert.ok(declared < firstUse, 'trackRoute must be initialized before the first route block');
 });
 
-test('acpSessions is declared before archiveState reads it', () => {
-  const declared = at('const acpSessions = ');
-  const read = at('acpSessions.get(projectId)');
+test('nativeSessions is declared before archiveState reads it', () => {
+  const declared = at('const nativeSessions = ');
+  const read = at('nativeSessions.get(projectId)');
   assert.ok(declared > 0 && read > 0);
   assert.ok(declared < read, 'archiveState runs at request time, but a TDZ read is still a crash');
 });
 
-test('the MCP endpoint exists before the chat route is mounted', () => {
-  const read = path => readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-  const controller = read('src/studio/studio-controller.mjs');
-  const endpoint = controller.indexOf('const mcpEndpoint = createMcpEndpoint(');
-  const mount = controller.indexOf('createChatRoutes({');
-  assert.ok(endpoint > 0, 'the endpoint is created in the controller');
-  assert.ok(mount > 0, 'the chat routes are mounted in the controller');
-  assert.ok(endpoint < mount, 'mounting before the endpoint exists would hand over undefined');
-  // The path itself moved to the chat module; that is where it must stay unique.
-  assert.match(read('src/studio/studio-controller/routes/chat.mjs'), /path: '\/api\/no996-openfilm\/mcp-host'/);
-});
-
-test('the ACP service handle is declared before the RPC handlers read it', () => {
-  const declared = at('let acpAgentService = null;');
-  const firstRead = at('acpAgentService?.reset?.(projectId)');
+test('the native agent service handle is declared before the RPC handlers read it', () => {
+  const declared = at('let nativeAgentService = null;');
+  const firstRead = at('nativeAgentService?.reset?.(projectId)');
   assert.ok(declared > 0 && firstRead > 0);
   assert.ok(declared < firstRead);
-  // Assigned once, later in the same scope; a `const` here would be a TDZ trap.
-  assert.equal(source.includes('const acpAgentService ='), false);
+  assert.equal(source.includes('const nativeAgentService ='), false);
 });
 
 test('route registration bindings are initialized before the route modules', () => {
@@ -57,7 +44,7 @@ test('route registration bindings are initialized before the route modules', () 
     assert.ok(declared < start + 400, `${name} must be bound beside the router, not later in the function`);
   }
   // Every module that receives a binding must come after the binding.
-  for (const call of ['createSystemRoutes({', 'createAssetRoutes({', 'createDiagnosticsRoutes({', 'createChatRoutes({']) {
+  for (const call of ['createSystemRoutes({', 'createAssetRoutes({', 'createDiagnosticsRoutes({']) {
     const use = at(call);
     assert.ok(use > 0, `${call} is mounted`);
     assert.ok(at('const registerRoute = router.register;') < use, `${call} is mounted after registerRoute is initialized`);

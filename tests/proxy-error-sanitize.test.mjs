@@ -110,7 +110,7 @@ test('a failed agent turn names the cause without leaking the exception', async 
   });
   assert.equal(response.status, 503);
   const body = await response.text();
-  assert.match(body, /^OFFICIAL_AGENT_FAILED: 对话子进程出错了/);
+  assert.match(body, /^OFFICIAL_AGENT_FAILED: 对话请求未能完成/);
   assert.match(body, /\(agent:prompt\)$/);
   assert.doesNotMatch(body, /ACP_SPAWN|secret|dsh\.cmd/);
 });

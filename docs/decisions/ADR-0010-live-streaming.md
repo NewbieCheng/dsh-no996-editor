@@ -1,7 +1,7 @@
 <!-- doc
 id: ADR-0010-live-streaming
 reader: 维护者、要改对话流式链路的人
-fact-source: src/acp/acp-stream-tap.mjs、src/acp/acp-client.mjs、src/acp/acp-agent-service.mjs、src/studio/studio-controller.mjs、patches/190-local-agent-run.patch、%TEMP%\dsh-openfilm\plugin.log、DSH 0.2.2-rc.3 安装包内 dsh-agent / dsh-agent-loop / dsh-acp / dsh-api-session-controller
+fact-source: acp-stream-tap.mjs、acp-client.mjs、acp-agent-service.mjs、src/studio/studio-controller.mjs、patches/190-local-agent-run.patch、%TEMP%\dsh-openfilm\plugin.log、DSH 0.2.2-rc.3 安装包内 dsh-agent / dsh-agent-loop / dsh-acp / dsh-api-session-controller
 checked: 0.15.21
 rot-if: DSH 在 ACP 上提供 durable 增量事件（届时删掉 tap），或 acp 子进程不再由本 Host 拉起
 -->
@@ -52,15 +52,15 @@ rot-if: DSH 在 ACP 上提供 durable 增量事件（届时删掉 tap），或 a
 | 段 | 文件 | 做什么 |
 |---|---|---|
 | 子进程注入 | `src/studio/studio-controller.mjs` `spawnArgs()` | 写两个 `--patch` 覆盖层：模型、tap（`- insert:` + 绝对 `file://` URL） |
-| 子进程侧 | `src/acp/acp-stream-tap.mjs` | 订阅 `agent/assistant-stream`，把 `text-delta` / `reasoning-delta` 以 30 ms 合批写回 loopback |
-| 传输 | `src/acp/acp-client.mjs` | spawn 前监听 `127.0.0.1:0`，端口 + 一次性 token 走 env，帧转成 `emit('stream', …)` |
-| 扇出 | `src/acp/acp-agent-service.mjs` → `official-event-hub` → `official-event-stream` | `{kind:'stream'}` 走 SSE |
+| 子进程侧 | `acp-stream-tap.mjs` | 订阅 `agent/assistant-stream`，把 `text-delta` / `reasoning-delta` 以 30 ms 合批写回 loopback |
+| 传输 | `acp-client.mjs` | spawn 前监听 `127.0.0.1:0`，端口 + 一次性 token 走 env，帧转成 `emit('stream', …)` |
+| 扇出 | `acp-agent-service.mjs` → `official-event-hub` → `official-event-stream` | `{kind:'stream'}` 走 SSE |
 | 页面 | `patches/190-local-agent-run.patch` | `LocalAgentTurn.stream()` 把增量写进 `text:<turn>:<part>` / `thought:<turn>`，提交时 `mergeStreamText` |
 
 ### 2.5 真正的故障：模型回退把 tap 一起丢了
 
 `src/studio/studio-controller.mjs` 的 `spawnArgs()` 把**两个覆盖层放进同一个数组**；
-`src/acp/acp-agent-service.mjs` 的 `ensure()` 在模型覆盖层被拒时这样重试：
+`acp-agent-service.mjs` 的 `ensure()` 在模型覆盖层被拒时这样重试：
 
 ```js
 opened = await openWith(extraArgs);   // 模型覆盖层 + tap 覆盖层
@@ -198,5 +198,5 @@ P0 是**修 bug**，不改变任何语义，风险最低；P1/P2 是“规范化
 - 一次性实测 harness（不进仓库）：拉起 `dsh --profile acp` + 两个覆盖层，走完
   `initialize → session/new → session/prompt`，统计 `text-delta` 数量与大小；
 - 上游补丁：`patches/190-local-agent-run.patch`（`stream()` 与 `dispatch` 的 `kind:'stream'` 分支）；
-- 测试：`tests/acp-agent-service.test.mjs`（回退保留 tap）、`tests/acp-client.test.mjs`
+- 测试：`acp-agent-service.test.mjs`（回退保留 tap）、`acp-client.test.mjs`
   （hello/seal/跳号/断连）、`tests/kernel-shell-match.test.mjs`（构建产物与补丁一致）。
