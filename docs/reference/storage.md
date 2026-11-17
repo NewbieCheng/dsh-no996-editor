@@ -2,7 +2,7 @@
 id: storage
 reader: 维护者、要加持久化的人
 fact-source: src/official/official-chat-store.mjs、acp-session-store.mjs、src/host/preferences.mjs、DSH 的 storageDomain
-checked: 0.15.11
+checked: 0.15.25
 rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 -->
 
@@ -16,7 +16,7 @@ rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 |---|---|---|
 | 项目 ↔ Session 绑定 | DSH `storageDomain`（`no996_openfilm_project_conversations`） | **提示** |
 | 官方聊天记录 | DSH `storageDomain`（`official-chat-store`） | 真相（我们不碰上游 `.film/chat`） |
-| ACP 会话映射 | `$DSH_HOME/no996-openfilm/acp-sessions.json` | 提示 |
+| 原生会话映射 | `$DSH_HOME/no996-openfilm/native-sessions.json` | 提示 |
 | 会话历史本体 | `$DSH_HOME/sessions/<编码 cwd>/<id>/session.v4.jsonl.zstd` | **DSH 的真相，只读** |
 | 附件（抽帧图等） | `$DSH_HOME/attachments/v1/objects/<前2位>/<sha256>` | 内容寻址 |
 | 片型引导偏好 | `$DSH_HOME/no996-openfilm/preferences.json` | 提示（本机安装级） |
@@ -57,7 +57,6 @@ rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 
 ## 5. 不要做
 
-- 不要自己维护"会话属于哪个工作区"的完整索引（见 ADR-0005）；
 - 不要解析 `session.v4.jsonl.zstd` 后写回（那是 DSH 的格式）；
 - 不要把业务状态塞进 `localStorage` 当真相；
 - 不要在注入层读写业务存储。

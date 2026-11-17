@@ -2,13 +2,12 @@
 id: development
 reader: 新开发者、智能体
 fact-source: package.json、cordis.patch.yml、src/*.mjs、scripts/*
-checked: 0.15.11
+checked: 0.15.25
 rot-if: 启动时序、请求路径、模块职责或构建方式变化
 -->
 
 # 开发文档 — dsh-openfilm / No996 Studio
 
-> 最短操作约束看 [`../AGENTS.md`](../AGENTS.md)；改界面看 [`playbooks/ui-change.md`](playbooks/ui-change.md)；升级上游看 [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md)；现在到哪了看 [`STATE.md`](STATE.md)。
 >
 > 版本与测试数量以 `package.json` 和 `node --test` 的实际输出为准，本文不抄数字（抄了就会过期）。
 
@@ -41,7 +40,6 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 三条必须记住的：
 
 - Studio 上游只 bind 临时端口，key 不出 Host；浏览器只看得见代理端口 47822。
-- 界面改动分四层，**先判断层再选手段**（`playbooks/ui-change.md` §1–§3）。
 - 面板挂 `shell.overlay` 而不是 `main`，是为了切页不重载 iframe。
 
 ---

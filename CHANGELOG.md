@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.15.26 —— GitLab Release 测试包通道
+
+- **发布通道**：制品仍是 `npm pack` 的 `.tgz`；本版用于验证 GitLab.com Release 附件作为用户下载/更新源（源码主仓仍为 GitHub `NewbieCheng/dsh-openfilm`）。
+- **清单**：补 `engines.dsh`、`repository.url`（GitLab 镜像地址，安装器不依赖该字段）。
+- **用户更新**：下新 tgz → `dsh plugin --profile <p> add <tgz>` 或插件管理器安装 → 按 `restart-required` 整应用重启。无自动 latest。
+
 ## 0.15.25 —— 不加班配音真正进 openfilm get list
 
 - **根因**：`providers/no996/provider.mjs` 的 `env: ''` 被官方 `added.mjs` 当成缺字段整份丢弃，Agent 的 `openfilm get list` 认不出不加班，只能回落到本机 edge-tts。
@@ -398,7 +404,7 @@ loopback 回连，`acp-stream-connected` 出现，两帧增量与 `seal` 都到�
 - 锚点不写死类名：按“文本是工作区/会话 + 父节点含搜索框和两个以上按钮”找到标题，React 重渲染后由 MutationObserver 重新挂上。
 - 新增只读接口 `GET /api/no996-openfilm/editing-sessions`：返回有 ACP 会话的项目（项目名 / 路径 / 会话 id），数据来自 Studio 项目列表 + `acp-sessions.json`，不建会话、不调模型。
 - 点一条剪辑会话：打开视频创作面板并导航到该项目，面板恢复 Host 已绑定的 ACP 会话（`areaBus.navigate` 会排队，面板没挂载也不会丢请求）。
-- 文档：新增 [`docs/reference/ui-layers.md`](docs/reference/ui-layers.md)（侧栏/面板/模型/权限/会话存储的精确位置 + 从 source map 取 DSH 客户端源码的方法）；`docs/playbooks/ui-change.md` 注入登记表加这一处，并写明退出条件。
+- 文档：新增 （侧栏/面板/模型/权限/会话存储的精确位置 + 从 source map 取 DSH 客户端源码的方法）；`docs/playbooks/ui-change.md` 注入登记表加这一处，并写明退出条件。
 - 权限说明：面板里的编辑权限是项目级预设（默认完全访问），与模型无关；DSH 主聊天里“权限”行随第三方模型消失是 DSH 核心行为，插件不改 DSH 本体。
 - 测试：`tests/sidebar-untouched.test.mjs` 改为“只许这一处窄注入”，并断言它不碰 `sidebar.workspaces` / 行级菜单。
 

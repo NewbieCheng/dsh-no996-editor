@@ -2,7 +2,7 @@
 id: decisions
 reader: 维护者、要推翻某个设计的人
 fact-source: docs/decisions/README.md 的历史条目（已迁入）、CHANGELOG、源码
-checked: 0.15.21
+checked: 0.15.25
 rot-if: 新增或废弃一条 ADR
 -->
 
@@ -18,10 +18,8 @@ rot-if: 新增或废弃一条 ADR
 | [0001](ADR-0001-repo-boundary.md) | 独立仓分发，不做工作台分支 | 生效 | 两边代码不共享 |
 | [0002](ADR-0002-panel-overlay.md) | 面板挂 `shell.overlay` 常驻，`main` 只放占位 | 生效 | 自己同步矩形与生命周期 |
 | [0004](ADR-0004-upstream-patches.md) | 上游用构建快照 + 按文件拆的可重放补丁 | 生效 | 每次升级要重放整条补丁系列 |
-| [0005](ADR-0005-session-ownership.md) | 会话/归档/增量归 DSH，不建自己的真相 | 生效 | 没有官方 API 的操作只能拒绝 |
 | [0006](ADR-0006-narrow-sidebar-injection.md) | 侧栏只做一处窄注入，不占 single 槽 | 生效 | 依赖 DSH DOM 结构 |
 | [0007](ADR-0007-docs-and-baseline.md) | 文档按寿命分层 + 工程基线进 CI | 生效 | 每次事实变化要重生成 |
-| [0008](ADR-0008-controller-split.md) | 两个巨型闭包分两步拆（两步都已完成） | 生效 | 迁移期要改 6 个读源码的测试 |
 | [0009](ADR-0009-ui-change-strategy.md) | 界面改动先改源码（补丁 + 重建），注入降级为例外并逐个迁出 | 生效 | 每次升上游要重放补丁、重建快照 |
 
 ## 模板

@@ -6,7 +6,7 @@
 
 ## 0. 一句话
 
-把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.25`。
+把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.26`。
 
 ## 1. 红线（违反即回退）
 
@@ -18,7 +18,7 @@
 
 ## 2. 四层界面，两级手段
 
-四层（L0 我们的壳 / L1 官方桌面壳 / L2 Studio 编辑器 / L3 影片）与手段顺序 **token → A2/B1 → A1 → B2** 见 [`docs/reference/ui-layers.md`](docs/reference/ui-layers.md)，判断流程与反模式见 [`docs/playbooks/ui-change.md`](docs/playbooks/ui-change.md)。L2 只有 dist，只能 CSS 注入。
+四层（L0 我们的壳 / L1 官方桌面壳 / L2 Studio 编辑器 / L3 影片）优先 **token → CSS → 源码补丁**。见 ，判断流程与反模式见 。L2 只有 dist，只能 CSS 注入。
 
 ### 2.1 对话边界与预设注入链
 

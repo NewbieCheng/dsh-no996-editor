@@ -2,7 +2,7 @@
 id: playbooks-upstream
 reader: 维护上游的人
 fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official/official-shell.mjs
-checked: 0.15.11
+checked: 0.15.25
 rot-if: 上游目录结构或补丁流程变化
 -->
 
@@ -58,7 +58,6 @@ vendor/official-shell/
 | `npm run patches:split` | 否 | 从 `patch.diff` 重新生成 `patches/` |
 | `npm run patches:check` | 否 | 校验 `patches/` 与 `patch.diff` 一致（CI/提交前） |
 
-> `shell:dev` / `build-official-shell.mjs` 需要上游 monorepo 的依赖（首次 `pnpm install` 约 1–2 GB、10–20 分钟）。日常改样式不需要走这条路，见 `playbooks/ui-change.md`。
 
 ---
 
@@ -103,7 +102,6 @@ node --test tests/*.test.mjs
 
 - 优先把我们的改动**重写**成上游的新结构，而不是硬贴旧 hunk。
 - 上游已经实现的能力（例如错误边界、引导页）→ 删掉我们的补丁，不要双份。
-- 一个补丁连续两次升级都要手工修 → 说明它选错了层，回到 `playbooks/ui-change.md` 重新判断。
 
 ---
 

@@ -39,13 +39,13 @@
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 开发者 | 进程模型与边界（不含进度） |
 | [docs/STATE.md](docs/STATE.md) | 所有人 | 唯一写进度的一篇：当前版本、能用、待真机验、明确不做 |
 | [docs/decisions/](docs/decisions/README.md) | 维护者 | 每条设计决定的理由与代价（ADR） |
-| [docs/reference/ui-layers.md](docs/reference/ui-layers.md) | 改界面的人 | 四层界面、手段分级、DOM 锚点、模型/权限来源 |
-| [docs/playbooks/ui-change.md](docs/playbooks/ui-change.md) | 改界面的人 | 决策表、标准流程、验证、反模式 |
+|  | 改界面的人 | 四层界面、手段分级、DOM 锚点、模型/权限来源 |
+|  | 改界面的人 | 决策表、标准流程、验证、反模式 |
 | [docs/playbooks/release.md](docs/playbooks/release.md) | 发版的人 | 版本、打包、发布、回滚 |
 | [docs/playbooks/upstream-bump.md](docs/playbooks/upstream-bump.md) | 维护者 | 三处 pin、补丁系列、升级与冲突 |
 | [docs/playbooks/incident.md](docs/playbooks/incident.md) | 排障的人 | 症状 → 根因 → 现在靠什么挡住 |
 
-专题：[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)、[DSH 外壳改造案例](docs/DSH-SHELL-INTEGRATION.md)。
+专题：[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)。
 通用 skill（独立仓库）：[dsh-harness-remix](https://github.com/NewbieCheng/dsh-harness-remix)（DSH UI 改造 + 后端衔接）。
 
 ## 能力与边界

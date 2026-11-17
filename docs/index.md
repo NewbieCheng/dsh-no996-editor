@@ -2,7 +2,7 @@
 id: index
 reader: 所有人（第一次进仓库）
 fact-source: 本目录下的文件清单
-checked: 0.15.22
+checked: 0.15.25
 rot-if: 新增/删除 docs/ 下的顶层文档
 -->
 
@@ -26,7 +26,6 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 
 | 你要 | 读 |
 |---|---|
-| 改界面（L1/L2） | [`reference/ui-layers.md`](reference/ui-layers.md) → [`playbooks/ui-change.md`](playbooks/ui-change.md) → [`reference/injection-registry.md`](reference/injection-registry.md) |
 | 升上游 OpenFilm | [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md) |
 | 发版 | [`playbooks/release.md`](playbooks/release.md) |
 | 排障 | [`playbooks/incident.md`](playbooks/incident.md)（症状 → 根因 → 现在靠什么挡住） |
@@ -34,7 +33,6 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 | 剪片语法 | skill `openfilm-editing` |
 | 口播转写 | [`TRANSCRIBE.md`](TRANSCRIBE.md) |
 | 品牌/法务 | [`BRAND.md`](BRAND.md) |
-| DSH 外壳改造案例 | [`DSH-SHELL-INTEGRATION.md`](DSH-SHELL-INTEGRATION.md) |
 
 参考（可以生成、随代码变）：[`reference/`](reference/)（路由、环境变量、模块、模板与风格清单、存储、安全、界面层）。
 

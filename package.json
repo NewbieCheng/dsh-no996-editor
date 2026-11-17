@@ -1,9 +1,13 @@
 {
   "name": "dsh-openfilm",
-  "version": "0.15.25",
+  "version": "0.15.26",
   "description": "OpenFilm video studio as a DSH plugin: the official Studio + Chat shell, bridged to a DSH session.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/NewbieCheng/dsh-openfilm.git"
+  },
   "keywords": [
     "dsh",
     "plugin",
@@ -55,7 +59,8 @@
     "sherpa-onnx-node": "2.0.1"
   },
   "engines": {
-    "node": ">=22.2"
+    "node": ">=22.2",
+    "dsh": ">=0.2.0-rc.1 <0.3.0-0"
   },
   "bundledDependencies": [
     "openfilm",
@@ -89,6 +94,7 @@
     "LICENSE"
   ],
   "dsh": {
+    "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
