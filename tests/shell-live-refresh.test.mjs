@@ -9,8 +9,14 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const read = path => readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-const app = read('patches/010-App.patch');
-const store = read('patches/170-chat-store.patch');
+const series = JSON.parse(read('patches/series.json'));
+const patchBySource = source => {
+  const entry = series.patches.find(item => item.source === source);
+  assert.ok(entry, `missing patch entry in series.json for ${source}`);
+  return read(`patches/${entry.file}`);
+};
+const app = patchBySource('apps/desktop/chat/src/App.tsx');
+const store = patchBySource('apps/desktop/chat/src/lib/chat-store.ts');
 
 test('the chat page re-reads the conversation list while it is open', () => {
   assert.match(app, /\+import \{ refreshChatSessions \} from '@\/lib\/chat-store'/);

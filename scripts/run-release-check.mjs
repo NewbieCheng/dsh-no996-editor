@@ -27,7 +27,18 @@ export function archiveProblems(output) {
   const required = ['package/package.json', 'package/index.js', 'package/client.js', 'package/cordis.patch.yml', 'package/vendor/official-shell/manifest.json', 'package/node_modules/openfilm/package.json', 'package/node_modules/zod/package.json'];
   const problems = required.filter(name => !names.has(name)).map(name => `package is missing ${name}`);
   for (const name of names) {
-    if (/(?:^|\/)(?:\.npmrc(?:\..*)?|\.gitlab-npm-token\.tmp|\.git)(?:\/|$)/i.test(name) || name.startsWith('package/films/')) {
+    if (/(?:^|\/)(?:\.npmrc(?:\..*)?|\.gitlab-npm-token\.tmp|\.git)(?:\/|$)/i.test(name) ||
+        name.startsWith('package/films/') ||
+        name.startsWith('package/.dev/') ||
+        name.startsWith('package/.upstream/') ||
+        name.startsWith('package/scripts/') ||
+        name.startsWith('package/patches/') ||
+        name.startsWith('package/src/dev/') ||
+        name === 'package/assets/style-lab.js' ||
+        name === 'package/src/ui/style-lab.mjs' ||
+        name === 'package/src/studio/studio-debug.mjs' ||
+        name === 'package/src/studio/studio-debug-redirect.mjs' ||
+        name === 'package/src/studio/studio-controller/routes/debug-url.mjs') {
       problems.push(`package contains prohibited entry ${name}`);
     }
   }
@@ -82,6 +93,8 @@ async function main() {
     const listing = execFileSync(tar, ['-tzf', archive], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
     const archiveErrors = archiveProblems(listing);
     if (archiveErrors.length) throw new Error(archiveErrors.join('; '));
+    const packedPkg = JSON.parse(execFileSync(tar, ['-xOzf', archive, 'package/package.json'], { cwd: ROOT, encoding: 'utf8' }));
+    if (packedPkg?.dsh?.releaseBuild !== true) throw new Error('release archive package.json must stamp dsh.releaseBuild = true');
   } finally { rmSync(temp, { recursive: true, force: true }); }
   if (gitOutput(['status', '--porcelain']) !== '') throw new Error('checks changed the working tree');
   console.log(`release:check passed for ${NAME}@${state.version}; nothing was published. GUI verification remains separate.`);

@@ -37,7 +37,7 @@ test('cordis.patch.yml links preset-openfilm-video-editing with persona, root ma
   const yaml = readFileSync(join(ROOT, 'cordis.patch.yml'), 'utf8');
   assert.match(yaml, /id: openfilm-video-editing/);
   assert.match(yaml, /@deepseek-ai\/dsh-persona/);
-  assert.match(yaml, /剪辑导演/);
+  assert.match(yaml, /剪辑与动效搭档/);
   assert.match(yaml, /projectRootMarkers:/);
   assert.match(yaml, /- \.film/);
   assert.match(yaml, /- film\.html/);

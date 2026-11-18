@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { transform } from 'esbuild';
 import { officialFacadeSource } from '../src/official/official-facade.mjs';
 
 function setup({ promptResult = { ok: true }, EventSourceAvailable = true } = {}) {
@@ -53,6 +56,29 @@ test('RPC success cannot overtake ordered updates and matching terminal', async 
   source.message(done(key, 't1'));
   assert.equal((await pending).stopReason, 'end_turn');
   assert.deepEqual(env.events.map(x => x.kind), ['update', 'done']);
+});
+
+test('an upstream example reference survives the draft and reaches the Host prompt', { skip: !process.env.OPENFILM_SOURCE && 'set OPENFILM_SOURCE to the pinned OpenFilm checkout' }, async () => {
+  const source = await readFile(join(process.env.OPENFILM_SOURCE, 'apps/desktop/chat/src/studio-refs.ts'), 'utf8');
+  const compiled = await transform(source, { loader: 'ts', format: 'esm' });
+  const refs = await import(`data:text/javascript;base64,${Buffer.from(compiled.code).toString('base64')}`);
+  const example = { kind: 'example', id: 'example-one', title: 'Example One', url: 'https://example.test/film', start: 2, end: 4, segment: 'opening' };
+  const pill = refs.refPill(undefined, example);
+  const restored = refs.refFromPill(JSON.parse(JSON.stringify(pill)));
+  assert.equal(restored.id, example.id);
+  assert.equal(restored.start, 2);
+  const text = `Follow this reference [1]${refs.studioReferencesText([restored])}`;
+  const env = setup(), key = await start(env);
+  const pending = env.facade.localAgents.prompt(key, text, { turnId: 'reference-turn' });
+  const sourceStream = env.sources[0]; sourceStream.open(); sourceStream.ready(); await tick();
+  const sent = env.calls.find(call => call.channel === 'agent:prompt');
+  assert.equal(sent.payload.projectId, 'project1');
+  assert.equal(sent.payload.text, text);
+  assert.match(sent.payload.text, /Example One/);
+  assert.match(sent.payload.text, /https:\/\/example\.test\/film/);
+  assert.match(sent.payload.text, /2\.000–4\.000 s/);
+  sourceStream.message(done(key, 'reference-turn'));
+  await pending;
 });
 
 test('terminal can precede RPC and preserves failure or cancellation', async () => {

@@ -55,12 +55,17 @@ test('registry metadata must be valid, readable, and not include the version', (
   for (const value of ['[]', '{}', 'not json', '["0.15.1"]']) assert.ok(registryProblems(value, '0.15.1').length);
 });
 
-test('release archive requires entry points and bundled runtime but excludes secrets', () => {
+test('release archive requires entry points and bundled runtime but excludes secrets and dev tooling', () => {
   const good = ['package/package.json', 'package/index.js', 'package/client.js', 'package/cordis.patch.yml', 'package/vendor/official-shell/manifest.json', 'package/node_modules/openfilm/package.json', 'package/node_modules/zod/package.json'].join('\n');
   assert.deepEqual(archiveProblems(good), []);
   assert.ok(archiveProblems(good.replace('package/client.js', '')).length);
   assert.ok(archiveProblems(good + '\npackage/.npmrc').length);
   assert.ok(archiveProblems(good + '\npackage/films/film.html').length);
+  assert.ok(archiveProblems(good + '\npackage/src/dev/dev-hmr-proxy.mjs').length);
+  assert.ok(archiveProblems(good + '\npackage/scripts/dev-live.mjs').length);
+  assert.ok(archiveProblems(good + '\npackage/patches/series.json').length);
+  assert.ok(archiveProblems(good + '\npackage/assets/style-lab.js').length);
+  assert.ok(archiveProblems(good + '\npackage/src/studio/studio-debug.mjs').length);
 });
 
 test('missing release metadata blocks instead of being treated as verified', () => {

@@ -3,7 +3,8 @@ import { lstat, mkdir, open, readdir, readFile, realpath } from 'node:fs/promise
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
-const TEMPLATE_ID = /^[a-z0-9][a-z0-9-]{1,40}$/;
+// Keep discovery, installation and the template-prompt catalog on the same ID contract.
+const TEMPLATE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const MAX_FILES = 4_000;
 const MAX_BYTES = 64 * 1024 * 1024;
 const failure = (code, message) => Object.assign(new Error(message), { code });
@@ -30,6 +31,17 @@ export async function listTemplates(root) {
     });
   }
   return templates.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** Finish bookkeeping after Studio has already registered a new project.
+ * A bookkeeping failure must not disguise the created project as a failed copy.
+ */
+export async function finishTemplateCreation(created, { activate, remember }) {
+  const warnings = [];
+  try { await activate(); } catch { warnings.push('TEMPLATE_ACTIVATION_FAILED'); }
+  let result = created;
+  try { result = await remember() ?? created; } catch { warnings.push('PREFERENCES_SAVE_FAILED'); }
+  return { ...result, ...created, ...(warnings.length ? { warnings } : {}) };
 }
 
 const inside = (parent, child) => {

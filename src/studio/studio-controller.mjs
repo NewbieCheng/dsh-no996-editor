@@ -1,7 +1,7 @@
 import { createElevationProbe } from '../host/elevation.mjs';
 import { createStudioRuntime } from './studio-runtime.mjs';
 import { createHostComponentDetector } from '../host/host-components.mjs';
-import { installTemplate, listTemplates } from '../official/official-templates.mjs';
+import { finishTemplateCreation, installTemplate, listTemplates } from '../official/official-templates.mjs';
 import {
   balanceCachePatch,
   balanceFromPrefs,
@@ -30,8 +30,9 @@ const templatesRoot = fileURLToPath(new URL('../../vendor/templates/', import.me
 /** The ACP path is the default; an explicit 0 is the escape hatch. */
 /** Page events the Host will record; anything else is refused. */
 const CLIENT_EVENTS = new Set(['recovery-shown', 'restart-click', 'picker-placed', 'session-expired', 'permission-shown', 'permission-chosen', 'switch-lost', 'switch-remounted', 'agent-attach-failed']);
-import { redeemStudioSession, startStudioDebug } from './studio-debug.mjs';
-import { startLocalConsole } from './studio-debug-redirect.mjs';
+import { startDesktopLoopback } from './desktop-loopback.mjs';
+import { createDiagnosticLog } from '../host/diagnostic-log.mjs';
+import { isReleasePackage } from '../host/distribution.mjs';
 import { createDshAskAgent } from '../host/dsh-ai.mjs';
 import { reportPresetStatus } from '../host/preset-report.mjs';
 import { createGuideTool } from '../tools/guide-tool.mjs';
@@ -86,8 +87,8 @@ import { readJsonBody } from './studio-controller/http-body.mjs';
 import { createRouter } from './studio-controller/router.mjs';
 import { createAssetRoutes } from './studio-controller/routes/assets.mjs';
 import { createBootstrapRoute } from './studio-controller/routes/bootstrap.mjs';
-import { createDebugUrlRoute } from './studio-controller/routes/debug-url.mjs';
 import { createDiagnoseRoute } from './studio-controller/routes/diagnose.mjs';
+import { createDiagLogsController } from './studio-controller/routes/diag-logs.mjs';
 import { createEnvironmentRoute } from './studio-controller/routes/environment.mjs';
 import { createDiagnosticsRoutes } from './studio-controller/routes/diagnostics.mjs';
 import { createEditingRoutes } from './studio-controller/routes/editing.mjs';
@@ -110,6 +111,7 @@ export function createStudioController(ctx, createProxy, {
   registerWalletDirtyListener = undefined,
 } = {}) {
   const log = createPluginLog();
+  const diagLog = createDiagnosticLog();
   // What the bridge actually published to the panel, and what the page reported
   // receiving. Read through /diagnose; never exposed as user content.
   const bridgeTrace = createBridgeTrace();
@@ -192,18 +194,30 @@ export function createStudioController(ctx, createProxy, {
     injected: true,
   }, null, 1), 'utf8').catch(() => { /* diagnostics only */ });
   presetReport.done.catch(() => {});
-  // A stable address the person can type into the right-side browser without
-  // opening the panel first. That browser does not share DSH's cookie, so DSH
-  // routes answer 401 there; this listener serves the template console itself and
-  // does the Studio work in the Host. Disable with NO996_OPENFILM_DEBUG_PORT=0.
+  // Production desktop loopback serves ONLY /api/studio-url and /api/auth for
+  // `dsh-app://app`. Standalone browser portal (`src/dev/dev-browser-portal.mjs`)
+  // is physically omitted from release `.tgz` builds and refused whenever
+  // `isReleasePackage()` is true, even if dev env vars are set.
+  const releaseBuild = isReleasePackage();
+  const devEnvRequested = process.env.NO996_OPENFILM_DEV === '1'
+    || process.env.NO996_OPENFILM_DEV_HMR === '1'
+    || process.env.NO996_OPENFILM_DEBUG_EDITOR === '1'
+    || process.env.NO996_OPENFILM_OPEN_BROWSER === '1'
+    || process.env.NO996_OPENFILM_STYLE_LAB === '1';
+  if (releaseBuild && devEnvRequested) {
+    log.warn('dev-flags-ignored-in-release-package');
+  }
+  const devOpenBrowser = !releaseBuild
+    && process.env.NO996_OPENFILM_OPEN_BROWSER !== '0'
+    && (process.env.NO996_OPENFILM_DEV === '1'
+      || process.env.NO996_OPENFILM_DEV_HMR === '1'
+      || process.env.NO996_OPENFILM_DEBUG_EDITOR === '1'
+      || process.env.NO996_OPENFILM_OPEN_BROWSER === '1');
+  let browserPortal = null;
+  let portalProxyOptions = async () => null;
+  let ensureStudioForPortal = async () => {};
   if (process.env.NO996_OPENFILM_DEBUG_PORT !== '0') {
-    debugBridge = startLocalConsole({
-      templates: () => listTemplates(templatesRoot),
-      // The right-side browser has no DSH cookie, so /editor hands it a one-use
-      // ticket instead of a cookie-gated URL. Minted in-process, never logged.
-      // Desktop panel asks this before any Host bootstrap. Warm the Studio and
-      // mint a ticket here — returning null just because warm finished late is
-      // what produced `HTTP 503 @ dsh-app://app (console)` after login.
+    const loopbackConfig = {
       editorUrl: async () => {
         if (disposed) return null;
         try {
@@ -213,8 +227,6 @@ export function createStudioController(ctx, createProxy, {
           return proxy?.issueTicket?.()?.url ?? null;
         } catch { return null; }
       },
-      // Desktop panel (`dsh-app://app`) cannot reach Host /api routes; auth goes
-      // through this loopback console. Tokens stay on the Host.
       authHandler: async raw => {
         if (disposed) return { status: 503, body: { error: 'UNAVAILABLE' } };
         try {
@@ -234,7 +246,22 @@ export function createStudioController(ctx, createProxy, {
           };
         }
       },
-    });
+    };
+    debugBridge = devOpenBrowser
+      ? import('../dev/dev-browser-portal.mjs')
+        .then(mod => mod.startDevBrowserPortal({
+          ...loopbackConfig,
+          ensureStudioStarted: () => ensureStudioForPortal(),
+          createProxyOptions: () => portalProxyOptions(),
+          say: log,
+        }))
+        .then((portal) => {
+          browserPortal = portal;
+          if (!disposed && upstream) void portal.setUpstream(upstream).catch(() => {});
+          return portal;
+        })
+        .catch(() => startDesktopLoopback(loopbackConfig))
+      : startDesktopLoopback(loopbackConfig);
     debugBridge.catch(() => { debugBridge = undefined; });
   }
   const proxies = new Map();
@@ -262,6 +289,9 @@ export function createStudioController(ctx, createProxy, {
   // resolve the project through verifyOfficialProject, so a stale ID opens nothing.
   const projectFiles = createProjectFiles({ resolveProject: verifyOfficialProject });
   const preferences = createPreferencesStore();
+  void preferences.get().then((p) => {
+    if (p?.logRetentionDays) diagLog.setRetentionDays(p.logRetentionDays);
+  }).catch(() => {});
   const projectParentDir = async (proxy) => {
     const projects = await proxy.listProjects().catch(() => []);
     if (projects.length) return dirname(projects[0].path);
@@ -728,8 +758,14 @@ export function createStudioController(ctx, createProxy, {
       // Record the template the film was made from. Its prompt is rendered into the
       // project's AGENTS.md on the next prepare (never here: writing AGENTS.md before
       // the base protocol exists would make the base look "already present").
-      try { writeActiveTemplates(created.path, [chosen.id]); } catch { /* the film still works */ }
-      return { ...(await finishOnboardingProject(chosen.id, created)), prompt: chosen.prompt };
+      const finished = await finishTemplateCreation(created, {
+        activate: () => writeActiveTemplates(created.path, [chosen.id]),
+        remember: () => finishOnboardingProject(chosen.id, created),
+      });
+      return { ...finished, prompt: chosen.prompt };
+    }
+    if (channel === 'diag:list' || channel === 'diag:export' || channel === 'diag:clear' || channel === 'diag:prefs') {
+      return diagLogs.handleRpc(channel, payload);
     }
     // chat:load/save and the archive channels share the same Host-side state:
     // an archived project withholds history and refuses writes, and both
@@ -886,6 +922,7 @@ export function createStudioController(ctx, createProxy, {
       return undefined;
     },
     log: (event, fields) => void log.info(event, fields),
+    diag: diagLog,
   });
   const agentService = officialShell ? nativeAgentService : null;
   const guideTool = createGuideTool(isProjectAgent);
@@ -905,25 +942,8 @@ export function createStudioController(ctx, createProxy, {
     }
     return httpClient;
   };
-  // Studio shows its own "what's new" dialog once after every version bump, which
-  // for a bundled Studio means every time this plugin upgrades. The dialog is
-  // gated by `prefs.seenVersion` (components/WhatsNew.tsx: it shows only when the
-  // saved version is older than the running one), so keeping that value ahead of
-  // any release retires the dialog without touching the page.
-  const WHATS_NEW_SEEN = '9999.0.0';
-  let whatsNewSettled = false;
-  const suppressWhatsNew = async () => {
-    if (whatsNewSettled || disposed) return;
-    try {
-      const client = studioHttp();
-      const prefs = await client.get('/api/prefs');
-      if (!prefs || typeof prefs !== 'object') return;
-      whatsNewSettled = true;
-      if (prefs.seenVersion === WHATS_NEW_SEEN) return;
-      await client.patch('/api/prefs', { body: { seenVersion: WHATS_NEW_SEEN } });
-      log.info('whats-new-suppressed', { from: typeof prefs.seenVersion === 'string' ? prefs.seenVersion : null });
-    } catch { /* prefs are a convenience: the dialog is not worth failing a turn over */ }
-  };
+  // Upstream release-note visibility is decided in the annotated shell patch;
+  // the Host must not alter the person's Studio seenVersion preference.
   // The project an agent may edit, resolved from the Host's own record. Never from
   // a renderer-supplied id.
   const projectOfAgent = agent => {
@@ -947,8 +967,8 @@ export function createStudioController(ctx, createProxy, {
         const next = active.includes(id) ? active : [...active, id];
         writeActiveTemplates(projectPath, next);
         const chosen = next.map(templateId => catalog.find(item => item.id === templateId)).filter(Boolean);
-        syncTemplateBlock(projectPath, chosen);
-        return { active: next, templates: chosen };
+        const synced = syncTemplateBlock(projectPath, chosen);
+        return { active: next, templates: chosen, instructionSync: synced.reason ?? 'written' };
       },
     }),
     // Plan before cutting: the storyboard is the contract the timeline follows, and
@@ -992,20 +1012,41 @@ export function createStudioController(ctx, createProxy, {
   // shared by the Host RPC and the panel routes, defined in its own module.
   const system = createSystemRoutes({ ctx, register: registerRoute, transcribeService, toolInstaller, detectHostComponents });
   const [unregisterTranscribeRoute, unregisterSystemCheck, unregisterSystemInstall] = system.disposers;
-  const runtime = createStudioRuntime({ askAgent, ...(officialShell ? { resolveEditorDir: resolveOfficialShell } : {}), attach: async studio => {
+  const devHmrRequested = !releaseBuild && process.env.NO996_OPENFILM_DEV_HMR === '1';
+  const resolveShellForRuntime = async () => {
+    if (devHmrRequested) {
+      // In Vite HMR mode, UI comes from the Vite Dev Server, not Studio's
+      // static sendEditor; return the fallback ui directory if present so
+      // startStudio starts /api/* cleanly even without an updated snapshot.
+      const fallback = fileURLToPath(new URL('../../vendor/official-shell/ui', import.meta.url));
+      return fallback;
+    }
+    return resolveOfficialShell();
+  };
+  const runtime = createStudioRuntime({ askAgent, ...(officialShell ? { resolveEditorDir: resolveShellForRuntime } : {}), attach: async studio => {
     upstream = studio;
+    if (browserPortal && !disposed) {
+      void browserPortal.setUpstream(studio).catch(() => {});
+    }
     return async () => {
       upstream = undefined;
+      if (browserPortal) {
+        await browserPortal.setUpstream(null).catch(() => {});
+      }
       const pending = [...proxies.values()];
       proxies.clear();
       const settled = await Promise.allSettled(pending);
       await Promise.all(settled.filter(item => item.status === 'fulfilled').map(item => item.value.close()));
     };
   } });
+  ensureStudioForPortal = () => runtime.ensureStarted();
   const attachOfficialEvents = ({ projectId, res }) => {
     if (disposed) { res.destroy(); return; }
     attachOfficialEventStream({ hub: eventHub, projectId, response: res });
   };
+  const devAnyFlag = !releaseBuild && devEnvRequested;
+  let devExtension = null;
+  let devReady = Promise.resolve(null);
   function proxyFor(browserOrigin, desktop = false) {
     const existing = proxies.get(browserOrigin);
     if (existing) return existing;
@@ -1018,13 +1059,15 @@ export function createStudioController(ctx, createProxy, {
       const admission = ctx.connection.admit({ headers });
       return !('rejection' in admission) && admission.peer.id === ctx.connection.browserPeer.id;
     };
-    const pending = Promise.resolve().then(() => createProxy({
+    const pending = Promise.resolve(devReady).then((ext) => createProxy({
       upstream,
       webOrigin: browserOrigin,
       authenticateBrowser,
       desktop,
       officialShell,
       log,
+      diagLog,
+      devHooks: ext?.devHooks ?? null,
       beforeProjectDelete,
       rewriteLibraryVoices: async () => {
         try {
@@ -1052,8 +1095,7 @@ export function createStudioController(ctx, createProxy, {
   let unregisterArchiveBridge;
   let unregisterAttachment;
   let unregisterClientLog;
-  let unregisterStandalone;
-  let unregisterTemplatesPage;
+  let diagLogs;
   try {
   unregisterTemplateBridge = trackRoute(registerTemplateBridge(ctx, {
     webOrigin,
@@ -1195,68 +1237,69 @@ export function createStudioController(ctx, createProxy, {
     log,
     getAcpAgentService: () => nativeAgentService,
   });
-  unregisterStandalone = trackRoute(registerRoute({
-    kind: 'exact', path: '/no996-openfilm/standalone',
-    async handler(req, res) {
-      // A plain browser window for layout work. Same DSH origin, so it uses the
-      // same authenticated session; it opens no new listener and shares no key.
-      if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }).end(); return; }
-      const admission = ctx.connection.admit({ headers: req.headers });
-      if ('rejection' in admission) { res.writeHead(admission.rejection).end('DSH_SESSION_REQUIRED'); return; }
-      const page = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
-        + '<meta name="viewport" content="width=device-width,initial-scale=1"><title>OpenFilm 视频创作</title>'
-        + '<style>html,body{margin:0;height:100%;background:#111;color:#eee;font:13px system-ui,sans-serif}'
-        + '#bar{display:flex;gap:12px;align-items:center;padding:6px 10px;border-bottom:1px solid #333}'
-        + '#bar label{display:flex;gap:6px;align-items:center}#frame{display:block;width:100%;height:calc(100% - 37px);border:0;background:#000}'
-        + '#err{padding:16px;color:#f88;white-space:pre-wrap}</style></head><body>'
-        + '<div id="bar"><strong>OpenFilm 视频创作</strong>'
-        + '<label>对话侧 <select id="side"><option value="right">右侧</option><option value="left">左侧</option></select></label>'
-        + '<label>宽度 <input id="width" type="range" min="240" max="800" step="20" value="420"><span id="wv">420</span></label>'
-        + '<button id="reload">重新载入</button><span id="status">正在启动…</span></div>'
-        + '<iframe id="frame" allow="clipboard-read; clipboard-write"></iframe><pre id="err" hidden></pre>'
-        + '<script>(function(){var f=document.getElementById("frame"),status=document.getElementById("status"),err=document.getElementById("err");'
-        + 'var side=document.getElementById("side"),width=document.getElementById("width"),wv=document.getElementById("wv");'
-        + 'function post(){var w=Number(width.value);wv.textContent=w;try{f.contentWindow.postMessage({type:"no996-openfilm:layout",version:1,side:side.value,width:w},"*")}catch(e){}}'
-        + 'function fail(m){err.hidden=false;err.textContent=String(m);status.textContent="启动失败"}'
-        + 'function start(){status.textContent="正在启动…";fetch("/api/no996-openfilm/bootstrap",{method:"POST",credentials:"same-origin"})'
-        + '.then(function(r){if(!r.ok)throw new Error("bootstrap HTTP "+r.status);return r.json()})'
-        + '.then(function(d){var u=new URL(d.editorOrigin);f.src=u.origin+"/";status.textContent="已连接 "+u.origin;f.onload=post})'
-        + '.catch(function(e){fail(e&&e.message||e)})}'
-        + 'side.onchange=post;width.oninput=post;document.getElementById("reload").onclick=function(){err.hidden=true;start()};start();})();</script>'
-        + '</body></html>';
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(page) }).end(page);
-    },
-  }));
-  unregisterTemplatesPage = trackRoute(registerRoute({
-    kind: 'exact', path: '/no996-openfilm/templates',
-    async handler(req, res) {
-      res.setHeader('cache-control', 'no-store');
-      if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }).end(); return; }
-      const admission = ctx.connection.admit({ headers: req.headers });
-      if ('rejection' in admission) { res.writeHead(admission.rejection).end(); return; }
-      if (admission.peer.id !== ctx.connection.browserPeer.id) { res.writeHead(403).end('DSH_BROWSER_REQUIRED'); return; }
-      let items = [];
-      try { items = await listTemplates(templatesRoot); } catch { /* an empty page still explains itself */ }
-      const escape = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-      const cards = items.map(item => `<li><strong>${escape(item.title)}</strong> <small>${escape(item.mode)}</small><p>${escape(item.description)}</p><button type=\"button\" data-id=\"${escape(item.id)}\">用这个模板建项目</button></li>`).join('');
-      const html = `<!doctype html><meta charset=\"utf-8\"><title>OpenFilm 模板</title><style>body{font:14px system-ui,sans-serif;background:#171717;color:#e8e8e8;margin:24px}li{margin:16px 0;padding:12px;border:1px solid #333;border-radius:8px;list-style:none}button{margin-top:8px;padding:6px 12px;border-radius:6px;border:1px solid #555;background:#2a2a2a;color:inherit;cursor:pointer}p{margin:6px 0;opacity:.8}#msg{margin-top:16px;color:#f88}</style><h1>OpenFilm 模板</h1><ul>${cards || '<li>没有可用模板</li>'}</ul><div id=\"msg\"></div><script>document.addEventListener('click',async e=>{const b=e.target.closest('button[data-id]');if(!b)return;b.disabled=true;b.textContent='创建中…';try{const r=await fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel:'template:create',payload:{templateId:b.dataset.id}})});const d=await r.json();if(!d||!d.projectId)throw new Error((d&&d.error)||('HTTP '+r.status));if(d.prompt){try{localStorage.setItem('no996.openfilm.templatePrompt',d.prompt)}catch(_){}}location.href='/projects/'+d.projectId}catch(err){document.getElementById('msg').textContent='创建失败：'+(err&&err.message||err);b.disabled=false;b.textContent='用这个模板建项目'}})</script>`;
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': Buffer.byteLength(html) }).end(html);
-    },
-  }));
-  // Debug window URL (cookie lives in the debug listener, not the browser).
-  const debugUrl = createDebugUrlRoute({
+  diagLogs = createDiagLogsController({
     ctx,
     register: registerRoute,
     track: trackRoute,
+    diagLog,
+    pluginLog: log,
+    preferences,
+    runtime,
+    agentService,
+    pluginVersion: HOST_VERSION,
+    openfilmVersion: studioPackageRoot ? (() => { try { return JSON.parse(readFileSync(join(studioPackageRoot, 'package.json'), 'utf8')).version; } catch { return 'unknown'; } })() : 'unknown',
     officialShell,
-    isDisposed: () => disposed,
-    getUpstream: () => upstream,
-    ensureStudioStarted: () => runtime.ensureStarted(),
-    proxyFor,
-    getBridge: () => debugBridge,
-    setBridge: (next) => { debugBridge = next; },
   });
-  const [unregisterDebugUrl] = debugUrl.disposers;
+
+  if (devAnyFlag) {
+    devReady = import('../dev/index.mjs')
+      .then((mod) => {
+        if (disposed) return null;
+        devExtension = mod.createDevExtensions({
+          ctx,
+          registerRoute,
+          trackRoute,
+          officialShell,
+          isDisposed: () => disposed,
+          getUpstream: () => upstream,
+          ensureStudioStarted: () => runtime.ensureStarted(),
+          proxyFor,
+          getBridge: () => debugBridge,
+          setBridge: (next) => { debugBridge = next; },
+          getPortalUrl: () => browserPortal?.url ?? '',
+          listTemplates,
+          templatesRoot,
+          say: log,
+        });
+        return devExtension;
+      })
+      .catch((error) => {
+        // Production `.tgz` omits `src/dev/`; missing dev module is expected and safe.
+        if (error?.code !== 'ERR_MODULE_NOT_FOUND') {
+          log.warn('dev-extension-load-failed', { message: String(error?.message || error).slice(0, 160) });
+        }
+        return null;
+      });
+    portalProxyOptions = async () => {
+      const ext = await devReady;
+      return {
+        officialShell,
+        log,
+        diagLog,
+        devHooks: ext?.portalHooks ?? ext?.devHooks ?? { relaxedEmbed: true },
+        beforeProjectDelete,
+        rewriteLibraryVoices: async () => {
+          try {
+            await voiceBridge.refreshReady();
+            return await voiceBridge.libraryVoicesPayload();
+          } catch {
+            return { version: 1, providers: [{ id: 'no996', name: '不加班', models: [{ id: 'workbench-tts', name: '不加班配音' }] }], voices: [] };
+          }
+        },
+        ...(officialShell ? { officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile: projectFiles.read, openProjectFile: projectFiles.open } : {}),
+      };
+    };
+  }
 
   } catch (error) {
     rollbackRoutes();
@@ -1282,7 +1325,6 @@ export function createStudioController(ctx, createProxy, {
         await runtime.ensureStarted();
         if (!disposed && upstream) await proxyFor(webOrigin);
         log.info('studio-warm', { ms: Date.now() - started, attempt });
-        void suppressWhatsNew();
         return;
       } catch (error) {
         // A code, never the message: upstream messages may carry keys or paths.
@@ -1304,6 +1346,7 @@ export function createStudioController(ctx, createProxy, {
     // Stop the ACP children before the routes go away: a child that outlives the
     // Host keeps holding the project's Session open.
     try { await nativeAgentService?.close?.(); } catch { /* already closed */ }
+    try { devExtension?.dispose?.(); } catch { /* already closed */ }
     rollbackRoutes();
     try { unregisterTranscribe(); } catch { /* already gone */ }
     try { unregisterTranscribeRoute(); } catch { /* already gone */ }
@@ -1317,17 +1360,19 @@ export function createStudioController(ctx, createProxy, {
     // away, so nothing is left waiting on a listener that can never reply.
     try { approvals.close(); } catch { /* already closed */ }
     try { archive.close(); } catch { /* already closed */ }
+    browserPortal = null;
     const closingDebug = debugBridge;
     debugBridge = undefined;
     closingDebug?.then(bridge => bridge.close()).catch(() => {});
     try { eventHub.close(); } catch { /* already closed */ }
     try { bridgeTrace.close(); } catch { /* already closed */ }
+    try { diagLog.close(); } catch { /* already closed */ }
     const perm = await permissionsPromise?.catch?.(() => undefined);
     try { await perm?.close?.(); } catch { /* already closed */ }
     const chat = await officialStorePromise?.catch(() => undefined);
     try { await chat?.close(); }
     finally { await runtime.close(); }
     log.info('host-stop', { uptimeMs: closingAt - openedAt, events: log.count });
-    await log.flush().catch(() => {});
+    await Promise.all([log.flush().catch(() => {}), diagLog.flush().catch(() => {})]);
   };
 }

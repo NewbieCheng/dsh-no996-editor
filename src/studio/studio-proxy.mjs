@@ -1,10 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer, request } from 'node:http';
+import { isReleasePackage } from '../host/distribution.mjs';
 import { officialFacadeSource } from '../official/official-facade.mjs';
 import { officialUploadSource } from '../official/official-attachment.mjs';
 import { shellUiInjection, shellUiVersion } from '../ui/shell-extras.mjs';
 import { theme, themeSurfaceFor } from '../ui/theme.mjs';
-import { styleLabInjection } from '../ui/style-lab.mjs';
 import { replaceTitle } from '../ui/brand.mjs';
 import { MAX_FRAME, WS_GUID, frames, wsFrame } from './studio-proxy/websocket.mjs';
 import {
@@ -41,9 +41,23 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
 });
 
-export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, log } = {}) {
+export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, log, diagLog, devHooks } = {}) {
   // A proxy without a logger is valid (tests, embedders); the calls are no-ops.
   const say = typeof log?.write === 'function' ? log : { write() {}, info() {}, warn() {}, error() {} };
+  const recordDiag = typeof diagLog?.record === 'function' ? diagLog : null;
+  const activeDevHooks = !isReleasePackage() && devHooks && typeof devHooks === 'object' ? devHooks : null;
+  const relaxedEmbed = activeDevHooks?.relaxedEmbed === true;
+  let styleLabLoader = null;
+  async function getStyleLabHtml() {
+    if (isReleasePackage()) return '';
+    if (typeof activeDevHooks?.styleLabHtml === 'function') return activeDevHooks.styleLabHtml();
+    if (process.env.NO996_OPENFILM_STYLE_LAB !== '1') return '';
+    if (!styleLabLoader) {
+      styleLabLoader = import('../ui/style-lab.mjs').then(m => m.styleLabInjection).catch(() => null);
+    }
+    const fn = await styleLabLoader;
+    return typeof fn === 'function' ? fn() : '';
+  }
   if (typeof officialShell !== 'boolean') throw new TypeError('officialShell must be a boolean');
   if (officialRpc !== undefined && typeof officialRpc !== 'function') throw new TypeError('officialRpc must be a function');
   if (authorizeOfficialProject !== undefined && typeof authorizeOfficialProject !== 'function') throw new TypeError('authorizeOfficialProject must be a function');
@@ -142,6 +156,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   function rejectionReason(req, film) {
     const expected = new URL(film ? filmOrigin : editorOrigin);
     if (closed || req.headers.host !== expected.host) return 'OF_HOST_REJECTED';
+    if (relaxedEmbed && !film && (req.method === 'GET' || req.method === 'HEAD' || req.headers.origin === editorOrigin)) return null;
     const origin = req.headers.origin;
     const desktopNavigation = desktop && !film && req.method === 'GET' && req.headers['sec-fetch-dest'] === 'iframe' && authenticated(req);
     if (origin && origin !== editorOrigin && !(film && origin === filmOrigin) && !(desktopNavigation && (origin === webOrigin || origin === 'null'))) return 'OF_ORIGIN_REJECTED';
@@ -154,6 +169,135 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
     return null;
   }
   function permitted(req, film) { return rejectionReason(req, film) === null; }
+  function isSameFetchSite(req) { return relaxedEmbed || req.headers['sec-fetch-site'] === 'same-origin'; }
+  function traceIdFrom(req, prefix = 'req') {
+    const incoming = String(req.headers['x-no996-trace-id'] || '').trim();
+    return /^[A-Za-z0-9_-]{6,48}$/.test(incoming) ? incoming : `${prefix}-${randomBytes(4).toString('hex')}`;
+  }
+  async function rewriteEditorHtml(value, url, status) {
+    value = replaceTitle(value);
+    diag.html += 1;
+    diag.lastPath = url.pathname;
+    diag.lastStatus = status;
+    const parentOrigin = JSON.stringify(webOrigin).replaceAll('<', '\\u003c');
+    const officialPage = url.pathname === '/' || /^\/projects\/[A-Za-z0-9_-]{6,40}\/?$/.test(url.pathname);
+    const transport = `async (channel,payload)=>{var tid='rpc-'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3);const r=await fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','x-no996-trace-id':tid},body:JSON.stringify({channel,payload})});if(!r.ok){let detail='';try{detail=(await r.text()).slice(0,300)}catch(e){}var rt=r.headers.get('x-no996-trace-id')||tid;throw new Error('OpenFilm capability unavailable: '+channel+' ['+r.status+'] '+(detail||'')+' [trace:'+rt+']');}return r.json()}`;
+    const nativePrelude = officialShell && officialPage ? `<script>globalThis.openfilmNative=${officialFacadeSource}({invoke:${transport},upload:${officialUploadSource}});</script>` : '';
+    const diagnostics = officialShell ? '<script>(function(){' +
+      'if(globalThis.__no996Diag)return;globalThis.__no996Diag=1;var n=0;var rawFetch=globalThis.fetch;var buf=globalThis.__no996DiagBuffer=[];' +
+      'var sentCount=0,sentReset=Date.now();' +
+      'function pushBuf(entry){try{buf.push(entry);if(buf.length>200)buf.shift();try{window.dispatchEvent(new CustomEvent("no996:diag-entry",{detail:entry}))}catch(e){}}catch(e){}}' +
+      'function reportToHost(entry){try{if(!rawFetch)return;var now=Date.now();if(now-sentReset>60000){sentCount=0;sentReset=now;}if(sentCount>=60)return;sentCount++;rawFetch.call(globalThis,"/__dsh/client-diag",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(entry).slice(0,7800),keepalive:true}).catch(function(){});}catch(e){}}' +
+      'function show(m,meta){try{var entry={id:"ui-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6),ts:new Date().toISOString(),level:(meta&&meta.level)||"error",layer:(meta&&meta.layer)||"ui",traceId:(meta&&meta.traceId)||"",code:(meta&&meta.code)||"UI_ERROR",channel:(meta&&meta.channel)||"",httpStatus:(meta&&meta.httpStatus)||null,location:(meta&&meta.location)||"",summary:String(m),detail:(meta&&meta.detail)||null};pushBuf(entry);if(entry.level==="error"||entry.level==="warn")reportToHost(entry);if(n>3)return;n++;var d=document.getElementById("no996-diag");' +
+      'if(!d){d=document.createElement("div");d.id="no996-diag";' +
+      'd.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;background:#7f1d1d;color:#fff;font:12px/1.5 ui-monospace,Consolas,monospace;padding:10px 12px 10px 12px;border-radius:8px;max-height:40vh;overflow:auto;white-space:pre-wrap;text-align:left;box-shadow:0 8px 28px rgba(0,0,0,.45)";' +
+      'var bar=document.createElement("div");bar.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:6px;";' +
+      'var title=document.createElement("strong");title.textContent="发生异常";title.style.cssText="font-size:12px;margin-right:auto";bar.appendChild(title);' +
+      'var viewBtn=document.createElement("button");viewBtn.type="button";viewBtn.textContent="查看诊断日志";viewBtn.style.cssText="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:5px;padding:2px 8px;font:inherit;cursor:pointer";' +
+      'viewBtn.onclick=function(){try{window.dispatchEvent(new CustomEvent("no996:open-diagnostics",{detail:{traceId:d.getAttribute("data-last-trace")||""}}))}catch(e){}};bar.appendChild(viewBtn);' +
+      'var copyBtn=document.createElement("button");copyBtn.type="button";copyBtn.textContent="复制报错";copyBtn.style.cssText="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);color:#fff;border-radius:5px;padding:2px 8px;font:inherit;cursor:pointer";' +
+      'copyBtn.onclick=function(){try{navigator.clipboard.writeText(linesBox.textContent||"").then(function(){copyBtn.textContent="已复制";setTimeout(function(){copyBtn.textContent="复制报错";},1500)}).catch(function(){})}catch(e){}};bar.appendChild(copyBtn);' +
+      'var b=document.createElement("button");b.type="button";b.textContent="×";b.style.cssText="background:transparent;border:0;color:#fff;font-size:18px;line-height:1;cursor:pointer;padding:0 4px";b.onclick=function(){d.remove()};bar.appendChild(b);' +
+      'd.appendChild(bar);var linesBox=document.createElement("div");linesBox.setAttribute("data-no996-diag-lines","1");d.appendChild(linesBox);document.documentElement.appendChild(d);}' +
+      'if(entry.traceId)d.setAttribute("data-last-trace",entry.traceId);' +
+      'var target=d.querySelector("[data-no996-diag-lines]")||d;target.appendChild(document.createTextNode(String(m)+"\\n"));}catch(e){}}' +
+      'globalThis.__no996ShowError=show;' +
+      'addEventListener("error",function(e){var m=e.message||"unknown";if(/ResizeObserver loop/.test(m))return;var loc=(e.filename||"")+":"+(e.lineno||0)+":"+(e.colno||0);show("[JS] "+m+" @ "+loc,{layer:"ui",code:"JS_ERROR",location:loc,detail:{message:m,stack:e.error&&e.error.stack?String(e.error.stack).slice(0,1200):""}});});' +
+      'addEventListener("unhandledrejection",function(e){var r=e.reason;var m=(r&&r.message)||String(r);var s=(r&&r.stack)||"";var at=String(s).split("\\n").filter(function(l){return l.indexOf("at ")>=0}).slice(0,4).join(" | ");show("[Promise] "+m+(at?"\\n"+at:""),{layer:"ui",code:"UNHANDLED_REJECTION",location:at.slice(0,180),detail:{message:m,stack:String(s).slice(0,1200)}});});' +
+      'var ce=console.error;console.error=function(){try{for(var i=0;i<arguments.length;i++){var a=arguments[i];if(a instanceof Error){show("[React] "+(a.message||a.name),{layer:"ui",code:"REACT_ERROR",detail:{message:a.message||a.name,stack:String(a.stack||"").slice(0,1200)}});break;}}}catch(e){}return ce.apply(console,arguments);};' +
+      'var ES=globalThis.EventSource;if(typeof ES==="function"){globalThis.EventSource=function(u,o){var es=new ES(u,o);try{if(String(u).indexOf("/__dsh/")===0){es.addEventListener("error",function(){pushBuf({id:"sse-"+Date.now().toString(36),ts:new Date().toISOString(),level:"warn",layer:"sse",code:"SSE_ERROR",channel:String(u).slice(0,120),summary:"SSE 连接异常或重连",detail:{readyState:es.readyState}});reportToHost(buf[buf.length-1]);});}}catch(e){}return es;};globalThis.EventSource.prototype=ES.prototype;}' +
+      'var f=rawFetch;if(f)globalThis.fetch=function(u,o){var started=Date.now();var s=String(u);if(s.indexOf("/__dsh/client-diag")===0)return f.apply(this,arguments);' +
+      'var tid="ui-"+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3);' +
+      'try{if((s.indexOf("/__dsh/")===0||s.indexOf("/api/")===0)){var nextO=o?Object.assign({},o):{};var h=new Headers(nextO.headers||{});if(!h.has("x-no996-trace-id"))h.set("x-no996-trace-id",tid);else tid=h.get("x-no996-trace-id")||tid;nextO.headers=h;arguments[1]=nextO;o=nextO;}}catch(e){}' +
+      'return f.apply(this,arguments).then(function(r){try{var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(e){}var optional=/^(agent:(thinking|models|permission|trace)|chat:(archive-state|log))$/.test(ch);if(optional)return r;var rt=r.headers.get("x-no996-trace-id")||tid;if(r.status>=500||(r.status===404&&s.indexOf("/api/projects")>=0)){var base="[HTTP "+r.status+"] "+s.slice(0,180);r.clone().text().then(function(t){var why="";try{var j=JSON.parse(t);if(j&&typeof j.error==="string"&&j.error)why=" - "+j.error.slice(0,240);}catch(e){why=t?(" - "+String(t).slice(0,240)):"";}show(base+why,{layer:s.indexOf("/__dsh/")===0?"rpc":"studio-upstream",traceId:rt,code:"HTTP_"+r.status,channel:ch||s.slice(0,120),httpStatus:r.status,detail:{url:s.slice(0,180),durationMs:Date.now()-started,responsePreview:String(t||"").slice(0,400)}});}).catch(function(){show(base,{layer:s.indexOf("/__dsh/")===0?"rpc":"studio-upstream",traceId:rt,code:"HTTP_"+r.status,channel:ch||s.slice(0,120),httpStatus:r.status});});}}catch(e){}return r;},function(e){try{var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(_){}show("[网络] "+s.slice(0,180)+" "+((e&&e.message)||e),{layer:"ui",traceId:tid,code:"NETWORK_ERROR",channel:ch||s.slice(0,120),detail:{url:s.slice(0,180),durationMs:Date.now()-started,message:String((e&&e.message)||e).slice(0,300)}});}catch(_){}throw e;});};' +
+      'setTimeout(function(){try{parent.postMessage({type:"no996-openfilm:boot",version:1,hasNative:!!globalThis.openfilmNative,rendered:!!(document.getElementById("root")||{}).firstElementChild},' + "'*'" + ')}catch(e){}},1500);' +
+      'setTimeout(function(){var r=document.getElementById("root");if(r&&!r.firstElementChild)show("界面 10 秒后仍未渲染（#root 为空）",{layer:"ui",code:"BOOT_RENDER_TIMEOUT",location:"studio-proxy:#root"});},10000);' +
+      '})()</script>' : '';
+    const styleLab = await getStyleLabHtml();
+    const devHead = typeof activeDevHooks?.headInjection === 'function' ? activeDevHooks.headInjection() : '';
+    const host = `${diagnostics}${nativePrelude}<script>try{
+if(!localStorage.getItem('openfilm.workspace.current.v2')){
+  var base={mode:'edit',tree:null,assets:false,layers:false,timeline:true,inspector:true,chat:true,libraryDock:'chat',chatSide:'left',layersSide:'left',inspectorSide:'right',timelineEdge:'bottom',assetsWidth:320,libraryHeight:280,layersWidth:240,inspectorWidth:360,timelineHeight:null,chatWidth:420};
+  var plan=JSON.parse(JSON.stringify(base));plan.mode='canvas';plan.timeline=false;plan.inspector=false;
+  localStorage.setItem('openfilm.workspace.current.v2',JSON.stringify({version:2,edit:base,canvas:plan}));
+}else{
+  try{
+    var saved=JSON.parse(localStorage.getItem('openfilm.workspace.current.v2'));
+    if(saved&&saved.edit&&saved.edit.chatSide==='right'&&saved.edit.chatWidth===420){
+      saved.edit.chatSide='left';
+      if(saved.canvas&&saved.canvas.chatSide==='right')saved.canvas.chatSide='left';
+      localStorage.setItem('openfilm.workspace.current.v2',JSON.stringify(saved));
+    }
+  }catch(e){}
+}
+}catch(e){}globalThis.openfilmHost={version:1,name:'DSH'};
+(function(){
+  const parentOrigin=${parentOrigin}, targetOrigin=${desktop ? "'*'" : parentOrigin};
+  let last;
+  function report(force){
+    const match=/^\\/projects\\/([\\w-]{6,40})\\/?$/.exec(location.pathname);
+    const projectId=match?match[1]:null;
+    if(!force&&last===projectId)return;
+    last=projectId;
+    try{if(parent!==window)parent.postMessage({type:'no996-openfilm:project',version:1,projectId},targetOrigin)}catch{}
+    reportArchive(projectId);
+  }
+  function reportArchive(projectId){
+    if(!projectId||parent===window)return;
+    fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel:'chat:archive-state',payload:{projectId:projectId}})})
+      .then(function(r){return r.ok?r.json():null})
+      .then(function(d){if(d&&typeof d==='object')parent.postMessage({type:'no996-openfilm:archive',version:1,projectId:projectId,archived:d.archived===true,available:d.available!==false},targetOrigin)})
+      .catch(function(){});
+  }
+  addEventListener('message',function(event){
+    if(event.source!==parent||parent===window||!(event.origin===parentOrigin||(${desktop}&&event.origin==='null')))return;
+    const data=event.data;
+    if(data&&typeof data==='object'&&data.type==='no996-openfilm:unarchive'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
+      fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel:'chat:unarchive',payload:{projectId:data.projectId}})})
+        .then(function(r){return r.ok?r.json():null})
+        .then(function(){report(true)})
+        .catch(function(){});
+    }
+  });
+  for(const name of ['pushState','replaceState']){
+    const original=history[name];
+    history[name]=function(...args){const result=original.apply(this,args);report(false);return result};
+  }
+  addEventListener('popstate',()=>report(false));
+  addEventListener('message',event=>{
+    if(event.source!==parent||parent===window||!(event.origin===parentOrigin||(${desktop}&&event.origin==='null')))return;
+    const data=event.data;
+    if(data&&typeof data==='object'&&!Array.isArray(data)&&Object.keys(data).length===2&&data.type==='no996-openfilm:project-snapshot-request'&&data.version===1)report(true);
+    if(data&&typeof data==='object'&&!Array.isArray(data)&&data.type==='no996-openfilm:navigate'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
+      const target='/projects/'+data.projectId;
+      const sessionId=typeof data.sessionId==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(data.sessionId)?data.sessionId:'';
+      if(sessionId){
+        globalThis.__no996PendingSession={projectId:data.projectId,sessionId:sessionId};
+        try{dispatchEvent(new CustomEvent('no996-openfilm:select-session',{detail:{projectId:data.projectId,sessionId:sessionId}}))}catch(_){}
+      }
+      if(location.pathname!==target&&location.pathname!==target+'/'){
+        try{
+          history.pushState({},'',target);
+          dispatchEvent(new PopStateEvent('popstate',{state:{}}));
+        }catch(e){try{location.assign(target)}catch(_){}}
+      }
+    }
+    if(data&&typeof data==='object'&&data.type==='no996-openfilm:layout'&&data.version===1){
+      const h=globalThis.openfilmHost;
+      if(h&&h.panel){
+        if(data.side==='left'||data.side==='right'){try{h.panel.setPlacement({side:data.side,libraryDock:'left'})}catch(e){}}
+        if(typeof data.width==='number'&&isFinite(data.width)){try{h.panel.setWidth(Math.max(240,Math.min(800,data.width)),true)}catch(e){}}
+      }
+    }
+  });
+  report(true);
+})();
+</script>${officialShell && officialPage ? shellUiInjection() : ''}${theme.injection(themeSurfaceFor(url.pathname, officialShell))}${styleLab}${devHead}`;
+    value = value.replace(/<head(?:\s[^>]*)?>/i, match => match + host);
+    if (value.includes('__no996Diag')) diag.injected += 1;
+    else diag.refusals += 1;
+    return value;
+  }
   function forward(req, res, film) {
     const refuse = (code) => {
       if (!film && req.method === 'GET' && ['iframe', 'document'].includes(req.headers['sec-fetch-dest'])) {
@@ -215,7 +359,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
       if (!film && (type.startsWith('image/svg+xml') || (url.pathname.startsWith('/api/') && (type.startsWith('text/html') || type.startsWith('application/xhtml+xml'))))) {
         // User-provided SVG/HTML must not acquire the editor's API origin.
         out['content-security-policy'] = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
-      } else if (!film && (type.startsWith('text/html') || type.startsWith('application/xhtml+xml'))) {
+      } else if (!film && !relaxedEmbed && (type.startsWith('text/html') || type.startsWith('application/xhtml+xml'))) {
         out['content-security-policy'] = `frame-ancestors ${ancestorsFor(desktop ? webOrigin : web.origin)}`;
       }
       const text = /^(text\/|application\/(json|javascript|xml|x-javascript))/.test(type);
@@ -294,8 +438,20 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
               }
             }
             if (status >= 500 && !film) {
+              const reqTraceId = traceIdFrom(req, 'http');
+              out['x-no996-trace-id'] = reqTraceId;
               recordFailure(req.method, url.pathname, status, value);
               say.warn('upstream-5xx', { method: req.method, path: url.pathname, status });
+              recordDiag?.error({
+                layer: 'studio-upstream',
+                traceId: reqTraceId,
+                code: `STUDIO_HTTP_${status}`,
+                channel: `${req.method} ${url.pathname}`,
+                httpStatus: status,
+                location: 'src/studio/studio-proxy.mjs:forward',
+                summary: `Studio 上游返回 HTTP ${status} (${url.pathname})`,
+                detail: { method: req.method, path: url.pathname, responsePreview: value.slice(0, 600) },
+              });
               const friendly = friendlyCommandFailure(value, url.pathname);
               if (friendly) {
                 value = friendly.body;
@@ -306,130 +462,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
             if (film && type.startsWith('text/html')) {
               value = value.replaceAll(`const EDITOR = ${JSON.stringify(editorUpstream.origin)};`, `const EDITOR = ${JSON.stringify(editorOrigin)};`);
             } else if (!film && type.startsWith('text/html') && !url.pathname.startsWith('/api/')) {
-              value = replaceTitle(value);
-              diag.html += 1;
-              diag.lastPath = url.pathname;
-              diag.lastStatus = status;
-              // The host marker is OpenFilm's public interface. Route observation is
-              // specific to the pinned Studio version and carries no project content.
-              const parentOrigin = JSON.stringify(webOrigin).replaceAll('<', '\\u003c');
-              // Install the official preload facade only on Studio's own page,
-              // never on arbitrary user HTML or API content. Its fixed-channel
-              // transport is bound to the authenticated editor origin below.
-              const officialPage = url.pathname === '/' || /^\/projects\/[A-Za-z0-9_-]{6,40}\/?$/.test(url.pathname);
-              const transport = `async (channel,payload)=>{const r=await fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel,payload})});if(!r.ok){let detail='';try{detail=(await r.text()).slice(0,300)}catch(e){}throw new Error('OpenFilm capability unavailable: '+channel+' ['+r.status+'] '+(detail||''));}return r.json()}`;
-              const nativePrelude = officialShell && officialPage ? `<script>globalThis.openfilmNative=${officialFacadeSource}({invoke:${transport},upload:${officialUploadSource}});</script>` : '';
-              // Visible, copyable failure reporting for a page we only partly control:
-              // the official shell has no error UI of its own, so a thrown module or a
-              // rejected promise otherwise leaves a blank frame with nothing to quote.
-              // Text only, no user data, no stack beyond the first line.
-              const diagnostics = officialShell ? '<script>(function(){' +
-                'if(globalThis.__no996Diag)return;globalThis.__no996Diag=1;var n=0;' +
-                'function show(m){try{if(n>3)return;n++;var d=document.getElementById("no996-diag");' +
-                'if(!d){d=document.createElement("div");d.id="no996-diag";' +
-                'd.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;background:#7f1d1d;color:#fff;font:12px/1.5 ui-monospace,Consolas,monospace;padding:10px 40px 10px 12px;border-radius:8px;max-height:40vh;overflow:auto;white-space:pre-wrap;text-align:left";' +
-                'document.documentElement.appendChild(d);' +
-                'var b=document.createElement("button");b.textContent="×";b.style.cssText="position:absolute;right:8px;top:4px;background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer";b.onclick=function(){d.remove()};d.appendChild(b);}' +
-                'd.appendChild(document.createTextNode(String(m)+"\\n"));}catch(e){}}' +
-                'globalThis.__no996ShowError=show;' +
-                'addEventListener("error",function(e){var m=e.message||"unknown";if(/ResizeObserver loop/.test(m))return;show("[JS] "+m+" @ "+(e.filename||"")+":"+(e.lineno||0));});' +
-                'addEventListener("unhandledrejection",function(e){var r=e.reason;var m=(r&&r.message)||String(r);var s=(r&&r.stack)||"";var at=String(s).split("\\n").filter(function(l){return l.indexOf("at ")>=0}).slice(0,3).join(" | ");show("[Promise] "+m+(at?"\\n"+at:""));});' +
-                'var ce=console.error;console.error=function(){try{if(n<4){for(var i=0;i<arguments.length;i++){var a=arguments[i];if(a instanceof Error){show("[React] "+(a.message||a.name));break;}}}}catch(e){}return ce.apply(console,arguments);};' +
-                'var f=globalThis.fetch;if(f)globalThis.fetch=function(u,o){return f.apply(this,arguments).then(function(r){try{var s=String(u);var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(e){}var optional=/^(agent:(thinking|models|permission|trace)|chat:(archive-state|log))$/.test(ch);if(optional)return r;if((r.status>=500||(r.status===404&&s.indexOf("/api/projects")>=0))&&n<4){var base="[HTTP "+r.status+"] "+s.slice(0,180);if(r.status>=500){r.clone().text().then(function(t){var why="";try{var j=JSON.parse(t);if(j&&typeof j.error==="string"&&j.error)why=" - "+j.error.slice(0,240);}catch(e){why=t?(" - "+String(t).slice(0,240)):"";}show(base+why);}).catch(function(){show(base);});}else show(base);}}catch(e){}return r;},function(e){try{if(n<4)show("[网络] "+String(u).slice(0,180)+" "+((e&&e.message)||e));}catch(_){}throw e;});};' +
-                'setTimeout(function(){try{parent.postMessage({type:"no996-openfilm:boot",version:1,hasNative:!!globalThis.openfilmNative,rendered:!!(document.getElementById("root")||{}).firstElementChild},' + "'*'" + ')}catch(e){}},1500);' +
-                'setTimeout(function(){var r=document.getElementById("root");if(r&&!r.firstElementChild)show("界面 10 秒后仍未渲染（#root 为空）");},10000);' +
-                '})()</script>' : '';
-              const host = `${diagnostics}${nativePrelude}<script>try{
-// Studio keeps its workspace layout in this origin's localStorage. Seed it once
-// with the chat docked on the right: Studio then insets the right side itself,
-// so the chat has no empty band on the left.
-if(!localStorage.getItem('openfilm.workspace.current.v2')){
-  var base={mode:'edit',tree:null,assets:false,layers:false,timeline:true,inspector:true,chat:true,libraryDock:'chat',chatSide:'left',layersSide:'left',inspectorSide:'right',timelineEdge:'bottom',assetsWidth:320,libraryHeight:280,layersWidth:240,inspectorWidth:360,timelineHeight:null,chatWidth:420};
-  var plan=JSON.parse(JSON.stringify(base));plan.mode='canvas';plan.timeline=false;plan.inspector=false;
-  localStorage.setItem('openfilm.workspace.current.v2',JSON.stringify({version:2,edit:base,canvas:plan}));
-}else{
-  // Earlier builds seeded chatSide:'right'. Move only that seeded shape back to
-  // upstream's default; a layout someone rearranged by hand is left alone.
-  try{
-    var saved=JSON.parse(localStorage.getItem('openfilm.workspace.current.v2'));
-    if(saved&&saved.edit&&saved.edit.chatSide==='right'&&saved.edit.chatWidth===420){
-      saved.edit.chatSide='left';
-      if(saved.canvas&&saved.canvas.chatSide==='right')saved.canvas.chatSide='left';
-      localStorage.setItem('openfilm.workspace.current.v2',JSON.stringify(saved));
-    }
-  }catch(e){}
-}
-}catch(e){}globalThis.openfilmHost={version:1,name:'DSH'};
-(function(){
-  const parentOrigin=${parentOrigin}, targetOrigin=${desktop ? "'*'" : parentOrigin};
-  let last;
-  function report(force){
-    const match=/^\\/projects\\/([\\w-]{6,40})\\/?$/.exec(location.pathname);
-    const projectId=match?match[1]:null;
-    if(!force&&last===projectId)return;
-    last=projectId;
-    try{if(parent!==window)parent.postMessage({type:'no996-openfilm:project',version:1,projectId},targetOrigin)}catch{}
-    reportArchive(projectId);
-  }
-  function reportArchive(projectId){
-    if(!projectId||parent===window)return;
-    fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel:'chat:archive-state',payload:{projectId:projectId}})})
-      .then(function(r){return r.ok?r.json():null})
-      .then(function(d){if(d&&typeof d==='object')parent.postMessage({type:'no996-openfilm:archive',version:1,projectId:projectId,archived:d.archived===true,available:d.available!==false},targetOrigin)})
-      .catch(function(){});
-  }
-  addEventListener('message',function(event){
-    if(event.source!==parent||parent===window||!(event.origin===parentOrigin||(${desktop}&&event.origin==='null')))return;
-    const data=event.data;
-    if(data&&typeof data==='object'&&data.type==='no996-openfilm:unarchive'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
-      fetch('/__dsh/official-rpc',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel:'chat:unarchive',payload:{projectId:data.projectId}})})
-        .then(function(r){return r.ok?r.json():null})
-        .then(function(){report(true)})
-        .catch(function(){});
-    }
-  });
-  for(const name of ['pushState','replaceState']){
-    const original=history[name];
-    history[name]=function(...args){const result=original.apply(this,args);report(false);return result};
-  }
-  addEventListener('popstate',()=>report(false));
-  addEventListener('message',event=>{
-    if(event.source!==parent||parent===window||!(event.origin===parentOrigin||(${desktop}&&event.origin==='null')))return;
-    const data=event.data;
-    if(data&&typeof data==='object'&&!Array.isArray(data)&&Object.keys(data).length===2&&data.type==='no996-openfilm:project-snapshot-request'&&data.version===1)report(true);
-    // The sidebar area asks the shell to show one project (and optionally switch
-    // to a specific conversation inside that project). Dispatch the in-page event
-    // even when already on /projects/id so same-folder switches work.
-    if(data&&typeof data==='object'&&!Array.isArray(data)&&data.type==='no996-openfilm:navigate'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
-      const target='/projects/'+data.projectId;
-      const sessionId=typeof data.sessionId==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(data.sessionId)?data.sessionId:'';
-      if(sessionId){
-        globalThis.__no996PendingSession={projectId:data.projectId,sessionId:sessionId};
-        try{dispatchEvent(new CustomEvent('no996-openfilm:select-session',{detail:{projectId:data.projectId,sessionId:sessionId}}))}catch(_){}
-      }
-      if(location.pathname!==target&&location.pathname!==target+'/'){
-        try{
-          history.pushState({},'',target);
-          dispatchEvent(new PopStateEvent('popstate',{state:{}}));
-        }catch(e){try{location.assign(target)}catch(_){}}
-      }
-    }
-    // Layout requests come from the standalone browser page (or any trusted
-    // parent on this origin): the same placement calls the app's own controls use.
-    if(data&&typeof data==='object'&&data.type==='no996-openfilm:layout'&&data.version===1){
-      const h=globalThis.openfilmHost;
-      if(h&&h.panel){
-        if(data.side==='left'||data.side==='right'){try{h.panel.setPlacement({side:data.side,libraryDock:'left'})}catch(e){}}
-        if(typeof data.width==='number'&&isFinite(data.width)){try{h.panel.setWidth(Math.max(240,Math.min(800,data.width)),true)}catch(e){}}
-      }
-    }
-  });
-  report(true);
-})();
-</script><script>(function(){if(globalThis.__no996SurfaceHide)return;globalThis.__no996SurfaceHide=1;var VENDOR=/^(ElevenLabs|Inworld|Cartesia|OpenAI|Google|Microsoft Azure|OpenRouter|fal\\.ai|Groq|Pexels|Pixabay|Brave Search|Tavily|Keenable|Doubao|Mimo)$/i;var KEEP=/^(OpenFilm|不加班|no996|本地服务|Local services)$/i;function labelOf(el){return((el&&el.textContent)||'').replace(/\\s+/g,' ').trim()}function hideVoiceServices(root){var nav=root.querySelector('nav[data-studio-host-panel]');if(!nav)return;var boxes=[].slice.call(nav.children);for(var i=0;i<boxes.length;i++){var t=labelOf(boxes[i]);if(!/^(服务商|Services)$/i.test(t))continue;boxes[i].setAttribute('data-no996-hide-services','');boxes[i].style.display='none';var nest=boxes[i+1];if(!nest)continue;var lines=[].slice.call(nest.children||[]);for(var j=0;j<lines.length;j++){var lt=labelOf(lines[j]);if(/^(全部|All|不加班|no996)$/i.test(lt)){lines[j].style.display='';continue}if(VENDOR.test(lt)||lines[j].tagName==='A'||/community|社区/i.test(lt)){lines[j].setAttribute('data-no996-hide-services','');lines[j].style.display='none'}}}}function hideProviderChips(root){var buttons=root.querySelectorAll('button');for(var i=0;i<buttons.length;i++){var b=buttons[i];if(b.getAttribute('data-work-mode')){b.style.display='none';continue}var label=labelOf(b);if(!label)continue;if(/^还有\\s*\\d+|\\d+\\s*more$/i.test(label)||/^Fewer|收起$/i.test(label)){b.style.display='none';continue}if(VENDOR.test(label)&&!KEEP.test(label))b.style.display='none'}}function openFeaturedVoices(root){if(globalThis.__n996FeatClicked)return;var nav=root.querySelector('nav[data-studio-host-panel]');if(!nav)return;var feat=null;var nodes=[].slice.call(nav.querySelectorAll('button, [role="button"]'));for(var i=0;i<nodes.length;i++){if(/^(精选|Featured)$/i.test(labelOf(nodes[i])))feat=nodes[i]}if(!feat)return;var text=document.body&&document.body.innerText||'';var emptyFav=/暂无收藏|no favorit|0\\s*个音色|0\\s*voices?/i.test(text);if(!emptyFav)return;globalThis.__n996FeatClicked=1;try{feat.click()}catch(e){}}function forceEdit(){try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&k.indexOf('openfilm.canvas.open:')===0)localStorage.setItem(k,'0')}}catch(e){}}function tick(){try{forceEdit();hideVoiceServices(document);hideProviderChips(document);openFeaturedVoices(document)}catch(e){}}tick();new MutationObserver(tick).observe(document.documentElement,{childList:true,subtree:true})})()</script>${officialShell && officialPage ? shellUiInjection() : ''}${theme.injection(themeSurfaceFor(url.pathname, officialShell))}${styleLabInjection()}<style>[data-app-menu]>[role="menuitem"]:not(:first-child),[data-community-menu]{display:none!important}</style>`;
-              value = value.replace(/<head(?:\s[^>]*)?>/i, match => match + host);
-              if (value.includes('__no996Diag')) diag.injected += 1;
-              else diag.refusals += 1;
+              value = await rewriteEditorHtml(value, url, status);
             }
             body = Buffer.from(value);
             delete out.etag;
@@ -509,7 +542,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     if (req.url !== '/__dsh/open-file') return false;
     if (typeof authorizeOfficialProject !== 'function' || req.method !== 'POST' ||
         !permitted(req, false) || !authenticated(req) ||
-        req.headers.origin !== editorOrigin || req.headers['sec-fetch-site'] !== 'same-origin' ||
+        req.headers.origin !== editorOrigin || !isSameFetchSite(req) ||
         !/^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type'] || ''))) {
       fail(res); return true;
     }
@@ -541,6 +574,52 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     })();
     return true;
   }
+  let clientDiagWindowStart = Date.now();
+  let clientDiagCount = 0;
+  function clientDiag(req, res) {
+    if (!officialShell || req.url !== '/__dsh/client-diag') return false;
+    if (req.method !== 'POST' || !permitted(req, false) || !authenticated(req) ||
+        req.headers.origin !== editorOrigin || !isSameFetchSite(req) ||
+        !/^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type'] || ''))) {
+      fail(res); return true;
+    }
+    const now = Date.now();
+    if (now - clientDiagWindowStart > 60_000) {
+      clientDiagWindowStart = now;
+      clientDiagCount = 0;
+    }
+    if (clientDiagCount >= 60) { fail(res, 429); return true; }
+    clientDiagCount += 1;
+    void (async () => {
+      try {
+        const chunks = [];
+        let length = 0;
+        for await (const chunk of req) {
+          length += chunk.length;
+          if (length > 8 * 1024) { fail(res, 413); req.destroy(); return; }
+          chunks.push(chunk);
+        }
+        const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return fail(res, 400);
+        recordDiag?.record({
+          level: value.level === 'warn' || value.level === 'info' ? value.level : 'error',
+          layer: typeof value.layer === 'string' ? value.layer : 'ui',
+          traceId: typeof value.traceId === 'string' ? value.traceId : '',
+          code: typeof value.code === 'string' ? value.code : 'UI_ERROR',
+          channel: typeof value.channel === 'string' ? value.channel : '',
+          httpStatus: Number.isInteger(value.httpStatus) ? value.httpStatus : null,
+          projectId: typeof value.projectId === 'string' ? value.projectId : '',
+          location: typeof value.location === 'string' ? value.location : '',
+          summary: typeof value.summary === 'string' ? value.summary : '',
+          detail: value.detail && typeof value.detail === 'object' ? value.detail : null,
+        });
+        if (!res.destroyed && !res.writableEnded) res.writeHead(204, { 'cache-control': 'no-store' }).end();
+      } catch {
+        if (!res.destroyed && !res.writableEnded) fail(res, 400);
+      }
+    })();
+    return true;
+  }
   // Fixed-channel official Chat RPC rides the existing authenticated editor
   // origin. No renderer-supplied path or upstream secret is accepted here.
   function officialBridge(req, res) {
@@ -548,7 +627,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     // A browser session alone is not project authority. Until the Host can bind
     // this request to a trusted project scope, reject all project Chat RPCs.
     if (typeof officialRpc !== 'function' || typeof authorizeOfficialProject !== 'function' || req.method !== 'POST' || !permitted(req, false) || !authenticated(req) ||
-        req.headers.origin !== editorOrigin || req.headers['sec-fetch-site'] !== 'same-origin' ||
+        req.headers.origin !== editorOrigin || !isSameFetchSite(req) ||
         !/^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type'] || ''))) {
       fail(res); return true;
     }
@@ -562,6 +641,9 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     // Which channel a failure belongs to: read from the body once it parses, and
     // reported in the 503 so the page names the culprit rather than the endpoint.
     let pendingChannel = '';
+    let pendingPayload = null;
+    const traceId = traceIdFrom(req, 'rpc');
+    const startedAt = Date.now();
     void (async () => {
       try {
         const chunks = [];
@@ -580,12 +662,14 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
         // page itself, it carries no project id, and gating it on a project made
         // the page's own logging fail with an empty 403 body.
         pendingChannel = value.channel;
+        pendingPayload = value.payload;
         // Auth is Host-held session state for this editor window — no project scope.
         const needsProject = value.channel !== 'template:list' && value.channel !== 'template:create'
           && value.channel !== 'project:create-blank'
           && value.channel !== 'prefs:get' && value.channel !== 'prefs:set'
           && value.channel !== 'environment:check' && value.channel !== 'environment:fallback-prompt'
           && value.channel !== 'client:log'
+          && value.channel !== 'diag:list' && value.channel !== 'diag:export' && value.channel !== 'diag:clear' && value.channel !== 'diag:prefs'
           // Evidence about a drag this page is handling: no project, no data.
           && value.channel !== 'probe:drag'
           && value.channel !== 'auth:status' && value.channel !== 'auth:logout' && value.channel !== 'auth:action'
@@ -598,11 +682,11 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           && value.channel !== 'system:check' && value.channel !== 'system:install'
           && value.channel !== 'asr:status' && value.channel !== 'asr:install';
         if (needsProject && await authorizeOfficialProject(req, value.payload?.projectId) !== true) return fail(res);
-        const result = await officialRpc(value.channel, value.payload);
+        const result = await officialRpc(value.channel, value.payload, { traceId });
         if (closed || res.destroyed || res.writableEnded) return;
         const body = Buffer.from(JSON.stringify(result));
         if (body.length > 9 * 1024 * 1024) return fail(res, 502);
-        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-length': body.length });
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-no996-trace-id': traceId, 'content-length': body.length });
         res.end(body);
       } catch (error) {
         // Never forward arbitrary exception text: providers and filesystem errors
@@ -619,8 +703,25 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
         // pointing at the endpoint. Only a channel-shaped name is ever logged.
         const channel = /^[a-z][a-z0-9:._-]{1,48}$/.test(String(pendingChannel)) ? String(pendingChannel) : 'unknown';
         say.warn('official-rpc-failed', { channel, code });
+        recordDiag?.error({
+          layer: error?.diag?.layer || 'rpc',
+          traceId,
+          code,
+          channel,
+          httpStatus: 503,
+          durationMs: Date.now() - startedAt,
+          projectId: typeof pendingPayload?.projectId === 'string' ? pendingPayload.projectId : '',
+          conversation: typeof pendingPayload?.conversation === 'string' ? pendingPayload.conversation : '',
+          location: typeof error?.diag?.location === 'string' ? error.diag.location : `src/studio/studio-proxy.mjs:officialBridge(${channel})`,
+          summary: `${hint || code} (${channel})`,
+          detail: {
+            ...(error?.diag && typeof error.diag === 'object' ? error.diag : {}),
+            reason: String(error?.diag?.reason || error?.message || code).slice(0, 400),
+            payloadKeys: pendingPayload && typeof pendingPayload === 'object' ? Object.keys(pendingPayload).slice(0, 16) : [],
+          },
+        });
         if (!res.destroyed && !res.writableEnded) {
-          res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+          res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-no996-trace-id': traceId });
           res.end(match ? `${code}: ${match[1]} (${channel})` : hint ? `${code}: ${hint} (${channel})` : `${code} (${channel})`);
         }
       } finally {
@@ -643,7 +744,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     const name = url.searchParams.get('name');
     const size = Number(req.headers['content-length']);
     if (typeof authorizeOfficialProject !== 'function' || req.method !== 'PUT' || !permitted(req, false) || !authenticated(req) ||
-        req.headers.origin !== editorOrigin || req.headers['sec-fetch-site'] !== 'same-origin' ||
+        req.headers.origin !== editorOrigin || !isSameFetchSite(req) ||
         String(req.headers['content-type'] || '').toLowerCase() !== 'application/octet-stream' ||
         values.length !== 2 || new Set(values).size !== 2 || !values.includes('projectId') || !values.includes('name') ||
         typeof projectId !== 'string' || !/^[A-Za-z0-9_-]{6,40}$/.test(projectId) ||
@@ -699,7 +800,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     if (!officialShell || url.pathname !== '/__dsh/official-events') return false;
     const projectId = url.searchParams.get('projectId');
     if (typeof attachOfficialEvents !== 'function' || req.method !== 'GET' || !permitted(req, false) || !authenticated(req) ||
-        (req.headers.origin !== undefined && req.headers.origin !== editorOrigin) || req.headers['sec-fetch-site'] !== 'same-origin' ||
+        (req.headers.origin !== undefined && req.headers.origin !== editorOrigin) || !isSameFetchSite(req) ||
         url.searchParams.size !== 1 || typeof projectId !== 'string' || !/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) {
       fail(res); return true;
     }
@@ -726,7 +827,23 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       });
       return;
     }
-    if (!officialEvents(req, res) && !officialUpload(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
+    const devContext = {
+      editorOrigin,
+      filmOrigin,
+      webOrigin,
+      desktop,
+      permitted: (r) => permitted(r, false),
+      authenticated,
+      rewriteHtml: (html, url, status) => rewriteEditorHtml(html, url, status),
+      forbiddenNeedles: [key, encodeURIComponent(key), Buffer.from(key).toString('base64'), editorUpstream.origin, filmUpstream.origin],
+      ancestors: relaxedEmbed ? '' : ancestorsFor(desktop ? webOrigin : web.origin),
+      fail,
+    };
+    if (typeof activeDevHooks?.handleHttp === 'function') {
+      const handled = activeDevHooks.handleHttp(req, res, devContext);
+      if (handled) return;
+    }
+    if (!officialEvents(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
   });
   const film = createServer((req, res) => forward(req, res, true));
   film.on('upgrade', (_req, socket) => socket.destroy());
@@ -734,6 +851,16 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     socket.on('error', () => socket.destroy());
     let parsed;
     try { parsed = new URL(req.url, editorOrigin); } catch { return socket.destroy(); }
+    if (typeof activeDevHooks?.handleUpgrade === 'function') {
+      const upgraded = activeDevHooks.handleUpgrade(req, socket, head, {
+        parsed,
+        editorOrigin,
+        desktop,
+        permitted: (r) => permitted(r, false),
+        authenticated,
+      });
+      if (upgraded) return;
+    }
     const global = parsed.pathname === '/api/events';
     const project = /^\/api\/projects\/[^/]+\/events$/.test(parsed.pathname);
     if (!permitted(req, false) || req.headers.origin !== editorOrigin || (!global && !project) ||
@@ -790,7 +917,10 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     // session cookie remains available. Film pages use the other hostname.
     const editorHost = desktop ? '127.0.0.2' : web.hostname;
     const filmHost = editorHost === 'localhost' ? '127.0.0.1' : 'localhost';
-    editorOrigin = `http://${editorHost}:${await listen(editor, desktop ? editorHost : '127.0.0.1', Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822))}`;
+    const preferredPort = Number.isInteger(listenPort) && listenPort >= 0 && listenPort < 65536
+      ? listenPort
+      : Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822);
+    editorOrigin = `http://${editorHost}:${await listen(editor, desktop ? editorHost : '127.0.0.1', preferredPort)}`;
     filmOrigin = `http://${filmHost}:${await listen(film, '127.0.0.1')}`;
   } catch {
     await Promise.all([shutdown(editor), shutdown(film)]);

@@ -12,7 +12,7 @@ const at = needle => source.indexOf(needle);
 test('trackRoute is declared before the first route that uses it', () => {
   const declared = at('const trackRoute = ');
   assert.ok(declared > 0, 'trackRoute is declared');
-  const firstUse = at('trackRoute(registerRoute(');
+  const firstUse = at('trackRoute(');
   assert.ok(firstUse > 0, 'a route uses trackRoute');
   assert.ok(declared < firstUse, 'trackRoute must be initialized before the first route block');
 });

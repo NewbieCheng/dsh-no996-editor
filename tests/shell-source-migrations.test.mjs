@@ -34,14 +34,18 @@ test('the environment notice is source, not injection', () => {
   assert.match(bundle, /复制兜底提示词|尚未配置或安装/);
 });
 
-test('the template picker is fully in the shell source now', () => {
-  // The React picker is live and the old injection is gone (clone, modal, guard),
-  // so there is no fallback left to keep in step.
-  assert.match(bundle, /你想剪哪种视频？/);
-  assert.match(bundle, /用这个开工/);
-  assert.match(bundle, /data-no996-template-react/);
+test('the native examples gallery contains the product templates, not a second picker', () => {
+  assert.match(bundle, /template:list/);
+  assert.match(bundle, /template:create/);
+  assert.doesNotMatch(bundle, /data-no996-template-react/);
   assert.doesNotMatch(injection, /data-no996-template-react/);
   assert.doesNotMatch(injection, /no996-template-modal/);
+  const series = JSON.parse(readFileSync(join(root, 'patches', 'series.json'), 'utf8'));
+  const gallery = series.patches.find(entry => entry.source.endsWith('studio/ui/src/components/ProjectsLibrary.tsx'));
+  assert.ok(gallery);
+  const patch = readFileSync(join(root, 'patches', gallery.file), 'utf8');
+  assert.match(patch, /supplement=\{<No996Templates/);
+  assert.match(patch, /onStart=\{\(example\)/);
 });
 
 test('the login gate is a component, not a page script', () => {
@@ -57,14 +61,13 @@ test('the login gate is a component, not a page script', () => {
   assert.match(bundle, /记住本机账号和密码/);
 });
 
-test('workbench palette picker is gone; brand sync cannot re-enter', () => {
-  // Brand mark injection mutates the DOM. A boolean uiSyncing flag was not
-  // enough: MutationObserver delivers our own innerHTML after the flag clears,
-  // which froze the page (#root never mounted → panel 20s no boot). The sync
-  // must disconnect while it runs, and only rewrite SVG fills when theme flips.
-  assert.match(injection, /syncStudioBrand/);
-  assert.match(injection, /obs\.disconnect\(\)/);
-  assert.match(injection, /lastBrandDark/);
+test('workbench palette picker is gone; header brand DOM sync is gone', () => {
+  // Brand marks belong in OpenFilm source (ADR-0009 A1). The old header SVG
+  // scanner mis-replaced search icons and fought React remounts — do not bring it back.
+  assert.doesNotMatch(injection, /syncStudioBrand/);
+  assert.doesNotMatch(injection, /data-no996-studio-brand/);
+  assert.doesNotMatch(injection, /n996-sb-svg/);
+  assert.doesNotMatch(injection, /healMisplacedBrandMarks/);
   assert.doesNotMatch(injection, /工作台配色/);
   assert.doesNotMatch(injection, /data-n996-settings-appearance/);
   assert.doesNotMatch(injection, /no996\.openfilm\.theme/);
@@ -83,7 +86,7 @@ test('both components are mounted by the shell entry', () => {
   const starters = series.patches.find(entry => entry.source.endsWith('apps/desktop/chat/src/components/ProjectStarters.tsx'));
   assert.ok(starters, 'series records the starters component');
   const startersPatch = readFileSync(join(root, 'patches', starters.file), 'utf8');
-  assert.match(startersPatch, /TemplatePicker/);
+  assert.doesNotMatch(startersPatch, /^\+.*<TemplatePicker/m, 'the separate picker must not be mounted');
   assert.match(startersPatch, /asrModelsMissing|editor\.asrHint/);
   assert.match(startersPatch, /openfilm\.settings\.card/);
   assert.match(startersPatch, /environment:fallback-prompt|editor\.asrFallback/);

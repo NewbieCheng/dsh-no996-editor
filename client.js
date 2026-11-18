@@ -89,6 +89,19 @@
       const watchNavigationRef = React.useRef(null);
       const readyRef = React.useRef(false);
       const urlRef = React.useRef(null);
+      const reportPanelDiag = (payload) => {
+        if (!HOST_HTTP) return;
+        try {
+          void fetch("/api/no996-openfilm/client-diag", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload)
+          }).catch(() => {
+          });
+        } catch {
+        }
+      };
       const postNavigate = (target, sessionId) => {
         const projectId2 = typeof target === "string" ? target : target?.projectId;
         const sid = typeof sessionId === "string" ? sessionId : typeof target === "object" ? target?.sessionId : void 0;
@@ -154,7 +167,11 @@
           const url = desktop ? `${target.origin}/__dsh/open#${result.ticket}` : `${target.origin}/`;
           setState({ status: "ready", url, webOrigin: typeof result.webOrigin === "string" ? result.webOrigin : "" });
         }).catch((error) => {
-          if (!controller.signal.aborted) setState({ status: "error", message: String(error?.message || error) });
+          if (!controller.signal.aborted) {
+            const message = String(error?.message || error);
+            reportPanelDiag({ level: "error", layer: "ui", code: "PANEL_BOOTSTRAP_FAILED", location: "src/studio/studio-panel.mjs:startStudio", summary: `\u9762\u677F\u542F\u52A8 Studio \u5931\u8D25: ${message.slice(0, 200)}`, detail: { message } });
+            setState({ status: "error", message });
+          }
         });
         return () => controller.abort();
       }, [attempt, startStudio]);
@@ -170,7 +187,10 @@
           setSilent(false);
           clearTimeout(timer);
           timer = setTimeout(() => {
-            if (!heardRef.current) setSilent(true);
+            if (!heardRef.current) {
+              reportPanelDiag({ level: "error", layer: "ui", code: "IFRAME_SILENT_TIMEOUT", location: "src/studio/studio-panel.mjs:watchNavigation", summary: "\u5DE5\u4F5C\u53F0 iframe 20 \u79D2\u672A\u6536\u5230 boot \u4FE1\u53F7" });
+              setSilent(true);
+            }
           }, 2e4);
         };
         watchNavigationRef.current = watchNavigation;

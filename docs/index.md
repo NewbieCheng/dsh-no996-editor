@@ -26,6 +26,7 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 
 | 你要 | 读 |
 |---|---|
+| 新手实时热更新 / 调样式 / 打包 | [`playbooks/dev-live-guide.md`](playbooks/dev-live-guide.md) |
 | 升上游 OpenFilm | [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md) |
 | 安装 / 更新 / 发版 | [`playbooks/publish.md`](playbooks/publish.md)（**唯一**正式手册） |
 | 排障 | [`playbooks/incident.md`](playbooks/incident.md)（当前流程）；[`playbooks/incident-history.md`](playbooks/incident-history.md)（历史证据，不作现行步骤） |

@@ -10,6 +10,7 @@ import {
   templateBlockOf, withTemplateBlock, writeActiveTemplates,
 } from '../src/film/template-prompts.mjs';
 import { createLibraryTool } from '../src/tools/library-tool.mjs';
+import { INSTRUCTIONS } from '../src/project/project-instructions.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'no996-template-prompts-'));
 
@@ -69,23 +70,38 @@ test('the block replaces in place and never touches text around it', () => {
 
 test('syncTemplateBlock writes the project AGENTS.md and is idempotent', () => {
   const root = scratch();
-  writeFileSync(join(root, 'AGENTS.md'), '# 项目说明\n\n正文。\n', 'utf8');
+  writeFileSync(join(root, 'AGENTS.md'), INSTRUCTIONS, 'utf8');
   const templates = [{ id: 'sketchnote', title: '手绘笔记', prompt: '纸张质感。' }];
   const first = syncTemplateBlock(root, templates);
   assert.equal(first.changed, true);
   const text = readFileSync(join(root, 'AGENTS.md'), 'utf8');
   assert.ok(text.includes('纸张质感。'));
-  assert.ok(text.includes('# 项目说明'));
+  assert.ok(text.includes('# OpenFilm 项目工作说明'));
   assert.equal(syncTemplateBlock(root, templates).changed, false, 'nothing changed the second time');
   const gone = syncTemplateBlock(root, []);
   assert.equal(gone.changed, true);
   assert.ok(!readFileSync(join(root, 'AGENTS.md'), 'utf8').includes(BLOCK_BEGIN));
 });
 
+test('custom and subsequently edited instructions remain byte-for-byte untouched', () => {
+  const root = scratch();
+  const file = join(root, 'AGENTS.md');
+  const custom = '# 我的规则\n不要改这里。\n';
+  writeFileSync(file, custom, 'utf8');
+  assert.equal(syncTemplateBlock(root, [{ id: 'sketchnote', prompt: 'paper' }]).reason, 'user-owned');
+  assert.equal(readFileSync(file, 'utf8'), custom);
+  writeFileSync(file, INSTRUCTIONS, 'utf8');
+  syncTemplateBlock(root, [{ id: 'sketchnote', prompt: 'paper' }]);
+  const edited = readFileSync(file, 'utf8') + '\n用户修改\n';
+  writeFileSync(file, edited, 'utf8');
+  assert.equal(syncTemplateBlock(root, []).reason, 'user-owned');
+  assert.equal(readFileSync(file, 'utf8'), edited);
+});
+
 test('taking a template activates it and returns its prompt in the same turn', async () => {
   const root = scratch();
   mkdirSync(join(root, '.film'), { recursive: true });
-  writeFileSync(join(root, 'AGENTS.md'), '# 项目说明\n', 'utf8');
+  writeFileSync(join(root, 'AGENTS.md'), INSTRUCTIONS, 'utf8');
   const catalog = [
     { id: 'sketchnote', title: '手绘笔记', description: '纸笔手绘', prompt: '保留纸张质感。' },
     { id: 'replica-film', title: '复刻影片', description: '复刻结构', prompt: '保留分镜。' },
@@ -107,6 +123,15 @@ test('taking a template activates it and returns its prompt in the same turn', a
     },
   });
   const exec = { agent: { id: 'agent' } };
+
+  const initial = readFileSync(join(root, 'AGENTS.md'), 'utf8');
+  const readOnly = await tool.execute({ kind: 'template', readTemplate: 'sketchnote' }, exec);
+  assert.match(readOnly.text, /保留纸张质感/);
+  assert.match(readOnly.text, /没有改动项目/);
+  assert.deepEqual(activated, []);
+  assert.deepEqual(readActiveTemplates(root), []);
+  assert.equal(readFileSync(join(root, 'AGENTS.md'), 'utf8'), initial);
+  await assert.rejects(tool.execute({ kind: 'template', readTemplate: 'sketchnote', take: 'sketchnote' }, exec), /不同操作/);
 
   const first = await tool.execute({ kind: 'template', take: 'sketchnote' }, exec);
   assert.match(first.text, /保留纸张质感/);

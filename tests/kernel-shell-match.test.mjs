@@ -85,11 +85,11 @@ test('the shell snapshot declares its one upstream patch, or none at all', () =>
   assert.match(diff, /kind: 'image'/, 'an empty-label markdown link is a picture');
   assert.match(diff, /InlinePicture/, 'and the transcript draws it');
 
-  // First-run film-type gate (Batch O1): Host prefs + four cards live in chat source.
-  assert.ok(manifest.patch.files.includes('apps/desktop/chat/src/components/OnboardingGate.tsx'),
-    'the patch must include OnboardingGate');
-  assert.match(diff, /no996-openfilm:reopen-onboarding/, 'the gate must be reopenable');
-  assert.match(diff, /project:create-blank/, 'custom blank must create via Host RPC');
+  // The former film-type gate is retained for patch history but not mounted.
+  // New and example projects share Studio's native Projects/Examples window.
+  assert.doesNotMatch(diff, /^\+.*<OnboardingGate\b/m, 'the old first-run gate must stay unmounted');
+  assert.match(diff, /supplement=\{<No996Templates/, 'product templates must use the native examples gallery');
+  assert.match(diff, /showExamples\?\.\(\{ kind: 'examples' \}\)/, 'the chat reference button must open native examples');
 
   // AI film editor chrome (Batch O2): pane identity + empty/drop copy.
   assert.ok(manifest.patch.files.includes('apps/desktop/chat/src/components/ProjectStarters.tsx'),

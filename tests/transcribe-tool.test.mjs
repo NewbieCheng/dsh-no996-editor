@@ -136,7 +136,7 @@ test('a refined transcript keeps its timings and says what changed', async () =>
     segments: segments.map((segment, index) => (index === 0 ? { ...segment, text: '大家好，今天聊 OpenFilm 剪辑。' } : segment)),
   });
   const { tool } = harness({ refine });
-  const value = await run(tool, { from: 'C:\\clips\\talk.mp4' });
+  const value = await run(tool, { from: 'C:\\clips\\talk.mp4', refine: true });
   assert.match(value.text, /DSH 模型已校对术语与标点（改动 1 段/);
   assert.match(value.text, /\[00:00\.0–00:06\.4\] 大家好，今天聊 OpenFilm 剪辑。/);
 });
@@ -145,13 +145,20 @@ test('refine can be turned off per call, and says so', async () => {
   const refine = async () => { throw new Error('should not be called'); };
   const { tool } = harness({ refine });
   const value = await run(tool, { from: 'C:\\clips\\talk.mp4', refine: false });
-  assert.match(value.text, /已跳过（按要求关闭）/);
+  assert.match(value.text, /已跳过（默认不向模型发送校对请求）/);
+});
+
+test('refinement is not called by default', async () => {
+  const refine = async () => { throw new Error('must explicitly opt in'); };
+  const { tool } = harness({ refine });
+  const value = await run(tool, { from: 'C:\\clips\\talk.mp4' });
+  assert.match(value.text, /默认不向模型发送校对请求/);
 });
 
 test('a bad refine reply keeps the raw transcript', async () => {
   const refine = async () => ({ refined: false, reason: 'bad_reply', segments: [] });
   const { tool } = harness({ refine });
-  const value = await run(tool, { from: 'C:\\clips\\talk.mp4' });
+  const value = await run(tool, { from: 'C:\\clips\\talk.mp4', refine: true });
   assert.match(value.text, /格式不对/);
   assert.match(value.text, /大家好，今天我们聊剪片。/);
 });

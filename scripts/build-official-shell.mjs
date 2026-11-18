@@ -9,8 +9,7 @@ import { fileURLToPath } from 'node:url';
 const COMMIT = '758b1a3888819bf191db191f690c4ca2fcb292af';
 const VERSION = '0.3.2';
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
-const destination = join(packageRoot, 'vendor', 'official-shell');
-const usage = 'Usage: node packages/dsh-openfilm/scripts/build-official-shell.mjs <openfilm-checkout>';
+const usage = 'Usage: node scripts/build-official-shell.mjs <openfilm-checkout> [--output <new-directory>]';
 
 function fail(message) { throw new Error(message); }
 function git(checkout, ...args) {
@@ -23,7 +22,8 @@ function regularDirectory(path) {
 function hash(content) { return createHash('sha256').update(content).digest('hex'); }
 
 function main() {
-  if (process.argv.length !== 3 || process.argv[2].startsWith('-')) fail(usage);
+  if (![3, 5].includes(process.argv.length) || process.argv[2].startsWith('-') || (process.argv.length === 5 && process.argv[3] !== '--output')) fail(usage);
+  const destination = process.argv.length === 5 ? resolve(process.argv[4]) : join(packageRoot, 'vendor', 'official-shell');
   const checkout = realpathSync(resolve(process.argv[2]));
   const root = realpathSync(git(checkout, 'rev-parse', '--show-toplevel').toString('utf8').trim());
   if (root !== checkout) fail('The argument must be the checkout root, not a subdirectory.');
@@ -42,9 +42,18 @@ function main() {
     'apps/desktop/chat/src/components/OnboardingGate.tsx',
     'apps/desktop/chat/src/components/ProjectStarters.tsx',
     'packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx',
+    'packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx',
+    'packages/openfilm/studio/ui/src/App.tsx',
     'packages/openfilm/studio/ui/src/components/ProjectView.tsx',
+    'packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx',
+    'packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx',
+    'packages/openfilm/studio/ui/src/components/AppMenu.tsx',
+    'packages/openfilm/studio/ui/src/components/WhatsNew.tsx',
+    'packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx',
+    'packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx',
     'packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx',
     'packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx',
+    'packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx',
     'packages/openfilm/studio/ui/src/i18n/zh-CN.ts',
     'packages/openfilm/studio/ui/src/i18n/en.ts',
     'packages/openfilm/studio/ui/src/i18n/ja.ts',

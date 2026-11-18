@@ -73,7 +73,7 @@ const absolute = value => typeof value === 'string' && (/^[A-Za-z]:[\\/]/.test(v
 export function createTranscribeTool({ isProjectAgent, projectOf, service, refine = null }) {
   return {
     name: 'openfilm_transcribe',
-    description: 'Turn a video or audio file on this computer into a timed script, entirely on this machine (no upload, CPU only). Use it before cutting: the returned segments carry start and end times you can cut on. Accepts an absolute path. The first use downloads the speech model (~228 MB) to the DSH home and reports progress; status shows readiness, setup starts the download without waiting for it.',
+    description: 'Transcribe speech in a local video or audio file with timecodes. Recognition runs locally; optional refinement sends transcript text to the session model, and returned text enters the conversation. Use when speech matters, not for every video. The first use downloads a local speech model (~228 MB); status shows readiness and setup starts the download.',
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -88,7 +88,7 @@ export function createTranscribeTool({ isProjectAgent, projectOf, service, refin
         },
         status: { type: 'boolean', description: 'Report model readiness, directory and download progress instead of transcribing.' },
         setup: { type: 'boolean', description: 'Start the model download in the background and return immediately.' },
-        refine: { type: 'boolean', description: 'After local recognition, have the session model fix homophones and product names (default on). Timings are never changed.' },
+        refine: { type: 'boolean', description: 'Opt in to sending transcript text to the session model to fix homophones and product names (default off). Timings are never changed.' },
       },
     },
     output: { schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } }, render: (_args, value) => [{ type: 'text', text: value?.text ?? '' }] },
@@ -148,8 +148,8 @@ export function createTranscribeTool({ isProjectAgent, projectOf, service, refin
       // The polish pass is the session model's job, not the CPU's: the local engine
       // cannot know this studio's product names, and a wrong name in a script is
       // exactly the error a person would have to fix by hand.
-      let refineNote = '已跳过（按要求关闭）';
-      if (args?.refine !== false) {
+      let refineNote = '已跳过（默认不向模型发送校对请求）';
+      if (args?.refine === true) {
         if (typeof refine === 'function') {
           const outcome = await refine({ segments: record.segments });
           if (outcome?.refined === true) {

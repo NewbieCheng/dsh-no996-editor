@@ -16,11 +16,12 @@
 //   … one section per active template, in order …
 //   <!-- no996-openfilm:templates:end -->
 //
-// The block is the only part of the file that is rewritten; anything a person wrote
-// around it is untouched. The tool that activates a template also returns the prompt
-// text in its own result, so the current turn sees it even before DSH re-reads the
-// file (it refreshes instructions on filesystem activity, not on an external write).
+// Only a byte-identical plugin-owned file or one matching our last-write receipt
+// may be rewritten. A custom or subsequently edited file is never changed. The
+// activation tool returns the prompt in its result for the current turn.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { INSTRUCTIONS } from '../project/project-instructions.mjs';
 import { dirname, join } from 'node:path';
 
 export const TEMPLATES_FILE = join('.film', 'templates.json');
@@ -113,14 +114,24 @@ export function withTemplateBlock(text, block) {
 }
 
 /** Read the templates and write the block into the project's AGENTS.md. */
-export function syncTemplateBlock(projectPath, templates, fs = { readFileSync, writeFileSync, existsSync }) {
+export function syncTemplateBlock(projectPath, templates, fs = { readFileSync, writeFileSync, existsSync, mkdirSync }) {
   const file = join(projectPath, 'AGENTS.md');
-  let current = '';
-  try { current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''; } catch { current = ''; }
+  let current;
+  try { current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null; } catch { return { changed: false, file, reason: 'unreadable' }; }
+  if (current === null) return { changed: false, file, reason: 'missing' };
+  const receipt = join(projectPath, '.film', 'template-instructions.sha256');
+  const hash = value => createHash('sha256').update(value, 'utf8').digest('hex');
+  let previous = '';
+  try { previous = fs.existsSync(receipt) ? fs.readFileSync(receipt, 'utf8').trim() : ''; } catch { /* no ownership evidence */ }
+  if (current !== INSTRUCTIONS && (!previous || hash(current) !== previous)) {
+    return { changed: false, file, reason: 'user-owned' };
+  }
   const next = withTemplateBlock(current, renderTemplateBlock(templates));
-  if (next === current) return { changed: false, file };
-  if (!current && !next) return { changed: false, file };
+  if (next === current) return { changed: false, file, reason: 'current' };
+  fs.mkdirSync(dirname(receipt), { recursive: true });
   fs.writeFileSync(file, next, 'utf8');
+  // If recording ownership fails, future updates safely leave the file alone.
+  fs.writeFileSync(receipt, `${hash(next)}\n`, 'utf8');
   return { changed: true, file };
 }
 

@@ -39,9 +39,9 @@ dsh plugin --profile desktop add @newbiecheng/dsh-openfilm
 - 图片：当前模型支持看图时内联发送；不支持时落成临时文件并以绝对路径引用。上传兜底单文件上限 256 MiB；更大的视频请先剪辑或转码。
 - 项目首次被面板打开时，Host 会在项目文件夹写一份 `AGENTS.md`（编辑指令，已存在则绝不覆盖）。
 - 本地口播转写：`openfilm_transcribe`，视频/音频 → 带时间码文稿；首次下载 228 MB 权重。
-- **剪辑导演**：影片会话的 persona 是「剪辑导演」；影片文件夹是指令链的根，仓库上层的手册不会进入影片对话。
-- **分镜契约**：`openfilm_storyboard` 读写 `.film/storyboard.json`，`from-script` 把口播按句切成镜头、`subtitles` 出 SRT，`plan` 把分镜翻成 `openfilm_clip` 的操作并说清还缺哪个片段。
-- **模板可发现**：`openfilm_library kind=template` 列出内置模板，选中才读它的使用说明（`vendor/templates/<id>/prompt.md`）。
+- **剪辑与动效伙伴**：根据任务选择剪辑、动效、口播或画面制作；影片文件夹是指令链的根，仓库上层的手册不会进入影片对话。
+- **分镜工具**：`openfilm_storyboard` 读写 `.film/storyboard.json`；需要口播转写时再用 `from-script`、`subtitles` 和 `plan`，简单问答或小改动不强制完整流程。
+- **模板可发现**：`openfilm_library kind=template` 列出内置模板，`readTemplate=<id>` 只读说明，`take=<id>` 才启用模板。
 - 常驻上下文有预算（persona + 指令文件 ≤ 6 KB），风格库/镜头卡/模板全文都按需读。
 
 ## 文档

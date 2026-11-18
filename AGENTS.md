@@ -6,7 +6,7 @@
 
 ## 0. 一句话
 
-把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.33`。
+把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.34`。
 
 ## 1. 红线（违反即回退）
 
@@ -18,13 +18,15 @@
 
 ### 1.1 装 / 更 / 发（最短清单）
 
-开发、验证、提交、推送、发布到更新的 **AI 最短 SOP** 和完整步骤只认 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。源码只推 GitHub，GitLab 只作包 registry；提交、推送、发包和更新分别按用户授权执行，不要自动串联。先检查工作区并保留他人的改动。
+开发、验证、提交、推送、发布到更新的 **AI 最短 SOP** 和完整步骤只认 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。源码只推 GitHub，GitLab 只作包 registry。
+
+**当前阶段：本机调试。** 用户已授权把工作区构建装进本机 DSH 用于验证（装之前备份 profile 记录、装之后告知重启）；**发版不随开发自动串联**：改版本号、提交、推送、`npm publish`、tag/CI 发布都只在该用户当轮明确要求时执行。安装、更新、发版是三个独立动作，不能合并不说明。
 
 | 事 | 命令 / 动作 |
 |---|---|
-| 装 | `dsh plugin --profile desktop add @newbiecheng/dsh-openfilm` → 整应用重启 |
-| 更 | DSH「版本」一键更新，或 `add @newbiecheng/dsh-openfilm@<版>` → 重启 |
-| 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ 授权后运行 `powershell -File .\scripts\gitlab-npm-publish.ps1` → `npm view` + 真机「版本」区 |
+| 本机调试装 | 打包工作区 → `dsh plugin --profile desktop add <本地包>`（仅本机调试；先记下当前版本，验证完按需回滚） |
+| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/dsh-openfilm` / 版本选项卡 → 整应用重启 |
+| 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ **用户当轮明确要求后**运行 `powershell -File .\scripts\gitlab-npm-publish.ps1` → `npm view` + 真机「版本」区 |
 | 包丢了 | `dsh plugin --profile desktop install`（勿在 Windows 手删 `@NewbieCheng`/`@newbiecheng` 目录） |
 
 ## 2. 四层界面，两级手段
@@ -34,10 +36,10 @@
 ### 2.1 对话边界与预设注入链
 
 1. **页面的对话 id 必须一路到 Host。** 每个 agent RPC 都带 `conversation`；Host 内按 `(projectId, conversation)` 映射原生 DSH `sessionId`，存 `~/.dsh/no996-openfilm/native-sessions.json`（v2）。
-2. **影片文件夹是指令链的根。** `cordis.patch.yml` 的 `preset-openfilm-video-editing` 配置 `agent-instructions.projectRootMarkers = [.git, .film, film.html]`（上层仓库的 `AGENTS.md` 不进影片对话）、`persona`（剪辑导演）、`openfilm-prompt` 与隔离的 `openfilm-skills`（`skill-filesystem.includeDefaultRoots = false`）。
+2. **影片文件夹是指令链的根。** `cordis.patch.yml` 的 `preset-openfilm-video-editing` 配置 `agent-instructions.projectRootMarkers = [.git, .film, film.html]`（上层仓库的 `AGENTS.md` 不进影片对话）、`persona`（剪辑与动效搭档）、`openfilm-prompt` 与隔离的 `openfilm-skills`（`skill-filesystem.includeDefaultRoots = false`）。
 3. **知识按需读，不进系统提示。** persona ≤ 400 B；手册走 `openfilm_guide`，风格/镜头卡走 `skill('openfilm-motion')`，模板走 `openfilm_library kind=template`。
 
-**剪辑的契约是分镜**：`.film/storyboard.json`（`openfilm_storyboard`：read/write/plan/from-script/subtitles）。先有分镜再动时间轴；丢视频先 `openfilm_transcribe` 再 `from-script` 按句切镜。
+**按任务选择工作流**：制作或重构影片时先了解素材和时间轴，再用 `.film/storyboard.json`（`openfilm_storyboard`：read/write/plan/from-script/subtitles）规划；口播需要转写时才用 `openfilm_transcribe`。纯问答、小修改或无语音素材不强制转写和完整分镜。
 
 **项目 `AGENTS.md` 从不覆盖**，只有字节等于我们写过的版本才升级（sha256 白名单，`src/project/project-instructions.mjs`）。
 
@@ -48,8 +50,8 @@
 ```text
 openfilm_library(kind=template, take=<id>)
   → <项目>/.film/templates.json   { "active": ["sketchnote", …] }
-  → <项目>/AGENTS.md 的生成块      <!-- no996-openfilm:templates:begin --> … <!-- …:end -->
-  → 原生 DSH 会话自动读取影片目录下的 AGENTS.md
+  → 仅可确认插件所有的 <项目>/AGENTS.md 才同步模板块
+  → 当前轮从工具回执读取；后续会话读取成功同步的项目指令
 ```
 
 - **加模板三件事**：建 `vendor/templates/<id>/`；`manifest.json`（必填 `id/title/entry/mode`）；`prompt.md`。完整步骤见 [`docs/TEMPLATES.md`](docs/TEMPLATES.md)。

@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..dfee1da 100644
+index 640dfe1..f011f4e 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
-@@ -1,32 +1,58 @@
+@@ -1,32 +1,57 @@
  'use client';
  
  /**
@@ -21,7 +21,6 @@ index 640dfe1..dfee1da 100644
  import { app, type StarterSkill } from '../app-bridge';
 -import { BrandLogo } from './BrandLogo';
 +import { desktopBridge } from '@/lib/desktop-bridge';
-+import { TemplatePicker } from './TemplatePicker';
  
  /** Three rows of two: the most used skills, in their order; the rest are a click away in the library. */
  const SHOWN = 6;
@@ -69,7 +68,7 @@ index 640dfe1..dfee1da 100644
    React.useEffect(() => {
      let live = true;
      void app.starterSkills().then((list) => {
-@@ -35,6 +61,68 @@ export function ProjectStarters({ onSkill }: {
+@@ -35,6 +60,68 @@ export function ProjectStarters({ onSkill }: {
      }, () => { if (live) setSkills((was) => was ?? []); });
      return () => { live = false; };
    }, []);
@@ -138,7 +137,7 @@ index 640dfe1..dfee1da 100644
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +130,112 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +129,112 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -246,7 +245,7 @@ index 640dfe1..dfee1da 100644
 +        />
 +      </label>
 +
-+      <TemplatePicker />
++      {/* NO996-UPSTREAM: templates live in the shared projects/examples window. */}
 +
 +      <p className="mt-5 text-[11.5px] font-medium uppercase tracking-[0.04em] text-[var(--text-faint)]">
 +        {t('editor.skills')}
@@ -255,7 +254,7 @@ index 640dfe1..dfee1da 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +243,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +242,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}

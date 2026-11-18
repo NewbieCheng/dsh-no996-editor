@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/components/ConversationSessionBar.tsx b/apps/desktop/chat/src/components/ConversationSessionBar.tsx
-index 102217b..dfbd754 100644
+index 102217b..6cd222b 100644
 --- a/apps/desktop/chat/src/components/ConversationSessionBar.tsx
 +++ b/apps/desktop/chat/src/components/ConversationSessionBar.tsx
-@@ -1,7 +1,7 @@
+@@ -1,11 +1,12 @@
  'use client';
  
  import React from 'react';
@@ -11,7 +11,12 @@ index 102217b..dfbd754 100644
  import { limitTitleWidth, SESSION_TITLE_MAX_WIDTH } from '@openfilm/shared';
  import { Popover, keepFocus } from './Popover';
  import { Tooltip } from './Tooltip';
-@@ -17,6 +17,8 @@ interface SessionActions {
+ import { useT } from '@/i18n';
++import { app } from '@/app-bridge';
+ import type { ProjectSessionItem } from '@/lib/project-sessions';
+ import { useLocalAgentTurn } from '@/lib/local-agent-run';
+ import { PANE_BAR, PANE_TITLE } from './dock-pane-bar';
+@@ -17,6 +18,8 @@ interface SessionActions {
    onRenameSession?: (id: string, title: string) => void;
    onPinSession?: (id: string, pinned: boolean) => void;
    onArchiveSession?: (id: string, archived: boolean) => void;
@@ -20,7 +25,7 @@ index 102217b..dfbd754 100644
  }
  
  /** A title being renamed, in place: Enter or leaving keeps it, Esc lets it go (`onDone(null)`). */
-@@ -136,7 +138,7 @@ export function ConversationBar({
+@@ -136,7 +139,7 @@ export function ConversationBar({
                aria-hidden={renaming || undefined} tabIndex={renaming ? -1 : undefined}
                onClick={(event) => { event.stopPropagation(); popup.toggle(); }}
                onDoubleClick={() => { if (onRenameSession) { popup.dismiss(); setRenaming(true); } }}
@@ -29,21 +34,21 @@ index 102217b..dfbd754 100644
              >
                <span className={`${PANE_TITLE} ${current?.title.trim() ? '' : 'text-[var(--text-faint)]'}`}>{label}</span>
                {otherRunning || otherUnseen ? <StatusLight turnId={otherRunning} unseen={otherUnseen} /> : null}
-@@ -164,6 +166,13 @@ export function ConversationBar({
+@@ -164,6 +167,13 @@ export function ConversationBar({
          ) : null}
        </div>
        <span className="min-w-0 flex-1" />
 +      <button
 +        type="button"
-+        onClick={() => window.dispatchEvent(new Event('no996-openfilm:reopen-onboarding'))}
++        onClick={() => app.showExamples?.({ kind: 'examples' })}
 +        className="shrink-0 rounded px-1.5 py-0.5 text-[11.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
 +      >
-+        {t('onboarding.reopen')}
++        {t('starter.examples')}
 +      </button>
      </div>
    );
  }
-@@ -172,12 +181,20 @@ export function ConversationBar({
+@@ -172,12 +182,20 @@ export function ConversationBar({
  const ROW_BTN = menu.iconButton;
  
  /** One conversation in the history: its title, a running one turning; each row has its own actions. */
@@ -65,7 +70,7 @@ index 102217b..dfbd754 100644
    const icon = item.pinned ? <Pin size={13} className={menu.rowIcon} /> : <MessageCircle size={13} className={menu.rowIcon} />;
    return (
      <div className={`group ${menu.row} ${active ? menu.active : ''} ${renaming ? menu.editing : ''}`}>
-@@ -221,6 +238,17 @@ function SessionRow({ item, label, active, turnId, unseen, onSelect, onRenameSes
+@@ -221,6 +239,17 @@ function SessionRow({ item, label, active, turnId, unseen, onSelect, onRenameSes
                </button>
              </Tooltip>
            ) : null}

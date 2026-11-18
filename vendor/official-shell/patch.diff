@@ -1,13 +1,8 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 9c7041b..15bd847 100644
+index 9c7041b..ca616fb 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
-@@ -10,10 +10,12 @@ import { ArrowDown, Coins, CornerDownLeft, LibraryBig, Loader2, Plus, Square } f
- import { buildPromptDisplay, type Turn } from '@openfilm/shared';
- import { useT, useUiLocale } from '@/i18n';
- import { ConversationBar } from '@/components/ConversationSessionBar';
-+import { OnboardingGate } from '@/components/OnboardingGate';
- import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/components/ProjectConversation';
+@@ -14,6 +14,7 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
  import { AttachmentPreview, type AttachmentPreviewItem } from '@/components/AttachmentPreview';
@@ -15,7 +10,7 @@ index 9c7041b..15bd847 100644
  import { ModelPopover } from '@/components/ModelPopover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -32,6 +34,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+@@ -32,6 +33,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -23,7 +18,7 @@ index 9c7041b..15bd847 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -42,6 +45,7 @@ import {
+@@ -42,6 +44,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -31,7 +26,7 @@ index 9c7041b..15bd847 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -69,6 +73,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
+@@ -69,6 +72,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
  import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
@@ -40,16 +35,15 @@ index 9c7041b..15bd847 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -156,6 +162,8 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -156,6 +161,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
-+      {/* First-run film-type gate: Host prefs; full-shell portal; reopen via no996-openfilm:reopen-onboarding. */}
-+      <OnboardingGate />
++      {/* NO996-UPSTREAM: replace the separate first-run gate with Studio's projects/examples window. */}
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -183,11 +191,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -183,11 +189,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
    const [sessionId, setSessionId] = React.useState<string>(() => {
@@ -122,7 +116,7 @@ index 9c7041b..15bd847 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -352,6 +420,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -352,6 +418,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const [openedFile, setOpenedFile] = React.useState<AttachmentPreviewItem | null>(null);
    const attachInputRef = React.useRef<HTMLInputElement>(null);
    const [dropping, setDropping] = React.useState(false);
@@ -131,7 +125,7 @@ index 9c7041b..15bd847 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -378,10 +448,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -378,10 +446,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -195,7 +189,7 @@ index 9c7041b..15bd847 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -407,6 +530,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -407,6 +528,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -243,7 +237,7 @@ index 9c7041b..15bd847 100644
    /* how full the agent's context is in this conversation: said only once it is nearly full */
    const agentContext = useAgentContext(projectKey, sessionId, agent);
    const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
-@@ -964,6 +1128,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -964,6 +1126,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -257,7 +251,7 @@ index 9c7041b..15bd847 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -996,6 +1167,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -996,6 +1165,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -269,7 +263,7 @@ index 9c7041b..15bd847 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1028,9 +1204,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1028,9 +1202,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -282,7 +276,7 @@ index 9c7041b..15bd847 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1 py-2.5 pl-3.5 pr-2">
-@@ -1081,6 +1258,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1081,6 +1256,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
          <div className="min-w-0 flex-1" />
@@ -291,7 +285,7 @@ index 9c7041b..15bd847 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1115,6 +1294,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1115,6 +1292,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -308,7 +302,7 @@ index 9c7041b..15bd847 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1132,6 +1321,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1132,6 +1319,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -316,7 +310,7 @@ index 9c7041b..15bd847 100644
                  />
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
-@@ -1143,7 +1333,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1143,7 +1331,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    >
                      {blank ? (
                        <div ref={thread.contentRef}>
@@ -562,10 +556,10 @@ index 0000000..d5de29c
 +  );
 +}
 diff --git a/apps/desktop/chat/src/components/ConversationSessionBar.tsx b/apps/desktop/chat/src/components/ConversationSessionBar.tsx
-index 102217b..dfbd754 100644
+index 102217b..6cd222b 100644
 --- a/apps/desktop/chat/src/components/ConversationSessionBar.tsx
 +++ b/apps/desktop/chat/src/components/ConversationSessionBar.tsx
-@@ -1,7 +1,7 @@
+@@ -1,11 +1,12 @@
  'use client';
  
  import React from 'react';
@@ -574,7 +568,12 @@ index 102217b..dfbd754 100644
  import { limitTitleWidth, SESSION_TITLE_MAX_WIDTH } from '@openfilm/shared';
  import { Popover, keepFocus } from './Popover';
  import { Tooltip } from './Tooltip';
-@@ -17,6 +17,8 @@ interface SessionActions {
+ import { useT } from '@/i18n';
++import { app } from '@/app-bridge';
+ import type { ProjectSessionItem } from '@/lib/project-sessions';
+ import { useLocalAgentTurn } from '@/lib/local-agent-run';
+ import { PANE_BAR, PANE_TITLE } from './dock-pane-bar';
+@@ -17,6 +18,8 @@ interface SessionActions {
    onRenameSession?: (id: string, title: string) => void;
    onPinSession?: (id: string, pinned: boolean) => void;
    onArchiveSession?: (id: string, archived: boolean) => void;
@@ -583,7 +582,7 @@ index 102217b..dfbd754 100644
  }
  
  /** A title being renamed, in place: Enter or leaving keeps it, Esc lets it go (`onDone(null)`). */
-@@ -136,7 +138,7 @@ export function ConversationBar({
+@@ -136,7 +139,7 @@ export function ConversationBar({
                aria-hidden={renaming || undefined} tabIndex={renaming ? -1 : undefined}
                onClick={(event) => { event.stopPropagation(); popup.toggle(); }}
                onDoubleClick={() => { if (onRenameSession) { popup.dismiss(); setRenaming(true); } }}
@@ -592,21 +591,21 @@ index 102217b..dfbd754 100644
              >
                <span className={`${PANE_TITLE} ${current?.title.trim() ? '' : 'text-[var(--text-faint)]'}`}>{label}</span>
                {otherRunning || otherUnseen ? <StatusLight turnId={otherRunning} unseen={otherUnseen} /> : null}
-@@ -164,6 +166,13 @@ export function ConversationBar({
+@@ -164,6 +167,13 @@ export function ConversationBar({
          ) : null}
        </div>
        <span className="min-w-0 flex-1" />
 +      <button
 +        type="button"
-+        onClick={() => window.dispatchEvent(new Event('no996-openfilm:reopen-onboarding'))}
++        onClick={() => app.showExamples?.({ kind: 'examples' })}
 +        className="shrink-0 rounded px-1.5 py-0.5 text-[11.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
 +      >
-+        {t('onboarding.reopen')}
++        {t('starter.examples')}
 +      </button>
      </div>
    );
  }
-@@ -172,12 +181,20 @@ export function ConversationBar({
+@@ -172,12 +182,20 @@ export function ConversationBar({
  const ROW_BTN = menu.iconButton;
  
  /** One conversation in the history: its title, a running one turning; each row has its own actions. */
@@ -628,7 +627,7 @@ index 102217b..dfbd754 100644
    const icon = item.pinned ? <Pin size={13} className={menu.rowIcon} /> : <MessageCircle size={13} className={menu.rowIcon} />;
    return (
      <div className={`group ${menu.row} ${active ? menu.active : ''} ${renaming ? menu.editing : ''}`}>
-@@ -221,6 +238,17 @@ function SessionRow({ item, label, active, turnId, unseen, onSelect, onRenameSes
+@@ -221,6 +239,17 @@ function SessionRow({ item, label, active, turnId, unseen, onSelect, onRenameSes
                </button>
              </Tooltip>
            ) : null}
@@ -1441,10 +1440,10 @@ index 0000000..ec02cbf
 +  window.dispatchEvent(new Event(REOPEN));
 +}
 diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
-index 640dfe1..dfee1da 100644
+index 640dfe1..f011f4e 100644
 --- a/apps/desktop/chat/src/components/ProjectStarters.tsx
 +++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
-@@ -1,32 +1,58 @@
+@@ -1,32 +1,57 @@
  'use client';
  
  /**
@@ -1463,7 +1462,6 @@ index 640dfe1..dfee1da 100644
  import { app, type StarterSkill } from '../app-bridge';
 -import { BrandLogo } from './BrandLogo';
 +import { desktopBridge } from '@/lib/desktop-bridge';
-+import { TemplatePicker } from './TemplatePicker';
  
  /** Three rows of two: the most used skills, in their order; the rest are a click away in the library. */
  const SHOWN = 6;
@@ -1511,7 +1509,7 @@ index 640dfe1..dfee1da 100644
    React.useEffect(() => {
      let live = true;
      void app.starterSkills().then((list) => {
-@@ -35,6 +61,68 @@ export function ProjectStarters({ onSkill }: {
+@@ -35,6 +60,68 @@ export function ProjectStarters({ onSkill }: {
      }, () => { if (live) setSkills((was) => was ?? []); });
      return () => { live = false; };
    }, []);
@@ -1580,7 +1578,7 @@ index 640dfe1..dfee1da 100644
    const titleOf = (skill: StarterSkill) => {
      const words = skill.title;
      return (words ? words[locale] ?? words[locale.split('-')[0]!] ?? words.en : undefined) ?? skill.name;
-@@ -42,12 +130,112 @@ export function ProjectStarters({ onSkill }: {
+@@ -42,12 +129,112 @@ export function ProjectStarters({ onSkill }: {
  
    return (
      <div className="mx-auto w-full max-w-[420px] py-2">
@@ -1688,7 +1686,7 @@ index 640dfe1..dfee1da 100644
 +        />
 +      </label>
 +
-+      <TemplatePicker />
++      {/* NO996-UPSTREAM: templates live in the shared projects/examples window. */}
 +
 +      <p className="mt-5 text-[11.5px] font-medium uppercase tracking-[0.04em] text-[var(--text-faint)]">
 +        {t('editor.skills')}
@@ -1697,7 +1695,7 @@ index 640dfe1..dfee1da 100644
          {skills
            ? skills.map((skill) => (
              <li key={skill.name} className="min-w-0">
-@@ -55,7 +243,7 @@ export function ProjectStarters({ onSkill }: {
+@@ -55,7 +242,7 @@ export function ProjectStarters({ onSkill }: {
                  type="button"
                  title={skill.description}
                  onClick={() => onSkill({ name: skill.name, description: skill.description, title: titleOf(skill) })}
@@ -4700,10 +4698,10 @@ index 0000000..0423202
 +@media (max-width:520px){.nof-lg .lg-card{padding:22px 22px 18px}.nof-lg .lg-card h1{font-size:30px}.nof-lg .lg-stamp{width:76px;height:76px;font-size:21px;top:64px;right:16px}.nof-lg .lg-clip{padding:5px 3px;font-size:10.5px}.nof-lg .lg-tracks{height:62px}.nof-lg .lg-main{padding-bottom:calc(var(--tlh) + 80px)}}
 +.nof-lg .cap-mask[hidden]{display:none!important}
 diff --git a/apps/desktop/shell/main.tsx b/apps/desktop/shell/main.tsx
-index bb5a8ea..cdf82d1 100644
+index bb5a8ea..744f249 100644
 --- a/apps/desktop/shell/main.tsx
 +++ b/apps/desktop/shell/main.tsx
-@@ -10,10 +10,16 @@ import { FocusNav } from 'openfilm/studio-ui/components/FocusNav.tsx';
+@@ -10,10 +10,17 @@ import { FocusNav } from 'openfilm/studio-ui/components/FocusNav.tsx';
  import { applyStudioHost } from 'openfilm/studio-ui/lib/host.ts';
  import { mountChat } from '../chat/src/mount';
  import { CanvasModelPicker, canvasWritingModel } from '../chat/src/components/ModelPopover';
@@ -4713,16 +4711,743 @@ index bb5a8ea..cdf82d1 100644
 +// the gate itself is React (LoginGate.tsx).
 +import './login-city';
 +import { LoginGate } from './LoginGate';
++import { DiagnosticLogsHost } from 'openfilm/studio-ui/components/DiagnosticLogsDrawer.tsx';
  import './shell.css';
  import '../chat/src/chat.css';
  
  host.canvasWriting = { Picker: CanvasModelPicker, selection: canvasWritingModel };
  applyStudioHost();
 -createRoot(document.getElementById('root')!).render(<StrictMode><FocusNav /><App /></StrictMode>);
-+createRoot(document.getElementById('root')!).render(<StrictMode><FocusNav /><App /><RecoveryGate /><EnvironmentNotice /><LoginGate /></StrictMode>);
++createRoot(document.getElementById('root')!).render(<StrictMode><FocusNav /><App /><RecoveryGate /><EnvironmentNotice /><LoginGate /><DiagnosticLogsHost /></StrictMode>);
  void mountChat(document.getElementById('of-chat')!);
+diff --git a/packages/openfilm/studio/ui/src/App.tsx b/packages/openfilm/studio/ui/src/App.tsx
+index 8d10e92..c1c8e5d 100644
+--- a/packages/openfilm/studio/ui/src/App.tsx
++++ b/packages/openfilm/studio/ui/src/App.tsx
+@@ -88,7 +88,7 @@ export function App() {
+     : !none ? <BrandLoadingScreen labelKey="projects.opening" />
+       : (
+         <div className="workspace-shell bg-[var(--bg-app)]">
+-          <ProjectsPopover open currentProjectId="" onOpen={(next) => go(`/projects/${next}`)} onCurrentRemoved={() => {}} />
++          <ProjectsPopover open currentProjectId="" examples={{}} onOpen={(next) => go(`/projects/${next}`)} onCurrentRemoved={() => {}} />
+         </div>
+       );
+   return <>{page}<ConnectionNotice /><WhatsNew /></>;
+diff --git a/packages/openfilm/studio/ui/src/components/AppMenu.tsx b/packages/openfilm/studio/ui/src/components/AppMenu.tsx
+index ecc1667..44f1cb9 100644
+--- a/packages/openfilm/studio/ui/src/components/AppMenu.tsx
++++ b/packages/openfilm/studio/ui/src/components/AppMenu.tsx
+@@ -152,14 +152,15 @@ export function AppMenu({ onSettings }: { onSettings: (section: SettingsSection)
+       <button type="button" role="menuitem" tabIndex={-1} className={styles.row} onMouseEnter={hideCommunitySoon} onFocus={() => closeCommunity()} onClick={() => { dismiss(true); onSettings('general'); }}>
+         <Settings2 size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('settings.title')}</span>
+       </button>
+-      <button ref={communityTrigger} type="button" role="menuitem" tabIndex={-1} aria-haspopup="menu" aria-expanded={community} aria-controls={community ? `${id}-community` : undefined}
++      {/* NO996-UPSTREAM: community and outbound menu rows are hidden; restore this condition to show them. */}
++      {false ? <><button ref={communityTrigger} type="button" role="menuitem" tabIndex={-1} aria-haspopup="menu" aria-expanded={community} aria-controls={community ? `${id}-community` : undefined}
+         className={`${styles.row} ${community ? styles.active : ''}`}
+         onMouseEnter={() => openCommunity()} onMouseLeave={hideCommunitySoon}
+         onKeyDown={(event) => { if (event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); openCommunity(true); } }} onClick={(event) => { openCommunity(event.detail === 0); if (event.detail > 0) focusPanel(true); }}>
+         <Users size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('appMenu.community')}</span><ChevronRight size={12} className={styles.end} aria-hidden />
+       </button>
+       {link('appMenu.feedback', PRODUCT_LINKS.feedback, <MessageSquare size={15} />)}
+-      {link('appMenu.star', PRODUCT_LINKS.github, <Star size={15} />)}
++      {link('appMenu.star', PRODUCT_LINKS.github, <Star size={15} />)}</> : null}
+     </div>
+     {community ? <div ref={flyout} id={`${id}-community`} data-community-menu role="menu" tabIndex={-1} aria-label={t('appMenu.community')}
+       className={styles.flyout} style={{ left: position?.left ?? `calc(100% + ${SIDE_GAP}px)`, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+diff --git a/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
+new file mode 100644
+index 0000000..172da11
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
+@@ -0,0 +1,659 @@
++/**
++ * In-app Error & Diagnostic Log Center for 不加班剪辑 / OpenFilm.
++ *
++ * Unifies Host persistent daily logs (`$DSH_HOME/no996-openfilm/logs/diagnostics-*.jsonl`),
++ * live page buffer (`window.__no996DiagBuffer`), Studio `problems.jsonl`, and active
++ * session diagnostics into one searchable, copyable, exportable drawer.
++ */
++import * as React from 'react';
++import { createPortal } from 'react-dom';
++import {
++  AlertCircle,
++  AlertTriangle,
++  Bot,
++  Check,
++  ChevronDown,
++  ChevronRight,
++  Copy,
++  Download,
++  Info,
++  RefreshCw,
++  Search,
++  Sparkles,
++  Trash2,
++  X,
++} from 'lucide-react';
++import { studioHost } from '@/lib/host';
++
++export type DiagEntry = {
++  id: string;
++  ts: string;
++  level: 'error' | 'warn' | 'info' | string;
++  layer: string;
++  traceId?: string;
++  code?: string;
++  channel?: string;
++  httpStatus?: number | null;
++  durationMs?: number | null;
++  projectId?: string;
++  conversation?: string;
++  sessionDigest?: string;
++  location?: string;
++  summary?: string;
++  detail?: Record<string, unknown> | null;
++};
++
++type DiagStats = {
++  dir?: string;
++  retentionDays?: number;
++  maxTotalBytes?: number;
++  fileCount?: number;
++  totalBytes?: number;
++  oldestDate?: string | null;
++  newestDate?: string | null;
++  recentErrors?: number;
++  recentWarnings?: number;
++};
++
++type DiagListResponse = {
++  items?: DiagEntry[];
++  total?: number;
++  stats?: DiagStats;
++};
++
++type DiagExportResponse = {
++  exportedAt?: string;
++  environment?: Record<string, unknown>;
++  studio?: Record<string, unknown>;
++  preset?: Record<string, unknown>;
++  turns?: Record<string, unknown> | null;
++  stats?: DiagStats;
++  entries?: DiagEntry[];
++  studioProblems?: Array<Record<string, unknown>>;
++  hostLogTail?: Array<Record<string, unknown>>;
++  markdown?: string;
++};
++
++async function diagRpc<T>(channel: string, payload: Record<string, unknown> = {}): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', {
++    method: 'POST',
++    credentials: 'same-origin',
++    headers: { 'content-type': 'application/json' },
++    body: JSON.stringify({ channel, payload }),
++  });
++  if (!response.ok) {
++    let detail = '';
++    try { detail = (await response.text()).slice(0, 200); } catch { /* ignore */ }
++    throw new Error(detail || `HTTP ${response.status}`);
++  }
++  return response.json() as Promise<T>;
++}
++
++function formatBytes(bytes = 0): string {
++  if (bytes < 1024) return `${bytes} B`;
++  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
++  return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
++}
++
++function formatTime(iso: string): string {
++  const ms = Date.parse(iso);
++  if (!Number.isFinite(ms)) return iso;
++  try {
++    return new Date(ms).toLocaleString('zh-CN', {
++      hour12: false,
++      month: '2-digit',
++      day: '2-digit',
++      hour: '2-digit',
++      minute: '2-digit',
++      second: '2-digit',
++    });
++  } catch {
++    return iso;
++  }
++}
++
++function currentProjectIdFromUrl(): string {
++  const m = /^\/projects\/([A-Za-z0-9_-]{6,40})\/?$/.exec(window.location.pathname);
++  return m ? m[1] : '';
++}
++
++function readPageDiagBuffer(): DiagEntry[] {
++  const raw = (window as unknown as { __no996DiagBuffer?: unknown[] }).__no996DiagBuffer;
++  return Array.isArray(raw) ? (raw as DiagEntry[]) : [];
++}
++
++function buildAgentPrompt(report: DiagExportResponse, focused?: DiagEntry | null): string {
++  const logDir = report.stats?.dir ? `本地日志目录: ${report.stats.dir}` : '';
++  const focusLines = focused
++    ? [
++        '当前重点异常:',
++        `- 时间: ${focused.ts}`,
++        `- 层级/错误码: [${focused.layer}] ${focused.code || ''} ${focused.channel || ''} ${focused.httpStatus ? `HTTP ${focused.httpStatus}` : ''}`,
++        focused.traceId ? `- TraceID: ${focused.traceId}` : '',
++        focused.location ? `- 定位位置: ${focused.location}` : '',
++        focused.summary ? `- 摘要: ${focused.summary}` : '',
++        focused.detail ? `- 详情: ${JSON.stringify(focused.detail)}` : '',
++        '',
++      ].filter(Boolean)
++    : [];
++  const excerpt = (report.markdown || '').slice(0, 4200);
++  return [
++    '请帮我诊断下面这个 No996 Studio / OpenFilm 异常，定位根因并给出修复建议：',
++    logDir,
++    ...focusLines,
++    excerpt,
++  ].filter(Boolean).join('\n');
++}
++
++export function DiagnosticLogsDrawer({
++  open,
++  initialTraceId = '',
++  onClose,
++}: {
++  open: boolean;
++  initialTraceId?: string;
++  onClose: () => void;
++}) {
++  const [level, setLevel] = React.useState<'all' | 'error' | 'warn+'>('all');
++  const [layer, setLayer] = React.useState<string>('all');
++  const [search, setSearch] = React.useState<string>('');
++  const [items, setItems] = React.useState<DiagEntry[]>([]);
++  const [total, setTotal] = React.useState(0);
++  const [stats, setStats] = React.useState<DiagStats | null>(null);
++  const [busy, setBusy] = React.useState(false);
++  const [loadError, setLoadError] = React.useState('');
++  const [expandedId, setExpandedId] = React.useState<string>('');
++  const [notice, setNotice] = React.useState<string>('');
++  const [manualText, setManualText] = React.useState<string>('');
++
++  const load = React.useCallback(async (overrideSearch?: string) => {
++    setBusy(true);
++    setLoadError('');
++    const query = overrideSearch !== undefined ? overrideSearch : search;
++    try {
++      const res = await diagRpc<DiagListResponse>('diag:list', {
++        level,
++        layer,
++        search: query,
++        limit: 150,
++      });
++      const hostItems = Array.isArray(res?.items) ? res.items : [];
++      const pageItems = readPageDiagBuffer().filter((entry) => {
++        if (level === 'error' && entry.level !== 'error') return false;
++        if (level === 'warn+' && entry.level !== 'error' && entry.level !== 'warn') return false;
++        if (layer !== 'all' && entry.layer !== layer) return false;
++        if (query.trim()) {
++          const needle = query.trim().toLowerCase();
++          const hay = `${entry.code ?? ''} ${entry.channel ?? ''} ${entry.location ?? ''} ${entry.summary ?? ''} ${entry.traceId ?? ''}`.toLowerCase();
++          if (!hay.includes(needle)) return false;
++        }
++        return true;
++      });
++      const merged = new Map<string, DiagEntry>();
++      for (const entry of [...hostItems, ...pageItems]) {
++        if (entry && typeof entry.id === 'string') merged.set(entry.id, entry);
++      }
++      const list = [...merged.values()].sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
++      setItems(list);
++      setTotal(Math.max(Number(res?.total) || 0, list.length));
++      if (res?.stats) setStats(res.stats);
++      if (query && list.length > 0) setExpandedId(list[0].id);
++    } catch (err) {
++      const pageItems = readPageDiagBuffer();
++      setItems(pageItems.slice().reverse());
++      setTotal(pageItems.length);
++      setLoadError(String((err as Error)?.message || err));
++    } finally {
++      setBusy(false);
++    }
++  }, [level, layer, search]);
++
++  React.useEffect(() => {
++    if (!open) return;
++    if (initialTraceId) setSearch(initialTraceId);
++    void load(initialTraceId || undefined);
++  }, [open, initialTraceId]); // eslint-disable-line react-hooks/exhaustive-deps
++
++  React.useEffect(() => {
++    if (!open) return;
++    void load();
++  }, [level, layer]); // eslint-disable-line react-hooks/exhaustive-deps
++
++  React.useEffect(() => {
++    if (!open) return;
++    const onKey = (e: KeyboardEvent) => {
++      if (e.key === 'Escape') onClose();
++    };
++    window.addEventListener('keydown', onKey);
++    return () => window.removeEventListener('keydown', onKey);
++  }, [open, onClose]);
++
++  const flashNotice = (msg: string) => {
++    setNotice(msg);
++    window.setTimeout(() => setNotice((cur) => (cur === msg ? '' : cur)), 3200);
++  };
++
++  const copyText = async (text: string, okMsg: string) => {
++    try {
++      await navigator.clipboard.writeText(text);
++      setManualText('');
++      flashNotice(okMsg);
++    } catch {
++      setManualText(text);
++      flashNotice('无法自动写入剪贴板，请在下方文本框手动全选复制');
++    }
++  };
++
++  const handleCopyForDev = async () => {
++    try {
++      const data = await diagRpc<DiagExportResponse>('diag:export', {
++        projectId: currentProjectIdFromUrl(),
++        level,
++        layer,
++        limit: 80,
++      });
++      await copyText(data.markdown || JSON.stringify(data, null, 2), '已复制开发者诊断报告');
++    } catch (err) {
++      const fallback = JSON.stringify({ error: String((err as Error)?.message || err), entries: items.slice(0, 30) }, null, 2);
++      await copyText(fallback, '已复制页面诊断快照');
++    }
++  };
++
++  const handleAskAgent = async (mode: 'chat' | 'copy') => {
++    try {
++      const data = await diagRpc<DiagExportResponse>('diag:export', {
++        projectId: currentProjectIdFromUrl(),
++        level: level === 'all' ? 'warn+' : level,
++        layer,
++        limit: 40,
++      });
++      const focused = items.find((it) => it.id === expandedId) ?? items[0] ?? null;
++      const prompt = buildAgentPrompt(data, focused);
++      if (mode === 'chat' && typeof studioHost?.ask === 'function' && currentProjectIdFromUrl()) {
++        studioHost.ask({ text: prompt, refs: [] });
++        onClose();
++        return;
++      }
++      await copyText(prompt, mode === 'chat' ? '当前未打开项目会话，已复制诊断提示词到剪贴板' : '已复制 Agent 诊断提示词');
++    } catch {
++      const focused = items.find((it) => it.id === expandedId) ?? items[0] ?? null;
++      const prompt = buildAgentPrompt({ entries: items.slice(0, 20), markdown: JSON.stringify(items.slice(0, 15), null, 2) }, focused);
++      await copyText(prompt, '已复制 Agent 诊断提示词');
++    }
++  };
++
++  const handleExport = async () => {
++    try {
++      const data = await diagRpc<DiagExportResponse>('diag:export', {
++        projectId: currentProjectIdFromUrl(),
++        limit: 300,
++      });
++      const now = new Date();
++      const pad = (n: number) => String(n).padStart(2, '0');
++      const name = `no996-openfilm-diagnostics-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.json`;
++      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
++      const url = URL.createObjectURL(blob);
++      const a = document.createElement('a');
++      a.href = url;
++      a.download = name;
++      document.body.appendChild(a);
++      a.click();
++      a.remove();
++      URL.revokeObjectURL(url);
++      flashNotice(`已导出 ${name}`);
++    } catch (err) {
++      flashNotice(`导出失败: ${String((err as Error)?.message || err)}`);
++    }
++  };
++
++  const handleRetentionChange = async (days: number) => {
++    try {
++      const res = await diagRpc<{ retentionDays: number; stats: DiagStats }>('diag:prefs', { retentionDays: days });
++      if (res?.stats) setStats(res.stats);
++      flashNotice(`已设置自动保留 ${days} 天并清理过期日志`);
++      void load();
++    } catch (err) {
++      flashNotice(`设置失败: ${String((err as Error)?.message || err)}`);
++    }
++  };
++
++  const handleClear = async (mode: 'expired' | 'all') => {
++    try {
++      const res = await diagRpc<{ stats: DiagStats; removedFiles?: number }>('diag:clear', { mode });
++      if (res?.stats) setStats(res.stats);
++      if (mode === 'all') {
++        const raw = (window as unknown as { __no996DiagBuffer?: unknown[] }).__no996DiagBuffer;
++        if (Array.isArray(raw)) raw.length = 0;
++        window.dispatchEvent(new CustomEvent('no996:diag-cleared'));
++      }
++      flashNotice(mode === 'all' ? '已清空全部诊断日志' : `已清理过期日志 (${res?.removedFiles ?? 0} 个文件)`);
++      void load();
++    } catch (err) {
++      flashNotice(`清理失败: ${String((err as Error)?.message || err)}`);
++    }
++  };
++
++  if (!open) return null;
++
++  return createPortal(
++    <div className="fixed inset-0 z-[10070]" role="presentation">
++      <button
++        type="button"
++        aria-label="关闭诊断日志"
++        className="absolute inset-0 bg-black/50"
++        onClick={onClose}
++      />
++      <aside
++        role="dialog"
++        aria-modal="true"
++        aria-labelledby="no996-diag-center-title"
++        className="absolute inset-y-0 right-0 flex w-[min(680px,96vw)] flex-col border-l border-[var(--border)] bg-[var(--bg-panel)] shadow-[-18px_0_48px_rgba(0,0,0,.4)]"
++      >
++        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--border)] px-4">
++          <div className="min-w-0 flex-1">
++            <h2 id="no996-diag-center-title" className="truncate text-[14px] font-semibold text-[var(--text)]">
++              错误与诊断日志中心
++            </h2>
++          </div>
++          <button
++            type="button"
++            disabled={busy}
++            onClick={() => void load()}
++            className="flex h-7 items-center gap-1 rounded-md border border-[var(--border)] px-2 text-[11.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)] disabled:opacity-45"
++          >
++            <RefreshCw size={12} className={busy ? 'animate-spin' : ''} />
++            <span>刷新</span>
++          </button>
++          <button
++            type="button"
++            aria-label="关闭"
++            onClick={onClose}
++            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++          >
++            <X size={15} />
++          </button>
++        </header>
++
++        <div className="shrink-0 space-y-2 border-b border-[var(--border)] bg-[var(--bg-field)] px-4 py-2.5 text-[11.5px]">
++          <div className="flex flex-wrap items-center justify-between gap-2 text-[var(--text-muted)]">
++            <div className="min-w-0 truncate">
++              <span className="font-medium text-[var(--text)]">日志位置：</span>
++              <code className="font-mono text-[11px]">{stats?.dir || '$DSH_HOME/no996-openfilm/logs'}</code>
++            </div>
++            <div className="flex items-center gap-2 shrink-0">
++              <span>已用 {formatBytes(stats?.totalBytes ?? 0)} / 50 MiB ({stats?.fileCount ?? 0} 天)</span>
++              <label className="flex items-center gap-1">
++                <span>自动保留</span>
++                <select
++                  aria-label="日志保留天数"
++                  value={stats?.retentionDays ?? 14}
++                  onChange={(e) => void handleRetentionChange(Number(e.target.value))}
++                  className="rounded border border-[var(--border)] bg-[var(--bg-panel)] px-1.5 py-0.5 text-[11px] text-[var(--text)]"
++                >
++                  <option value={7}>7 天</option>
++                  <option value={14}>14 天</option>
++                  <option value={30}>30 天</option>
++                  <option value={90}>90 天</option>
++                </select>
++              </label>
++            </div>
++          </div>
++
++          <div className="flex flex-wrap items-center gap-1.5">
++            {(
++              [
++                { id: 'all', label: `全部 (${total})` },
++                { id: 'error', label: '仅错误' },
++                { id: 'warn+', label: '警告+错误' },
++              ] as const
++            ).map((tab) => (
++              <button
++                key={tab.id}
++                type="button"
++                onClick={() => setLevel(tab.id)}
++                className={`rounded-md px-2 py-1 text-[11.5px] font-medium transition ${
++                  level === tab.id
++                    ? 'bg-[var(--bg-pressed)] text-[var(--text)]'
++                    : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'
++                }`}
++              >
++                {tab.label}
++              </button>
++            ))}
++
++            <select
++              aria-label="按分层筛选"
++              value={layer}
++              onChange={(e) => setLayer(e.target.value)}
++              className="rounded-md border border-[var(--border)] bg-[var(--bg-panel)] px-2 py-1 text-[11.5px] text-[var(--text)]"
++            >
++              <option value="all">全部分层</option>
++              <option value="ui">前端 UI</option>
++              <option value="rpc">RPC 桥接</option>
++              <option value="sse">SSE 事件流</option>
++              <option value="native-agent">Native Agent</option>
++              <option value="studio-upstream">Studio 上游</option>
++              <option value="host">Host 宿主</option>
++            </select>
++
++            <label className="ml-auto flex min-w-[180px] flex-1 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-panel)] px-2 py-1">
++              <Search size={12} className="shrink-0 text-[var(--text-faint)]" />
++              <input
++                value={search}
++                onChange={(e) => setSearch(e.target.value)}
++                onKeyDown={(e) => { if (e.key === 'Enter') void load(); }}
++                placeholder="搜 traceId / 错误码 / 通道 / 关键字…"
++                className="min-w-0 flex-1 bg-transparent text-[11.5px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
++              />
++              {search ? (
++                <button type="button" onClick={() => { setSearch(''); void load(''); }} className="text-[var(--text-faint)] hover:text-[var(--text)]">
++                  <X size={11} />
++                </button>
++              ) : null}
++            </label>
++          </div>
++        </div>
++
++        {notice ? (
++          <div className="flex items-center gap-2 border-b border-[var(--border)] bg-[var(--bg-hover)] px-4 py-1.5 text-[11.5px] text-[var(--text)]">
++            <Check size={13} className="shrink-0 text-emerald-400" />
++            <span>{notice}</span>
++          </div>
++        ) : null}
++
++        {loadError ? (
++          <div className="border-b border-red-500/30 bg-red-950/35 px-4 py-1.5 text-[11.5px] text-red-200">
++            读取宿主日志失败（已展示页面缓存）：{loadError}
++          </div>
++        ) : null}
++
++        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-2">
++          {items.length === 0 ? (
++            <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-[12.5px] text-[var(--text-muted)]">
++              暂无符合条件的诊断日志。系统发生 JS/React/RPC/SSE/Studio 异常时会自动记录并精准定位到文件与参数。
++            </div>
++          ) : (
++            items.map((entry) => {
++              const expanded = expandedId === entry.id;
++              const isErr = entry.level === 'error';
++              const isWarn = entry.level === 'warn';
++              return (
++                <div
++                  key={entry.id}
++                  className={`rounded-lg border text-[12px] ${
++                    isErr
++                      ? 'border-red-500/35 bg-red-950/15'
++                      : isWarn
++                        ? 'border-amber-500/35 bg-amber-950/15'
++                        : 'border-[var(--border)] bg-[var(--bg-field)]'
++                  }`}
++                >
++                  <button
++                    type="button"
++                    onClick={() => setExpandedId(expanded ? '' : entry.id)}
++                    className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-[var(--bg-hover)]/40"
++                  >
++                    <span className="mt-0.5 shrink-0">
++                      {isErr ? (
++                        <AlertCircle size={14} className="text-red-400" />
++                      ) : isWarn ? (
++                        <AlertTriangle size={14} className="text-amber-400" />
++                      ) : (
++                        <Info size={14} className="text-sky-400" />
++                      )}
++                    </span>
++                    <div className="min-w-0 flex-1 space-y-0.5">
++                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
++                        <span className="tabular-nums">{formatTime(entry.ts)}</span>
++                        <span className="rounded bg-[var(--bg-panel)] px-1.5 py-0.5 font-mono text-[10.5px] text-[var(--text)]">
++                          {entry.layer}
++                        </span>
++                        {entry.code ? (
++                          <span className="font-mono font-semibold text-[var(--text)]">{entry.code}</span>
++                        ) : null}
++                        {entry.channel ? (
++                          <span className="font-mono text-[var(--text-muted)]">{entry.channel}</span>
++                        ) : null}
++                        {entry.httpStatus ? (
++                          <span className="rounded bg-red-500/20 px-1 font-mono text-[10.5px] text-red-300">
++                            HTTP {entry.httpStatus}
++                          </span>
++                        ) : null}
++                        {entry.traceId ? (
++                          <span className="ml-auto font-mono text-[10.5px] text-[var(--text-faint)]">
++                            {entry.traceId}
++                          </span>
++                        ) : null}
++                      </div>
++                      <div className="break-words text-[var(--text)]">
++                        {entry.summary || entry.code || '诊断事件'}
++                      </div>
++                      {entry.location ? (
++                        <div className="truncate font-mono text-[10.5px] text-[var(--text-muted)]">
++                          定位: {entry.location}
++                        </div>
++                      ) : null}
++                    </div>
++                    <span className="mt-0.5 shrink-0 text-[var(--text-faint)]">
++                      {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
++                    </span>
++                  </button>
++
++                  {expanded ? (
++                    <div className="border-t border-[var(--border)] bg-[var(--bg-panel)] px-3 py-2.5 space-y-2 text-[11px]">
++                      <div className="flex flex-wrap items-center gap-3 text-[var(--text-muted)]">
++                        {entry.traceId ? (
++                          <button
++                            type="button"
++                            onClick={() => { setSearch(entry.traceId || ''); void load(entry.traceId || ''); }}
++                            className="underline underline-offset-2 hover:text-[var(--text)]"
++                          >
++                            按 TraceID 追踪同链路 ({entry.traceId})
++                          </button>
++                        ) : null}
++                        {entry.durationMs != null ? <span>耗时: {entry.durationMs} ms</span> : null}
++                        {entry.projectId ? <span>项目: {entry.projectId}</span> : null}
++                        {entry.sessionDigest ? <span>会话摘要: {entry.sessionDigest}</span> : null}
++                      </div>
++                      {entry.detail ? (
++                        <pre className="max-h-56 overflow-auto rounded-md border border-[var(--border)] bg-[var(--bg-field)] p-2 font-mono text-[11px] leading-relaxed text-[var(--text)] whitespace-pre-wrap break-all">
++                          {JSON.stringify(entry.detail, null, 2)}
++                        </pre>
++                      ) : null}
++                    </div>
++                  ) : null}
++                </div>
++              );
++            })
++          )}
++
++          {manualText ? (
++            <div className="space-y-1 pt-2">
++              <div className="text-[11px] text-[var(--text-muted)]">手动复制框：</div>
++              <textarea
++                readOnly
++                rows={8}
++                value={manualText}
++                onFocus={(e) => e.currentTarget.select()}
++                className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] p-2 font-mono text-[11px] text-[var(--text)]"
++              />
++            </div>
++          ) : null}
++        </div>
++
++        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-2.5">
++          <div className="flex flex-wrap items-center gap-1.5">
++            <button
++              type="button"
++              onClick={() => void handleCopyForDev()}
++              className="flex items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-2.5 py-1.5 text-[12px] font-medium text-[var(--text)] hover:bg-[var(--bg-hover)]"
++            >
++              <Copy size={13} />
++              <span>复制给开发者</span>
++            </button>
++            <button
++              type="button"
++              onClick={() => void handleAskAgent('chat')}
++              className="flex items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-2.5 py-1.5 text-[12px] font-medium text-[var(--text)] hover:bg-[var(--bg-hover)]"
++            >
++              <Sparkles size={13} />
++              <span>填入当前对话问 Agent</span>
++            </button>
++            <button
++              type="button"
++              onClick={() => void handleAskAgent('copy')}
++              className="flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-[12px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++            >
++              <Bot size={13} />
++              <span>复制 Agent 提示词</span>
++            </button>
++            <button
++              type="button"
++              onClick={() => void handleExport()}
++              className="flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-[12px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++            >
++              <Download size={13} />
++              <span>导出诊断包</span>
++            </button>
++          </div>
++          <div className="flex items-center gap-1.5">
++            <button
++              type="button"
++              onClick={() => void handleClear('expired')}
++              className="rounded-md px-2 py-1.5 text-[11.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++            >
++              清理过期
++            </button>
++            <button
++              type="button"
++              onClick={() => void handleClear('all')}
++              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-[11.5px] text-red-400 hover:bg-red-950/35"
++            >
++              <Trash2 size={12} />
++              <span>清空</span>
++            </button>
++          </div>
++        </footer>
++      </aside>
++    </div>,
++    document.body,
++  );
++}
++
++/** Global single-instance host mounted at shell root so any page or red banner can open the drawer. */
++export function DiagnosticLogsHost() {
++  const [open, setOpen] = React.useState(false);
++  const [traceId, setTraceId] = React.useState('');
++
++  React.useEffect(() => {
++    const onOpen = (event: Event) => {
++      const next = (event as CustomEvent<{ traceId?: string }>).detail?.traceId || '';
++      setTraceId(next);
++      setOpen(true);
++    };
++    window.addEventListener('no996:open-diagnostics', onOpen);
++    return () => window.removeEventListener('no996:open-diagnostics', onOpen);
++  }, []);
++
++  return <DiagnosticLogsDrawer open={open} initialTraceId={traceId} onClose={() => setOpen(false)} />;
++}
+diff --git a/packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx b/packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx
+index d5ffef6..2e80ee1 100644
+--- a/packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx
++++ b/packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx
+@@ -38,9 +38,11 @@ export function TitleSwitch<T extends string>({ items, value, onChange }: { item
+   );
+ }
+ 
+-export function ExamplesGallery({ heading, initial, onClose, onStart, onReference, onUseCanvas, onExplain }: {
++export function ExamplesGallery({ heading, initial, onClose, onStart, onReference, onUseCanvas, onExplain, supplement }: {
+   /** the title row's left (the projects window's switch) */
+   heading: React.ReactNode;
++  /** Optional host-owned templates in this same gallery, not a second picker. */
++  supplement?: React.ReactNode;
+   /** open on this example's page (its id: a pill of one clicked in the chat) */
+   initial?: string;
+   onClose?: () => void;
+@@ -143,7 +145,7 @@ export function ExamplesGallery({ heading, initial, onClose, onStart, onReferenc
+           ) : null}
+         </div>
+       </header>
+-      <div ref={scroller} className="min-h-0 min-w-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">{body}</div>
++      <div ref={scroller} className="min-h-0 min-w-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">{!opened ? supplement : null}{body}</div>
+     </div>
+   );
+ }
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectView.tsx b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
-index ac36b35..f8ba6f1 100644
+index ac36b35..21c2245 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectView.tsx
 +++ b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
 @@ -80,6 +80,7 @@ import { decodes, type PlayCheck } from '@/lib/decodes';
@@ -4733,21 +5458,143 @@ index ac36b35..f8ba6f1 100644
  import { SettingsModal } from './settings/SettingsModal';
  import { useSettings } from './settings/use-settings';
  import { DesktopDialog } from './DesktopDialog';
-@@ -4587,6 +4588,8 @@ export function ProjectView({ projectId, onProject, onLeave }: {
+@@ -4587,14 +4588,16 @@ export function ProjectView({ projectId, onProject, onLeave }: {
                </Tooltip>
                </>)}
                <ExportTray ref={exportTrayRef} projectId={projectId} onError={toast.showError} />
+-              {/* the edit or the canvas, in the panes' place: the one shown, its icon and name, and a click for the other */}
+-              <Tooltip label={[t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas'), keyHint('work-mode')].filter(Boolean).join(' · ')} side="bottom">
 +              {/* Workbench account chip (truncated) left of reload; detail panel opens on the right. */}
 +              <WorkbenchAccountControls onSettings={setSettingsOpen} />
-               {/* the edit or the canvas, in the panes' place: the one shown, its icon and name, and a click for the other */}
-               <Tooltip label={[t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas'), keyHint('work-mode')].filter(Boolean).join(' · ')} side="bottom">
++              {/* NO996-UPSTREAM: hide entry into canvas, but always let an existing canvas return to editing. */}
++              {canvasOpen ? <Tooltip label={[t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas'), keyHint('work-mode')].filter(Boolean).join(' · ')} side="bottom">
                  <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={Boolean(layoutDraft.draft)} onClick={() => setCanvasOpen(!canvasOpen)}
+                   className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-md bg-[var(--bg-hover)] px-2.5 text-[12.5px] font-medium text-[var(--text)] transition hover:bg-[var(--bg-pressed)]">
+                   {canvasOpen ? <Workflow size={14} /> : <Scissors size={14} />}
+                   {t(canvasOpen ? 'canvas.title' : 'canvas.editTitle')}
+                 </button>
+-              </Tooltip>
++              </Tooltip> : null}
+             </div>
+             <div aria-hidden className="shrink-0 self-stretch" style={{ width: 'var(--titlebar-right-x)' }} />
+           </div>
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
+index 8a7c073..5f25085 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
+@@ -239,6 +239,44 @@ export function LauncherSwitch({ view, onView }: { view: LauncherView; onView: (
+ }
+ 
+ 
++type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string };
++
++/** NO996-UPSTREAM: keep product templates inside the upstream examples gallery. */
++function No996Templates({ onCopy, onBlank, busy }: { onCopy: (id: string) => void; onBlank: () => void; busy: boolean }) {
++  const [cards, setCards] = React.useState<No996Template[]>([]);
++  const [failed, setFailed] = React.useState(false);
++  const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
++  React.useEffect(() => {
++    let live = true;
++    void fetch('/__dsh/official-rpc', {
++      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ channel: 'template:list', payload: {} }),
++    }).then(async (response) => {
++      if (!response.ok) throw new Error('template list unavailable');
++      return response.json() as Promise<{ templates?: No996Template[] }>;
++    }).then((data) => {
++      if (live) setCards((Array.isArray(data.templates) ? data.templates : []).filter((card) => card && card.id !== 'custom'));
++    }).catch(() => { if (live) setFailed(true); });
++    return () => { live = false; };
++  }, []);
++  return (
++    <section className="px-6 pb-4" aria-label={zh ? 'No996 模板' : 'No996 templates'}>
++      <div className="mb-3 flex items-center justify-between gap-3">
++        <h2 className="text-sm font-semibold text-[var(--text)]">{zh ? 'No996 模板' : 'No996 templates'}</h2>
++        <button type="button" disabled={busy} onClick={onBlank} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '空白开工' : 'Start blank'}</button>
++      </div>
++      {failed ? <p role="status" className="text-sm text-[var(--text-muted)]">{zh ? '模板暂不可用，仍可浏览示例或新建空白项目。' : 'Templates are unavailable; browse examples or start blank.'}</p> : null}
++      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
++        {cards.map((card) => <article key={card.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
++          <h3 className="text-sm font-semibold text-[var(--text)]">{card.productTitle || card.title}</h3>
++          <p className="flex-1 text-xs leading-relaxed text-[var(--text-muted)]">{card.productBlurb || card.description}</p>
++          <button type="button" disabled={busy} onClick={() => onCopy(card.id)} className="self-start rounded-md px-2 py-1 text-sm text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '复制开工' : 'Copy and start'}</button>
++        </article>)}
++      </div>
++    </section>
++  );
++}
++
+ export function ProjectsPopover({
+   open,
+   currentProjectId,
+@@ -357,6 +395,36 @@ export function ProjectsPopover({
+     }
+   }
+ 
++  async function copyNo996Template(templateId: string) {
++    if (busy) return;
++    setBusy('creating');
++    try {
++      const response = await fetch('/__dsh/official-rpc', {
++        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ channel: 'template:create', payload: { templateId } }),
++      });
++      if (!response.ok) throw new Error(`HTTP ${response.status}`);
++      const result = await response.json() as { projectId?: string; error?: string; warnings?: string[] };
++      if (!result.projectId || !/^[A-Za-z0-9_-]{6,40}$/.test(result.projectId)) throw new Error(result.error || 'Missing project ID');
++      // NO996-UPSTREAM: the copy exists even if recording its template/prefs failed.
++      // Warn before navigating rather than encouraging a second copy.
++      if (result.warnings?.length) {
++        const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
++        window.alert(result.warnings.includes('TEMPLATE_ACTIVATION_FAILED')
++          ? (zh ? '项目已创建，但模板说明未能自动启用。请在对话中读取所选模板说明。' : 'The project was created, but its template guidance was not activated. Read the template guidance in chat.')
++          : (zh ? '项目已创建，但未能保存最近使用的偏好。' : 'The project was created, but recent preferences could not be saved.'));
++      }
++      go(result.projectId, 'creating');
++    } catch {
++      setBusy(null);
++      // A lost response may follow successful registration; never imply it is safe
++      // to create again before checking the project list.
++      lib.flash(document.documentElement.lang.toLowerCase().startsWith('zh')
++        ? '无法确认创建结果，请先到「我的项目」检查，再决定是否重试。'
++        : 'Creation could not be confirmed. Check My Projects before trying again.');
++    }
++  }
++
+   async function duplicateProject(project: LibraryProject) {
+     if (busy) return;
+     setBusy('duplicating');
+@@ -475,6 +543,7 @@ export function ProjectsPopover({
+             <ExamplesGallery
+               key={examples?.example ?? ''}
+               heading={<LauncherSwitch view={view} onView={showView} />}
++              supplement={<No996Templates busy={busy !== null} onBlank={() => { if (!busy) void newProject(null); }} onCopy={(id) => void copyNo996Template(id)} />}
+               {...(examples?.example ? { initial: examples.example } : {})}
+               onClose={onClose}
+               onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
+diff --git a/packages/openfilm/studio/ui/src/components/WhatsNew.tsx b/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
+index e54deab..a26795f 100644
+--- a/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
++++ b/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
+@@ -26,8 +26,11 @@ export function WhatsNew() {
+   /** the version to mark seen when closed (after an update), null when opened on asking */
+   const [marking, setMarking] = React.useState<string | null>(null);
+ 
+-  /* after an update: this version's notes; a new install only remembers its version */
++  /* NO996-UPSTREAM: suppress automatic upstream release notes without writing the
++     person's seenVersion. Settings can still explicitly show the notes. */
++  const showAutomatically = false;
+   React.useEffect(() => {
++    if (!showAutomatically) return undefined;
+     let live = true;
+     void Promise.all([api.version(), api.prefs()]).then(([v, prefs]) => {
+       if (!live) return;
 diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
 new file mode 100644
-index 0000000..75ea81d
+index 0000000..bf8fb12
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
-@@ -0,0 +1,748 @@
+@@ -0,0 +1,784 @@
 +/**
 + * Workbench account chip + User Center drawer (~480px) for 不加班.
 + * Covers:
@@ -4759,6 +5606,7 @@ index 0000000..75ea81d
 +import * as React from 'react';
 +import { createPortal } from 'react-dom';
 +import {
++  Bug,
 +  ChevronLeft,
 +  ChevronRight,
 +  Receipt,
@@ -4949,6 +5797,27 @@ index 0000000..75ea81d
 +  const [pricingData, setPricingData] = React.useState<PricingResponse | null>(null);
 +  const [pricingBusy, setPricingBusy] = React.useState(false);
 +
++  const [diagAlertCount, setDiagAlertCount] = React.useState(() => {
++    const raw = (window as unknown as { __no996DiagBuffer?: Array<{ level?: string }> }).__no996DiagBuffer;
++    return Array.isArray(raw) ? raw.filter((item) => item?.level === 'error' || item?.level === 'warn').length : 0;
++  });
++
++  React.useEffect(() => {
++    const onEntry = (event: Event) => {
++      const entry = (event as CustomEvent<{ level?: string }>).detail;
++      if (entry?.level === 'error' || entry?.level === 'warn') {
++        setDiagAlertCount((n) => n + 1);
++      }
++    };
++    const onCleared = () => setDiagAlertCount(0);
++    window.addEventListener('no996:diag-entry', onEntry);
++    window.addEventListener('no996:diag-cleared', onCleared);
++    return () => {
++      window.removeEventListener('no996:diag-entry', onEntry);
++      window.removeEventListener('no996:diag-cleared', onCleared);
++    };
++  }, []);
++
 +  const name = labelOf(status);
 +  const isFormal = Boolean(status?.loggedIn && !status?.guest && !status?.dev);
 +  const available = wallet?.available_points ?? status?.credits ?? null;
@@ -5114,6 +5983,20 @@ index 0000000..75ea81d
 +          ) : null}
 +        </button>
 +      ) : null}
++      <Tooltip label={diagAlertCount > 0 ? `诊断日志（${diagAlertCount} 条新异常）` : '诊断日志（查看 / 复制 / 导出 / 问 Agent）'} side="bottom">
++        <button
++          type="button"
++          data-no996-diag-trigger=""
++          aria-label="诊断日志"
++          onClick={() => window.dispatchEvent(new CustomEvent('no996:open-diagnostics', { detail: { traceId: '' } }))}
++          className="relative flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++        >
++          <Bug size={14} strokeWidth={1.9} />
++          {diagAlertCount > 0 ? (
++            <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-[var(--bg-panel)]" />
++          ) : null}
++        </button>
++      </Tooltip>
 +      <Tooltip label="刷新界面（重新加载工作台页面）" side="bottom">
 +        <button
 +          type="button"
@@ -5496,6 +6379,55 @@ index 0000000..75ea81d
 +    </div>
 +  );
 +}
+diff --git a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+index e138982..eedc258 100644
+--- a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
++++ b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+@@ -81,7 +81,8 @@ const SHOWN = {
+   stickerOpen: { live: true, still: false } as Record<StickerSection, boolean>,
+ };
+ /* the line a category opens on the first time: a new line of words for the text, the moving stickers */
+-const firstLine = (cat: Category) => SHOWN.group[cat] ?? (cat === 'text' ? NEW_TEXT : cat === 'sticker' ? LIVE : '');
++// NO996-UPSTREAM: start voices on Featured instead of a hidden provider group.
++const firstLine = (cat: Category) => cat === 'voice' ? (SHOWN.group[cat] === FAVORITES ? FAVORITES : FEATURED) : SHOWN.group[cat] ?? (cat === 'text' ? NEW_TEXT : cat === 'sticker' ? LIVE : '');
+ 
+ export interface LibraryActions {
+   /** Enter or "+": a page or a sound at the playhead (a transition on the cut), a look on the clip. */
+@@ -500,10 +501,11 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, mediaRequest, a
+               <>
+                 <SideBox on={group === FAVORITES && !q} onClick={() => pickGroup(FAVORITES)}>{t('assetDrawer.favorites')}</SideBox>
+                 {cat === 'voice' ? <SideBox on={group === FEATURED && !q} onClick={() => pickGroup(FEATURED)}>{t('assetDrawer.featured')}</SideBox> : null}
+-                <SideBox on={group !== FAVORITES && group !== FEATURED && folded && !q} holds={group !== FAVORITES && group !== FEATURED && !folded && !q} open={!folded} onClick={fold}>
++                {/* NO996-UPSTREAM: hide the voice services list; voice provider data stays intact. */}
++                {cat !== 'voice' ? <SideBox on={group !== FAVORITES && group !== FEATURED && folded && !q} holds={group !== FAVORITES && group !== FEATURED && !folded && !q} open={!folded} onClick={fold}>
+                   {t(cat === 'voice' ? 'assetDrawer.services' : 'assetDrawer.library')}
+-                </SideBox>
+-                {folded ? null : (
++                </SideBox> : null}
++                {folded || cat === 'voice' ? null : (
+                   <div className="flex flex-col pb-1">
+                     <SideLine on={!group && !q} onClick={() => pickGroup('')}>{t('assetDrawer.all')}</SideLine>
+                     {own.map((g) => <SideLine key={g.id} on={group === g.id && !q} onClick={() => pickGroup(g.id)}>{g.id === 'community' ? t('assetDrawer.source_community') : g.name}</SideLine>)}
+diff --git a/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx b/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx
+index 666b798..53ba676 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx
+@@ -124,6 +124,15 @@ export function DiagnosticsGroup() {
+ 
+   return (
+     <SettingsGroup title={t('settings.report.group')}>
++      <SettingsItem
++        title="错误与诊断日志中心"
++        description="查看前端/RPC/Agent/Studio 全链路定位日志、调整自动保留天数、导出诊断包或直接问 Agent。"
++        control={(
++          <SettingsButton onClick={() => window.dispatchEvent(new CustomEvent('no996:open-diagnostics', { detail: { traceId: '' } }))}>
++            打开日志中心
++          </SettingsButton>
++        )}
++      />
+       <SettingsItem
+         title={t('settings.report.title')}
+         description={copying.state === 'failed' ? t('settings.report.failed') : copying.shown ? t('settings.report.select') : t('settings.report.hint')}
 diff --git a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
 index 4c99bb2..37d3cda 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
@@ -5515,6 +6447,49 @@ index 4c99bb2..37d3cda 100644
    /* Local services opens its own card (LocalModelsDialog), not a service's */
    const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
    const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;
+diff --git a/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
+index 167c032..b8f1883 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
+@@ -47,12 +47,15 @@ const chipClass = 'inline-flex h-9 items-center gap-2 rounded-full border px-3.5
+  */
+ export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOpen: (id: string) => void; local?: React.ReactNode }) {
+   const t = useT();
+-  const rows = hook.state?.providers ?? [];
++  // NO996-UPSTREAM: hide third-party provider chips, not their credentials or APIs.
++  // Remove this filter and restore the expansion control to show the upstream list.
++  const rows = (hook.state?.providers ?? []).filter((p) => /^(openfilm|no996|local)$/i.test(p.id));
+   /* OpenFilm's own first, then the others */
+   const own = rows.find((p) => p.id === 'openfilm');
+   /* Local services has its own chip (`local`) */
+   const order = providerOrder(rows.filter((p) => p !== own && p.id !== 'local'));
+-  const [all, setAll] = React.useState(false);
++  // NO996-UPSTREAM: the expandable third-party provider list is hidden, not disabled.
++  const all = false;
+   const chip = (p: OwnProvider) => (
+     <button key={p.id} type="button" onClick={() => onOpen(p.id)}
+       className={`${chipClass} ${p.source ? 'border-[var(--border-strong)] text-[var(--text)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
+@@ -68,18 +71,14 @@ export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOp
+         {own ? chip(own) : null}
+         {order.connected.map(chip)}
+         {order.recommended.map(chip)}
+-        {all ? order.more.map(chip) : null}
++        {order.more.map(chip)}
+         {local}
+         {all ? (
+           <button type="button" onClick={() => onOpen('add')} className={`${chipClass} border-dashed border-[var(--border)] text-[var(--text-muted)]`}>
+             <Plus size={15} aria-hidden />{t('settings.providers.addProvider')}
+           </button>
+         ) : null}
+-        <button type="button" aria-expanded={all} onClick={() => setAll(!all)}
+-          className="inline-flex h-9 items-center gap-1 rounded-full px-3 text-[14px] text-[var(--text-faint)] transition hover:text-[var(--text)]">
+-          {all ? t('settings.providers.fewer') : t('settings.providers.moreCount').replaceAll('{n}', String(order.more.length))}
+-          <ChevronRight size={14} className={`transition-transform ${all ? 'rotate-180' : ''}`} aria-hidden />
+-        </button>
++        {/* NO996-UPSTREAM: the upstream expansion button can be restored with the filter above. */}
+       </div>
+       {/* a key that was refused says why in its card; a custom service's under its form */}
+       {hook.problem && !rows.some((p) => p.id === hook.problemFor) && !customProblem(hook) ? <p className={settingsError}>{hook.problem}</p> : null}
 diff --git a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
 index c888b35..e27d26e 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx

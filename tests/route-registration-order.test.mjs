@@ -28,7 +28,7 @@ test('the router module is the single direct caller', () => {
 test('the router is created before the first route registration', () => {
   const source = read('src/studio/studio-controller.mjs');
   const declaration = source.indexOf('const router = createRouter(');
-  const firstUse = source.indexOf('trackRoute(registerRoute(');
+  const firstUse = source.indexOf('trackRoute(');
   assert.ok(declaration > 0, 'the controller creates a router');
   assert.ok(firstUse > 0, 'a route uses the router');
   assert.ok(declaration < firstUse, 'a const bound after first use would crash activation');

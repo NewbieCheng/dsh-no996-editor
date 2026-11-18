@@ -25,7 +25,7 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
 │  │    · prompt / follow(assistantStream: true) / cancel       │
 │  │    · selectModel / modelCatalog / projections              │
 │  ├─ preset-openfilm-video-editing（cordis.patch.yml）：       │
-│  │    · persona（剪辑导演）+ openfilm-prompt + openfilm-skills │
+│  │    · persona（剪辑与动效搭档）+ openfilm-prompt + openfilm-skills │
 │  │    · agent-instructions（projectRootMarkers: .film/film.html）
 │  │    · skill-filesystem（includeDefaultRoots: false）         │
 │  └─ openfilm_* 工具：进程内直调（isProjectAgent 按 sessionId 鉴权）
@@ -41,7 +41,7 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
 
 ### 2.2 预设联动、指令链与模板提示词注入
 1. **预设与 Skill 隔离**（[cordis.patch.yml](../cordis.patch.yml)）：
-   - `preset-openfilm-video-editing` 内置 `@deepseek-ai/dsh-persona`（剪辑导演人设）、`@newbiecheng/dsh-openfilm/openfilm-prompt`、`@newbiecheng/dsh-openfilm/openfilm-skills`（仅注册 `skills/` 下的 `openfilm-director`、`openfilm-editing`、`openfilm-motion`），并设 `skill-filesystem.includeDefaultRoots: false`，彻底隔离全局无关 Skill。
+   - `preset-openfilm-video-editing` 内置 `@deepseek-ai/dsh-persona`（剪辑与动效搭档人设）、`@newbiecheng/dsh-openfilm/openfilm-prompt`、`@newbiecheng/dsh-openfilm/openfilm-skills`（仅注册 `skills/` 下的 `openfilm-director`、`openfilm-editing`、`openfilm-motion`），并设 `skill-filesystem.includeDefaultRoots: false`，彻底隔离全局无关 Skill。
    - `agent-instructions` 配置 `projectRootMarkers: ['.git', '.film', 'film.html']`，保证影片文件夹自身就是指令根，仓库/单仓上层的 `AGENTS.md` 不进入影片对话。
 2. **模板专属提示词注入**（[template-prompts.mjs](../src/film/template-prompts.mjs)）：
    - 每个视频模板可在 `vendor/templates/<id>/prompt.md`（≤ 2 KB）定义自己的“设定、节奏、镜头与屏上字规矩”。
@@ -49,8 +49,8 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
      ```text
      openfilm_library(kind=template, take=<id>) / 创建模板项目
        → <项目>/.film/templates.json   { "active": ["sketchnote", …] }
-       → <项目>/AGENTS.md 的生成块      <!-- no996-openfilm:templates:begin --> … <!-- …:end -->
-       → 原生 DSH 会话自动读取影片目录下的 AGENTS.md（当轮靠工具回执，后续各轮靠文件）
+       → 仅当文件可确认为插件所有时更新 <项目>/AGENTS.md 的生成块
+       → 当轮从工具回执读取；后续会话读取成功同步的指令文件
      ```
    - 支持多模板叠加（按 `active` 顺序渲染，整块上限 8 KB）；不写死在全局 `persona` 中，只作用于选了该模板的当前项目。
 

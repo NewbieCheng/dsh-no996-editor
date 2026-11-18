@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.15.33
+checked: 0.15.34
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.15.33**（`package.json`，包名 `@newbiecheng/dsh-openfilm`，小写 scope——DSH 版本检测只认小写包名）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.15.34**（`package.json`，包名 `@newbiecheng/dsh-openfilm`，小写 scope——DSH 版本检测只认小写包名）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 
 ## 能用
 
@@ -23,14 +23,24 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 | 项 | 怎么算验过 |
 |---|---|
 | 会话隔离 | 同项目开两个对话各说一句，互问"刚才说了什么"：都只知道自己那条 |
-| 剪辑导演身份与注入链 | 问"你是谁/这是哪个仓库"：答剪辑导演，不出现版本号、MIT、四层界面 |
+| 剪辑与动效身份与注入链 | 问"你是谁/这是哪个仓库"：答 No996 Studio 的剪辑与动效搭档，不出现版本号、MIT、四层界面 |
+| 原生项目 / 示例入口 | 没有项目时看到「我的项目 / 示例」窗口（不是片型卡片）；No996 模板在示例页内；「复制开工」建项目并打开；在片中点「从示例开始 → 参考」，消息里带示例引用而不是新建项目 |
 | 分镜到时间轴 | 丢一段口播视频：先转写 → 出分镜 → `op=plan` 说清还缺哪个片段 |
+| 免费转场整链 | 在一个真实临时项目里：搜「渐变/故障」→ 取用 → 放到相邻切点 → 抽帧看到覆盖 → 导出 MP4；锁轨/版本冲突应被拒绝并说明 |
+| 表面收敛与更新提示 | 设置→服务商只留 OpenFilm/No996/本地；语音抽屉默认精选；顶栏无社区入口；升级后不自动弹更新说明，About 仍可查 |
 | 拖放附件可发送 | 从资源管理器拖一段 mp4 进对话：附件 pill 为 ready（无 `describePaths` 失败）、可发送；松手后「松手即可附上」遮罩消失 |
 | 技能隔离（preset 直引） | 同项目新开对话问“你有哪些 skill”：只见到 `openfilm-director/editing/motion` 3 个，无 Office/imagegen 等全局 skill；`/diagnose` 应显示影片预设的技能根及注入情况 |
 | 环境查看页 | 打开插件详情页：看到「剪辑环境」区（预设状态、3 个隔离技能、11 个影片工具）；填项目 ID 能查到该片的指令链与预算 |
 
 ## 下一步
 
+- 工作台整合见 [方案](topics/openfilm-workbench-consolidation-plan.md)：源码快照与 46 个上游补丁已重建并在干净的固定版本检出验证可应用；原快照备份在忽略目录。免费页面转场整链已跑通（`node scripts/transition-frame-check.mjs`）：官方库搜索「glitch」→ 取进临时项目 → 带版本守卫放到 3 秒切点（2.88–2.94 秒覆盖切点，2.80 秒仍是上一镜，3.20 秒已是下一镜）→ 真实导出 6.0 秒 MP4（h264_nvenc，52 KB）；素材未授权、锁轨、版本冲突、空回执和丢失回执都有拒绝路径与测试。示例引用的上游草稿编码到 Host prompt 已用固定版上游源码和 mock 桥测试；模板扩展目录的发现及复制、创建后附加记录失败的回执已测。
+- 隔离壳窗口检查（`node scripts/workbench-window-check.mjs`）：无项目时直接进入原生「我的项目 / 示例」窗口，No996 模板在示例页内、没有独立片型门；「复制开工」真实建项目并在编辑器打开（时间轴 shot-01/6s、shot-02/7s）；在片中点「从示例开始」→「参考」后，发送的消息里出现 `<studio_references>` 和示例名，而不是新建项目；1120×760 窄窗无横向溢出。**仍未在当前 GUI 验收**：这些是在 `.dev` 隔离 Studio + mock Host 下用无头 Chrome 完成的。
+- 两支基准片（`node scripts/benchmark-films.mjs`，证据在 `.dev/benchmarks/<时间戳>/`）：口播片 34.6 秒、1920×1080、带本机中文配音（Huihui，离线合成）；动效片 18 秒、1920×1080、带合成音垫；两条都由固定版 Studio 导出真实 MP4（h264_nvenc），ffprobe 复核时长/分辨率/音轨，口播非静音（-27.8 dB），动效片帧差由 11.77 降到 0.04（开场动效成立）。**这是无头/服务端证据**，不等于当前桌面 GUI 里手点一遍。
+- 隐藏迁移：运行时表面隐藏脚本、CSS 规则、公告偏好写入和「更多技能 / 从示例开始」点击屏蔽都已删除；隐藏项改由 `NO996-UPSTREAM` 上游补丁承担。**待真机**：原 GUI 刷新后入口、语音抽屉、设置→服务商、顶栏菜单与更新提示的实际表现。
+- 本机调试安装（用户已授权，非发版）：已撤掉 `shell-ui` 扫 header SVG 的品牌注入；同版本 `file:` tgz 需 **先 remove 再 add** 才会解压新包（仅 add 会沿用旧内容）。当前已强制重装工作区包；备份 `package.json.bak-20261118-185223`。回滚：`dsh plugin --profile desktop add @newbiecheng/dsh-openfilm@0.15.33`。**整应用重启后**搜索框应恢复为普通搜索图标，不再出现「今天不加班」标。
+- 本地安装踩坑并已修：首版包只拷了 `openfilm` 目录，pnpm 对 `file:` 安装会按 `package.json` 重装依赖并清掉未声明的嵌套 `node_modules`，`playwright-core` 随之丢失，Studio 起不来（日志 `studio-warm-failed STUDIO_START`，面板 503）。修法：`playwright-core@1.61.1` 声明为本包依赖、`scripts/pack-tgz.mjs` 把每个 bundled 包的依赖树嵌进自己的 `node_modules`、新增 `tests/native-dependency-declarations.test.mjs` 守住“OpenFilm 的运行时依赖必须在本包声明”。修后在 profile 里用 `scripts/installed-studio-probe.mjs` 按 Host 的方式加载 Studio 并拿到健康响应（端口 50730），证明 503 根因已除；仍需重启应用才能让运行中的进程换上修好的包。
+- 尚未发版：改版本号、提交、推送、`npm publish`、tag/CI 都等用户当轮明确要求；见 [发布手册](playbooks/publish.md) 的授权边界。
 - XXX 表面收敛 + 不加班配音：0.15.25 修了 `env` 空串导致 provider 被官方 silently drop。见 已归档。**待真机**：重载后 `openfilm get list` 应见不加班已连接；配音抽屉精选有复刻+平台；Speak / `openfilm_get` tts → `assets/audio/vo`。
 - 本机依赖兜底提示词：FFmpeg / 转写下载失败可「复制兜底提示词」→ 贴 DSH 主会话开完全访问；Host 按 Win/macOS+arch 填 artifact 与路径。入口：EnvironmentNotice、空态 ASR、首次向导。**待真机**：故意断网装失败 → 复制词含正确平台文件名 → 主会话装好后「重新检查」通过。
 - 下载停滞切换源：FFmpeg/ffprobe 与 SenseVoice 下载无总时长上限；连接约 20s 无响应、或已开始传却 **30s 无新字节** 则中止当前源并试下一个（`src/host/download-stall.mjs`）。**待真机**：故意卡死某一源，应在约 30s 后切源并继续/报齐失败。
@@ -41,7 +51,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - 清配色后 20s 无 boot：品牌 logo `MutationObserver` 死循环（非 Settings About）。观察器已修；Settings About A1 已重新接回（`SettingsModal` + i18n，撤 `tuneAbout`）。**待真机**：重载后能进工作台；设置侧栏「兼容 OpenFilm」、关于「基于 OpenFilm 开发」、语言说明「不加班剪辑…」。
 - 作曲栏底部上下文用量与思考强度即时同步：原生壳（`ContextUsage.tsx` + bake）在 `used === 0` 时不再渲染进度圆弧（消除 12 点方向 2px 误导黑点），`0 < share < 1%` 显示 `<1%` 与最小可见弧段；Host `syncUsage` 在 `contextPressure` 为 0/缺失时回退 `contextBreakdown`；`attach` 时补齐缺失选项并把会话已存 `agentPrefs`（含思考强度）即时同步到 Host，空白会话 `selectThinking` 通过 `store.setSelection` 持久化且 `official-facade.mjs` 优先使用稳定 `meta.sessionId`。**待真机**：打开历史对话即见真实用量或干净空环；未发消息前切换思考强度后刷新/切走再切回，菜单与实际请求仍保持新档位。
 - 分镜 → 时间轴自动落地：需要 OpenFilm 的片段创建接口；在那之前 `plan` 只报 `missing`。
-- 五个内置模板补 `prompt.md`；分镜可视化（Studio 只有 dist，先看能否样式注入）。
+- 检查模板提示词在新建与只读场景中的实际注入；分镜可视化另行设计。
 - 不加班工作台统一 API Key（`is_default` 不可删除可轮换）+ `no996/auto` 智能路由（支持图片理解）+ DSH Web Search/Fetch + Studio 生图/配音/搜网/预留视频桥接 + 右侧工作台首页抽屉（扣费明细/可调模型费率表/默认密钥卡片）。**待真机**：登录后首句对话自动选用 `no996/auto` 并签发默认 Key；发送图片可正常识图与扣费；右侧抽屉实时展示积分明细与模型费率。
 
 ## 明确不做

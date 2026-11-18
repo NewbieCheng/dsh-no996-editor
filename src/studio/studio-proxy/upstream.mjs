@@ -57,8 +57,8 @@ export function friendlyCommandFailure(text, pathname) {
   return { status: 409, body };
 }
 
-export const SAFE_HEADERS = new Set(['accept', 'accept-language', 'content-type', 'content-length', 'range', 'if-range', 'if-none-match', 'if-modified-since']);
-export const RESPONSE_HEADERS = new Set(['content-type', 'content-range', 'accept-ranges', 'last-modified', 'etag', 'cache-control', 'content-disposition']);
+export const SAFE_HEADERS = new Set(['accept', 'accept-language', 'content-type', 'content-length', 'range', 'if-range', 'if-none-match', 'if-modified-since', 'x-no996-trace-id']);
+export const RESPONSE_HEADERS = new Set(['content-type', 'content-range', 'accept-ranges', 'last-modified', 'etag', 'cache-control', 'content-disposition', 'x-no996-trace-id']);
 
 export function upstreamOrigin(value, hostname) {
   const url = new URL(value);

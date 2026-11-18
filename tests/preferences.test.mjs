@@ -21,6 +21,7 @@ test('preferences default, persist, and sanitize', async () => {
     cachedExpertPointsBalance: null,
     cachedPeriodExpiresAt: '',
     cachedBalanceAt: '',
+    logRetentionDays: 14,
   });
   const saved = await store.set({
     onboardingCompleted: true,

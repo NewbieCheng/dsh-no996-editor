@@ -1,0 +1,29 @@
+diff --git a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+index e138982..eedc258 100644
+--- a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
++++ b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+@@ -81,7 +81,8 @@ const SHOWN = {
+   stickerOpen: { live: true, still: false } as Record<StickerSection, boolean>,
+ };
+ /* the line a category opens on the first time: a new line of words for the text, the moving stickers */
+-const firstLine = (cat: Category) => SHOWN.group[cat] ?? (cat === 'text' ? NEW_TEXT : cat === 'sticker' ? LIVE : '');
++// NO996-UPSTREAM: start voices on Featured instead of a hidden provider group.
++const firstLine = (cat: Category) => cat === 'voice' ? (SHOWN.group[cat] === FAVORITES ? FAVORITES : FEATURED) : SHOWN.group[cat] ?? (cat === 'text' ? NEW_TEXT : cat === 'sticker' ? LIVE : '');
+ 
+ export interface LibraryActions {
+   /** Enter or "+": a page or a sound at the playhead (a transition on the cut), a look on the clip. */
+@@ -500,10 +501,11 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, mediaRequest, a
+               <>
+                 <SideBox on={group === FAVORITES && !q} onClick={() => pickGroup(FAVORITES)}>{t('assetDrawer.favorites')}</SideBox>
+                 {cat === 'voice' ? <SideBox on={group === FEATURED && !q} onClick={() => pickGroup(FEATURED)}>{t('assetDrawer.featured')}</SideBox> : null}
+-                <SideBox on={group !== FAVORITES && group !== FEATURED && folded && !q} holds={group !== FAVORITES && group !== FEATURED && !folded && !q} open={!folded} onClick={fold}>
++                {/* NO996-UPSTREAM: hide the voice services list; voice provider data stays intact. */}
++                {cat !== 'voice' ? <SideBox on={group !== FAVORITES && group !== FEATURED && folded && !q} holds={group !== FAVORITES && group !== FEATURED && !folded && !q} open={!folded} onClick={fold}>
+                   {t(cat === 'voice' ? 'assetDrawer.services' : 'assetDrawer.library')}
+-                </SideBox>
+-                {folded ? null : (
++                </SideBox> : null}
++                {folded || cat === 'voice' ? null : (
+                   <div className="flex flex-col pb-1">
+                     <SideLine on={!group && !q} onClick={() => pickGroup('')}>{t('assetDrawer.all')}</SideLine>
+                     {own.map((g) => <SideLine key={g.id} on={group === g.id && !q} onClick={() => pickGroup(g.id)}>{g.id === 'community' ? t('assetDrawer.source_community') : g.name}</SideLine>)}

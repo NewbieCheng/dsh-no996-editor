@@ -48,11 +48,14 @@ test('the template picker left the injection; the upstream card is still stopped
   assert.match(body, /视频复刻暂不可用/);
   assert.match(body, /data-no996-disabled/);
   assert.match(body, /stopImmediatePropagation/);
-  assert.match(body, /'更多技能','从示例开始'/);
   assert.doesNotMatch(body, /function tuneAbout\(\)/);
   assert.doesNotMatch(body, /基于 OpenFilm 开发/);
   assert.doesNotMatch(body, /兼容 OpenFilm /);
-  assert.match(body, /function disableExtras\(\)/);
+  // The project/example entry and the skill library are real flows now: the
+  // injection must not disable those links, or "参考" could never be reached.
+  assert.doesNotMatch(body, /'更多技能','从示例开始'/);
+  assert.doesNotMatch(body, /function disableExtras\(\)/);
+  assert.doesNotMatch(body, /data-no996-off/);
 });
 
 test('a dead Studio is answered by the shell source, not by an injected overlay', () => {

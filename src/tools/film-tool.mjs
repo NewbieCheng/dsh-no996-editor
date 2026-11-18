@@ -109,6 +109,7 @@ export function createFilmTool({ isProjectAgent, projectOf, http }) {
       return {
         text: `影片结构（Studio 解析 film.html 的结果）${result?.filmMissing === true ? '——注意：film.html 现在不存在，Studio 按空片读' : ''}：\n${JSON.stringify({
           ...summary,
+          ...(text(result?.rev) ? { revision: text(result.rev) } : {}),
           ...(text(result?.folder) ? { folder: text(result.folder) } : {}),
           ...(result?.outer ? { outerProject: true } : {}),
         }, null, 1).slice(0, 6000)}`,

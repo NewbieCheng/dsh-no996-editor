@@ -13,39 +13,4 @@
   outline-offset: 2px;
 }
 
-[data-no996-studio-brand] {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  vertical-align: middle;
-}
-
-/* ——— XXX surface: hide provider chrome (reversible; see docs/XXX-no996-surface-and-voice.md) ——— */
-
-/* Top bar: canvas ↔ edit toggle (keep edit mode only for now). */
-button[data-work-mode] {
-  display: none !important;
-}
-
-/*
- * Settings → Services chip bar: keep OpenFilm + 不加班 (+ Local if shown via its own slot).
- * Chips are anonymous buttons. Keep OpenFilm / 不加班 / 本地服务 visible via the
- * surface-hide script KEEP list; hide "N more" and third-party vendor chips.
- * Local services (ASR / cutout) must stay reachable.
- */
-[data-settings-card='providers'] button[aria-expanded],
-.fixed.inset-0.z-\[10050\] button[aria-expanded] {
-  display: none !important;
-}
-
-/*
- * Asset drawer · Voices: hide the「服务商」fold and its ElevenLabs / Inworld / Cartesia lines.
- * Structure: nav[data-studio-host-panel] → SideBox「服务商」then a sibling div of SideLines.
- * Without data attrs on those boxes we hide every SideBox after the Featured one by
- * targeting the fold that expands services: open=false/true boxes that are not the first two.
- * Safer: hide the entire services fold block via the open chevron group — use a host marker.
- */
-nav[data-studio-host-panel] [data-no996-hide-services],
-nav[data-studio-host-panel] .n996-hide-voice-services {
-  display: none !important;
-}
+/* Product visibility decisions are maintained as annotated OpenFilm source patches. */

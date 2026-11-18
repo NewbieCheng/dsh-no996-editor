@@ -113,18 +113,21 @@ test('export readiness reports only what upstream actually said', async () => {
 
 test('a library search and a take are different upstream calls', async () => {
   const { calls, http } = fakeHttp({
-    'POST /api/get/library': { code: 0, lines: ['transition: soft-fade — 柔和淡入 (id: t-9)'] },
-    'POST /api/get': { ok: true, text: 'assets/library/soft-fade.html → assets/' },
+    'POST /api/get/library': { code: 0, lines: ['openfilm/transitions/glitch'] },
+    'POST /api/projects/film123/saved/take': { clip: { src: 'saved/openfilm/transitions-glitch/index.html' } },
   });
   const tool = createLibraryTool({ ...link, http });
   const found = await run(tool, { query: '柔和淡入', kind: 'transition' });
-  assert.deepEqual(calls[0].options.body, { verb: 'transition', args: { prompt: '柔和淡入', limit: 8 } });
-  assert.match(found.text, /t-9/);
+  assert.deepEqual(calls[0].options.body, { verb: 'transition', args: { prompt: '柔和淡入', limit: '8' } });
+  assert.match(found.text, /openfilm\/transitions\/glitch/);
 
-  const taken = await run(tool, { take: 't-9', kind: 'sfx' });
-  assert.equal(calls[1].path, '/api/get');
-  assert.deepEqual(calls[1].options.body, { folder: bound.path, verb: 'sound', args: { take: 't-9' } });
-  assert.match(taken.text, /取入项目/);
+  const taken = await run(tool, { take: 'openfilm/transitions/glitch', kind: 'transition' });
+  assert.equal(calls[1].path, '/api/projects/film123/saved/take');
+  assert.deepEqual(calls[1].options.body, { path: 'openfilm/transitions/glitch' });
+  assert.match(taken.text, /尚未放入时间轴/);
+  await run(tool, { query: 'whoosh', kind: 'sfx', seconds: 2 });
+  assert.deepEqual(calls[2].options.body, { verb: 'sfx-search', args: { prompt: 'whoosh', limit: '8', sec: '2' } });
+  await assert.rejects(run(tool, { take: 'openfilm/../private', kind: 'transition' }), /素材 ID/);
 });
 
 test('generation reports what is connected, and a refusal stays a readable answer', async () => {

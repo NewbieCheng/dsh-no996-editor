@@ -28,6 +28,8 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 | 上下文圆环 0% 或 12 点小黑点 | `native-attach` 的 `usage`、`projections().contextPressure / contextBreakdown`、`ContextUsage.tsx` 是否已重编 | [架构](../ARCHITECTURE.md)；0% 不应渲染 `round` 进度弧 |
 | 思考强度需发消息才同步 | `native-select-thinking` 日志、`attach` 是否同步 `agentPrefs`、空白会话 `store.setSelection` | [架构](../ARCHITECTURE.md)；核对 `official-facade.mjs` 的 `conversationId` |
 | Windows 拖放被禁止 | DSH 与资源管理器是否以不同完整性级别运行、事件是否到达目标页面 | [历史拖放案例](incident-history.md)；不要仅凭管理员状态断言根因 |
+| 打开项目时 Host 进程直接退出（无 JS 报错） | 项目路径是否含 8.3 短名（如 `ADMINI~1`）；崩溃是否在 `fs-event.c` | 上游 Studio 用 `fs.watch(..., { recursive: true })` 监听项目文件夹，libuv 在短名/长名混用时断言失败。把测试项目放在普通路径（如仓库 `.dev/`）即可复现/规避；真实项目默认在 `~/Videos/OpenFilm/Projects`，不受影响。 |
+| 本地 `file:` 安装后工作台 503、日志 `STUDIO_START` | 先跑 `node scripts/installed-studio-probe.mjs`（按 Host 的方式从 profile 加载 Studio） | pnpm 对 `file:` 包装会按 `package.json` 重装依赖并清掉未声明的 `node_modules`；`openfilm` 所需的 `playwright-core` 必须在本包 `dependencies` 里声明。`scripts/pack-tgz.mjs` 同时把每个 bundled 包的依赖树嵌进它自己的 `node_modules`。修完重装并重启。 |
 | 改动未生效 | 实际安装来源、是否构建、插件是否重载、原 GUI 是否刷新 | [生效矩阵](../DEVELOPMENT.md) |
 
 新增故障记录写明：现象、可复核证据、根因、改法和未验证边界；设计取舍写入 ADR，进度写入 [STATE](../STATE.md)。

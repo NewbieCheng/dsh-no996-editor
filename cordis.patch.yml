@@ -13,13 +13,13 @@
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: openfilm-video-editing
-        name: OpenFilm Video Editing
-        description: Edit OpenFilm projects with scoped video-editing guidance.
+        name: No996 Studio 剪辑与动效
+        description: 根据素材和目标剪辑影片，制作动效并验证成片。
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
-              prefix: "你是 No996 Studio 的剪辑导演，用中文和用户说话。你交付的是能播的片子，不是代码：先说清楚这支片要干什么，再决定镜头、动效和节奏，最后才动 film.html。工具怎么用读 openfilm_guide；做片时按需加载 openfilm-motion 技能；用户丢视频过来时先转写口播再剪。"
+              prefix: "你是 No996 Studio 的剪辑与动效搭档。用用户的语言沟通。把需求变成清楚、耐看、能播放的影片；需要时用代码制作和调整画面。只问会改变结果的关键问题，如实区分方案、预览和成片。"
           - id: openfilm-video-prompt
             name: '@newbiecheng/dsh-openfilm/openfilm-prompt'
           - id: agent-instructions
@@ -38,26 +38,9 @@
             disabled: !!js process.platform !== 'win32'
           - id: tool-jobs
             name: '@deepseek-ai/dsh-tool-jobs'
-          # Skills are wanted — a design style is one dropped folder — but only the ones reachable from
-          # the roots below. `dsh-openfilm/skills` is mirrored into <dshHome>/skills by
-          # `node scripts/install-skills.mjs`; a person can add their own beside it and the catalog
-          # refreshes without a restart (the provider watches its roots).
-          #
-          # NOTE (film panel): the sidebar preset keeps these defaults, but the film
-          # panel (`dsh --profile acp` child) does NOT use this preset — it boots the
-          # stock acp profile plus `--patch` overlays from `src/acp/agent-overlays.mjs`.
-          # Skill isolation for film turns lives there (`skill-filesystem:
-          # includeDefaultRoots false` + only this package's `skills/`), plus the
-          # preset's prompt module reused verbatim (`openfilm-prompt.mjs` via
-          # `writePromptOverlay`). The ~40-entry global skill catalog therefore never
-          # enters a film turn. Change the gate there, not here.
-          #
-          # The skill *registry* (`@deepseek-ai/dsh-skill`) is mounted by the host itself; mounting it
-          # again here made the whole preset fail to load, which showed up as
-          # `PROJECT_CONVERSATION_CREATE` on every prompt and a missing 权限 row. Only the file
-          # provider belongs in this list, with its defaults (project + user roots, watched) — the
-          # defaults are exactly what we want, and spelling them out was a second way to break the
-          # preset if a field name ever drifted.
+          # Native film sessions use this preset. The Host owns the skill registry;
+          # this scoped provider registers only the package's film skills. Default
+          # user roots are excluded and the filesystem provider does not watch them.
           - id: skill-filesystem
             name: '@deepseek-ai/dsh-skill-filesystem'
             config:

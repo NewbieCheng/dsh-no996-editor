@@ -17,6 +17,7 @@ export function createDebugUrlRoute({
   proxyFor,
   getBridge,
   setBridge,
+  getPortalUrl,
 }) {
   const unregisterDebugUrl = track(register({
     kind: 'exact', path: '/api/no996-openfilm/debug-url',
@@ -26,6 +27,12 @@ export function createDebugUrlRoute({
       const admission = ctx.connection.admit({ headers: req.headers });
       if ('rejection' in admission || admission.peer.id !== ctx.connection.browserPeer.id) { res.writeHead(403).end('DSH_BROWSER_REQUIRED'); return; }
       try {
+        const openUrl = typeof getPortalUrl === 'function' ? getPortalUrl() : '';
+        if (openUrl) {
+          const body = JSON.stringify({ url: openUrl });
+          res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(body) }).end(body);
+          return;
+        }
         await ensureStudioStarted();
         if (isDisposed() || !getUpstream()) { res.writeHead(503).end(); return; }
         const surface = req.headers['x-no996-surface'];

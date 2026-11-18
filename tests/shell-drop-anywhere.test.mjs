@@ -8,8 +8,13 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const read = path => readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-const app = read('patches/010-App.patch');
-const patch = name => read(`patches/${name}`);
+const series = JSON.parse(read('patches/series.json'));
+const patchBySource = source => {
+  const entry = series.patches.find(item => item.source === source);
+  assert.ok(entry, `missing patch entry in series.json for ${source}`);
+  return read(`patches/${entry.file}`);
+};
+const app = patchBySource('apps/desktop/chat/src/App.tsx');
 
 test('the chat takes a file anywhere in the page', () => {
   assert.match(app, /\+    const hasFiles = \(data: DataTransfer \| null\) =>/);
@@ -25,7 +30,7 @@ test('the chat takes a file anywhere in the page', () => {
 });
 
 test('the drop box is a real drop target and a picker', () => {
-  const p = patch('070-ProjectStarters.patch');
+  const p = patchBySource('apps/desktop/chat/src/components/ProjectStarters.tsx');
   assert.match(p, /\+      <label/);
   assert.match(p, /\+        onDrop=\{\(event\) => \{/);
   assert.match(p, /\+          takeFiles\(files\);/);
@@ -35,7 +40,7 @@ test('the drop box is a real drop target and a picker', () => {
 });
 
 test('a dropped file keeps its path when the host can name it, and is copied otherwise', () => {
-  const p = patch('180-desktop-attachments.patch');
+  const p = patchBySource('apps/desktop/chat/src/lib/desktop-attachments.ts');
   assert.match(p, /\+    const hostPath = \(window as unknown as \{ __no996HostPath\?: \(file: File\) => Promise<string> \}\)\.__no996HostPath;/);
   assert.match(p, /\+      for \(const \{ item, file \} of unknown\) keepBytes\(item, file\);/);
   assert.match(p, /\+        for \(const \{ item, file, path \} of found\) if \(!path\) keepBytes\(item, file\);/);

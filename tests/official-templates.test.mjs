@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink, open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { installTemplate } from '../src/official/official-templates.mjs';
+import { finishTemplateCreation, installTemplate, listTemplates } from '../src/official/official-templates.mjs';
 
 async function fixture(t) {
   const base = await mkdtemp(join(tmpdir(), 'openfilm-template-test-'));
@@ -16,6 +16,32 @@ async function fixture(t) {
   const args = { root, parentDir, id: 'sample', titleFor: () => '中文 film', createProject: async path => ({ id: 'project', path }) };
   return { base, root, source, parentDir, args };
 }
+
+test('bookkeeping failures retain the registered project and report fixed warnings', async () => {
+  const created = { projectId: 'project1', path: '/safe/new-project' };
+  const ok = await finishTemplateCreation(created, { activate: () => {}, remember: async () => ({ ...created, prefs: { saved: true } }) });
+  assert.equal(ok.projectId, created.projectId);
+  assert.equal(ok.warnings, undefined);
+  const failed = await finishTemplateCreation(created, {
+    activate: () => { throw new Error('private path'); },
+    remember: () => { throw new Error('secret'); },
+  });
+  assert.deepEqual(failed, { ...created, warnings: ['TEMPLATE_ACTIVATION_FAILED', 'PREFERENCES_SAVE_FAILED'] });
+});
+
+test('a new documented-format template is discovered and copied without registration changes', async t => {
+  const { root, parentDir } = await fixture(t);
+  const id = 'My_Template.v2';
+  const source = join(root, id);
+  await mkdir(source);
+  await writeFile(join(source, 'manifest.json'), JSON.stringify({ id, title: 'Extension', entry: 'film.html', mode: 'film' }));
+  await writeFile(join(source, 'film.html'), 'extension film');
+  const listed = await listTemplates(root);
+  assert.ok(listed.some(item => item.id === id));
+  const created = await installTemplate({ root, id, parentDir, titleFor: () => 'Extension', createProject: async path => ({ id: 'project2', path }) });
+  assert.equal(await readFile(join(created.path, 'film.html'), 'utf8'), 'extension film');
+  assert.equal(await readFile(join(source, 'film.html'), 'utf8'), 'extension film');
+});
 
 test('copies and counts every actual file including nested manifests', async t => {
   const { source, parentDir, args } = await fixture(t);

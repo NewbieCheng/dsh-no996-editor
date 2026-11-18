@@ -168,7 +168,8 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 
 Host 模块重载可能受模块缓存影响；修改后应核验实际运行版本。如果重载未应用变更，保存工作并按管理器提示完整重启 DSH，再验证原页面。现有 `npm run dev` 不应被视为递归监听整个 `src/` 的保证。
 
-**本插件默认不是热加载的。** DSH 的客户端 HMR 只在用 `pnpm run dev:web` 从同一 checkout 起服务时成立；本插件是已安装的第三方包，不在这条链路上。
+**零基础实时开发流程（Vite HMR + 热样式）见 [`playbooks/dev-live-guide.md`](playbooks/dev-live-guide.md)。**
+运行 `npm run dev:live` 后配合 `NO996_OPENFILM_DEV_HMR=1` 启动 DSH，React/TSX 修改走 Vite Fast Refresh、主题 CSS 走原地无刷新替换；`src/dev/` 与调试工具会在 `scripts/pack-tgz.mjs` 打包时物理排除，不进入发布包。
 
 管理器返回 `restart-required` 时：如实报告，并按 `nextStep` 完整重启 DSH；日志里的新 `host-start` 只证明 Host 重建，不证明 GUI 已应用。
 
@@ -178,12 +179,14 @@ Host 模块重载可能受模块缓存影响；修改后应核验实际运行版
 
 | 手段 | 内容 |
 |---|---|
+| OpenFilm 内置「错误与诊断日志中心」 | 顶栏小虫子按钮 / 底部红条「查看诊断日志」 / 设置 → 开发者；支持按层/错误码/TraceID 筛选、复制、问 Agent、导出、调整保留天数 |
+| `$DSH_HOME\no996-openfilm\logs\diagnostics-YYYY-MM-DD.jsonl` | 全链路结构化诊断日志（UI / RPC / SSE / Host / NativeAgent / Studio），默认保留 14 天、上限 50 MiB 自动清理 |
 | `POST /api/no996-openfilm/diagnose {projectId}` | `mode / studio / preset / proxy / permission / turns / grouping / log / bridge` |
 | `%TEMP%\dsh-openfilm\plugin.log` | JSON Lines，512 KB 轮转；密钥与路径自动脱敏 |
 | `%TEMP%\dsh-openfilm-frames.jsonl` | 原始帧（每轮覆盖） |
 | `%TEMP%\dsh-openfilm-host.json` | `{version,pid,startedAt}`；重载后必须更新 |
 | `%TEMP%\dsh-openfilm-preset.json` | 预设 `registered/ok/detail/raw` |
-| 面板静默诊断 | 20 秒无 `boot` 自动显示，可整段贴回 |
+| 面板静默诊断 | 20 秒无 `boot` 自动显示并上报外层诊断，可整段贴回 |
 
 `turns[].verdict` 是"面板为什么是空的"的判词：`no-frames-received` / `nothing-emitted` / `some-frames-dropped` / `emitted`。`grouping` 说明会话是否在项目文件夹下。
 

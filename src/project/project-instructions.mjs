@@ -1,15 +1,10 @@
 /**
  * Editing instructions, delivered through the project folder instead of a preset.
  *
- * The panel's conversation runs in `dsh --profile acp` with two overlays that
- * carry the preset's content verbatim: the prompt module
- * (`src/acp/openfilm-prompt.mjs`, same file the sidebar preset mounts) and the
- * skill gate (`skill-filesystem: includeDefaultRoots false`, only this
- * package's `skills/`). So this file no longer teaches the workflow — it is the
- * project's local state card: where the film and storyboard live, which tool
- * prefix to use, and the three rules that must survive even if the overlays are
- * lost. Template choices append below in the managed block
- * (`src/film/template-prompts.mjs`) and are never part of this text.
+ * The panel uses a native DSH session with the OpenFilm preset. This file is a
+ * short local state card; the scoped prompt and skills carry the workflow.
+ * Template choices may append a managed block only when ownership is established
+ * (`src/film/template-prompts.mjs`); user-written instructions remain untouched.
  *
  * Never overwrite: a project that already carries an AGENTS.md (the person's own,
  * or one an earlier version wrote) is left exactly as it is.
@@ -48,7 +43,7 @@ export const INSTRUCTIONS = `# OpenFilm 项目工作说明
 ## 怎么做事
 
 1. **先读再改。** 改 \`film.html\` 前先读当前内容；时间轴用 \`openfilm_clip\`（拒锁轨、原子保存）。
-2. **用户丢视频先转写再剪。** \`openfilm_transcribe\` 出时间码，再按句切镜；缺片段如实说。
+2. **按素材与任务处理。** 需要按人声剪辑时用 \`openfilm_transcribe\` 出时间码，再按句切镜；无声素材不必转写，缺片段如实说。
 3. **看不见就不算完成。** 只有真的画出一帧（\`openfilm_frame\`）、或读回 \`openfilm_export\` 结果，才算验证；不要声称保存/预览成功而未经核对。
 4. **素材先进项目再用**（\`openfilm_assets\`）；不要删除原始素材。
 5. 细则读 \`openfilm_guide\`；做片时按需加载 openfilm-motion 技能（完整流程在会话的系统提示里，不在这里复述）。

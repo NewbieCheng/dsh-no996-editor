@@ -61,6 +61,7 @@ function defaults() {
     cachedExpertPointsBalance: null,
     cachedPeriodExpiresAt: '',
     cachedBalanceAt: '',
+    logRetentionDays: 14,
   };
 }
 
@@ -84,6 +85,9 @@ function sanitize(raw) {
     cachedExpertPointsBalance: finitePoints(raw.cachedExpertPointsBalance),
     cachedPeriodExpiresAt: typeof raw.cachedPeriodExpiresAt === 'string' ? raw.cachedPeriodExpiresAt.slice(0, 64) : '',
     cachedBalanceAt: typeof raw.cachedBalanceAt === 'string' ? raw.cachedBalanceAt.slice(0, 64) : '',
+    logRetentionDays: Number.isFinite(Number(raw.logRetentionDays))
+      ? Math.max(1, Math.min(90, Math.round(Number(raw.logRetentionDays))))
+      : 14,
   };
 }
 
@@ -253,6 +257,13 @@ export function createPreferencesStore({ home = dshHome() } = {}) {
         next.cachedBalanceAt = typeof patch.cachedBalanceAt === 'string'
           ? patch.cachedBalanceAt.slice(0, 64)
           : '';
+      }
+      if ('logRetentionDays' in patch) {
+        const days = Number(patch.logRetentionDays);
+        if (!Number.isFinite(days) || days < 1 || days > 90) {
+          throw Object.assign(new Error('无效日志保留天数'), { code: 'PREFS_INPUT', status: 400 });
+        }
+        next.logRetentionDays = Math.round(days);
       }
       return write(next);
     },

@@ -22,7 +22,10 @@ const EFFORT_ZH = Object.freeze({
   default: '默认', '默认': '默认',
 });
 
-const failure = (code, detail) => Object.assign(new Error(detail ? `${code}: ${detail}` : code), { code });
+const failure = (code, detail, diag) => Object.assign(
+  new Error(detail ? `${code}: ${detail}` : code),
+  { code, ...(diag && typeof diag === 'object' ? { diag } : {}) },
+);
 const text = value => typeof value === 'string' && value.length > 0;
 const effortId = value => {
   if (typeof value === 'string') return value;
@@ -73,6 +76,7 @@ export function createDshNativeAgentService({
   defaultSelection = () => undefined,
   agentPreset = DEFAULT_PRESET,
   log,
+  diag,
 }) {
   if (!ctx?.sessionController || typeof verifier !== 'function' || typeof emit !== 'function' ||
       !store || typeof store.get !== 'function' || typeof store.set !== 'function') {
@@ -84,7 +88,12 @@ export function createDshNativeAgentService({
   let closed = false;
 
   const projectStateOf = projectId => {
-    if (!PROJECT_ID.test(projectId)) throw failure('OFFICIAL_AGENT_INPUT', 'invalid project');
+    if (!PROJECT_ID.test(projectId)) {
+      throw failure('OFFICIAL_AGENT_INPUT', 'invalid project', {
+        location: 'src/native/dsh-native-agent-service.mjs:projectStateOf',
+        reason: 'invalid projectId format',
+      });
+    }
     let state = projects.get(projectId);
     if (state) return state;
     state = { projectId, projectPath: '', sessions: new Map() };
@@ -129,6 +138,16 @@ export function createDshNativeAgentService({
     ? ctx.on('api-session/error', (sessionId, message) => {
         const hit = sessionById(sessionId);
         if (!hit?.session.inflight) return;
+        diag?.error?.({
+          layer: 'native-agent',
+          code: 'API_SESSION_ERROR',
+          projectId: hit.projectState.projectId,
+          conversation: hit.session.conversation,
+          sessionId,
+          location: 'src/native/dsh-native-agent-service.mjs:api-session/error',
+          summary: `宿主会话报错：${String(message || 'Session error').slice(0, 180)}`,
+          detail: { reason: String(message || 'Session error').slice(0, 500) },
+        });
         hit.session.inflight.reject(new Error(String(message || 'Session error')));
       })
     : undefined;
@@ -648,7 +667,18 @@ export function createDshNativeAgentService({
       if (cancelled) {
         settleTurn(projectId, session, { ok: true, stopReason: 'cancelled' });
       } else {
-        settleTurn(projectId, session, { ok: false, error: String(data.error ?? data.message ?? event.type) });
+        const errMsg = String(data.error ?? data.message ?? event.type);
+        diag?.error?.({
+          layer: 'native-agent',
+          code: 'NATIVE_TURN_ERROR',
+          projectId,
+          conversation: session.conversation,
+          sessionId: session.sessionId,
+          location: 'src/native/dsh-native-agent-service.mjs:handleFollowFrame',
+          summary: `会话回合异常结束：${errMsg.slice(0, 180)}`,
+          detail: { eventType: event.type, reason: errMsg.slice(0, 500), model: session.model ? `${session.model.provider}/${session.model.model}` : null },
+        });
+        settleTurn(projectId, session, { ok: false, error: errMsg });
       }
     }
   }
@@ -672,6 +702,16 @@ export function createDshNativeAgentService({
         if (!controller.signal.aborted && !closed) {
           const reason = String(error?.code ?? error?.message ?? error).slice(0, 120);
           void log?.('native-follow-error', { projectId: projectState.projectId, conversation: session.conversation, reason });
+          diag?.error?.({
+            layer: 'native-agent',
+            code: 'NATIVE_FOLLOW_ERROR',
+            projectId: projectState.projectId,
+            conversation: session.conversation,
+            sessionId: session.sessionId,
+            location: 'src/native/dsh-native-agent-service.mjs:ensureFollow',
+            summary: `事件流订阅中断：${reason}`,
+            detail: { reason },
+          });
           settleTurn(projectState.projectId, session, { ok: false, error: reason });
         }
       } finally {
@@ -897,10 +937,23 @@ export function createDshNativeAgentService({
     },
 
     async send(projectId, { conversation, key, turnId, text: promptText, images } = {}) {
-      if (typeof promptText !== 'string' || promptText.length > 200000) throw failure('OFFICIAL_AGENT_INPUT', 'bad prompt');
+      if (typeof promptText !== 'string' || promptText.length > 200000) {
+        throw failure('OFFICIAL_AGENT_INPUT', 'bad prompt', {
+          location: 'src/native/dsh-native-agent-service.mjs:send',
+          projectId,
+          reason: typeof promptText !== 'string' ? 'prompt text must be string' : 'prompt exceeds 200000 chars',
+        });
+      }
       const projectState = projectStateOf(projectId);
       const session = await ensure(projectId, conversation);
-      if (session.inflight) throw failure('OFFICIAL_AGENT_BUSY', 'a turn is already running');
+      if (session.inflight) {
+        throw failure('OFFICIAL_AGENT_BUSY', 'a turn is already running', {
+          location: 'src/native/dsh-native-agent-service.mjs:send',
+          projectId,
+          conversation: session.conversation,
+          sessionId: session.sessionId,
+        });
+      }
 
       session.key = text(key) ? key : session.key;
       session.lastUsed = Date.now();
@@ -942,6 +995,21 @@ export function createDshNativeAgentService({
         if (error?.code === 'OFFICIAL_AGENT_STREAM_LOST') throw error;
         const reason = String(error?.code ?? error?.message ?? error).slice(0, 300);
         void log?.('native-prompt-failed', { projectId, reason: reason.slice(0, 120) });
+        diag?.error?.({
+          layer: 'native-agent',
+          code: typeof error?.code === 'string' ? error.code : 'NATIVE_PROMPT_FAILED',
+          projectId,
+          conversation: session.conversation,
+          sessionId: session.sessionId,
+          location: 'src/native/dsh-native-agent-service.mjs:send',
+          summary: `发送消息失败：${reason.slice(0, 180)}`,
+          detail: {
+            reason,
+            model: session.model ? `${session.model.provider}/${session.model.model}` : null,
+            effort: session.reasoningEffort ?? null,
+            turnStats: session.turnStats,
+          },
+        });
         // Turn/model failures (e.g. 429 rate limit, cooldown) are surfaced inside
         // the chat transcript via `done: { ok: false, error }` — returning cleanly
         // avoids a redundant HTTP 503 global error banner at the bottom of the screen.
@@ -994,7 +1062,14 @@ export function createDshNativeAgentService({
       const session = await peekSession(projectId, conversation);
       const provider = selection?.provider;
       const modelId = selection?.model;
-      if (!text(provider) || !text(modelId)) throw failure('OFFICIAL_AGENT_INPUT', 'invalid model');
+      if (!text(provider) || !text(modelId)) {
+        throw failure('OFFICIAL_AGENT_INPUT', 'invalid model', {
+          location: 'src/native/dsh-native-agent-service.mjs:selectModel',
+          projectId,
+          conversation: session.conversation,
+          reason: 'provider or modelId is empty',
+        });
+      }
       const catalog = await ctx.sessionController.modelCatalog();
       const group = catalog?.groups?.find(g => g.id === provider);
       let model = group?.models?.find(m => m.id === modelId);
@@ -1044,13 +1119,41 @@ export function createDshNativeAgentService({
 
     async selectThinking(projectId, value, conversation) {
       const session = await peekSession(projectId, conversation);
-      if (!text(value)) throw failure('OFFICIAL_AGENT_INPUT', 'invalid thinking effort');
+      if (!text(value)) {
+        throw failure('OFFICIAL_AGENT_INPUT', 'invalid thinking effort', {
+          location: 'src/native/dsh-native-agent-service.mjs:selectThinking',
+          projectId,
+          conversation: session.conversation,
+          sessionId: session.sessionId,
+          model: session.model ? `${session.model.provider}/${session.model.model}` : null,
+          requestedValue: value ?? null,
+          reason: 'empty thinking effort value',
+        });
+      }
       const { target, model } = await resolveModelEntry(session);
-      if (!text(target?.provider) || !text(target?.model)) throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'no active model');
+      if (!text(target?.provider) || !text(target?.model)) {
+        throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'no active model', {
+          location: 'src/native/dsh-native-agent-service.mjs:selectThinking',
+          projectId,
+          conversation: session.conversation,
+          requestedValue: value,
+          reason: 'no active model in session or catalog',
+        });
+      }
       const allowed = effortIdsOf(model);
       // Refuse inventing a tier the model did not advertise.
       if (allowed.length > 0 && !allowed.includes(value)) {
-        throw failure('OFFICIAL_AGENT_INPUT', `thinking effort not supported: ${value}`);
+        throw failure('OFFICIAL_AGENT_INPUT', `thinking effort not supported: ${value}`, {
+          location: 'src/native/dsh-native-agent-service.mjs:selectThinking',
+          projectId,
+          conversation: session.conversation,
+          sessionId: session.sessionId,
+          model: `${target.provider}/${target.model}`,
+          modelSource: session.modelSource ?? null,
+          requestedValue: value,
+          allowedValues: allowed,
+          reason: `thinking effort '${value}' not in model allowed list [${allowed.join(', ')}]`,
+        });
       }
       if (text(session.sessionId)) {
         await ctx.sessionController.selectModel({

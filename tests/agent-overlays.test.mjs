@@ -20,9 +20,9 @@ function repoWithFilm() {
 }
 
 test('the persona says film director, not coding agent', () => {
-  assert.match(PERSONA, /剪辑导演/);
-  assert.doesNotMatch(PERSONA, /coding agent/i);
-  assert.match(PERSONA, /按需加载 openfilm-motion/);
+  assert.match(PERSONA, /剪辑与动效搭档/);
+  assert.match(PERSONA, /用用户的语言/);
+  assert.match(PERSONA, /代码制作和调整画面/);
   assert.ok(Buffer.byteLength(PERSONA, 'utf8') <= 400, `${Buffer.byteLength(PERSONA, 'utf8')} bytes`);
 });
 

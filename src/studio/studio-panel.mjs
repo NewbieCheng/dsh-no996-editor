@@ -44,6 +44,17 @@ export function createStudioPanel(React) {
     const readyRef = React.useRef(false);
     const urlRef = React.useRef(null);
 
+    const reportPanelDiag = (payload) => {
+      if (!HOST_HTTP) return;
+      try {
+        void fetch('/api/no996-openfilm/client-diag', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } catch { /* ignore */ }
+    };
+
     // Ask the official shell to show one project (and optionally select a conversation).
     // The injected bridge owns the history call and session selection event; this side
     // only has to reach a frame that is really loaded.
@@ -119,7 +130,11 @@ export function createStudioPanel(React) {
         const url = desktop ? `${target.origin}/__dsh/open#${result.ticket}` : `${target.origin}/`;
         setState({ status: 'ready', url, webOrigin: typeof result.webOrigin === 'string' ? result.webOrigin : '' });
       }).catch(error => {
-        if (!controller.signal.aborted) setState({ status: 'error', message: String(error?.message || error) });
+        if (!controller.signal.aborted) {
+          const message = String(error?.message || error);
+          reportPanelDiag({ level: 'error', layer: 'ui', code: 'PANEL_BOOTSTRAP_FAILED', location: 'src/studio/studio-panel.mjs:startStudio', summary: `面板启动 Studio 失败: ${message.slice(0, 200)}`, detail: { message } });
+          setState({ status: 'error', message });
+        }
       });
       return () => controller.abort();
     }, [attempt, startStudio]);
@@ -135,7 +150,12 @@ export function createStudioPanel(React) {
         setBoot(null);
         setSilent(false);
         clearTimeout(timer);
-        timer = setTimeout(() => { if (!heardRef.current) setSilent(true); }, 20000);
+        timer = setTimeout(() => {
+          if (!heardRef.current) {
+            reportPanelDiag({ level: 'error', layer: 'ui', code: 'IFRAME_SILENT_TIMEOUT', location: 'src/studio/studio-panel.mjs:watchNavigation', summary: '工作台 iframe 20 秒未收到 boot 信号' });
+            setSilent(true);
+          }
+        }, 20000);
       };
       watchNavigationRef.current = watchNavigation;
       watchNavigation();

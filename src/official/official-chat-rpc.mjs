@@ -77,7 +77,19 @@ export function createOfficialChatRpc(store, agent, options = {}) {
         const conversation = conversationOf(payload);
         const { choices } = officialModelOptions(await agent.modelCatalog(payload.projectId, conversation));
         const choice = choices.get(payload.value);
-        if (!choice) throw failure();
+        if (!choice) {
+          throw Object.assign(new Error('OFFICIAL_AGENT_INPUT'), {
+            code: 'OFFICIAL_AGENT_INPUT',
+            diag: {
+              location: 'src/official/official-chat-rpc.mjs:agent:select-model',
+              projectId: payload.projectId,
+              conversation,
+              requestedValue: payload.value.slice(0, 160),
+              allowedCount: choices.size,
+              reason: 'selected model choice not found in live catalog',
+            },
+          });
+        }
         await agent.selectModel(payload.projectId, choice, conversation);
         return { ok: true };
       }
@@ -146,9 +158,15 @@ export function createOfficialChatRpc(store, agent, options = {}) {
       // 503 unreadable in the first place.
       if (typeof error?.code === 'string' && /^OFFICIAL_(AGENT|CHAT)_[A-Z][A-Z_]{2,40}$/.test(error.code) &&
           error.code !== 'OFFICIAL_CHAT_UNAVAILABLE') {
-        throw Object.assign(new Error(error.code), { code: error.code });
+        throw Object.assign(new Error(error.code), {
+          code: error.code,
+          ...(error?.diag && typeof error.diag === 'object' ? { diag: error.diag } : {}),
+        });
       }
-      throw failure();
+      throw Object.assign(failure(), {
+        ...(error?.diag && typeof error.diag === 'object' ? { diag: error.diag } : {}),
+        ...(typeof error?.message === 'string' && !error?.diag ? { diag: { reason: error.message.slice(0, 300), stack: typeof error?.stack === 'string' ? error.stack.split('\n').slice(0, 5).join('\n') : undefined } } : {}),
+      });
     }
   };
 }
