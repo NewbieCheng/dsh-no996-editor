@@ -159,6 +159,7 @@ dsh plugin --profile desktop add @newbiecheng/dsh-openfilm@<旧版本>
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
+| `ERR_PNPM_IGNORED_BUILDS`（`ffmpeg-static` / `protobufjs`），退出码 1 但依赖其实已经装上 | DSH 自带 pnpm 11 默认不给依赖跑安装脚本；`allowBuilds` 必须在 profile 的 `pnpm-workspace.yaml` 里（`onlyBuiltDependencies` 已被 pnpm 11 取代） | 在 `$DSH_HOME/profiles/desktop/pnpm-workspace.yaml` 加 `allowBuilds` 下 `ffmpeg-static: true`、`protobufjs: true`，再跑一次 `add`；不加也能用，但 ffmpeg 二进制与 protobuf 的安装脚本不会执行 |
 | 有插件、无「版本」区 | scope 非全小写，过不了 DSH `PACKAGE_NAME` | 必须用 `@newbiecheng/…` 重发并重装 |
 | 「包不可用」/ cannot resolve bundle | `node_modules/@newbiecheng/dsh-openfilm` 不存在 | `dsh plugin --profile desktop install`；勿手删 scope 目录 |
 | Windows 删 `@NewbieCheng` 把新包装没了 | NTFS 大小写不敏感，两 scope 是同一目录 | 只 `dsh plugin remove/add`，不要手删 `@*newbie*` |
