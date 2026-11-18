@@ -8,25 +8,25 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。119 个模块、18968 行。
+> 生成命令：`npm run docs:gen`。119 个模块、18891 行。
 > 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
-| `src/studio/studio-controller.mjs` | 1362 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
-| `src/native/dsh-native-agent-service.mjs` | 1239 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
+| `src/studio/studio-controller.mjs` | 1333 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/native/dsh-native-agent-service.mjs` | 1254 | createDshNativeAgentService | `dsh-native-agent-service.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1132 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
-| `src/studio/studio-proxy.mjs` | 880 | startStudioProxy | `proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
+| `src/studio/studio-proxy.mjs` | 879 | startStudioProxy | `proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
 | `src/official/official-facade.mjs` | 613 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
-| `src/auth/workbench-auth.mjs` | 559 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth-default-key.test.mjs`、`workbench-auth.test.mjs` |
-| `src/native/no996-llm-provider.mjs` | 516 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
+| `src/native/no996-llm-provider.mjs` | 543 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
+| `src/auth/workbench-auth.mjs` | 461 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth-jwt-session.test.mjs`、`workbench-auth.test.mjs` |
 | `src/studio/studio-panel.mjs` | 375 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
 | `src/voice/voice-bridge.mjs` | 351 | VOICE_BRIDGE, createVoiceBridge, installVoiceBridgeGlobal | `voice-bridge.test.mjs` |
 | `src/studio/studio-controller/routes/editing.mjs` | 322 | createEditingRoutes | `editing-routes.test.mjs` |
 | `src/tools/tool-installer.mjs` | 296 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
-| `src/media/no996-studio-bridge.mjs` | 290 | VOICE_BRIDGE, createNo996StudioBridge | `no996-studio-bridge.test.mjs` |
+| `src/media/no996-studio-bridge.mjs` | 293 | VOICE_BRIDGE, createNo996StudioBridge | `no996-studio-bridge.test.mjs` |
 | `src/host/preferences.mjs` | 263 | balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch, createPreferencesStore, onboardingCopy, productMeta | `preferences-custom.test.mjs`、`preferences.test.mjs` |
 | `src/asr/transcribe-service.mjs` | 255 | CACHE_VERSION, createTranscribeService, fingerprint | **无** |
 | `src/official/official-permission.mjs` | 249 | FULL_ACCESS, PROJECT_PERMISSIONS_DOMAIN, WORKSPACE_WRITE, openProjectPermissions | `official-permission.test.mjs` |
@@ -42,9 +42,9 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-runtime.mjs` | 173 | OPENFILM_VERSION, createStudioRuntime, loadPinnedStudio | `studio-runtime.test.mjs` |
 | `src/ui/sidebar-brand.mjs` | 172 | brandSvgMarkup, findSidebarBrandSlot, installSidebarBrand | `sidebar-brand.test.mjs` |
 | `src/studio/studio-debug-redirect.mjs` | 168 | startLocalConsole | `studio-debug-redirect.test.mjs` |
+| `src/native/no996-web-provider.mjs` | 167 | createNo996WebProviders, registerNo996WebProvider | `no996-web-provider.test.mjs` |
 | `src/tools/clip-tool.mjs` | 167 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/native/dsh-session-store.mjs` | 164 | createDshSessionStore | `dsh-native-agent-service.test.mjs`、`dsh-session-store-selection.test.mjs` |
-| `src/native/no996-web-provider.mjs` | 162 | createNo996WebProviders, registerNo996WebProvider | `no996-web-provider.test.mjs` |
 | `src/studio/studio-debug.mjs` | 162 | redeemStudioSession, startStudioDebug | `studio-debug-theme.test.mjs` |
 | `src/tools/frame-tool.mjs` | 162 | createFrameTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/project/project-files.mjs` | 161 | PROJECT_ID, createProjectFiles, openCommand, projectFileError, projectFilePath, relativeProjectPath | `project-files.test.mjs` |
@@ -110,7 +110,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-proxy/websocket.mjs` | 58 | MAX_FRAME, WS_GUID, frames, wsFrame | **无** |
 | `src/native/openfilm-skills.mjs` | 55 | apply, inject | `openfilm-skills-plugin.test.mjs` |
 | `src/studio/drag-probe.mjs` | 54 | installDragProbe | `drag-probe.test.mjs` |
-| `index.js` | 52 | apply, inject | 读源码：`lint.test.mjs`、`release-check.test.mjs` |
+| `index.js` | 53 | apply, inject | 读源码：`lint.test.mjs`、`release-check.test.mjs` |
 | `src/ui/shell-extras.mjs` | 52 | shellUiInjection, shellUiVersion | `shell-extras.test.mjs`、`shell-ui-asi.test.mjs` |
 | `src/native/openfilm-prompt.mjs` | 51 | apply, inject | `pinned-scope-integration.test.mjs` |
 | `src/film/template-bridge.mjs` | 50 | registerTemplateBridge | `template-bridge.test.mjs` |

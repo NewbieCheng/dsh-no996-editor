@@ -4744,32 +4744,29 @@ index ac36b35..f8ba6f1 100644
                  <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={Boolean(layoutDraft.draft)} onClick={() => setCanvasOpen(!canvasOpen)}
 diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
 new file mode 100644
-index 0000000..3d6ad10
+index 0000000..75ea81d
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
-@@ -0,0 +1,837 @@
+@@ -0,0 +1,748 @@
 +/**
-+ * Workbench account chip + upgraded User Center drawer (~480px) for 不加班.
++ * Workbench account chip + User Center drawer (~480px) for 不加班.
 + * Covers:
 + *  - Hero identity & 3-bucket points wallet
-+ *  - Protected system default API Key card (never reveals plaintext, only masked/probe/rotate)
-+ *  - Tab 1: Overview & capabilities (对话/识图、生图、语音、搜索、预留视频 + 有效限流)
-+ *  - Tab 2: 我的积分扣费表 (/billing/traces & /account/ledgers)
++ *  - Tab 1: 账号概览与平台能力状态 (短效 Host JWT，无本地静态密钥)
++ *  - Tab 2: 我的积分扣费表 (/billing/traces & /account/ledgers，含 N 分钟合并标识)
 + *  - Tab 3: 可调模型与费率表 (/pricing/catalog & /v1 spec)
 + */
 +import * as React from 'react';
 +import { createPortal } from 'react-dom';
 +import {
-+  Activity,
 +  ChevronLeft,
 +  ChevronRight,
-+  KeyRound,
 +  Receipt,
 +  RefreshCw,
-+  RotateCw,
 +  Settings2,
 +  ShieldCheck,
 +  Sparkles,
++  UserCheck,
 +  X,
 +} from 'lucide-react';
 +import { Tooltip } from './Tooltip';
@@ -4798,29 +4795,20 @@ index 0000000..3d6ad10
 +  balance?: Wallet;
 +};
 +
-+type DefaultKeySummary = {
-+  exists?: boolean;
++type CapabilitiesEndpoint = {
++  capability?: string;
++  method?: string;
++  path?: string;
 +  ready?: boolean;
-+  secretMissing?: boolean;
-+  id?: number;
-+  name?: string;
-+  maskedKey?: string;
-+  rpmLimit?: number;
-+  dailyTokens?: number;
-+  ensuredAt?: string;
++  reserved?: boolean;
++  note?: string;
 +};
 +
 +type CapabilitiesPayload = {
 +  gateway_base_url?: string;
 +  auto_vision_routing_enabled?: boolean;
-+  modalities?: {
-+    chat?: boolean;
-+    vision?: boolean;
-+    image?: boolean;
-+    audio?: boolean;
-+    video?: boolean;
-+    web_search?: boolean;
-+  };
++  exposed_services?: string[];
++  endpoints?: CapabilitiesEndpoint[];
 +  limits?: {
 +    effective_rpm?: number;
 +    effective_daily_tokens?: number;
@@ -4832,7 +4820,6 @@ index 0000000..3d6ad10
 +type OverviewResponse = {
 +  status: AuthStatus;
 +  balance: Wallet;
-+  defaultKey: DefaultKeySummary;
 +  capabilities: CapabilitiesPayload | null;
 +  walletDirtyAt?: number;
 +};
@@ -4854,6 +4841,7 @@ index 0000000..3d6ad10
 +  points_cost?: number;
 +  charged_points?: number;
 +  delta?: number;
++  call_count?: number;
 +  reason?: string;
 +  remark?: string;
 +  status?: string;
@@ -4892,15 +4880,6 @@ index 0000000..3d6ad10
 +  auto_vision_routing_enabled?: boolean;
 +  gateway_base_url?: string;
 +  capabilities?: CapabilitiesPayload | null;
-+};
-+
-+type ProbeResponse = {
-+  ok?: boolean;
-+  needsRotate?: boolean;
-+  latencyMs?: number;
-+  modelsCount?: number;
-+  message?: string;
-+  defaultKey?: DefaultKeySummary;
 +};
 +
 +type DrawerTab = 'overview' | 'ledger' | 'pricing';
@@ -4955,17 +4934,12 @@ index 0000000..3d6ad10
 +  const t = useT();
 +  const [status, setStatus] = React.useState<AuthStatus | null>(null);
 +  const [wallet, setWallet] = React.useState<Wallet | null>(null);
-+  const [defaultKey, setDefaultKey] = React.useState<DefaultKeySummary | null>(null);
 +  const [capabilities, setCapabilities] = React.useState<CapabilitiesPayload | null>(null);
 +  const [open, setOpen] = React.useState(false);
 +  const [tab, setTab] = React.useState<DrawerTab>('overview');
 +  const [busy, setBusy] = React.useState(false);
 +  const [walletBusy, setWalletBusy] = React.useState(false);
 +  const walletBusyRef = React.useRef(false);
-+
-+  const [probeState, setProbeState] = React.useState<{ busy: boolean; message?: string; ok?: boolean }>({ busy: false });
-+  const [rotateConfirm, setRotateConfirm] = React.useState(false);
-+  const [rotateBusy, setRotateBusy] = React.useState(false);
 +
 +  const [ledgerMode, setLedgerMode] = React.useState<'traces' | 'ledgers'>('traces');
 +  const [ledgerPage, setLedgerPage] = React.useState(1);
@@ -5001,7 +4975,6 @@ index 0000000..3d6ad10
 +      const ov = await hostRpc<OverviewResponse>('account:overview', {});
 +      if (ov?.status) setStatus(ov.status);
 +      if (ov?.balance) setWallet(ov.balance);
-+      if (ov?.defaultKey) setDefaultKey(ov.defaultKey);
 +      setCapabilities(ov?.capabilities ?? null);
 +    } catch {
 +      setWallet((prev) => prev ? { ...prev, stale: true, message: '积分同步失败' } : prev);
@@ -5079,32 +5052,6 @@ index 0000000..3d6ad10
 +    if (tab === 'pricing' && !pricingData) void loadPricing();
 +  }, [open, tab, ledgerMode, ledgerPage, loadLedger, loadPricing, pricingData]);
 +
-+  const handleProbe = async () => {
-+    setProbeState({ busy: true });
-+    try {
-+      const res = await hostRpc<ProbeResponse>('account:key-probe', {});
-+      if (res?.defaultKey) setDefaultKey(res.defaultKey);
-+      setProbeState({ busy: false, ok: Boolean(res?.ok), message: res?.message || (res?.ok ? '连通正常' : '检测未通过') });
-+    } catch (err) {
-+      setProbeState({ busy: false, ok: false, message: err instanceof Error ? err.message : '探活失败' });
-+    }
-+  };
-+
-+  const handleRotate = async () => {
-+    setRotateBusy(true);
-+    try {
-+      const res = await hostRpc<{ ok?: boolean; defaultKey?: DefaultKeySummary }>('account:key-rotate', {});
-+      if (res?.defaultKey) setDefaultKey(res.defaultKey);
-+      setRotateConfirm(false);
-+      setProbeState({ busy: false, ok: true, message: '已安全轮换并激活本机默认 Key' });
-+      void refreshOverview();
-+    } catch (err) {
-+      setProbeState({ busy: false, ok: false, message: err instanceof Error ? err.message : '轮换失败' });
-+    } finally {
-+      setRotateBusy(false);
-+    }
-+  };
-+
 +  const logout = async () => {
 +    if (busy || status?.dev) return;
 +    setBusy(true);
@@ -5112,7 +5059,6 @@ index 0000000..3d6ad10
 +      await hostRpc('auth:logout', {});
 +      setStatus({ loggedIn: false });
 +      setWallet(null);
-+      setDefaultKey(null);
 +      setPricingData(null);
 +      setOpen(false);
 +      try { window.dispatchEvent(new CustomEvent('no996-auth-changed', { detail: { loggedIn: false } })); } catch { /* ignore */ }
@@ -5130,12 +5076,24 @@ index 0000000..3d6ad10
 +  const periodExpires = wallet?.period_expires_at ? formatSyncedAt(wallet.period_expires_at) : '';
 +  const totalPages = Math.max(1, Math.ceil((ledgerData.total || 0) / 15));
 +
++  const endpointReady = (cap: string, token: string, fallback = false) => {
++    const exposed = capabilities?.exposed_services;
++    if (Array.isArray(exposed) && exposed.length > 0 && !exposed.some((s) => s.toLowerCase() === token)) {
++      return false;
++    }
++    const ep = capabilities?.endpoints?.find((e) => e.capability === cap);
++    if (ep) return ep.ready === true;
++    return fallback;
++  };
++
 +  const capabilityLights = [
-+    { key: 'chat', label: '对话 / Auto 识图', enabled: capabilities?.modalities?.chat ?? true },
-+    { key: 'image', label: 'AI 生图', enabled: capabilities?.modalities?.image ?? true },
-+    { key: 'audio', label: '配音合成', enabled: capabilities?.modalities?.audio ?? true },
-+    { key: 'search', label: '联网搜索', enabled: capabilities?.modalities?.web_search ?? true },
-+    { key: 'video', label: '生视频 (预留)', enabled: capabilities?.modalities?.video ?? false },
++    { key: 'chat', label: '对话 / Auto 识图', enabled: endpointReady('chat', 'chat', true) },
++    { key: 'image', label: 'AI 生图', enabled: endpointReady('image_generation', 'image', true) },
++    { key: 'tts', label: '配音合成', enabled: endpointReady('audio_speech', 'tts', true) },
++    { key: 'asr', label: '语音识别 ASR', enabled: endpointReady('audio_asr', 'asr', true) },
++    { key: 'ocr', label: '文档 OCR', enabled: endpointReady('ocr', 'ocr', true) },
++    { key: 'search', label: '联网搜索', enabled: endpointReady('web_search', 'web-search', true) },
++    { key: 'video', label: '生视频 (预留)', enabled: endpointReady('video_generation', 'video', false) },
 +  ];
 +
 +  return (
@@ -5216,7 +5174,7 @@ index 0000000..3d6ad10
 +            <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-2 text-[12px]" aria-label="账号功能切换">
 +              {(
 +                [
-+                  { id: 'overview', label: '账号与密钥', icon: KeyRound },
++                  { id: 'overview', label: '账号概览', icon: UserCheck },
 +                  { id: 'ledger', label: '我的积分扣费表', icon: Receipt },
 +                  { id: 'pricing', label: '可调模型与费率表', icon: Sparkles },
 +                ] as const
@@ -5303,29 +5261,20 @@ index 0000000..3d6ad10
 +                    <div className="flex items-center justify-between gap-2">
 +                      <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text)]">
 +                        <ShieldCheck size={14} className="text-emerald-500" />
-+                        <span>平台统一凭证（默认 API Key）</span>
++                        <span>安全会话与平台已开放能力</span>
 +                      </div>
 +                      <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-+                        系统默认 · 不可删除
++                        {isFormal ? 'Host 短效加密会话 · 实时扣费' : '未登录正式账号'}
 +                      </span>
 +                    </div>
 +
 +                    {isFormal ? (
 +                      <>
-+                        <div className="flex items-center justify-between gap-2 rounded border border-[var(--border)] bg-[var(--bg-panel)] px-2.5 py-1.5 text-[12px]">
-+                          <code className="truncate font-mono text-[var(--text)]">
-+                            {defaultKey?.maskedKey || '首次对话自动签发并加密托管于本机 Host'}
-+                          </code>
-+                          <span className="shrink-0 text-[10.5px] text-[var(--text-muted)]">
-+                            {defaultKey?.ready ? '本机已托管' : defaultKey?.secretMissing ? '需轮换激活' : '待签发'}
-+                          </span>
-+                        </div>
-+
 +                        <div className="flex flex-wrap gap-1.5">
 +                          {capabilityLights.map((cap) => (
 +                            <span
 +                              key={cap.key}
-+                              className="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-0.5 text-[10.5px] text-[var(--text-muted)]"
++                              className="inline-flex items-center gap-1 rounded border border-[var(--border)] bg-[var(--bg-panel)] px-2 py-0.5 text-[10.5px] text-[var(--text-muted)]"
 +                            >
 +                              <span
 +                                className={`h-1.5 w-1.5 rounded-full ${cap.enabled ? 'bg-emerald-500' : 'bg-zinc-500'}`}
@@ -5334,56 +5283,13 @@ index 0000000..3d6ad10
 +                            </span>
 +                          ))}
 +                        </div>
-+
-+                        {probeState.message ? (
-+                          <div className={`text-[11px] ${probeState.ok ? 'text-emerald-500' : 'text-[var(--warn)]'}`}>
-+                            {probeState.message}
-+                          </div>
-+                        ) : null}
-+
-+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-+                          <button
-+                            type="button"
-+                            disabled={probeState.busy}
-+                            onClick={() => void handleProbe()}
-+                            className="inline-flex items-center gap-1 rounded border border-[var(--border-strong)] px-2.5 py-1 text-[11.5px] text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50"
-+                          >
-+                            <Activity size={12} />
-+                            <span>{probeState.busy ? '检测中…' : '探活与初始化'}</span>
-+                          </button>
-+                          {!rotateConfirm ? (
-+                            <button
-+                              type="button"
-+                              onClick={() => setRotateConfirm(true)}
-+                              className="inline-flex items-center gap-1 rounded border border-[var(--border-strong)] px-2.5 py-1 text-[11.5px] text-[var(--text)] hover:bg-[var(--bg-hover)]"
-+                            >
-+                              <RotateCw size={12} />
-+                              <span>{defaultKey?.secretMissing ? '轮换并激活本机 Key' : '安全轮换密钥'}</span>
-+                            </button>
-+                          ) : (
-+                            <div className="flex items-center gap-1.5">
-+                              <button
-+                                type="button"
-+                                disabled={rotateBusy}
-+                                onClick={() => void handleRotate()}
-+                                className="rounded bg-amber-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-amber-500 disabled:opacity-50"
-+                              >
-+                                {rotateBusy ? '轮换中…' : '确认轮换（旧密钥立即失效）'}
-+                              </button>
-+                              <button
-+                                type="button"
-+                                onClick={() => setRotateConfirm(false)}
-+                                className="rounded px-2 py-1 text-[11.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
-+                              >
-+                                取消
-+                              </button>
-+                            </div>
-+                          )}
-+                        </div>
++                        <p className="text-[11px] leading-relaxed text-[var(--text-faint)]">
++                          所有对话（Auto 识图）、生图、语音合成 / ASR 识别、OCR 与联网请求均通过 Host 短效会话安全中转，零静态密钥落盘；第三方外部调用请前往网页工作台自主创建 API Key。
++                        </p>
 +                      </>
 +                    ) : (
 +                      <p className="text-[11.5px] text-[var(--text-muted)]">
-+                        请登录正式不加班账号以自动签发平台 API Key 并启用 Auto 模型与全模态计费。
++                        请登录正式不加班账号，立即启用 Auto 智能识图模型与全模态积分计费。
 +                      </p>
 +                    )}
 +                  </section>
@@ -5449,6 +5355,11 @@ index 0000000..3d6ad10
 +                                {item.requested_model === 'auto' && item.resolved_model && item.resolved_model !== 'auto' ? (
 +                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">Auto 路由</span>
 +                                ) : null}
++                                {Number(item.call_count) > 1 ? (
++                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)] tabular-nums">
++                                    合并 ×{item.call_count}
++                                  </span>
++                                ) : null}
 +                              </div>
 +                              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10.5px] text-[var(--text-faint)]">
 +                                {item.created_at ? <span>{formatSyncedAt(item.created_at)}</span> : null}
@@ -5492,7 +5403,7 @@ index 0000000..3d6ad10
 +              {tab === 'pricing' ? (
 +                <div className="space-y-3 text-[12px]">
 +                  <div className="rounded-md border border-[var(--border)] bg-[var(--bg-field)] p-3 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
-+                    <div className="font-medium text-[var(--text)]">Auto 智能路由与单 Key 全模态计费说明</div>
++                    <div className="font-medium text-[var(--text)]">Auto 智能路由与全模态计费说明</div>
 +                    <p className="mt-1">
 +                      当选用 <code className="rounded bg-[var(--bg-panel)] px-1 font-mono text-[var(--text)]">no996/auto</code> 模型时，系统对外保持统一标识并在后台自动择优：
 +                      {pricingData?.auto_vision_routing_enabled !== false
@@ -5536,10 +5447,10 @@ index 0000000..3d6ad10
 +                      </div>
 +
 +                      <div>
-+                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">多模态工具服务（同一默认 API Key 通用）</div>
++                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">多模态与工具服务</div>
 +                        <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
 +                          {(pricingData?.services ?? []).length === 0 ? (
-+                            <div className="px-3 py-3 text-[var(--text-muted)]">已接入：/v1/images/generations、/v1/audio/speech、/v1/tools/web_search</div>
++                            <div className="px-3 py-3 text-[var(--text-muted)]">已接入：/v1/images/generations、/v1/audio/speech、/v1/audio/transcriptions、/v1/ocr、/v1/tools/web_search</div>
 +                          ) : (
 +                            pricingData!.services!.map((s, idx) => (
 +                              <div key={String(s.service_code || idx)} className="flex items-center justify-between gap-2 px-3 py-2">

@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "951ce17e4e595fe4e02ba1653bc8060d046edc517acbe152388e59d5ea3444e9"
+    "sha256": "70b58f454990a1f6acefcf51995cc67d59725fe5187212cc913f1b0940c62ac6"
   },
   "patches": [
     {
@@ -245,8 +245,8 @@
       "file": "300-WorkbenchAccount.patch",
       "source": "packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx",
       "group": "chat",
-      "sha256": "d3716d17f8cad6d6bbae3d908864a93628628ffd8fab9549fd4734e2aa986797",
-      "bytes": 40369
+      "sha256": "71039fd6d52ac99a43b32a53c5650303a3fdc2d18208c83e0e9180faf49345f7",
+      "bytes": 36300
     },
     {
       "id": "310-ModelsSection",

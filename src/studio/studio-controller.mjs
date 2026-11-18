@@ -483,7 +483,6 @@ export function createStudioController(ctx, createProxy, {
     if (
       channel === 'auth:status' || channel === 'auth:logout' || channel === 'auth:action' || channel === 'account:balance'
       || channel === 'account:overview' || channel === 'account:traces' || channel === 'account:pricing'
-      || channel === 'account:key-rotate' || channel === 'account:key-probe'
       || channel === 'auth:remember-get' || channel === 'auth:remember-set' || channel === 'auth:remember-clear'
     ) {
       // Login + account panel live inside the official shell. Tokens stay on Host.
@@ -572,12 +571,11 @@ export function createStudioController(ctx, createProxy, {
             balance = { ...balance, stale: true };
           }
         }
-        const defaultKey = isFormal ? await workbenchAuth.getDefaultApiKeySummary() : { exists: false, ready: false, secretMissing: false, maskedKey: '', name: '', rpmLimit: 0, dailyTokens: 0 };
         let capabilities = null;
         if (isFormal) {
           capabilities = await workbenchAuth.authedRequest('/api/v1/me/api-capabilities').catch(() => null);
         }
-        return { status, balance, defaultKey, capabilities, walletDirtyAt };
+        return { status, balance, capabilities, walletDirtyAt };
       }
       if (channel === 'account:traces') {
         const status = await workbenchAuth.status();
@@ -601,60 +599,38 @@ export function createStudioController(ctx, createProxy, {
           return { models: [], services: [], capabilities: null };
         }
         const [catalog, capabilities] = await Promise.all([
-          workbenchAuth.authedRequest('/api/v1/pricing/catalog').catch(() => ({ models: [], services: [] })),
+          workbenchAuth.authedRequest('/api/v1/pricing/catalog').catch(() => ({ items: [], models: [], services: [] })),
           workbenchAuth.authedRequest('/api/v1/me/api-capabilities').catch(() => null),
         ]);
+        const rawItems = Array.isArray(catalog?.items) ? catalog.items : [];
+        const mappedModels = Array.isArray(catalog?.models) && catalog.models.length > 0
+          ? catalog.models
+          : rawItems.filter((it) => it?.category === 'model').map((it) => ({
+            model_code: it.code,
+            display_name: it.display_name || it.code,
+            points_per_1k_input: Number(it.input_points_per_1k) || 0,
+            points_per_1k_output: Number(it.output_points_per_1k) || 0,
+            fixed_points: Number(it.fixed_points) || 0,
+            billing_mode: String(it.billing_mode || ''),
+            supports_vision: Boolean(it.image_input),
+            available: it.ready !== false,
+          }));
+        const mappedServices = Array.isArray(catalog?.services) && catalog.services.length > 0
+          ? catalog.services
+          : rawItems.filter((it) => it?.category === 'service').map((it) => ({
+            service_code: it.code,
+            display_name: it.display_name || it.code,
+            unit_label: it.metering_unit || '次',
+            points_per_unit: Number(it.unit_points) || 0,
+            available: it.ready !== false,
+          }));
         return {
-          models: Array.isArray(catalog?.models) ? catalog.models : [],
-          services: Array.isArray(catalog?.services) ? catalog.services : [],
-          auto_vision_routing_enabled: Boolean(catalog?.auto_vision_routing_enabled ?? capabilities?.auto_vision_routing_enabled),
+          models: mappedModels,
+          services: mappedServices,
+          auto_vision_routing_enabled: Boolean(catalog?.auto_vision_routing_enabled ?? capabilities?.auto_vision_routing_enabled ?? true),
           gateway_base_url: catalog?.gateway_base_url || capabilities?.gateway_base_url || '',
           capabilities,
         };
-      }
-      if (channel === 'account:key-rotate') {
-        const status = await workbenchAuth.status();
-        if (!(status.loggedIn === true && status.guest !== true && status.dev !== true)) {
-          return { ok: false, error: 'AUTH_REQUIRED', message: '请先登录正式不加班账号' };
-        }
-        const defaultKey = await workbenchAuth.rotateDefaultApiKey();
-        void voiceBridge.refreshReady().catch(() => {});
-        return { ok: true, defaultKey };
-      }
-      if (channel === 'account:key-probe') {
-        const status = await workbenchAuth.status();
-        if (!(status.loggedIn === true && status.guest !== true && status.dev !== true)) {
-          return { ok: false, error: 'AUTH_REQUIRED', message: '请先登录正式不加班账号' };
-        }
-        const started = Date.now();
-        let defaultKey = await workbenchAuth.getDefaultApiKeySummary();
-        if (!defaultKey.ready) {
-          defaultKey = await workbenchAuth.ensureDefaultApiKey();
-        }
-        if (!defaultKey.ready) {
-          return { ok: false, needsRotate: true, defaultKey, message: '默认 Key 在其他设备生成过，请点击「轮换并激活本机 Key」获取本机调用凭证。' };
-        }
-        const secret = await workbenchAuth.getDefaultApiKeySecret();
-        const base = String(workbenchAuth.baseUrl || '').replace(/\/+$/, '');
-        try {
-          const res = await fetch(`${base}/v1/models`, {
-            headers: { accept: 'application/json', authorization: `Bearer ${secret}` },
-            signal: AbortSignal.timeout(10000),
-          });
-          const latencyMs = Date.now() - started;
-          const json = await res.json().catch(() => ({}));
-          const modelsCount = Array.isArray(json?.data) ? json.data.length : 0;
-          return {
-            ok: res.ok,
-            status: res.status,
-            latencyMs,
-            modelsCount,
-            defaultKey,
-            message: res.ok ? `网关连通正常 (${latencyMs}ms · ${modelsCount} 个模型可用)` : `网关返回 HTTP ${res.status}`,
-          };
-        } catch (err) {
-          return { ok: false, latencyMs: Date.now() - started, defaultKey, message: String(err?.message || '探活请求失败').slice(0, 160) };
-        }
       }
       if (channel === 'auth:logout') {
         // A dev session has nothing to log out of; clearing it would only bounce
@@ -672,6 +648,7 @@ export function createStudioController(ctx, createProxy, {
         const result = await dispatchAuthAction(workbenchAuth, action);
         void voiceBridge.refreshReady().catch(() => {});
         onAuthChanged?.();
+        void nativeAgentService?.refreshDefaultModels?.().catch(() => {});
         return result;
       } catch (error) {
         // Page needs the workbench message, not a bare 503. Tokens never leave Host.
@@ -892,12 +869,6 @@ export function createStudioController(ctx, createProxy, {
     store: nativeSessions,
     emit: async (projectId, event) => deliverToPanel(projectId, event),
     prepareProject: prepareProjectInstructions,
-    beforeSend: async () => {
-      const status = await workbenchAuth.status().catch(() => null);
-      if (status?.loggedIn && !status?.guest && !status?.dev) {
-        await workbenchAuth.ensureDefaultApiKey().catch(() => null);
-      }
-    },
     defaultSelection: async () => {
       try {
         const status = await workbenchAuth.status().catch(() => null);

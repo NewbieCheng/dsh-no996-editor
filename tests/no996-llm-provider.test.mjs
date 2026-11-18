@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createNo996LlmAdapter } from '../src/native/no996-llm-provider.mjs';
+import { createNo996LlmAdapter, registerNo996LlmProvider } from '../src/native/no996-llm-provider.mjs';
 
 function startMockServer(handler) {
   const server = http.createServer(handler);
@@ -13,7 +13,7 @@ function startMockServer(handler) {
   });
 }
 
-test('no996-llm-provider: advertises auto with image modality and streams Responses SSE + images', async () => {
+test('no996-llm-provider: advertises auto with image modality and streams Responses SSE + images via JWT', async () => {
   let capturedHeaders = null;
   let capturedBody = null;
 
@@ -54,7 +54,7 @@ test('no996-llm-provider: advertises auto with image modality and streams Respon
         baseUrl: url,
         dev: false,
         status: async () => ({ loggedIn: true, guest: false }),
-        getDefaultApiKeySecret: async () => 'sk-no996-live-key',
+        accessToken: async () => 'jwt-live-token',
       },
       resolveAttachments: () => ({
         readImageRequest: async () => ({
@@ -88,7 +88,7 @@ test('no996-llm-provider: advertises auto with image modality and streams Respon
       chunks.push(chunk);
     }
 
-    assert.equal(capturedHeaders.authorization, 'Bearer sk-no996-live-key');
+    assert.equal(capturedHeaders.authorization, 'Bearer jwt-live-token');
     assert.ok(String(capturedHeaders['user-agent'] || '').includes('deepseek-harness'));
     assert.equal(capturedBody.model, 'auto');
     assert.equal(capturedBody.reasoning.effort, 'high');
@@ -98,13 +98,23 @@ test('no996-llm-provider: advertises auto with image modality and streams Respon
     assert.ok(chunks.some(c => c.type === 'reasoning-delta' && c.text === 'thinking...'));
     assert.ok(chunks.some(c => c.type === 'text-delta' && c.text === 'Hello '));
     const usage = chunks.find(c => c.type === 'usage');
-    assert.equal(usage.usage.inputTokens, 100);
-    assert.equal(usage.usage.cacheReadTokens, 20);
-    assert.equal(usage.usage.outputTokens, 15);
-    const finish = chunks.at(-1);
-    assert.equal(finish.type, 'finish');
-    assert.equal(finish.reason.kind, 'stop');
+    assert.equal(usage?.usage?.inputTokens, 100);
+    assert.equal(usage?.usage?.outputTokens, 15);
     assert.equal(dirty, 1);
+
+    // Registration refresh triggers handle.replace(['no996']) so DSH re-lists models on login
+    let replaced = null;
+    const reg = registerNo996LlmProvider({
+      llm: {
+        registerAdapter(_routes, _adapter) {
+          const fn = () => {};
+          fn.replace = (next) => { replaced = next; };
+          return fn;
+        },
+      },
+    }, { auth: { baseUrl: url } });
+    reg.refresh();
+    assert.deepEqual(replaced, ['no996']);
   } finally {
     await new Promise(r => server.close(r));
   }

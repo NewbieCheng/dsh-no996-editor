@@ -4,8 +4,8 @@
  * - Advertises `no996/auto` first with `inputModalities: ['text', 'image']` so DSH sends
  *   attached images inline to `/v1/responses` (where backend Auto Vision routing selects a
  *   vision-capable route while keeping external model identity `auto`).
- * - Uses the Host's protected system default API Key (`sk-no996-...`), auto-ensuring on first
- *   call and falling back to workbench JWT if needed. Secrets never leave Host.
+ * - Uses Host-only short-lived JWT (`auth.accessToken()` with single-flight `refresh()` retry on
+ *   HTTP 401) against `/v1/responses`. No static API Key is ever stored on client disk.
  * - Attaches DSH `attributionHeaders()` to every outbound HTTP request.
  */
 
@@ -216,18 +216,14 @@ export function createNo996LlmAdapter({
 } = {}) {
   const base = String(auth?.baseUrl || '').replace(/\/+$/, '');
 
-  async function resolveBearer({ ensure = true } = {}) {
+  async function resolveBearer({ forceRefresh = false } = {}) {
     if (!auth) throw makeLlmError('不加班认证服务未就绪', 'INVALID_CREDENTIAL');
     if (auth.dev || auth.guest) {
       throw makeLlmError('游客或开发模式不支持调用平台付费模型，请登录正式不加班账号', 'INVALID_CREDENTIAL');
     }
-    let secret = typeof auth.getDefaultApiKeySecret === 'function' ? await auth.getDefaultApiKeySecret() : null;
-    if (!secret && ensure && typeof auth.ensureDefaultApiKey === 'function') {
-      await auth.ensureDefaultApiKey().catch(() => null);
-      secret = await auth.getDefaultApiKeySecret?.();
-    }
-    if (secret) return secret;
-    const jwt = await auth.accessToken?.();
+    const jwt = forceRefresh && typeof auth.refreshTokenSession === 'function'
+      ? await auth.refreshTokenSession()
+      : await auth.accessToken?.();
     if (!jwt) throw makeLlmError('请先登录不加班账号后再使用平台模型', 'INVALID_CREDENTIAL');
     return jwt;
   }
@@ -260,13 +256,24 @@ export function createNo996LlmAdapter({
       try {
         const dshLlm = await loadDshLlm();
         const attr = typeof dshLlm?.attributionHeaders === 'function' ? dshLlm.attributionHeaders() : defaultAttributionHeaders();
-        const bearer = await resolveBearer({ ensure: false }).catch(() => null);
+        let bearer = await resolveBearer().catch(() => null);
         if (!bearer) return [autoModel];
-        const res = await fetchImpl(`${base}/v1/models`, {
+        let res = await fetchImpl(`${base}/v1/models`, {
           method: 'GET',
           headers: { accept: 'application/json', authorization: `Bearer ${bearer}`, ...attr },
           signal: AbortSignal.timeout(8000),
         });
+        if (res.status === 401 && typeof auth?.refreshTokenSession === 'function') {
+          const refreshed = await auth.refreshTokenSession().catch(() => null);
+          if (refreshed) {
+            bearer = refreshed;
+            res = await fetchImpl(`${base}/v1/models`, {
+              method: 'GET',
+              headers: { accept: 'application/json', authorization: `Bearer ${bearer}`, ...attr },
+              signal: AbortSignal.timeout(8000),
+            });
+          }
+        }
         if (!res.ok) return [autoModel];
         const json = await res.json();
         const rows = Array.isArray(json?.data) ? json.data : [];
@@ -303,7 +310,7 @@ export function createNo996LlmAdapter({
     async * stream(options) {
       const dshLlm = await loadDshLlm();
       const attr = typeof dshLlm?.attributionHeaders === 'function' ? dshLlm.attributionHeaders() : defaultAttributionHeaders();
-      const bearer = await resolveBearer({ ensure: true });
+      let bearer = await resolveBearer();
       const payload = await serializeResponsesRequest(options, {
         resolveAttachments,
         resolveImageAccess,
@@ -311,17 +318,26 @@ export function createNo996LlmAdapter({
         signal: options.signal,
       });
 
-      const response = await fetchImpl(`${base}/v1/responses`, {
+      const doFetch = (token) => fetchImpl(`${base}/v1/responses`, {
         method: 'POST',
         headers: {
           accept: 'text/event-stream',
           'content-type': 'application/json',
-          authorization: `Bearer ${bearer}`,
+          authorization: `Bearer ${token}`,
           ...attr,
         },
         body: JSON.stringify(payload),
         signal: options.signal,
       });
+
+      let response = await doFetch(bearer);
+      if (response.status === 401 && typeof auth?.refreshTokenSession === 'function') {
+        const refreshed = await auth.refreshTokenSession().catch(() => null);
+        if (refreshed) {
+          bearer = refreshed;
+          response = await doFetch(bearer);
+        }
+      }
 
       if (!response.ok) {
         const rawErr = await response.text().catch(() => '');
@@ -507,10 +523,21 @@ export function createNo996LlmAdapter({
 
 /** Register `no996` adapter on DSH `ctx.llm` if present. */
 export function registerNo996LlmProvider(ctx, { auth, resolveAttachments, resolveImageAccess, onWalletDirty, fetchImpl } = {}) {
-  if (!ctx?.llm || typeof ctx.llm.registerAdapter !== 'function') return () => {};
+  if (!ctx?.llm || typeof ctx.llm.registerAdapter !== 'function') {
+    return { dispose: () => {}, refresh: () => {} };
+  }
   const adapter = createNo996LlmAdapter({ auth, resolveAttachments, resolveImageAccess, onWalletDirty, fetchImpl });
   const handle = ctx.llm.registerAdapter(['no996'], adapter);
-  return () => {
-    try { handle(); } catch { /* already disposed */ }
+  return {
+    dispose: () => {
+      try { handle(); } catch { /* already disposed */ }
+    },
+    refresh: () => {
+      try {
+        if (typeof handle?.replace === 'function') {
+          handle.replace(['no996']);
+        }
+      } catch { /* already disposed */ }
+    },
   };
 }

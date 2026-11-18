@@ -107,9 +107,9 @@
     "source/pnpm-lock.yaml": "3fe58d8c7e4d51afff7debb50b35cfd3d6c8c961b1214bf782a68d3b6c5c4b4a",
     "source/pnpm-workspace.yaml": "af261372097773546d4000a74b771c8c09c4114ca5e9dd715c95018b44e1fbe3",
     "ui/assets/CanvasView-D_Y2VtPX.css": "738392246b7fcccf3b45c490c3ecc7b7107623505cc835d3ccf44730f107a77d",
-    "ui/assets/CanvasView-DnQUDlTb.js": "be2a34e0fab0988a3cc06cd67c48cf85d442ff72aa2762640d4b35665bd5eda7",
-    "ui/assets/index-CSKf3NCM.css": "adb88b5571957a09d550524f329a37e4f4c51911d0a9cd10622396299e3c6b01",
-    "ui/assets/index-tMIzctRF.js": "87eb78ced7eb4bd0d5a0a754e953feed018b2bc8054be60224cb7313c3feaa97",
+    "ui/assets/CanvasView-DvVnozGB.js": "984e9e7eac73c97278efae56d6335eda7aa0131d960cea10f56e65aafe9c9dc5",
+    "ui/assets/index-Bg8WQ3Ll.css": "9e78afcb2c47bcc6751130308dc2e1781453b54382a5355a0533bf40e9079b84",
+    "ui/assets/index-CxLKfBj4.js": "0d96ae0d4ade65e58294b429cccd11df1fe1f835288607a96c790be1e4ac7aab",
     "ui/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2": "ca157063339ac4ad418f214f3abfed119b0798ab4d377386ce5c9e5a7a435ebd",
     "ui/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2": "71d5ee93cc1e9f1d520a3a8b66456de18c7879d8df09d57fcd2eaff75fef0075",
     "ui/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2": "6e9e020a25f9b56d418f2c085b1d3c09725a4da23fe693a5b463064606732190",
@@ -117,7 +117,7 @@
     "ui/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2": "34b9c504cab7a73e37b746343a449132e56cf7b5481af2cb81dc74dcff25c956",
     "ui/assets/inter-latin-wght-normal-Dx4kXJAl.woff2": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62",
     "ui/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2": "5c66f9e07e90c6d4ac4922cc68d60de26c17b1858e677fb5e603fce3952b3ff2",
-    "ui/index.html": "bf7909a799770beae73c02f578fcf49f2f6df803b5d4678b8e9e60bd3514ef67",
+    "ui/index.html": "ca9e638545084a041b2b2ff89ac0daa3e5949ab53e63703ba06d5d86bc20194c",
     "ui/assets/no996-theme.css": "cb9b0a24e975b050593306829a49f66581512dfa94afb474688afc895dfdd229"
   },
   "overrides": {

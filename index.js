@@ -23,20 +23,18 @@ export function apply(ctx) {
   };
 
   ctx.effect(() => ctx.tools.register(createDraftTool()), 'openfilm: draft tool');
-  ctx.effect(
-    () => registerNo996LlmProvider(ctx, {
-      auth: workbenchAuth,
-      resolveAttachments: () => ctx.get?.('attachments'),
-      resolveImageAccess: (attachments, ref) => {
-        const fsSvc = ctx.get?.('fs');
-        if (!attachments || typeof attachments.readImage !== 'function') return undefined;
-        void loadResolveImageAccess();
-        return fsSvc?.processPathFromHostPath?.(ref?.hostPath);
-      },
-      onWalletDirty,
-    }),
-    'no996: llm adapter',
-  );
+  const llmReg = registerNo996LlmProvider(ctx, {
+    auth: workbenchAuth,
+    resolveAttachments: () => ctx.get?.('attachments'),
+    resolveImageAccess: (attachments, ref) => {
+      const fsSvc = ctx.get?.('fs');
+      if (!attachments || typeof attachments.readImage !== 'function') return undefined;
+      void loadResolveImageAccess();
+      return fsSvc?.processPathFromHostPath?.(ref?.hostPath);
+    },
+    onWalletDirty,
+  });
+  ctx.effect(() => llmReg.dispose, 'no996: llm adapter');
   const webReg = registerNo996WebProvider(ctx, { auth: workbenchAuth, onWalletDirty });
   ctx.effect(() => webReg.dispose, 'no996: web providers');
 
@@ -44,7 +42,10 @@ export function apply(ctx) {
     () => createStudioController(ctx, startStudioProxy, {
       officialShell: process.env.NO996_OPENFILM_DSH_CHAT !== '1',
       workbenchAuth,
-      onAuthChanged: () => { void webReg.refreshReady().catch(() => {}); },
+      onAuthChanged: () => {
+        void webReg.refreshReady().catch(() => {});
+        llmReg.refresh?.();
+      },
       registerWalletDirtyListener: (fn) => { notifyControllerWalletDirty = fn; },
     }),
     'openfilm: Studio',

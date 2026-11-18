@@ -46,38 +46,43 @@ export function createNo996WebProviders({ auth, fetchImpl = globalThis.fetch, on
     return ready;
   }
 
-  async function resolveBearer() {
+  async function resolveBearer({ forceRefresh = false } = {}) {
     if (!auth || auth.dev || auth.guest) {
       throw makeWebError('请先登录正式不加班账号后再使用平台联网服务', 'UNAVAILABLE');
     }
-    let secret = await auth.getDefaultApiKeySecret?.().catch(() => null);
-    if (!secret && typeof auth.ensureDefaultApiKey === 'function') {
-      await auth.ensureDefaultApiKey().catch(() => null);
-      secret = await auth.getDefaultApiKeySecret?.().catch(() => null);
-    }
-    if (secret) return secret;
-    const jwt = await auth.accessToken?.();
+    const jwt = forceRefresh && typeof auth.refreshTokenSession === 'function'
+      ? await auth.refreshTokenSession()
+      : await auth.accessToken?.();
     if (!jwt) throw makeWebError('请先登录不加班账号', 'UNAVAILABLE');
     return jwt;
   }
 
   async function postV1(path, body, signal) {
-    const bearer = await resolveBearer();
-    let res;
-    try {
-      res = await fetchImpl(`${base}${path}`, {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          authorization: `Bearer ${bearer}`,
-        },
-        body: JSON.stringify(body),
-        signal,
-      });
-    } catch (error) {
-      if (signal?.aborted) throw makeWebError('请求已取消', 'CANCELLED');
-      throw makeWebError('无法连接不加班联网服务', 'PROVIDER_FAILED');
+    let bearer = await resolveBearer();
+    const doPost = async (token) => {
+      try {
+        return await fetchImpl(`${base}${path}`, {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json',
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+          signal,
+        });
+      } catch (error) {
+        if (signal?.aborted) throw makeWebError('请求已取消', 'CANCELLED');
+        throw makeWebError('无法连接不加班联网服务', 'PROVIDER_FAILED');
+      }
+    };
+    let res = await doPost(bearer);
+    if (res.status === 401 && typeof auth?.refreshTokenSession === 'function') {
+      const refreshed = await auth.refreshTokenSession().catch(() => null);
+      if (refreshed) {
+        bearer = refreshed;
+        res = await doPost(bearer);
+      }
     }
     const raw = await res.text().catch(() => '');
     let json = {};

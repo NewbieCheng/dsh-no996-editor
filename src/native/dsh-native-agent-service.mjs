@@ -737,11 +737,13 @@ export function createDshNativeAgentService({
     return undefined;
   }
 
-  async function adoptDefaultSelection(projectId, session, { persist = true } = {}) {
-    if (session.model) return;
+  async function adoptDefaultSelection(projectId, session, { persist = true, force = false } = {}) {
+    if (session.model && !force) return;
+    if (force && session.modelSource === 'selected') return;
     let selection;
     try { selection = await defaultSelection(); } catch { return; }
     if (!selection || !text(selection.provider) || !text(selection.model)) return;
+    if (session.model?.provider === selection.provider && session.model?.model === selection.model) return;
     if (!text(session.sessionId)) {
       applySelection(session, selection, 'default');
       return;
@@ -959,6 +961,9 @@ export function createDshNativeAgentService({
 
     async modelCatalog(projectId, conversation, modelValue) {
       const session = await peekSession(projectId, conversation);
+      if (!session.model || session.modelSource === 'default' || session.modelSource === 'catalog') {
+        await adoptDefaultSelection(projectId, session, { persist: false, force: true });
+      }
       const catalog = await ctx.sessionController.modelCatalog();
       if (!catalog || !Array.isArray(catalog.groups) || catalog.groups.length === 0) {
         throw failure('OFFICIAL_AGENT_MODEL_UNAVAILABLE', 'no models advertised');
@@ -973,6 +978,16 @@ export function createDshNativeAgentService({
         return { ...catalog, default: { provider: session.model.provider, model: session.model.model } };
       }
       return catalog;
+    },
+
+    async refreshDefaultModels() {
+      for (const [projectId, projectState] of projects.entries()) {
+        for (const session of projectState.sessions.values()) {
+          if (session.modelSource !== 'selected' && session.modelSource !== 'store') {
+            await adoptDefaultSelection(projectId, session, { persist: false, force: true });
+          }
+        }
+      }
     },
 
     async selectModel(projectId, selection, conversation) {

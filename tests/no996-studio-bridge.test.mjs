@@ -17,7 +17,7 @@ function startMockServer(handler) {
   });
 }
 
-test('no996-studio-bridge: handles image, web-search, and unconfigured video gracefully using default key', async () => {
+test('no996-studio-bridge: handles image, web-search, and unconfigured video gracefully using Host JWT', async () => {
   const seenAuth = [];
   const { server, url } = await startMockServer(async (req, res) => {
     seenAuth.push(req.headers.authorization || '');
@@ -55,8 +55,7 @@ test('no996-studio-bridge: handles image, web-search, and unconfigured video gra
       baseUrl: url,
       dev: false,
       status: async () => ({ loggedIn: true, guest: false }),
-      accessToken: async () => 'jwt-fallback',
-      getDefaultApiKeySecret: async () => 'sk-no996-default-secret',
+      accessToken: async () => 'jwt-studio-token',
     };
     const bridge = createNo996StudioBridge({ auth, onWalletDirty: () => { dirtyCount++; } });
 
@@ -74,7 +73,7 @@ test('no996-studio-bridge: handles image, web-search, and unconfigured video gra
       bridge.run('video', { prompt: 'cat running' }, { say() {} }),
       (err) => err?.code === 'VIDEO_NOT_CONFIGURED',
     );
-    assert.ok(seenAuth.every(a => a === 'Bearer sk-no996-default-secret'));
+    assert.ok(seenAuth.every(a => a === 'Bearer jwt-studio-token'));
   } finally {
     await new Promise(r => server.close(r));
   }

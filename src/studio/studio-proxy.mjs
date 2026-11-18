@@ -591,7 +591,6 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           && value.channel !== 'auth:status' && value.channel !== 'auth:logout' && value.channel !== 'auth:action'
           && value.channel !== 'account:balance' && value.channel !== 'account:overview'
           && value.channel !== 'account:traces' && value.channel !== 'account:pricing'
-          && value.channel !== 'account:key-rotate' && value.channel !== 'account:key-probe'
           && value.channel !== 'auth:remember-get' && value.channel !== 'auth:remember-set' && value.channel !== 'auth:remember-clear'
           // First-run wizard: no project exists yet, and the ASR routes are
           // install/status only. Gating them on a project made the wizard's

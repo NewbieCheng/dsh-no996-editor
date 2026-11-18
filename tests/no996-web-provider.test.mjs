@@ -13,9 +13,9 @@ function startMockServer(handler) {
   });
 }
 
-test('no996-web-provider: search and fetch call workbench /v1/tools/* endpoints', async () => {
+test('no996-web-provider: search and fetch call workbench /v1/tools/* endpoints via Host JWT', async () => {
   const { server, url } = await startMockServer(async (req, res) => {
-    assert.equal(req.headers.authorization, 'Bearer sk-no996-web-key');
+    assert.equal(req.headers.authorization, 'Bearer jwt-web-token');
     if (req.url === '/v1/tools/web_search') {
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
         answer: 'Summary answer',
@@ -42,7 +42,7 @@ test('no996-web-provider: search and fetch call workbench /v1/tools/* endpoints'
         baseUrl: url,
         dev: false,
         status: async () => ({ loggedIn: true, guest: false }),
-        getDefaultApiKeySecret: async () => 'sk-no996-web-key',
+        accessToken: async () => 'jwt-web-token',
       },
       onWalletDirty: () => { dirty++; },
     });

@@ -82,38 +82,41 @@ export function createNo996StudioBridge({ auth, fetchImpl = globalThis.fetch, on
     }
   }
 
-  /** Prefer protected default `sk-no996-` secret (auto-ensuring if needed), fall back to JWT. */
-  async function resolveBearerToken() {
-    if (typeof auth?.getDefaultApiKeySecret === 'function') {
-      let secret = await auth.getDefaultApiKeySecret().catch(() => null);
-      if (!secret && typeof auth?.ensureDefaultApiKey === 'function') {
-        await auth.ensureDefaultApiKey().catch(() => null);
-        secret = await auth.getDefaultApiKeySecret().catch(() => null);
-      }
-      if (secret) return secret;
-    }
-    const token = await auth.accessToken();
+  /** Use Host-only short-lived JWT (no static API Key stored on client). */
+  async function resolveBearerToken({ forceRefresh = false } = {}) {
+    const token = forceRefresh && typeof auth?.refreshTokenSession === 'function'
+      ? await auth.refreshTokenSession()
+      : await auth.accessToken();
     if (!token) throw publicError('AUTH_REQUIRED', '请先登录不加班账号', 401);
     return token;
   }
 
   async function authedV1(path, { method = 'POST', body, signal } = {}) {
-    const bearer = await resolveBearerToken();
-    let response;
-    try {
-      response = await fetchImpl(`${base}${path}`, {
-        method,
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${bearer}`,
-          ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-        },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-        signal,
-      });
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      throw publicError('WORKBENCH_UNREACHABLE', '无法连接不加班网关，请检查网络后重试', 503);
+    let bearer = await resolveBearerToken();
+    const doFetch = async (token) => {
+      try {
+        return await fetchImpl(`${base}${path}`, {
+          method,
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${token}`,
+            ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+          },
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+          signal,
+        });
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        throw publicError('WORKBENCH_UNREACHABLE', '无法连接不加班网关，请检查网络后重试', 503);
+      }
+    };
+    let response = await doFetch(bearer);
+    if (response.status === 401 && typeof auth?.refreshTokenSession === 'function') {
+      const refreshed = await auth.refreshTokenSession().catch(() => null);
+      if (refreshed) {
+        bearer = refreshed;
+        response = await doFetch(bearer);
+      }
     }
     const json = await readJson(response);
     if (!response.ok) {

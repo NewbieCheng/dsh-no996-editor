@@ -72,44 +72,10 @@ export function createWorkbenchAuth({
   let loaded = false;
   let loadPromise = null;
   let refreshGate = null;
-  let ensureDefaultKeyGate = null;
   let writeQueue = Promise.resolve();
   // In-memory only: survives neither Host reload nor process restart. Used when the
   // real workbench is unreachable (e.g. abroad) so the shell can still be debugged.
   let guest = false;
-
-  function sanitizeDefaultApiKey(raw) {
-    if (!raw || typeof raw !== 'object') return null;
-    const id = Number(raw.id);
-    if (!Number.isFinite(id) || id <= 0) return null;
-    return {
-      id,
-      name: typeof raw.name === 'string' ? raw.name : 'no996-default',
-      maskedKey: typeof raw.maskedKey === 'string' ? raw.maskedKey : '',
-      secret: typeof raw.secret === 'string' ? raw.secret : '',
-      rpmLimit: Number.isFinite(Number(raw.rpmLimit)) ? Number(raw.rpmLimit) : 60,
-      dailyTokens: Number.isFinite(Number(raw.dailyTokens)) ? Number(raw.dailyTokens) : 0,
-      ensuredAt: typeof raw.ensuredAt === 'string' ? raw.ensuredAt : '',
-    };
-  }
-
-  function summarizeDefaultApiKey(record) {
-    if (!record) {
-      return { exists: false, ready: false, secretMissing: false, maskedKey: '', name: '', rpmLimit: 0, dailyTokens: 0 };
-    }
-    const hasSecret = typeof record.secret === 'string' && record.secret.length > 0;
-    return {
-      exists: true,
-      ready: hasSecret,
-      secretMissing: !hasSecret,
-      id: record.id,
-      name: record.name || 'no996-default',
-      maskedKey: record.maskedKey || '',
-      rpmLimit: record.rpmLimit || 60,
-      dailyTokens: record.dailyTokens || 0,
-      ensuredAt: record.ensuredAt || '',
-    };
-  }
 
   async function load() {
     if (loaded) return session;
@@ -130,7 +96,6 @@ export function createWorkbenchAuth({
           userId: typeof parsed.userId === 'number' ? parsed.userId : 0,
           account: typeof parsed.account === 'string' ? parsed.account : '',
           displayName: typeof parsed.displayName === 'string' ? parsed.displayName : '',
-          defaultApiKey: sanitizeDefaultApiKey(parsed.defaultApiKey),
         };
         return session;
       } catch {
@@ -153,14 +118,13 @@ export function createWorkbenchAuth({
         return;
       }
       const payload = {
-        version: 2,
+        version: 3,
         accessToken: next.accessToken,
         refreshToken: next.refreshToken,
         expiresAt: next.expiresAt || '',
         userId: next.userId || 0,
         account: next.account || '',
         displayName: next.displayName || '',
-        ...(next.defaultApiKey ? { defaultApiKey: next.defaultApiKey } : {}),
         updatedAt: new Date(now()).toISOString(),
       };
       await writeFile(tmp, `${JSON.stringify(payload)}\n`, { encoding: 'utf8', mode: 0o600 });
@@ -204,7 +168,6 @@ export function createWorkbenchAuth({
       throw publicError('AUTH_TOKEN_MISSING', '登录成功但未收到会话令牌', 502);
     }
     const nextUserId = typeof data.user_id === 'number' ? data.user_id : 0;
-    const sameUser = session?.defaultApiKey && (session.userId === 0 || nextUserId === 0 || session.userId === nextUserId);
     const next = {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -212,28 +175,9 @@ export function createWorkbenchAuth({
       userId: nextUserId,
       account: account || session?.account || '',
       displayName: displayName || session?.displayName || '',
-      defaultApiKey: sameUser ? session.defaultApiKey : null,
     };
     await persist(next);
     return next;
-  }
-
-  async function saveDefaultApiKey(apiKeyMeta, plaintextSecret = '') {
-    await load();
-    if (!session?.refreshToken || !apiKeyMeta || typeof apiKeyMeta !== 'object') return null;
-    const prevSecret = session.defaultApiKey?.id === Number(apiKeyMeta.api_key_id) ? session.defaultApiKey.secret : '';
-    const record = sanitizeDefaultApiKey({
-      id: Number(apiKeyMeta.api_key_id || apiKeyMeta.id || 0),
-      name: typeof apiKeyMeta.key_name === 'string' ? apiKeyMeta.key_name : 'no996-default',
-      maskedKey: typeof apiKeyMeta.masked_key === 'string' ? apiKeyMeta.masked_key : '',
-      secret: typeof plaintextSecret === 'string' && plaintextSecret ? plaintextSecret : prevSecret,
-      rpmLimit: Number(apiKeyMeta.rpm_limit || 60),
-      dailyTokens: Number(apiKeyMeta.daily_tokens || 0),
-      ensuredAt: new Date(now()).toISOString(),
-    });
-    if (!record) return null;
-    await persist({ ...session, defaultApiKey: record });
-    return record;
   }
 
   async function workbenchAuthed(path, options = {}) {
@@ -380,7 +324,6 @@ export function createWorkbenchAuth({
       if (captchaCode) body.captcha_code = String(captchaCode);
       const data = await workbench('/api/v1/auth/login', { method: 'POST', body });
       await applyTokens(data, { account: fields.email || fields.phone || String(account).trim() });
-      void apiMethods.ensureDefaultApiKey().catch(() => {});
       return statusSnapshot();
     },
     async requestVerificationCode({ account, purpose = 'register', captchaId, captchaCode, locale }) {
@@ -420,7 +363,6 @@ export function createWorkbenchAuth({
         account: fields.email,
         displayName: body.display_name || '',
       });
-      void apiMethods.ensureDefaultApiKey().catch(() => {});
       return statusSnapshot();
     },
     async resetPassword({ account, code, newPassword }) {
@@ -494,56 +436,16 @@ export function createWorkbenchAuth({
         available_points: permanent + periodPoints,
       };
     },
+    /** Host-only: force-refresh short-lived JWT using single-flight refresh token exchange. */
+    async refreshTokenSession() {
+      if (dev || guest) return null;
+      const refreshed = await refresh().catch(() => null);
+      return refreshed?.accessToken || null;
+    },
     /** Host-only: authenticated JSON request against workbench with 1 automatic refresh retry. */
     async authedRequest(path, options = {}) {
       if (dev || guest) throw publicError('AUTH_REQUIRED', '请先登录正式不加班账号', 401);
       return await workbenchAuthed(path, options);
-    },
-    /** Safe summary for UI (never exposes the plaintext API Key secret). */
-    async getDefaultApiKeySummary() {
-      if (dev || guest) {
-        return { exists: false, ready: false, secretMissing: false, maskedKey: '', name: '', rpmLimit: 0, dailyTokens: 0 };
-      }
-      await load();
-      return summarizeDefaultApiKey(session?.defaultApiKey);
-    },
-    /** Host-only: returns plaintext secret for server-to-server /v1 calls. Never send to renderer. */
-    async getDefaultApiKeySecret() {
-      if (dev || guest) return null;
-      await load();
-      return session?.defaultApiKey?.secret || null;
-    },
-    /** Ensure user has a protected system default API Key and save plaintext locally on first issuance. */
-    async ensureDefaultApiKey({ autoRotateIfMissingSecret = false } = {}) {
-      if (dev || guest) {
-        return { exists: false, ready: false, secretMissing: false, maskedKey: '', name: '', rpmLimit: 0, dailyTokens: 0 };
-      }
-      if (ensureDefaultKeyGate) return await ensureDefaultKeyGate;
-      ensureDefaultKeyGate = (async () => {
-        await load();
-        if (!session?.refreshToken) throw publicError('AUTH_REQUIRED', '请先登录', 401);
-        if (session.defaultApiKey?.secret) {
-          return summarizeDefaultApiKey(session.defaultApiKey);
-        }
-        const data = await workbenchAuthed('/api/v1/me/api-keys/default', { method: 'POST' });
-        const plaintext = typeof data?.api_key_plaintext === 'string' ? data.api_key_plaintext : '';
-        const record = await saveDefaultApiKey(data?.api_key, plaintext);
-        if (!record?.secret && autoRotateIfMissingSecret) {
-          return await apiMethods.rotateDefaultApiKey();
-        }
-        return summarizeDefaultApiKey(record || session?.defaultApiKey);
-      })().finally(() => { ensureDefaultKeyGate = null; });
-      return await ensureDefaultKeyGate;
-    },
-    /** Explicitly rotate the protected system default API Key and persist new plaintext locally. */
-    async rotateDefaultApiKey() {
-      if (dev || guest) throw publicError('AUTH_REQUIRED', '请先登录正式不加班账号', 401);
-      await load();
-      if (!session?.refreshToken) throw publicError('AUTH_REQUIRED', '请先登录', 401);
-      const data = await workbenchAuthed('/api/v1/me/api-keys/default/rotate', { method: 'POST' });
-      const plaintext = typeof data?.api_key_plaintext === 'string' ? data.api_key_plaintext : '';
-      const record = await saveDefaultApiKey(data?.api_key, plaintext);
-      return summarizeDefaultApiKey(record || session?.defaultApiKey);
     },
   };
   return apiMethods;
