@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/components/Markdown.tsx b/apps/desktop/chat/src/components/Markdown.tsx
-index f1d0246..a90b4af 100644
+index ebd7224..710ef20 100644
 --- a/apps/desktop/chat/src/components/Markdown.tsx
 +++ b/apps/desktop/chat/src/components/Markdown.tsx
-@@ -141,6 +141,9 @@ function inline(text: string): React.ReactNode[] {
+@@ -142,6 +142,9 @@ function inline(text: string): React.ReactNode[] {
      }
      if (piece.kind === 'strong') return <strong key={index} className="font-semibold">{withRefs(piece.text)}</strong>;
      if (piece.kind === 'em') return <em key={index} className="italic">{withRefs(piece.text)}</em>;
@@ -10,9 +10,9 @@ index f1d0246..a90b4af 100644
 +       reads as an image, and clicking it opens the full-size preview. */
 +    if (piece.kind === 'image') return <InlinePicture key={index} src={piece.href} />;
      if (piece.kind === 'link' && audioLinkPath(piece.href)) return <AudioLink key={index} href={piece.href} text={piece.text} />;
-     if (piece.kind === 'link') {
-       return (
-@@ -200,6 +203,30 @@ function AgentRefPill({ studioRef }: { studioRef: StudioRef }) {
+     if (piece.kind === 'link' && parseLink(piece.href)) {
+       /* a place in the project: the pill a reference is, named by the agent's words; anything else a link */
+@@ -222,6 +225,30 @@ function ProjectLink({ href, text }: { href: string; text: string }) {
    );
  }
  

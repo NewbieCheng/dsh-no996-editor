@@ -1,0 +1,29 @@
+diff --git a/packages/openfilm/studio/ui/src/i18n/es.ts b/packages/openfilm/studio/ui/src/i18n/es.ts
+index cd10a7b..75b773d 100644
+--- a/packages/openfilm/studio/ui/src/i18n/es.ts
++++ b/packages/openfilm/studio/ui/src/i18n/es.ts
+@@ -3435,6 +3435,7 @@ export const es: Words = {
+       github: 'GitHub',
+       examples: 'Ejemplos',
+       site: 'Sitio web',
++      compat: 'Compatible con OpenFilm {version}',
+     },
+     sections: {
+       agents: 'Agentes',
+@@ -3470,7 +3471,7 @@ export const es: Words = {
+       language: 'Idioma',
+       languageSystem: 'Igual que el sistema',
+       themeHint: 'Claro, oscuro o igual que el sistema.',
+-      languageHint: 'El idioma en que se muestra OpenFilm.',
++      languageHint: 'El idioma en que se muestra 不加班剪辑.',
+     },
+     storage: {
+       group: "Almacenamiento",
+@@ -3521,6 +3522,7 @@ export const es: Words = {
+     },
+     about: {
+       group: 'Acerca de',
++      embedded: 'Basado en OpenFilm',
+       check: 'Buscar actualizaciones',
+       checking: 'Comprobando…',
+       failed: 'No se pudo contactar con npm. Inténtalo más tarde.',

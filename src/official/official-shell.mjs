@@ -6,7 +6,7 @@ import { OPENFILM_VERSION } from '../studio/studio-runtime.mjs';
 
 // The shell and Studio must be released together. Change this pin alongside the
 // packaging script and the official npm dependency, not in response to UI input.
-const OFFICIAL_COMMIT = '758b1a3888819bf191db191f690c4ca2fcb292af';
+const OFFICIAL_COMMIT = '715c3a6e46b11a0b3ee038e8f7b3e3b4e19c5c36';
 const shellRoot = fileURLToPath(new URL('../../vendor/official-shell/', import.meta.url));
 const fail = () => Object.assign(new Error('The matching OpenFilm desktop shell is unavailable or damaged'), { code: 'OFFICIAL_SHELL_UNAVAILABLE' });
 

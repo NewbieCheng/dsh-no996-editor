@@ -2,7 +2,7 @@
 id: architecture
 reader: 开发者、智能体
 fact-source: index.js、cordis.patch.yml、src/native/dsh-native-agent-service.mjs、src/film/template-prompts.mjs
-checked: 0.15.29
+checked: 0.16.0
 rot-if: 进程模型、对话边界、预设/模板注入方式变化
 -->
 

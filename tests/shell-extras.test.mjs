@@ -90,9 +90,12 @@ test('About branding lives in SettingsModal (source or patch), not the injection
   const pinned = (/openfilm-([0-9][0-9.]*)\.tgz/.exec(dep) || /^([0-9]+\.[0-9]+\.[0-9]+)$/.exec(dep))[1];
   const modal = join(root, '.upstream/openfilm/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx');
   const zh = join(root, '.upstream/openfilm/packages/openfilm/studio/ui/src/i18n/zh-CN.ts');
-  const text = existsSync(modal) && existsSync(zh)
-    ? `${readFileSync(modal, 'utf8')}\n${readFileSync(zh, 'utf8')}`
-    : readFileSync(join(root, 'vendor/official-shell/patch.diff'), 'utf8');
+  // The recorded patch is the authoritative copy and is always in the repo; a
+  // local upstream checkout may be stale or on another pin, so prefer the patch.
+  const recorded = join(root, 'vendor/official-shell/patch.diff');
+  const text = existsSync(recorded)
+    ? readFileSync(recorded, 'utf8')
+    : `${readFileSync(modal, 'utf8')}\n${readFileSync(zh, 'utf8')}`;
   assert.match(text, /settings\.links\.compat|links\.compat/);
   assert.match(text, /embedded: '基于 OpenFilm 开发'/);
   assert.match(text, /不加班剪辑 界面使用的语言/);

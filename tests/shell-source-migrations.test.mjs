@@ -84,12 +84,9 @@ test('both components are mounted by the shell entry', () => {
   assert.match(patch, /RecoveryGate/);
   assert.match(patch, /EnvironmentNotice/);
   const starters = series.patches.find(entry => entry.source.endsWith('apps/desktop/chat/src/components/ProjectStarters.tsx'));
-  assert.ok(starters, 'series records the starters component');
-  const startersPatch = readFileSync(join(root, 'patches', starters.file), 'utf8');
-  assert.doesNotMatch(startersPatch, /^\+.*<TemplatePicker/m, 'the separate picker must not be mounted');
-  assert.match(startersPatch, /asrModelsMissing|editor\.asrHint/);
-  assert.match(startersPatch, /openfilm\.settings\.card/);
-  assert.match(startersPatch, /environment:fallback-prompt|editor\.asrFallback/);
+  // OpenFilm 0.4.0 ships the Community + library starter chips upstream; the older
+  // drop-box starter (and its empty-state hints) is gone with it, so do not fork it.
+  assert.equal(starters, undefined, 'upstream owns the empty-state starters');
   const models = series.patches.find(entry => entry.source.endsWith('packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx'));
   assert.ok(models, 'series records ModelsSection deep-link for Local services');
   assert.match(readFileSync(join(root, 'patches', models.file), 'utf8'), /openfilm\.settings\.card/);

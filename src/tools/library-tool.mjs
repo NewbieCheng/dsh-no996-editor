@@ -8,6 +8,7 @@
  */
 import { searchTemplates, catalogText } from '../film/template-catalog.mjs';
 import { planLibraryTransition } from '../film/library-transition.mjs';
+import { AGENT_VERBS, searchBuiltInLibrary } from './library-search.mjs';
 
 const KINDS = ['transition', 'effect', 'filter', 'sticker', 'text', 'template', 'music', 'sound', 'sfx'];
 const MAX_LINES = 40;
@@ -147,13 +148,19 @@ export function createLibraryTool({ isProjectAgent, projectOf, http, templates =
       const query = text(args?.query);
       if (!query) throw new Error('What to look for is required (or pass take with an id).');
       const limit = Number.isSafeInteger(args?.limit) ? Math.min(20, Math.max(1, args.limit)) : 8;
-      const verb = kind === 'music' ? 'music-search' : kind === 'sound' ? 'sfx-search' : kind;
-      const result = await http().post('/api/get/library', {
-        body: {
-          verb,
-          args: { prompt: query, limit: String(limit), ...((kind === 'music' || kind === 'sound') && Number.isSafeInteger(args?.seconds) ? { sec: String(args.seconds) } : {}) },
-        },
-      });
+      // OpenFilm 0.4.0 answers only music, sounds and stickers through the Studio
+      // route. The other kinds (transitions, effects, filters, texts) are still
+      // searched by the Host itself, with the pinned library's own scoring, so an
+      // agent can still find one and put it over a cut.
+      const verb = AGENT_VERBS[kind];
+      const result = verb
+        ? await http().post('/api/get/library', {
+          body: {
+            verb,
+            args: { prompt: query, limit: String(limit), ...((kind === 'music' || kind === 'sound') && Number.isSafeInteger(args?.seconds) ? { sec: String(args.seconds) } : {}) },
+          },
+        })
+        : await searchBuiltInLibrary(kind, query, { limit });
       const lines = Array.isArray(result?.lines) ? result.lines.filter(line => typeof line === 'string') : [];
       if (result?.code !== 0) throw new Error(`素材库搜索失败：${lines.join(' ').slice(0, 500) || '无有效回执'}`);
       if (lines.length === 0) {

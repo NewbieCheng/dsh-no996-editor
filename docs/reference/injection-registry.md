@@ -2,7 +2,7 @@
 id: injection-registry
 reader: 改界面的人、reviewer
 fact-source: assets/shell-ui.js、assets/shell-login.js、assets/theme/*.css、src/ui/sidebar-editing.mjs
-checked: 0.15.29
+checked: 0.16.0
 rot-if: 新增/撤掉任何一处没走源码的改动
 -->
 
@@ -20,7 +20,6 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 | Host 截走 drop 后清 pageDropping | `assets/shell-ui.js`（`clearPageDropping`） | 正式修法已在 `patches/010-App.patch` 并 bake 进壳；注入侧仍双保险 | 确认真机 Host drop 不再卡「松手即可附上」后，可删注入侧 `clearPageDropping` |
 | 工作区下拉开关 | `src/ui/sidebar-editing.mjs` | 侧栏标题行没有官方插槽；`sidebar.workspaces` 是 single 槽 | DSH 开出标题行插槽后删除 |
 | 音色库改写为不加班 | `studio-proxy` `rewriteLibraryVoices` | 不改 VoicesPane 源码，复用官方列表 UI | 上游 VoicesPane 原生支持 no996 后改补丁 |
-
 ## 1.0 隐藏的 OpenFilm 设置项与界面清单
 
 以下为当前刻意隐藏或收拢的 OpenFilm / DSH 原生界面与设置项。OpenFilm 表面收敛改由可回放的上游源码补丁实现，DSH 侧栏仍是窄注入：
@@ -28,7 +27,8 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 | 位置 | 隐藏 / 调整内容 | 实现方式 |
 |---|---|---|
 | 设置 → 服务商 | 只展示 OpenFilm、No996 和本地服务；不更改服务商数据或凭据 | `ProvidersSection.tsx` 源码补丁 |
-| 顶部 / 工作模式切换 | 默认不提供画布入口；已在画布中时保留返回编辑器的按钮，不修改 localStorage | `ProjectView.tsx` 源码补丁 |
+| 顶部 / 工作模式切换 | 编辑态不提供画布入口；已在画布中时保留返回编辑器的按钮，不修改 localStorage | `shell/top-bar.tsx` 源码补丁（0.4.0 起顶栏在壳里） |
+| 顶栏账号条 | 右侧显示 No996 账号（余额抽屉、登录态），与 0.4.0 新顶栏的其它按钮并排 | `shell/top-bar.tsx` 源码补丁 |
 | 语音抽屉（Voices） | 隐藏服务商分组，默认展示精选音色；保留底层音色数据 | `LibraryDrawer.tsx` 源码补丁 |
 | 顶栏菜单 | 隐藏社区与外链菜单项 | `AppMenu.tsx` 源码补丁 |
 | 更新提示 | 不自动弹出上游更新说明；不写用户 `seenVersion` 偏好 | `WhatsNew.tsx` 源码补丁 |
@@ -79,4 +79,4 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 
 ## 5. 上游源码补丁总览（`patches/series.json`）
 
-针对上游 **OpenFilm 0.3.2** 的结构性改动直接以源码补丁维护于 `patches/`。精确文件、分组、顺序与哈希以 `patches/series.json` 为准；`npm run patches:check` 校验拆分结果，`npm run upstream:verify -- --dir <干净固定版本检出>` 校验可回放。项目窗口与表面收敛的新增改动用 `NO996-UPSTREAM` 注释标明。
+针对上游 **OpenFilm 0.4.0** 的结构性改动直接以源码补丁维护于 `patches/`。精确文件、分组、顺序与哈希以 `patches/series.json` 为准；`npm run patches:check` 校验拆分结果，`npm run upstream:verify -- --dir <干净固定版本检出>` 校验可回放。项目窗口与表面收敛的新增改动用 `NO996-UPSTREAM` 注释标明。

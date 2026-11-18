@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { isAbsolute } from 'node:path';
+import { lstat, readFile, stat } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
 
 export const OFFICIAL_CHAT_DOMAIN = 'no996_openfilm_official_chat';
 // Maximum UTF-8 bytes for one project's complete chat record, including turns.
@@ -9,6 +10,30 @@ const PROJECT_ID = /^[A-Za-z0-9_-]{6,40}$/;
 const TURN_ID = /^[\w:-]{1,120}$/;
 const failure = (code, message, cause) => Object.assign(new Error(message), { code, ...(cause ? { cause } : {}) });
 const keyOf = id => createHash('sha256').update(id, 'utf8').digest('hex');
+
+// Studio preserves .film/id across a rename. A second, still-existing directory
+// with the old path must not inherit or lose chat just because an ID was copied.
+async function isSameRenamedProject(projectId, previousPath, path) {
+  if (typeof previousPath !== 'string' || !isAbsolute(previousPath)) return false;
+  try {
+    const metadata = join(path, '.film');
+    if (!(await lstat(metadata)).isDirectory()) return false;
+    const markerPath = join(metadata, 'id');
+    const marker = await lstat(markerPath);
+    if (!marker.isFile() || marker.size > 128 || (await readFile(markerPath, 'utf8')).trim() !== projectId) return false;
+    const current = await stat(path, { bigint: true });
+    if (!current.isDirectory()) return false;
+    try {
+      const previous = await stat(previousPath, { bigint: true });
+      // Also accept path spellings that refer to the same physical directory.
+      return previous.isDirectory() && current.ino !== 0n && previous.ino === current.ino && previous.dev === current.dev;
+    } catch (error) {
+      return error?.code === 'ENOENT';
+    }
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Host-only storage. requireVerifiedProject(projectId) must resolve to a Host
@@ -37,10 +62,9 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
   let closing = false;
   let closePromise;
 
-  function decode(record, projectId, path) {
+  function decode(record, projectId) {
     if (!record) return { version: 1, revision: 0, sessions: [], last: null, turns: [] };
     if (record.projectId !== projectId) throw failure('OFFICIAL_CHAT_COLLISION', 'Stored project identity does not match');
-    if (record.path !== path) throw failure('OFFICIAL_CHAT_PATH_CHANGED', 'The project directory changed; chat recovery is required');
     if (typeof record.data !== 'string' || Buffer.byteLength(record.data, 'utf8') > OFFICIAL_CHAT_MAX_BYTES) {
       throw failure('OFFICIAL_CHAT_INVALID', 'Stored chat is invalid or exceeds the size limit');
     }
@@ -91,18 +115,20 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     }
   }
 
+  async function readRecord(key, projectId, path) {
+    const record = table.get(key);
+    const data = decode(record, projectId);
+    const rebound = !!record && record.path !== path;
+    if (rebound && !(await isSameRenamedProject(projectId, record.path, path))) {
+      throw failure('OFFICIAL_CHAT_PATH_CHANGED', 'The project directory changed; chat recovery is required');
+    }
+    return { data, rebound };
+  }
+
   function load(projectId) {
     return run(projectId, async (key, path) => {
-      let data;
-      try { data = decode(table.get(key), projectId, path); }
-      catch (error) {
-        // A project folder that moved is not a corrupt chat: rebind the record to
-        // the verified path instead of demanding a recovery the UI cannot do.
-        if (error.code !== 'OFFICIAL_CHAT_PATH_CHANGED') throw error;
-        const record = table.get(key);
-        data = JSON.parse(record.data);
-        await put(key, projectId, path, data);
-      }
+      const { data, rebound } = await readRecord(key, projectId, path);
+      if (rebound) await put(key, projectId, path, data);
       // A completed read proves the record is intact; do not keep a project locked
       // out of every later write because one earlier write reported uncertainty.
       uncertain.delete(key);
@@ -134,7 +160,8 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
       return Promise.reject(failure('OFFICIAL_CHAT_INPUT', 'Sessions and last have an invalid shape'));
     }
     return run(projectId, async (key, path) => {
-      const data = decode(table.get(key), projectId, path);
+      // The same put commits both the new path and the revision-checked mutation.
+      const { data } = await readRecord(key, projectId, path);
       if (data.revision !== copy.expectedRevision || data.revision === Number.MAX_SAFE_INTEGER) throw failure('OFFICIAL_CHAT_CONFLICT', 'Chat changed in another view; reload before saving');
       data.sessions = copy.sessions;
       data.last = copy.last;
@@ -159,7 +186,8 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     // Official saveTurn persists only turn and items.
     copy = { turn: copy.turn, items: copy.items, expectedRevision: copy.expectedRevision };
     return run(projectId, async (key, path) => {
-      const data = decode(table.get(key), projectId, path);
+      // The same put commits both the new path and the revision-checked mutation.
+      const { data } = await readRecord(key, projectId, path);
       if (data.revision !== copy.expectedRevision || data.revision === Number.MAX_SAFE_INTEGER) throw failure('OFFICIAL_CHAT_CONFLICT', 'Chat changed in another view; reload before saving');
       const entry = { turn: copy.turn, items: copy.items };
       const index = data.turns.findIndex(item => item.turn.id === copy.turn.id);

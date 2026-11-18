@@ -1,0 +1,16 @@
+diff --git a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+index 92f4cf2..43a172f 100644
+--- a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
++++ b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+@@ -548,10 +548,7 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+   const nodes: RailNode[] = cat === 'voice' ? [
+     { ...railPick(STARRED), name: t('assetDrawer.favorites') },
+     { key: 'mine', name: t('assetDrawer.railMine'), on: inMine && !q, onPick: () => pickGroup(MY_VOICES) },
+-    { key: 'services', name: t('assetDrawer.railServices'), children: [
+-      { ...railPick(''), name: t('assetDrawer.all') },
+-      ...(voices?.providers ?? []).map((s) => ({ ...railPick(s.id), name: providerName(s, lang) })),
+-    ] },
++    /* NO996-UPSTREAM: the voice services list is hidden; the provider data stays intact. */
+   ] : cat === 'cover' ? [
+     { ...railPick(''), name: t('covers.allLooks') },
+     ...(covers?.looks?.categories ?? []).map((c) => ({ ...railPick(c.id), name: nameOf(c.name, lang) })),

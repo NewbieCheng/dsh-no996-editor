@@ -113,20 +113,22 @@ test('export readiness reports only what upstream actually said', async () => {
 
 test('a library search and a take are different upstream calls', async () => {
   const { calls, http } = fakeHttp({
-    'POST /api/get/library': { code: 0, lines: ['openfilm/transitions/glitch'] },
+    'POST /api/get/library': { code: 0, lines: ['1. Whoosh  0:01', '    openfilm/sounds/whoosh'] },
     'POST /api/projects/film123/saved/take': { clip: { src: 'saved/openfilm/transitions-glitch/index.html' } },
   });
   const tool = createLibraryTool({ ...link, http });
   const found = await run(tool, { query: '柔和淡入', kind: 'transition' });
-  assert.deepEqual(calls[0].options.body, { verb: 'transition', args: { prompt: '柔和淡入', limit: '8' } });
-  assert.match(found.text, /openfilm\/transitions\/glitch/);
+  // 0.4.0 answers no transition verb over HTTP: the Host searches the pinned
+  // library itself, so the search must not touch the Studio route at all.
+  assert.equal(calls.length, 0, 'the built-in transition search stays in the Host');
+  assert.match(found.text, /openfilm\/[a-z-]+\/[a-z0-9-]+/);
 
   const taken = await run(tool, { take: 'openfilm/transitions/glitch', kind: 'transition' });
-  assert.equal(calls[1].path, '/api/projects/film123/saved/take');
-  assert.deepEqual(calls[1].options.body, { path: 'openfilm/transitions/glitch' });
+  assert.equal(calls[0].path, '/api/projects/film123/saved/take');
+  assert.deepEqual(calls[0].options.body, { path: 'openfilm/transitions/glitch' });
   assert.match(taken.text, /尚未放入时间轴/);
   await run(tool, { query: 'whoosh', kind: 'sfx', seconds: 2 });
-  assert.deepEqual(calls[2].options.body, { verb: 'sfx-search', args: { prompt: 'whoosh', limit: '8', sec: '2' } });
+  assert.deepEqual(calls[1].options.body, { verb: 'sfx-search', args: { prompt: 'whoosh', limit: '8', sec: '2' } });
   await assert.rejects(run(tool, { take: 'openfilm/../private', kind: 'transition' }), /素材 ID/);
 });
 

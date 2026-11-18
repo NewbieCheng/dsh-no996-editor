@@ -1,0 +1,29 @@
+diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
+index debd95b..7fda8f6 100644
+--- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
++++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
+@@ -3469,6 +3469,7 @@ export const zhCN: Words = {
+       github: 'GitHub',
+       examples: '示例',
+       site: '官网',
++      compat: '兼容 OpenFilm {version}',
+     },
+     sections: {
+       agents: '智能体',
+@@ -3504,7 +3505,7 @@ export const zhCN: Words = {
+       language: '语言',
+       languageSystem: '跟随系统',
+       themeHint: '浅色、深色，或跟随系统。',
+-      languageHint: 'OpenFilm 界面使用的语言。',
++      languageHint: '不加班剪辑 界面使用的语言。',
+     },
+     storage: {
+       group: "存储",
+@@ -3555,6 +3556,7 @@ export const zhCN: Words = {
+     },
+     about: {
+       group: '关于',
++      embedded: '基于 OpenFilm 开发',
+       check: '检查更新',
+       checking: '正在检查…',
+       failed: '连不上 npm，请稍后再试。',

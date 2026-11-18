@@ -6,7 +6,7 @@
 
 ## 0. 一句话
 
-把官方 **OpenFilm 0.3.2** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.15.34`。
+把官方 **OpenFilm 0.4.0** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.16.0`。
 
 ## 1. 红线（违反即回退）
 

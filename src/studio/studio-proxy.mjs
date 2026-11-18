@@ -19,7 +19,7 @@ import {
   upstreamOrigin,
 } from './studio-proxy/upstream.mjs';
 
-// Proxy for the pinned OpenFilm 0.3.2 protocol (0.3.1 shell snapshot). It does not provide process
+// Proxy for the pinned OpenFilm 0.4.0 protocol. It does not provide process
 // isolation. Unrecognized or unsafe representations fail closed.
 const MAX_RESPONSE = 32 * 1024 * 1024;
 

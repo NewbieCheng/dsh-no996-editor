@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 排查故障的人、智能体
 fact-source: src/native/dsh-native-agent-service.mjs、src/studio/studio-controller.mjs、docs/ARCHITECTURE.md
-checked: 0.15.29
+checked: 0.16.0
 rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 -->
 

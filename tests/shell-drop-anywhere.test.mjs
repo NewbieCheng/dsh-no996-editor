@@ -29,14 +29,10 @@ test('the chat takes a file anywhere in the page', () => {
   assert.match(app, /\+    document\.addEventListener\('dragend', end\);/);
 });
 
-test('the drop box is a real drop target and a picker', () => {
-  const p = patchBySource('apps/desktop/chat/src/components/ProjectStarters.tsx');
-  assert.match(p, /\+      <label/);
-  assert.match(p, /\+        onDrop=\{\(event\) => \{/);
-  assert.match(p, /\+          takeFiles\(files\);/);
-  assert.match(p, /\+          if \(!files \|\| !files\.length\) return;/);
-  assert.match(p, /\+        <input\n\+          type="file"/);
-  assert.match(p, /\+      <\/label>/);
+test('the empty conversation is not forked again; the page-wide drop covers it', () => {
+  const starters = series.patches.find(item => item.source === 'apps/desktop/chat/src/components/ProjectStarters.tsx');
+  assert.equal(starters, undefined, 'upstream owns the empty-state starters; do not fork them again');
+  assert.match(app, /\+    document\.addEventListener\('drop', letGo\);/);
 });
 
 test('a dropped file keeps its path when the host can name it, and is copied otherwise', () => {

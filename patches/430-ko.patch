@@ -1,0 +1,29 @@
+diff --git a/packages/openfilm/studio/ui/src/i18n/ko.ts b/packages/openfilm/studio/ui/src/i18n/ko.ts
+index f5955a6..05c7e52 100644
+--- a/packages/openfilm/studio/ui/src/i18n/ko.ts
++++ b/packages/openfilm/studio/ui/src/i18n/ko.ts
+@@ -3432,6 +3432,7 @@ export const ko: Words = {
+       github: 'GitHub',
+       examples: '예제',
+       site: '웹사이트',
++      compat: 'OpenFilm {version} 호환',
+     },
+     sections: {
+       agents: '에이전트',
+@@ -3467,7 +3468,7 @@ export const ko: Words = {
+       language: '언어',
+       languageSystem: '시스템 설정 따르기',
+       themeHint: '라이트, 다크 또는 시스템 설정을 따릅니다.',
+-      languageHint: 'OpenFilm 화면에 표시되는 언어.',
++      languageHint: '不加班剪辑 화면에 표시되는 언어.',
+     },
+     storage: {
+       group: "저장 공간",
+@@ -3518,6 +3519,7 @@ export const ko: Words = {
+     },
+     about: {
+       group: '정보',
++      embedded: 'OpenFilm 기반',
+       check: '업데이트 확인',
+       checking: '확인 중…',
+       failed: 'npm에 연결할 수 없습니다. 잠시 후 다시 시도하세요.',

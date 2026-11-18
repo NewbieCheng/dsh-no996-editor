@@ -1,6 +1,6 @@
 # 不加班剪辑 · No996 Studio
 
-把 **OpenFilm 0.3.2** 视频工作台做成 DSH 插件：官方 Studio 与桌面壳整页常驻在侧边栏，右侧对话在 Host 进程内直连 DSH 原生 `SessionController`（绑定 `openfilm-video-editing` 预设）。
+把 **OpenFilm 0.4.0** 视频工作台做成 DSH 插件：官方 Studio 与桌面壳整页常驻在侧边栏，右侧对话在 Host 进程内直连 DSH 原生 `SessionController`（绑定 `openfilm-video-editing` 预设）。
 
 版本以 `package.json` 与 [CHANGELOG.md](CHANGELOG.md) 为准；"现在到哪了"看 [docs/STATE.md](docs/STATE.md)。仓库：`NewbieCheng/dsh-openfilm`，分支 `main`。
 
@@ -78,6 +78,6 @@ dsh plugin --profile desktop add @newbiecheng/dsh-openfilm
 
 ## English summary
 
-`dsh-openfilm` packages the official OpenFilm 0.3.2 studio and desktop shell as a DSH plugin. The Host starts the official Studio on a loopback port, reverse-proxies it, and bridges the shell's chat column to a DSH session (models, approvals and cancellation stay DSH's). The official UI is vendored as a pinned build with a reviewable, replayable source patch series.
+`dsh-openfilm` packages the official OpenFilm 0.4.0 studio and desktop shell as a DSH plugin. The Host starts the official Studio on a loopback port, reverse-proxies it, and bridges the shell's chat column to a DSH session (models, approvals and cancellation stay DSH's). The official UI is vendored as a pinned build with a reviewable, replayable source patch series.
 
 Install `@newbiecheng/dsh-openfilm` from the GitLab Package Registry (see `docs/playbooks/publish.md`). Node 22.2+, DSH with `session-controller`/`storageDomain`/`webServer`, and `ffmpeg`/`ffprobe` for video metadata. Upstream is MIT; its license, notices and trademark terms are preserved under `vendor/official-shell`. Product names and marks here do not imply upstream endorsement.

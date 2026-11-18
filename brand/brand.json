@@ -19,7 +19,7 @@
   },
   "upstream": {
     "name": "OpenFilm",
-    "version": "0.3.2",
+    "version": "0.4.0",
     "license": "MIT",
     "notice": "OpenFilm 的版权、商标与第三方许可声明保留在 vendor/official-shell 与 THIRD_PARTY_NOTICES 中；本产品的名称与标识不代表上游背书。"
   }

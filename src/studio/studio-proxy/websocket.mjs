@@ -1,4 +1,4 @@
-// WebSocket framing for the pinned OpenFilm 0.3.2 protocol.
+// WebSocket framing for the pinned OpenFilm 0.4.0 protocol.
 //
 // The 0.3.1 server sends unfragmented JSON frames and ping controls only, so the
 // parser is deliberately strict: anything else closes the socket instead of being

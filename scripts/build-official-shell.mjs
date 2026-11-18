@@ -6,8 +6,8 @@ import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFil
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const COMMIT = '758b1a3888819bf191db191f690c4ca2fcb292af';
-const VERSION = '0.3.2';
+const COMMIT = '715c3a6e46b11a0b3ee038e8f7b3e3b4e19c5c36';
+const VERSION = '0.4.0';
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const usage = 'Usage: node scripts/build-official-shell.mjs <openfilm-checkout> [--output <new-directory>]';
 
@@ -36,57 +36,53 @@ function main() {
   // Any other tracked change is still refused, and the diff is recorded into the
   // snapshot as patch.diff so the fork stays reviewable and re-appliable.
   const PATCHED = [
-    'apps/desktop/chat/src/lib/agent-menu-rows.ts',
-    'apps/desktop/chat/src/components/ModelPopover.tsx',
-    'apps/desktop/chat/src/components/ConversationSessionBar.tsx',
-    'apps/desktop/chat/src/components/OnboardingGate.tsx',
-    'apps/desktop/chat/src/components/ProjectStarters.tsx',
-    'packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx',
-    'packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx',
-    'packages/openfilm/studio/ui/src/App.tsx',
-    'packages/openfilm/studio/ui/src/components/ProjectView.tsx',
-    'packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx',
-    'packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx',
-    'packages/openfilm/studio/ui/src/components/AppMenu.tsx',
-    'packages/openfilm/studio/ui/src/components/WhatsNew.tsx',
-    'packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx',
-    'packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx',
-    'packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx',
-    'packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx',
-    'packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx',
-    'packages/openfilm/studio/ui/src/i18n/zh-CN.ts',
-    'packages/openfilm/studio/ui/src/i18n/en.ts',
-    'packages/openfilm/studio/ui/src/i18n/ja.ts',
-    'packages/openfilm/studio/ui/src/i18n/es.ts',
-    'packages/openfilm/studio/ui/src/i18n/ko.ts',
-    'apps/desktop/chat/src/App.tsx',
-    'apps/desktop/chat/src/lib/chat-store.ts',
-    'apps/desktop/chat/src/lib/desktop-attachments.ts',
-    'apps/desktop/chat/src/components/ProjectStarters.tsx',
-    'apps/desktop/chat/src/state/local-agent-store.ts',
-    'apps/desktop/chat/src/lib/agent-transcript.ts',
-    'apps/desktop/chat/src/lib/local-agent-run.ts',
-    'apps/desktop/chat/src/lib/agent-activity-runs.ts',
-    'apps/desktop/chat/src/lib/chat-store.ts',
     'apps/desktop/chat/src/App.tsx',
     'apps/desktop/chat/src/components/AgentActivityRow.tsx',
     'apps/desktop/chat/src/components/ContextUsage.tsx',
-    'packages/shared/src/contract.ts',
-  'packages/shared/src/markdown-blocks.ts',
+    'apps/desktop/chat/src/components/ConversationSessionBar.tsx',
     'apps/desktop/chat/src/components/Markdown.tsx',
+    'apps/desktop/chat/src/components/ModelPopover.tsx',
+    'apps/desktop/chat/src/components/OnboardingGate.tsx',
+    'apps/desktop/chat/src/components/TemplatePicker.tsx',
     'apps/desktop/chat/src/i18n/locales/en-US.ts',
     'apps/desktop/chat/src/i18n/locales/es.ts',
     'apps/desktop/chat/src/i18n/locales/ja.ts',
     'apps/desktop/chat/src/i18n/locales/ko.ts',
     'apps/desktop/chat/src/i18n/locales/zh-CN.ts',
-    'apps/desktop/shell/main.tsx',
-    'apps/desktop/shell/RecoveryGate.tsx',
+    'apps/desktop/chat/src/lib/agent-activity-runs.ts',
+    'apps/desktop/chat/src/lib/agent-menu-rows.ts',
+    'apps/desktop/chat/src/lib/agent-transcript.ts',
+    'apps/desktop/chat/src/lib/chat-store.ts',
+    'apps/desktop/chat/src/lib/desktop-attachments.ts',
+    'apps/desktop/chat/src/lib/local-agent-run.ts',
+    'apps/desktop/chat/src/state/local-agent-store.ts',
     'apps/desktop/shell/EnvironmentNotice.tsx',
-    'apps/desktop/chat/src/components/TemplatePicker.tsx',
-    'apps/desktop/shell/login-city.js',
     'apps/desktop/shell/LoginGate.tsx',
-    'apps/desktop/shell/login.css',
+    'apps/desktop/shell/RecoveryGate.tsx',
     'apps/desktop/shell/brand-mark.ts',
+    'apps/desktop/shell/login-city.js',
+    'apps/desktop/shell/login.css',
+    'apps/desktop/shell/main.tsx',
+    'packages/openfilm/studio/ui/src/App.tsx',
+    'packages/openfilm/studio/ui/src/components/AppMenu.tsx',
+    'packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx',
+    'packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx',
+    'packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx',
+    'packages/openfilm/studio/ui/src/components/WhatsNew.tsx',
+    'packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx',
+    'packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx',
+    'packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx',
+    'packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx',
+    'packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx',
+    'packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx',
+    'packages/openfilm/studio/ui/src/i18n/en.ts',
+    'packages/openfilm/studio/ui/src/i18n/es.ts',
+    'packages/openfilm/studio/ui/src/i18n/ja.ts',
+    'packages/openfilm/studio/ui/src/i18n/ko.ts',
+    'packages/openfilm/studio/ui/src/i18n/zh-CN.ts',
+    'packages/openfilm/studio/ui/src/shell/top-bar.tsx',
+    'packages/shared/src/contract.ts',
+    'packages/shared/src/markdown-blocks.ts',
   ];
   // Include staged + unstaged edits, and brand-new files on the PATCHED
   // allowlist (plain --untracked-files=no would omit OnboardingGate-style adds).
@@ -146,7 +142,7 @@ function main() {
       const stat = lstatSync(path);
       if (stat.isSymbolicLink()) fail(`Links are not accepted in dist: ${relative}`);
       if (stat.isDirectory()) collect(path, relative);
-      else if (stat.isFile() && ['.html', '.js', '.css', '.woff', '.woff2', '.ttf', '.otf', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.ico', '.wasm'].includes(extname(name).toLowerCase())) {
+      else if (stat.isFile() && ['.html', '.js', '.css', '.woff', '.woff2', '.ttf', '.otf', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.ico', '.wasm', '.webm', '.mp4', '.mp3', '.wav', '.ogg'].includes(extname(name).toLowerCase())) {
         files.push({ path: `ui/${relative}`, content: readFileSync(path) });
       } else fail(`Unexpected dist entry: ${relative}`);
     }
