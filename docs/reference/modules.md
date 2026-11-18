@@ -8,8 +8,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。131 个模块、21223 行。
-> 没有测试直接 import 的模块：19 个（待补清单，不是失败项）；另有 1 个已登记排除。
+> 生成命令：`npm run docs:gen`。131 个模块、21236 行。
+> 没有测试直接 import 的模块：18 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
@@ -37,10 +37,10 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-entry.js` | 226 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/official/official-chat-store.mjs` | 209 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
 | `src/ui/client-entry.js` | 197 | — | 排除：浏览器端打包入口；运行时界面行为需要客户端集成或真机验收 |
+| `src/tools/cli-tool.mjs` | 193 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/asr/asr-models.mjs` | 192 | SENSE_VOICE, ensureModels, libraryCacheRoot, modelState, modelsRoot, senseVoiceDir… | `asr-models.test.mjs` |
 | `src/film/script-plan.mjs` | 186 | planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt… | `storyboard.test.mjs` |
 | `src/host/fallback-prompt.mjs` | 185 | buildFallbackPayload, createFallbackPrompt | `fallback-prompt.test.mjs` |
-| `src/tools/cli-tool.mjs` | 180 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/library-tool.mjs` | 177 | LIBRARY_KINDS, createLibraryTool | `library-transition.test.mjs`、`studio-tools.test.mjs`、`template-prompts.test.mjs`、`tool-schema.test.mjs` |
 | `src/film/storyboard.mjs` | 176 | KINDS, MOTIONS, STORYBOARD_FILE, VERSION, normalizeStoryboard, planFromStoryboard… | `storyboard.test.mjs` |
 | `src/tools/transcribe-tool.mjs` | 176 | createTranscribeTool | `transcribe-tool.test.mjs` |
@@ -106,7 +106,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/film/template-catalog.mjs` | 79 | catalogText, scoreTemplate, searchTemplates, templateCatalog | `storyboard.test.mjs` |
 | `src/project/project-trash.mjs` | 79 | TRASH_DIR, createProjectTrash | `project-trash.test.mjs` |
 | `src/studio/studio-controller/routes/diagnostics.mjs` | 79 | createDiagnosticsRoutes | `client-log-route.test.mjs`、`drag-probe-route.test.mjs` |
-| `src/tools/library-search.mjs` | 79 | AGENT_VERBS, loadBuiltInSearch, searchBuiltInLibrary | **无** |
+| `src/tools/library-search.mjs` | 79 | AGENT_VERBS, loadBuiltInSearch, searchBuiltInLibrary | `library-search.test.mjs` |
 | `src/studio/studio-controller/routes/bootstrap.mjs` | 76 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/host/area-bus.mjs` | 74 | areaBus, createAreaBus | **无** |
 | `src/film/timeline-layout.mjs` | 71 | layoutTimeline | `timeline-layout.test.mjs` |
@@ -159,7 +159,6 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 - `src/native/dsh-event-map.mjs`（90 行）
 - `src/asr/asr-sensevoice.mjs`（89 行）
 - `src/tools/image-gen-tool.mjs`（82 行）
-- `src/tools/library-search.mjs`（79 行）
 - `src/host/area-bus.mjs`（74 行）
 - `src/project/archive-bridge.mjs`（59 行）
 - `src/studio/studio-proxy/websocket.mjs`（58 行）

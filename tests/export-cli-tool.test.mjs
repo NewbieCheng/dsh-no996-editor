@@ -83,7 +83,7 @@ test('CLI argv is built here, and only from the whitelist', () => {
   assert.deepEqual(cliArguments('render', { fps: 29.97, alpha: true, loudness: -14 }, 'C:/p').argv,
     ['render', '--fps', '29.97', '--alpha', '--loudness=-14']);
   // Anything not on the list is refused instead of passed through.
-  assert.match(cliArguments('get', {}, 'C:/p').error, /只允许 doctor \/ look \/ render/);
+  assert.match(cliArguments('get', {}, 'C:/p').error, /只允许 doctor \/ version \/ skills \/ skill/);
   assert.match(cliArguments('render', { out: 'C:/elsewhere/out.mp4' }, 'C:/p').error, /必须在项目文件夹里/);
   assert.deepEqual(cliArguments('render', { out: 'C:/p/out.mp4' }, 'C:/p').argv.slice(0, 3), ['render', '--out', 'C:\\p\\out.mp4']);
   // A range that would be nonsense is dropped rather than passed as a literal.
@@ -150,19 +150,29 @@ test('the recursion guard and a missing CLI are explicit', async () => {
   assert.ok(found === undefined || /openfilm\.mjs$/.test(found), String(found));
 });
 
-test('the tool only runs doctor: look and render would start Studio and a window', async () => {
+test('the tool runs only read-only verbs: look and render would start Studio and a window', async () => {
   const tool = createCliTool({
     isProjectAgent: () => true,
     projectOf: () => ({ path: 'C:/p' }),
     cliPath: 'C:/openfilm/bin/openfilm.mjs',
     spawnImpl: () => { throw new Error('must not spawn'); },
   });
-  assert.deepEqual(tool.parameters.properties.verb.enum, ['doctor']);
+  assert.deepEqual(tool.parameters.properties.verb.enum, ['doctor', 'version', 'skills', 'skill']);
   for (const verb of ['look', 'render']) {
     await assert.rejects(
       () => tool.execute({ verb }, { agent: {} }),
-      error => /openfilm_cli 只保留 doctor/.test(error.message) && /openfilm_frame/.test(error.message),
+      error => /openfilm_cli 只保留 doctor \/ version \/ skills \/ skill/.test(error.message) && /openfilm_frame/.test(error.message),
       verb + ' must be refused by name, pointing at the tool that does the job',
     );
+  }
+});
+
+test('version and the skills list are built read-only, and a skill name cannot be a path', () => {
+  assert.deepEqual(cliArguments('version', {}, 'C:/p').argv, ['--version']);
+  assert.deepEqual(cliArguments('skills', {}, 'C:/p').argv, ['skills']);
+  assert.deepEqual(cliArguments('skill', { name: 'openfilm/director' }, 'C:/p').argv, ['skill', 'openfilm/director']);
+  assert.deepEqual(cliArguments('skill', { name: 'storyboard' }, 'C:/p').argv, ['skill', 'storyboard']);
+  for (const name of ['../etc', '..', 'a/../b', 'C:\\x', '']) {
+    assert.match(cliArguments('skill', { name }, 'C:/p').error, /owner\/name/, name + ' must not be read as a path');
   }
 });

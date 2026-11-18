@@ -102,7 +102,9 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 
 影片工具只对项目会话可见；注册和实际工具列表以 `src/tools/` 与运行时为准，避免在多处手抄数量。常用工具包括 `openfilm_film`、`openfilm_frame`、`openfilm_clip`、`openfilm_storyboard`、`openfilm_transcribe` 和 `openfilm_guide`。
 
-`openfilm_cli` 只留 `doctor`：`look` / `render` 会启动 Studio，而内核在没有 `.film/opened` 时会在人的浏览器里开剪辑窗口。看画面用 `openfilm_frame`。
+`openfilm_cli` 只留只读动词：`doctor`（这台机器有什么）、`version`（固定的 OpenFilm 版本）、`skills` / `skill <owner/name>`（这部片可用的技能）。`look` / `render` 会启动 Studio，而内核在没有 `.film/opened` 时会在人的浏览器里开剪辑窗口。看画面用 `openfilm_frame`。
+
+`openfilm_library` 的素材检索分两路（OpenFilm 0.4.0 起）：音乐 / 音效 / 贴纸仍走 Studio 的 `/api/get/library`；转场、特效、滤镜、文字由 Host 用固定版库自己的索引在进程内搜（[`src/tools/library-search.mjs`](../src/tools/library-search.mjs)），取用一律走 Studio 的 `saved/take`。这两类都是 CC0 免费素材，不经过任何计费服务。
 
 ### 客户端
 

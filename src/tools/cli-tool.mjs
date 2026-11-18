@@ -16,17 +16,19 @@ import { createRequire } from 'node:module';
 import { dirname, join, resolve, sep } from 'node:path';
 
 const MAX_OUTPUT = 8000;
-const VERBS = ['doctor', 'look', 'render'];
+const VERBS = ['doctor', 'version', 'skills', 'skill', 'look', 'render'];
 
 /**
  * What this tool still runs.
  *
- * look and ender are gone on purpose: the kernel CLI draws frames by starting Studio and, on
- * a project Studio has never shown, by opening the person's browser (in/openfilm.mjs: open).
- * Inside DSH the film already has a window — the panel — and a second one arrives with the
- * upstream desktop-app pitch in it. openfilm_frame and openfilm_export do both jobs over HTTP.
+ * doctor, version and the skills list read only what is on this computer: they
+ * start nothing. look and render are gone on purpose: the kernel CLI draws frames
+ * by starting Studio and, on a project Studio has never shown, by opening the
+ * person's browser (bin/openfilm.mjs: open). Inside DSH the film already has a
+ * window — the panel — and a second one arrives with the upstream desktop-app
+ * pitch in it. openfilm_frame and openfilm_export do both jobs over HTTP.
  */
-const TOOL_VERBS = ['doctor'];
+const TOOL_VERBS = ['doctor', 'version', 'skills', 'skill'];
 
 /** Where the packaged CLI lives, or undefined when this install has no copy. */
 export function resolveCli({ require: resolver } = {}) {
@@ -49,7 +51,17 @@ const within = (root, candidate) => {
 export function cliArguments(verb, args, projectPath) {
   if (!VERBS.includes(verb)) return { error: `只允许 ${VERBS.join(' / ')}；${verb} 请用对应的工具或 Studio。` };
   const argv = [verb];
-  if (verb === 'doctor') return { argv };
+  if (verb === 'doctor' || verb === 'skills') return { argv };
+  if (verb === 'version') return { argv: ['--version'] };
+  if (verb === 'skill') {
+    const name = typeof args?.name === 'string' ? args.name.trim() : '';
+    // owner/name (or a bare name), never a path: a folder here would ask the CLI to
+    // read an arbitrary directory. `.` and `..` are refused as segments.
+    const parts = name.split('/');
+    const safe = parts.length <= 2 && parts.every(part => /^[A-Za-z0-9._-]+$/.test(part) && !/^\.+$/.test(part));
+    if (!safe) return { error: 'name 要写成 owner/name（先用 openfilm_cli verb=skills 列出）。' };
+    return { argv: ['skill', name] };
+  }
   if (verb === 'look') {
     const at = num(args?.at, 0, 60 * 60 * 24);
     const from = num(args?.from, 0, 60 * 60 * 24);
@@ -135,11 +147,12 @@ function runNode(cli, argv, cwd, { timeoutMs = 300_000, spawnImpl = spawn } = {}
 export function createCliTool({ isProjectAgent, projectOf, cliPath, spawnImpl, timeoutMs } = {}) {
   return {
     name: 'openfilm_cli',
-    description: 'Run the bundled OpenFilm command in this project: `doctor` (what this computer has), `look` (contact sheet of the film, or one frame), `render` (write the MP4 beside film.html). Prefer the other openfilm_* tools; use this for rendering and diagnosis. It runs with the person\'s own permissions and only these three verbs.',
+    description: 'Run the bundled OpenFilm command in this project, read-only: `doctor` (what this computer has), `version` (the pinned OpenFilm this build wraps), `skills` (the skills this film can use) and `skill owner/name` (print one whole). Prefer the other openfilm_* tools for picture, edit and export. It runs with the person\'s own permissions and only these read-only verbs.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['verb'],
       properties: {
-        verb: { type: 'string', enum: TOOL_VERBS, description: 'doctor（这台机器有什么）。看画面用 openfilm_frame，导出用 openfilm_export。' },
+        verb: { type: 'string', enum: TOOL_VERBS, description: 'doctor（这台机器有什么）、version（固定的 OpenFilm 版本）、skills / skill（这部片可用的技能）。看画面用 openfilm_frame，导出用 openfilm_export。' },
+        name: { type: 'string', description: 'skill: owner/name, as `skills` lists it.' },
         at: { type: 'number', minimum: 0, description: 'look: one frame at this second.' },
         from: { type: 'number', minimum: 0, description: 'look/render: range start in seconds.' },
         to: { type: 'number', minimum: 0, description: 'look/render: range end in seconds.' },
@@ -166,10 +179,10 @@ export function createCliTool({ isProjectAgent, projectOf, cliPath, spawnImpl, t
       const cli = cliPath ?? resolveCli();
       if (!cli) throw new Error('这个插件里没带 openfilm CLI（找不到 openfilm/package.json）。用 openfilm_film / openfilm_frame / openfilm_export 代替。');
       const verb = String(args?.verb ?? '');
-    if (!TOOL_VERBS.includes(verb)) {
-      throw new Error(`openfilm_cli 只保留 ${TOOL_VERBS.join(' / ')}：${verb || '（空）'} 会启动 Studio 并可能弹出浏览器窗口。看某一秒的画面用 openfilm_frame，导出成片用 openfilm_export。`);
-    }
-    const built = cliArguments(verb, args, project.path);
+      if (!TOOL_VERBS.includes(verb)) {
+        throw new Error(`openfilm_cli 只保留 ${TOOL_VERBS.join(' / ')}：${verb || '（空）'} 会启动 Studio 并可能弹出浏览器窗口。看某一秒的画面用 openfilm_frame，导出成片用 openfilm_export。`);
+      }
+      const built = cliArguments(verb, args, project.path);
       if (built.error) throw new Error(built.error);
       const result = await runNode(cli, built.argv, project.path, { timeoutMs, spawnImpl });
       const head = `openfilm ${built.argv.join(' ')} → 退出码 ${result.code === null ? '（没有正常结束）' : result.code}`;
