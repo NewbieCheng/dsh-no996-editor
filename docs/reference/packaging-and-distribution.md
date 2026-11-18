@@ -2,7 +2,7 @@
 id: reference-packaging-and-distribution
 reader: 打包发布者、排查坏包或跨平台环境问题的开发者
 fact-source: package.json, scripts/build-official-shell.mjs, scripts/release-check.mjs, src/host/download-sources.mjs, src/host/download-stall.mjs, src/tools/tool-installer.mjs, cordis.patch.yml
-checked: 0.16.0
+checked: 0.16.1
 rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载源或跨平台工具配置
 -->
 

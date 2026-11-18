@@ -2,7 +2,9 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
-## 0.16.0 —— 升级 OpenFilm 0.4.0（工作台平台化），保留 DSH 原生对话
+## 0.16.1 —— 升级 OpenFilm 0.4.0（工作台平台化），保留 DSH 原生对话
+
+> 0.16.0 只是本机构建、从未发布；这里是 OpenFilm 0.4.0 的首次发布版本。
 
 - **内核与界面一起到 OpenFilm 0.4.0**（上游 tag `v0.4.0` / commit `715c3a6`）：`dependencies.openfilm`、`vendor/official-shell` 快照（manifest 版本+commit+逐文件 sha256）与 `official-shell.mjs` 的 `OFFICIAL_COMMIT` 三处 pin 同步；47 个上游源码补丁全部在干净 0.4.0 检出上重放通过（`npm run upstream:verify`）。
 - **右侧对话仍是 DSH 原生会话**：不切到 OpenFilm 自带 Agent、不走 ACP。`(项目 ID, 对话 ID) → 原生 sessionId` 映射、`openfilm-video-editing` 预设、审批/取消/流式与工具行全部保留。
