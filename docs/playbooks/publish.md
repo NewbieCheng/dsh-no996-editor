@@ -15,9 +15,9 @@ rot-if: 换 registry、包名、scope 大小写规则、或 DSH 安装/更新方
 
 | 项 | 值 |
 |---|---|
-| 包名 | `@newbiecheng/no996-editor`（**全小写**；大写 scope → 无「版本」区） |
+| 包名 | `@newbiecheng/dsh-no996-editor`（**全小写**；大写 scope → 无「版本」区） |
 | Registry | `https://registry.npmjs.org/` |
-| 产物 | https://www.npmjs.com/package/@newbiecheng/no996-editor |
+| 产物 | https://www.npmjs.com/package/@newbiecheng/dsh-no996-editor |
 | 源码 | GitHub `NewbieCheng/no996-editor`（`main`） |
 | 本机发版脚本 | `scripts/npmjs-publish.ps1`（读 `.npmjs-token.tmp` 或 `NPM_TOKEN`，需 bypass-2FA 的发布 token） |
 | CI 发版 | 暂未配置；本机脚本发版 |
@@ -63,7 +63,7 @@ rot-if: 换 registry、包名、scope 大小写规则、或 DSH 安装/更新方
 ### 1.2 安装
 
 ```powershell
-dsh plugin --profile desktop add @newbiecheng/no996-editor
+dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor
 ```
 
 或在 DSH 插件管理器按包名安装。出现 `restart-required` → **整应用重启** DSH。
@@ -73,22 +73,22 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor
 `~/.dsh/profiles/desktop/package.json`：
 
 ```json
-"dependencies": { "@newbiecheng/no996-editor": "0.15.29" },
-"dsh": { "profile": { "bundles": [ "…", "@newbiecheng/no996-editor" ] } }
+"dependencies": { "@newbiecheng/dsh-no996-editor": "0.15.29" },
+"dsh": { "profile": { "bundles": [ "…", "@newbiecheng/dsh-no996-editor" ] } }
 ```
 
 物理目录必须存在：
 
-`~/.dsh/profiles/desktop/node_modules/@newbiecheng/no996-editor/package.json`
+`~/.dsh/profiles/desktop/node_modules/@newbiecheng/dsh-no996-editor/package.json`
 
-插件详情应有「版本」区；代码来源类似 `@newbiecheng/no996-editor@0.15.29`（不是本机路径、`link:`、`file:.tgz`）。
+插件详情应有「版本」区；代码来源类似 `@newbiecheng/dsh-no996-editor@0.15.29`（不是本机路径、`link:`、`file:.tgz`）。
 
 ---
 
 ## 2. 用户：更新
 
 1. 维护者发新版后，打开插件详情 →「版本」→ 有新版本则点更新；或点「重新检查」。
-2. CLI：`dsh plugin --profile desktop add @newbiecheng/no996-editor@<新版本>`
+2. CLI：`dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor@<新版本>`
 3. `restart-required` → 整应用重启。更新前保存 Studio 未保存编辑。
 
 验收：当前版本号 = 刚发的版本；「已是最新版本」或等价文案。
@@ -101,11 +101,11 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor
 
 ### 3.1 改版本与说明（同批）
 
-1. 查询已发布版本：`npm view @newbiecheng/no996-editor version --registry https://registry.npmjs.org/`；结合 `git tag --list 'v*'` 与本地版本选未占用的新版本。查询失败先排查权限、网络或 registry，不能当作未发布。
+1. 查询已发布版本：`npm view @newbiecheng/dsh-no996-editor version --registry https://registry.npmjs.org/`；结合 `git tag --list 'v*'` 与本地版本选未占用的新版本。查询失败先排查权限、网络或 registry，不能当作未发布。
 2. `package.json` 的 `version`；`package-lock.json` 的顶层 `version` 和 `packages[""].version` 同步。
 3. `CHANGELOG.md` 顶栏新节只写用户可见变化、兼容性和必要迁移；复杂故障证据放排障手册，历史版本不改写。`docs/STATE.md` 更新当前版本与 `checked`；其他写死当前版本的说明也要核对，或改为引用版本来源。
 
-包名保持 `@newbiecheng/no996-editor`。若改了客户端入口 / `cordis.patch.yml`，确认模块名与 ModuleLoader `id` **等于包名**。
+包名保持 `@newbiecheng/dsh-no996-editor`。若改了客户端入口 / `cordis.patch.yml`，确认模块名与 ModuleLoader `id` **等于包名**。
 
 ### 3.2 本地闸门
 
@@ -114,6 +114,8 @@ npm run shell:bake
 npm run build
 # 检查生成物并按授权提交；正式发版要求工作区干净
 npm run release:check   # 完整检查、registry、临时构建/打包；不发布
+# 全新 npm 包名首次发布时，允许公开查询返回 E404：
+# npm run release:check -- --first-publish
 ```
 
 ### 3.3 发布到 npmjs.org
@@ -127,24 +129,26 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
 
 脚本流程：`build` → `pack-tgz.mjs` → 在**系统临时目录**解压 tgz、改写 `publishConfig.registry` 为 npmjs → `npm publish` → finally 删除临时文件与临时 `.npmrc`。不要手改仓库里的 `package.json` 来切 registry。
 
-**发版前必须先确认版本号没被用掉**：npm 规定同一 `name@version` 一旦发布，即使 unpublish 也**不能再发**（会 409）。撤销过的版本必须换新号。查：`npm view <包名>@<版本> version --registry https://registry.npmjs.org/`，404 才算未占用；注意 npmjs 索引延迟，发布后短时间 404 不代表失败。
+**发版前必须先确认版本号没被用掉**：npm 规定同一 `name@version` 一旦发布，即使 unpublish 也**不能再发**（会 409）。撤销过的版本必须换新号。查：`npm view <包名>@<版本> version --registry https://registry.npmjs.org/`，公开查询返回 404 只表示该版本当前不可见，不代表未占用（暂存版本也可能返回 404）。
+
+**发布异常时停止重发**：用 PowerShell 7 和官方 npm CLI，先通过计划使用的代理和 `https://registry.npmjs.org/` 做只读 `npm ping` / `npm view`。临时 `--userconfig` 会替换用户级 `.npmrc`；需要代理时显式传 `--https-proxy`，不要仅凭浏览器能访问就认定 npm 走了代理。若 `latest` 指向 `0.0.0-stage`，或发布返回 `409 previously staged`，只查一次 `npm stage list` 和公开版本。能找到暂存项则由包所有者批准；找不到则保留版本号、提交时间和脱敏错误给 [npm 支持](https://www.npmjs.com/support)，不要反复上传、升版本或删除现有版本。不要在命令文本或日志中写入 token；已暴露的 token 先吊销。
 
 ### 3.4 发布后验收（未过不许写「完成」）
 
 ```powershell
-npm view @newbiecheng/no996-editor version --registry https://registry.npmjs.org/
+npm view @newbiecheng/dsh-no996-editor version --registry https://registry.npmjs.org/
 ```
 
 - `npm view <包名>@<版本> version` 输出 = 刚发的版本（**索引可能延迟几十分钟**；期间 PUT 202 表示服务端已接受，不要重发或换名）
 - 直接查 packument 的 `versions` 与单版本端点 `/<name>/<version>` 都出现该版本
 - `pnpm view <包名>@<版本> dsh` 能读到 `dsh.bundle`（GUI 更新的必要条件）
-- https://www.npmjs.com/package/@newbiecheng/no996-editor 能看到该版本
+- https://www.npmjs.com/package/@newbiecheng/dsh-no996-editor 能看到该版本
 - 真机：desktop 已是 registry 包 → 更新或重装 → 整应用重启 →「版本」区与侧栏「视频创作」正常
 
 **为什么必须是 npmjs.org（2026-11-19 实证）：** DSH 的版本区靠 `pnpm view <包名>@<版本>` 的 `dsh.bundle` 判定能否安装。GitLab 与 GitHub Packages 落库都不保存 `dsh`，GUI 会显示「没有声明组合包，无法安装」；npmjs.org 保留完整 packument。CLI 更新在两种 registry 下都可用，但 GUI 更新只有 npmjs 可用。
 
 ```powershell
-dsh plugin --profile desktop add @newbiecheng/no996-editor@<版本>
+dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor@<版本>
 ```
 
 发布后运行 `node scripts/verify-registry-dsh.mjs`：它检查源码里的 `dsh.bundle.patch` 并核对 registry 是否保留。输出 `REGISTRY-GUI: dsh bundle declaration present` 才算 GUI 可更新；输出 `RELEASE-PACKAGE` 且退出码 1 是包本身出错。
@@ -160,10 +164,10 @@ dsh plugin --profile desktop install
 ## 4. 回滚
 
 ```powershell
-dsh plugin --profile desktop add @newbiecheng/no996-editor@<旧版本>
+dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor@<旧版本>
 ```
 
-或对该 bundle `disabled: true` / `dsh plugin remove @newbiecheng/no996-editor`。
+或对该 bundle `disabled: true` / `dsh plugin remove @newbiecheng/dsh-no996-editor`。
 
 ---
 
@@ -173,7 +177,7 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor@<旧版本>
 |---|---|---|
 | `ERR_PNPM_IGNORED_BUILDS`（`ffmpeg-static` / `protobufjs`），退出码 1 但依赖其实已经装上 | DSH 自带 pnpm 11 默认不给依赖跑安装脚本；`allowBuilds` 必须在 profile 的 `pnpm-workspace.yaml` 里（`onlyBuiltDependencies` 已被 pnpm 11 取代） | 在 `$DSH_HOME/profiles/desktop/pnpm-workspace.yaml` 加 `allowBuilds` 下 `ffmpeg-static: true`、`protobufjs: true`，再跑一次 `add`；不加也能用，但 ffmpeg 二进制与 protobuf 的安装脚本不会执行 |
 | 有插件、无「版本」区 | scope 非全小写，过不了 DSH `PACKAGE_NAME` | 必须用 `@newbiecheng/…` 重发并重装 |
-| 「包不可用」/ cannot resolve bundle | `node_modules/@newbiecheng/no996-editor` 不存在 | `dsh plugin --profile desktop install`；勿手删 scope 目录 |
+| 「包不可用」/ cannot resolve bundle | `node_modules/@newbiecheng/dsh-no996-editor` 不存在 | `dsh plugin --profile desktop install`；勿手删 scope 目录 |
 | Windows 删 `@NewbieCheng` 把新包装没了 | NTFS 大小写不敏感，两 scope 是同一目录 | 只 `dsh plugin remove/add`，不要手删 `@*newbie*` |
 | 「版本」在但像连不上源 | 装错 registry（GitLab/GitHub 丢 `dsh`）| 发布通道必须是 npmjs.org |
 | 侧栏「视频创作」没了 | 客户端 ModuleLoader `id` ≠ 包名 | `id` / cordis 模块名改成包名全文，发补丁版 |

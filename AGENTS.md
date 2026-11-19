@@ -12,7 +12,7 @@
 
 1. **不碰用户既有项目和会话。** 模板安装只新建目录；不迁移、不删除、不改写别人的 `film.html`。
 2. **自动化测试禁止真实模型调用。** 只用 mock 与 `mkdtemp`。
-3. **源码只推 GitHub `NewbieCheng/dsh-no996-editor`（main 分支）。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
+3. **源码只推 GitHub `NewbieCheng/dsh-no996-editor`（main 分支）。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/dsh-no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
 4. **未验证不得声称完成。** 真机 GUI 里看到行为才算“好了”。
 5. **不要把 `openfilm_draft` 当保存**（纯内存草稿）；**不要把 Studio 代理当安全边界**（本机回环集成，不是沙箱）。
 
@@ -27,7 +27,7 @@
 | 事 | 命令 / 动作 |
 |---|---|
 | 本机调试装 | 打包工作区 → `dsh plugin --profile desktop add <本地包>`（仅本机调试；先记下当前版本，验证完按需回滚） |
-| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/no996-editor` / 版本选项卡 → 整应用重启 |
+| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor` / 版本选项卡 → 整应用重启 |
 | 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ **用户当轮明确要求后**运行 `powershell -File .\scripts\npmjs-publish.ps1` → `npm view` + 真机「版本」区 |
 | 包丢了 | `dsh plugin --profile desktop install`（勿在 Windows 手删 `@NewbieCheng`/`@newbiecheng` 目录） |
 

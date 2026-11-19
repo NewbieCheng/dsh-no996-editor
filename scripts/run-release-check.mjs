@@ -10,7 +10,7 @@ import { resolveOfficialShell } from '../src/official/official-shell.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REGISTRY = 'https://registry.npmjs.org/';
-const NAME = '@newbiecheng/no996-editor';
+const NAME = '@newbiecheng/dsh-no996-editor';
 
 export function registryProblems(output, version) {
   let values;
@@ -57,7 +57,8 @@ function npmCli() {
 }
 
 async function main() {
-  if (process.argv.length !== 2) throw new Error('formal release gate does not accept overrides');
+  const firstPublish = process.argv.length === 3 && process.argv[2] === '--first-publish';
+  if (process.argv.length !== 2 && !firstPublish) throw new Error('only --first-publish is supported for a new npm package name');
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   if (pkg.name !== NAME || pkg.publishConfig?.registry !== REGISTRY) throw new Error('unexpected package name or registry');
   const state = inspectRepo();
@@ -75,8 +76,13 @@ async function main() {
   let versions;
   try {
     versions = execFileSync(process.execPath, [npm, 'view', NAME, 'versions', '--json', '--registry', REGISTRY, '--fetch-retries=0', '--fetch-timeout=15000'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
-  } catch { throw new Error('registry lookup failed; check network and npm credentials'); }
-  const registryErrors = registryProblems(versions, state.version);
+  } catch (error) {
+    let code;
+    try { code = JSON.parse(String(error.stdout)).error?.code; } catch { /* no structured npm result */ }
+    if (!firstPublish || code !== 'E404') throw new Error('registry lookup failed; check network and npm credentials');
+    console.log('release: public lookup returned E404 for the new package name; this does not establish publish permissions or version availability');
+  }
+  const registryErrors = versions === undefined ? [] : registryProblems(versions, state.version);
   if (registryErrors.length) throw new Error(registryErrors.join('; '));
   console.log('release: running complete checks');
   run(process.execPath, [npm, 'run', 'check']);
@@ -88,7 +94,7 @@ async function main() {
     run(process.execPath, ['scripts/build.mjs', '--outfile', built]);
     if (!readFileSync(built).equals(readFileSync(join(ROOT, 'client.js')))) throw new Error('client.js differs from a fresh build; build and commit it before release');
     run(process.execPath, ['scripts/pack-tgz.mjs', '--out-dir', temp]);
-    const archive = join(temp, `newbiecheng-no996-editor-${state.version}.tgz`);
+    const archive = join(temp, `newbiecheng-dsh-no996-editor-${state.version}.tgz`);
     const tar = process.platform === 'win32' ? 'C:\\Windows\\System32\\tar.exe' : 'tar';
     const listing = execFileSync(tar, ['-tzf', archive], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
     const archiveErrors = archiveProblems(listing);

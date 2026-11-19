@@ -8,7 +8,7 @@ import { installDragProbe } from './drag-probe.mjs';
 import { installDropCatcher } from './drop-catcher.mjs';
 
 window.__ModuleLoader__.load({
-  id: '@newbiecheng/no996-editor',
+  id: '@newbiecheng/dsh-no996-editor',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
@@ -153,7 +153,7 @@ window.__ModuleLoader__.load({
         // slot scoped to our package name: the list `plugins.detail.section`
         // renders on EVERY plugin's detail page, which leaked this panel into
         // other bundles. Keying by package keeps it on ours only.
-        ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: '@newbiecheng/no996-editor', locale: NS, label: () => t('envTitle') }, EnvSection));
+        ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: '@newbiecheng/dsh-no996-editor', locale: NS, label: () => t('envTitle') }, EnvSection));
         // `shell.overlay` is rendered for the whole frame lifetime, so the panel
         // it hosts survives page switches instead of reloading Studio each time.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'no996-openfilm-panel', order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));

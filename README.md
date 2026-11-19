@@ -18,21 +18,21 @@
 
 ## 安装与更新
 
-包名：`@newbiecheng/no996-editor`，发布在 npmjs.org，公开可装、无需 token。
+新包名：`@newbiecheng/dsh-no996-editor`（[npm 包页](https://www.npmjs.com/package/@newbiecheng/dsh-no996-editor)，以官方源可查询到正式版本为准）。旧包 `@newbiecheng/no996-editor` 不再维护。npm 不会跨包名自动更新：安装新包前，请先停用旧包，避免两个插件同时运行。
 
 ### 方法一：界面安装（推荐，对照下图 3 步）
 
 1. DSH 左侧进「插件」页，点右上角「＋ 添加插件」。
 2. 弹框输入框里**只填包名**（不要填整条命令）：
-   `@newbiecheng/no996-editor`
-3. 安装源保持默认，点「安装」。装完按提示**重启 DSH**，侧栏出现「视频创作」即成功。
+   `@newbiecheng/dsh-no996-editor`
+3. 安装源选择 **npm 官方源（npmjs.org）**，点「安装」。装完按提示**重启 DSH**，侧栏出现「视频创作」即成功。
 
 ![手动安装指引](docs/assets/install-guide.png)
 
 ### 方法二：命令安装
 
 ```powershell
-dsh plugin --profile desktop add @newbiecheng/no996-editor
+dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor
 ```
 
 之后可在「版本」Tab 检测并一键更新；出现 `restart-required` 时完整重启 DSH。更新前保存未保存的编辑。安装/更新/发版手册见 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
@@ -75,4 +75,4 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor
 
 ## English summary
 
-No996 Editor is an AI video editing workbench delivered as a DSH plugin: a full editing environment on the left, a native DSH conversation on the right. It supports conversational editing, storyboard planning, timeline editing, transcript and subtitles, free CC0 media, and local person-cutout / face-position tools. Install `@newbiecheng/no996-editor` from npmjs.org. Requires Node 22.2+, a DSH host with native session controller, and ffmpeg/ffprobe. Released under the GNU General Public License v3 or later (see LICENSE). Bundled third-party components keep their own licenses under vendor/official-shell and THIRD_PARTY_NOTICES.md. Based on OpenFilm 0.4.0.
+No996 Editor is an AI video editing workbench delivered as a DSH plugin: a full editing environment on the left, a native DSH conversation on the right. It supports conversational editing, storyboard planning, timeline editing, transcript and subtitles, free CC0 media, and local person-cutout / face-position tools. Install `@newbiecheng/dsh-no996-editor` from npmjs.org. Requires Node 22.2+, a DSH host with native session controller, and ffmpeg/ffprobe. Released under the GNU General Public License v3 or later (see LICENSE). Bundled third-party components keep their own licenses under vendor/official-shell and THIRD_PARTY_NOTICES.md. Based on OpenFilm 0.4.0.

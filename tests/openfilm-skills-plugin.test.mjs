@@ -42,5 +42,7 @@ test('cordis.patch.yml links preset-openfilm-video-editing with persona, root ma
   assert.match(yaml, /- \.film/);
   assert.match(yaml, /- film\.html/);
   assert.match(yaml, /includeDefaultRoots: false/);
-  assert.match(yaml, /@newbiecheng\/no996-editor\/openfilm-skills/);
+  const { name } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  assert.ok(yaml.includes(`name: '${name}/openfilm-skills'`));
+  assert.ok(yaml.includes(`name: '${name}/openfilm-prompt'`));
 });

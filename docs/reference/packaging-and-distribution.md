@@ -24,7 +24,7 @@ rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载�
   ├─ npm run build
   │    └─ esbuild 将 src/studio/studio-entry.js 等打包为单文件 client.js
   └─ `scripts/pack-tgz.mjs` + `scripts/npmjs-publish.ps1`
-       └─ 发布 `@newbiecheng/no996-editor` 到 npmjs.org（见 [`playbooks/publish.md`](../playbooks/publish.md)）
+       └─ 发布 `@newbiecheng/dsh-no996-editor` 到 npmjs.org（见 [`playbooks/publish.md`](../playbooks/publish.md)）
 ```
 
 ## 2. 分发依赖矩阵（防坏包机制）

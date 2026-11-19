@@ -1,5 +1,5 @@
 {
-  "name": "@newbiecheng/no996-editor",
+  "name": "@newbiecheng/dsh-no996-editor",
   "version": "0.17.15",
   "description": "No996 Editor (不加班剪辑): OpenFilm-based video studio as a DSH plugin, bridged to native DSH sessions.",
   "type": "module",
