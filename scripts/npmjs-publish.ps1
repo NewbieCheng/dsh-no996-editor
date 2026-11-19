@@ -24,7 +24,7 @@ if (-not $token) {
 }
 if (-not $token) { throw 'Set NPM_TOKEN or create .npmjs-token.tmp' }
 
-$npmrc = Join-Path $Root '.npmrc.npmjs'
+$npmrc = Join-Path ([System.IO.Path]::GetTempPath()) ("no996-npmjs-" + [guid]::NewGuid().ToString('N') + ".npmrc")
 @(
   "$($Registry.TrimEnd('/') -replace '^https:','')/:_authToken=$token"
 ) | Set-Content -Path $npmrc -Encoding utf8
@@ -65,4 +65,5 @@ try {
   Write-Host "Install:  dsh plugin --profile desktop add $Name@$Version"
 } finally {
   Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item $npmrc -Force -ErrorAction SilentlyContinue
 }
