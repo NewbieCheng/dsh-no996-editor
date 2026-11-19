@@ -2,6 +2,10 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.17.12 - 纠正 npm 元数据（仓库链接、License）
+
+- 修复 npm 页面显示错误的仓库地址与 License：`repository` 改为新仓库 `NewbieCheng/dsh-no996-editor`，`license` 为 `GPL-3.0-or-later`。功能与 0.17.11 相同。
+
 ## 0.17.11 - 不加班工作台品牌与 GPL v3
 
 - 更名为「不加班工作台 · No996 Editor」，README 重写产品定位与能力；OpenFilm 仅在末尾致谢处保留一次提名。
