@@ -23,3 +23,4 @@ dist/
 
 # 本机影片库（用户数据，不进 git、不进 npm 包）
 /films/
+.npmrc.npmjs
