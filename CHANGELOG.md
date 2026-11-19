@@ -2,6 +2,10 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.17.15 - 同 0.17.13（0.17.13 卡在 registry 暂存态，换号重发）
+
+- 内容与 0.17.13 相同：修复包内 `package.json` BOM。0.17.13 的 PUT 被 registry 记为已暂存但查不到、发不过去，按"同一 name@version 不可复用"处理换号重发。
+
 ## 0.17.14 - 修复安装包 package.json 的 UTF-8 BOM（可安装）
 
 - 修复 0.17.12 包内 `package.json` 带 UTF-8 BOM 导致 DSH 拒绝安装的问题（发布脚本的 PowerShell `Set-Content -Encoding utf8` 会写 BOM，现改走 Node 重写 manifest；发版闸门新增 BOM 检查）。0.17.13 仅停留在 registry 暂存区未正式发布，由本版替代；功能与 0.17.12 相同。
