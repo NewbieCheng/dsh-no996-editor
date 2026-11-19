@@ -41,6 +41,7 @@
 6. **发布成功 ≠ 立即可见**：PUT 202 后 packument 可能几十分钟才更新。短暂 404 时等待并复查 `versions` 与单版本端点，**不要重发、不要换名、不要改代码**。
 7. **品牌改名要同步 bundle id**：包名同时是 `cordis.patch.yml` 的 bundle 名与 `client.js` 的 ModuleLoader id/slot key。改包名后必须 `npm run build` 重建客户端、重建官方壳快照并重放补丁，否则插件无法激活。
 8. **探针包也是包**：验证用探针包发布后必须清理；清理需要真人 2FA，所以在发探针前就想好谁删、什么时候删。
+9. **绝不让 PowerShell 写 JSON/manifest**：Win PS 5.1 的 `Set-Content -Encoding utf8` 会写 BOM、`ConvertTo-Json` 用 CRLF，包内 `package.json` 带 BOM 会让 DSH 拒装（`Unexpected token`）。改 manifest 一律用 Node 写（无 BOM + LF）。发版闸门已含 BOM 检查，红了先修脚本不要发。
 
 
 ## 2. 四层界面，两级手段

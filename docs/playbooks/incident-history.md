@@ -368,6 +368,16 @@ UI 完全由 `/api/local-models` 的数据驱动，所以**不需要重建 Studi
 
 **边界**：GUI 真机验收（版本区能识别更新、重启后侧栏正常）未做；npmjs 上遗留的探针包（`n996-scope-probe`、`no996-editor-probe2`、旧 `dsh-openfilm`）需真人 2FA 在网页删除；对话中出现过的账号密码与多个 token 必须 revoke/改密。
 
+### 2026-11-19 · 发版包 `package.json` 带 UTF-8 BOM，DSH 拒装并回滚 profile
+
+**现象**：`dsh plugin add @newbiecheng/no996-editor@0.17.12` 下载成功后报 `installation rejected ... Unexpected token '﻿' ... is not valid JSON`，profile 被回滚，GUI 版本区仍显示旧版。
+
+**根因**：发布脚本 `scripts/npmjs-publish.ps1` 用 PowerShell `ConvertTo-Json | Set-Content -Encoding utf8` 重写包内 `package.json`；Win PS 5.1 的 utf8 **带 BOM**（另附 CRLF）。tarball 内 manifest 首字节为 `EF BB BF`，DSH 的严格 JSON 校验直接拒收。可复核：下载该版本 tgz解包看前 3 字节。
+
+**改法**：manifest 重写一律走 Node（`JSON.parse` → 改字段 → `writeFileSync`，天然无 BOM + LF）；`scripts/run-release-check.mjs` 发版闸门新增 BOM 检查，红了先修脚本不许发。
+
+**边界**：0.17.12 的毒包已上 npmjs 且不可覆盖（同 name@version 永久不可复用），用 0.17.13 顶掉；本地 profile 回滚残留需重装新版并整应用重启。
+
 ## 3. 反复出现的坑（按主题）
 
 | 主题 | 症状 | 现在的做法 |
@@ -384,6 +394,7 @@ UI 完全由 `/api/local-models` 的数据驱动，所以**不需要重建 Studi
 | 发布可见性假设 | PUT 202/短暂 404 就重发或换名 | 先等索引，查 `versions` 与单版本端点 |
 | 版本复用假设 | unpublish 后重发同版本 | 同 name@version 永久不可复用，换新版本号 |
 | token 假设 | 把 npm token 写进仓库或只用 bypass token 走全流程 | token 只写系统临时文件；bypass token 不能 unpublish，删除走网页 2FA |
+| 编码假设 | 用 PowerShell 写 JSON/manifest，以为只是换行符问题 | Win PS 5.1 `utf8` 带 BOM，包内 manifest 会毒掉整包；一律 Node 写，无 BOM + LF，闸门有 BOM 检查 |
 | 双实例 | profile 里同时有用户层与 bundle 条目，两个实例都 apply，第二个抛 "already registered"，整个插件 failed | 只留一个条目 |
 | TDZ | 路由注册块写在 `const trackRoute` 之前 | `Cannot access 'trackRoute' before initialization`，apply 抛错 = 整个插件失败 |
 | 拆分漏参 | 控制器拆成路由模块后，handler 读了作用域里已不存在的变量（`disposed` vs `isDisposed`） | 400 + 自己设的响应头；真调一次 handler 的测试才能抓到 |
