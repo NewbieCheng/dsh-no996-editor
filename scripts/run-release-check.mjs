@@ -27,7 +27,7 @@ export function archiveProblems(output) {
   const required = ['package/package.json', 'package/index.js', 'package/client.js', 'package/cordis.patch.yml', 'package/vendor/official-shell/manifest.json', 'package/node_modules/openfilm/package.json', 'package/node_modules/zod/package.json'];
   const problems = required.filter(name => !names.has(name)).map(name => `package is missing ${name}`);
   for (const name of names) {
-    if (/(?:^|\/)(?:\.npmrc(?:\..*)?|\.gitlab-npm-token\.tmp|\.git)(?:\/|$)/i.test(name) ||
+    if (/(?:^|\/)(?:\.npmrc(?:\..*)?|\.gitlab-npm-token\.tmp|\.npmjs-token\.tmp|\.git)(?:\/|$)/i.test(name) ||
         name.startsWith('package/films/') ||
         name.startsWith('package/.dev/') ||
         name.startsWith('package/.upstream/') ||

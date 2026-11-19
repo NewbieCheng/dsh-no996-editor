@@ -3,10 +3,10 @@
   "version": "0.17.11",
   "description": "No996 Editor (不加班剪辑): OpenFilm-based video studio as a DSH plugin, bridged to native DSH sessions.",
   "type": "module",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/NewbieCheng/no996-editor.git"
+    "url": "https://github.com/NewbieCheng/dsh-no996-editor.git"
   },
   "publishConfig": {
     "access": "public",
