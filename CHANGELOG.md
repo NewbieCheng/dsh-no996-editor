@@ -2,6 +2,10 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.17.13 - 修复安装包 package.json 的 UTF-8 BOM（可安装）
+
+- 修复 0.17.12 包内 `package.json` 带 UTF-8 BOM 导致 DSH 拒绝安装的问题（发布脚本的 PowerShell `Set-Content -Encoding utf8` 会写 BOM，现改走 Node 重写 manifest；发版闸门新增 BOM 检查）。功能与 0.17.12 相同。
+
 ## 0.17.12 - 纠正 npm 元数据（仓库链接、License）
 
 - 修复 npm 页面显示错误的仓库地址与 License：`repository` 改为新仓库 `NewbieCheng/dsh-no996-editor`，`license` 为 `GPL-3.0-or-later`。功能与 0.17.11 相同。

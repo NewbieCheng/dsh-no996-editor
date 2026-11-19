@@ -48,10 +48,13 @@ try {
   $unpacked = Join-Path $stage 'package'
   & tar -xzf $tgz -C $stage
   if ($LASTEXITCODE -ne 0) { throw 'tar extract failed' }
+  # Never let PowerShell rewrite a manifest: Windows PowerShell 5.1 emits UTF-8
+  # *with BOM* for -Encoding utf8 (and ConvertTo-Json uses CRLF), which makes
+  # the packed package.json unparseable for strict JSON readers such as the
+  # DSH plugin manager ("Unexpected token '﻿'"). Node writes BOM-free LF.
   $manifestPath = Join-Path $unpacked 'package.json'
-  $staged = Get-Content $manifestPath -Raw | ConvertFrom-Json
-  $staged.publishConfig = @{ access = 'public'; registry = $Registry }
-  $staged | ConvertTo-Json -Depth 12 | Set-Content $manifestPath -Encoding utf8
+  node -e "const fs=require('fs');const p=process.argv[1];const m=JSON.parse(fs.readFileSync(p,'utf8'));m.publishConfig={access:'public',registry:'https://registry.npmjs.org/'};fs.writeFileSync(p,JSON.stringify(m,null,2)+'\n')" $manifestPath
+  if ($LASTEXITCODE -ne 0) { throw 'manifest repack failed' }
 
   Write-Host "Publishing $Name@$Version → $Registry"
   $env:npm_config_userconfig = $npmrc

@@ -93,7 +93,9 @@ async function main() {
     const listing = execFileSync(tar, ['-tzf', archive], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
     const archiveErrors = archiveProblems(listing);
     if (archiveErrors.length) throw new Error(archiveErrors.join('; '));
-    const packedPkg = JSON.parse(execFileSync(tar, ['-xOzf', archive, 'package/package.json'], { cwd: ROOT, encoding: 'utf8' }));
+    const packedPkgRaw = execFileSync(tar, ['-xOzf', archive, 'package/package.json'], { cwd: ROOT, maxBuffer: 4 * 1024 * 1024 });
+    if (packedPkgRaw[0] === 0xef && packedPkgRaw[1] === 0xbb && packedPkgRaw[2] === 0xbf) throw new Error('release archive package.json has a UTF-8 BOM (PowerShell -Encoding utf8 writes one); strict JSON readers reject the install');
+    const packedPkg = JSON.parse(packedPkgRaw.toString('utf8'));
     if (packedPkg?.dsh?.releaseBuild !== true) throw new Error('release archive package.json must stamp dsh.releaseBuild = true');
   } finally { rmSync(temp, { recursive: true, force: true }); }
   if (gitOutput(['status', '--porcelain']) !== '') throw new Error('checks changed the working tree');

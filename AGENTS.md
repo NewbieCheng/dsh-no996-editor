@@ -6,13 +6,13 @@
 
 ## 0. 一句话
 
-把官方 **OpenFilm 0.4.0** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.17.12`。
+把官方 **OpenFilm 0.4.0** 工作台封装成可分发的 **DSH 插件**：Host 拉起 Studio 并反向代理，浏览器用 `shell.overlay` 常驻 iframe，右侧对话在 Host 进程内**直连 DSH 原生 `ctx.sessionController`**（绑定 `openfilm-video-editing` 预设，零 ACP 子进程）。当前 `0.17.13`。
 
 ## 1. 红线（违反即回退）
 
 1. **不碰用户既有项目和会话。** 模板安装只新建目录；不迁移、不删除、不改写别人的 `film.html`。
 2. **自动化测试禁止真实模型调用。** 只用 mock 与 `mkdtemp`。
-3. **源码只推 GitHub `NewbieCheng/no996-editor`。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
+3. **源码只推 GitHub `NewbieCheng/dsh-no996-editor`（main 分支）。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
 4. **未验证不得声称完成。** 真机 GUI 里看到行为才算“好了”。
 5. **不要把 `openfilm_draft` 当保存**（纯内存草稿）；**不要把 Studio 代理当安全边界**（本机回环集成，不是沙箱）。
 
