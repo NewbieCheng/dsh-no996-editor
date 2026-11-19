@@ -340,6 +340,34 @@ UI 完全由 `/api/local-models` 的数据驱动，所以**不需要重建 Studi
 
 **边界**：非空旧会话没法归位（无 attach API）；Host 代码要重启 DSH 才生效。
 
+
+---
+
+### 2026-11-19 · GUI「版本」区报「没有声明组合包，无法安装」+ npmjs 发布踩坑
+
+**证据等级**：全套为可复核命令输出，非猜测。
+
+**现象**：用户 GUI 插件详情「版本」区显示 0.17.0(latest) 为「这个版本没有声明组合包，无法安装」；CLI `dsh plugin add` 一直可用。
+
+**根因（两层，别混为一谈）**：
+1. **GUI 判定路径**：DSH 宿主源码 `VERSION_FIELDS = [name, version, engines, peerDependencies, deprecated, dsh]`，`versionFacts()` 用 `dsh.bundle` 是否存在判定 `version.bundle`；`installable(version)` 要求 `version.bundle` 为真。它读的是 `pnpm view <包名>@<版本>` 的完整 manifest，**不解包 tarball**。
+2. **registry 落库差异**：本地假 registry 捕获证实 `npm publish` 发出的 manifest 含完整 `dsh`；但 GitLab 项目级 / 实例级 registry、GitHub Packages 落库都只剩 name/version/dist/engines/dependencies/devDependencies，`dsh` 丢失（用最小探针包验证）。npmjs.org 保留完整 packument，`pnpm view @newbiecheng/no996-editor@0.17.1 dsh` 能读到 `dsh.bundle`。静态站点手写 packument 也能让 `pnpm view` 读到 `dsh`——所以问题在 registry 的元数据保真度，不在包、不在缓存、不在字段名。
+
+**这趟踩过的坑（每条都验证过，别再试）**：
+- **npmjs 发布成功 ≠ 立即可见**：PUT 返回 202，packument 可能几十分钟后才列出新版本。等待期间直接查 packument 的 `versions` 与单版本端点 `/<name>/<version>`，不要因为短暂 404 就重发或换名。
+- **unpublish 留下永久占位**：撤销 0.17.0 后 packument 出现 `0.0.0-stage` 占位版本，`latest` 会指向它。npm 规则：同一 name@version 一旦发布，即使 unpublish 也**不能再发**。所以撤销过的版本号必须换新号（本次从 0.17.0 → 0.17.1）。
+- **Bypass-2FA token 不能 unpublish**：删除包报 403 `Granular access tokens that bypass two-factor authentication may not perform this action`。删除必须在网页由真人过 2FA，或用不带 bypass 的 token + OTP；发布 token 只用于发布。
+- **staged publishing**：带 bypass 的 granular token 发布可能进入暂存（`0.0.0-stage`），`npm stage list/approve` 需要 npm 11.21+；本地 npm 11.19 的 `stage list` 看不到暂存项，但服务端 `409 Cannot publish over previously staged version` 会暴露它。确认公开可见前不算发布成功。
+- **token 泄露**：把含 token 的 `.npmrc.npmjs` 误 `git add -A` 提交，GitHub Push Protection（GH013）拒绝推送；必须 `filter-branch` 清历史、加 `.gitignore`、改写脚本把 token 写到系统临时目录。token 只放临时文件或环境变量，绝不写进仓库。
+
+**改法**：
+- 发布通道固定 npmjs.org；CLI `dsh plugin --profile desktop add <包名>@<版本>` 作为兜底。
+- 新增 `scripts/verify-registry-dsh.mjs`：发布后核对源码 `dsh.bundle.patch` 与 registry 是否保留 `dsh`。
+- `scripts/npmjs-publish.ps1`：临时目录改写 manifest 的 `publishConfig.registry`（避免仓库 package.json 的旧 registry 覆盖 `--registry`），token 只写系统临时 `.npmrc` 并在 finally 删除。
+- 品牌改名 `@newbiecheng/dsh-openfilm` → `@newbiecheng/no996-editor`：同步 package.json/package-lock、`client.js` 的 bundle id 与 slot key（必须 `npm run build` 重建）、`cordis.patch.yml` 的 bundle 名、上游源码字符串、README/发布手册/STATE；`engines.dsh` 放宽到 `>=0.2.1`。
+
+**边界**：GUI 真机验收（版本区能识别更新、重启后侧栏正常）未做；npmjs 上遗留的探针包（`n996-scope-probe`、`no996-editor-probe2`、旧 `dsh-openfilm`）需真人 2FA 在网页删除；对话中出现过的账号密码与多个 token 必须 revoke/改密。
+
 ## 3. 反复出现的坑（按主题）
 
 | 主题 | 症状 | 现在的做法 |
@@ -352,6 +380,10 @@ UI 完全由 `/api/local-models` 的数据驱动，所以**不需要重建 Studi
 | 重载假设 | 把"重启插件"当万能药，但请求没到 Host | 先 `curl` 同一路由 |
 | 构建假设 | 手改 `vendor/official-shell/ui` 不重算 manifest | 启动即 `OFFICIAL_SHELL_UNAVAILABLE`，必须 `shell:bake` |
 | 文档假设 | 测试数、文件数写死在多份文档里 | 数字不抄，能生成就生成 |
+| registry 假设 | 以为「发布成功」等于「GUI 能更新」 | DSH 版本区读 registry 的 `dsh.bundle`；GitLab/GitHub 丢该字段，必须 npmjs |
+| 发布可见性假设 | PUT 202/短暂 404 就重发或换名 | 先等索引，查 `versions` 与单版本端点 |
+| 版本复用假设 | unpublish 后重发同版本 | 同 name@version 永久不可复用，换新版本号 |
+| token 假设 | 把 npm token 写进仓库或只用 bypass token 走全流程 | token 只写系统临时文件；bypass token 不能 unpublish，删除走网页 2FA |
 | 双实例 | profile 里同时有用户层与 bundle 条目，两个实例都 apply，第二个抛 "already registered"，整个插件 failed | 只留一个条目 |
 | TDZ | 路由注册块写在 `const trackRoute` 之前 | `Cannot access 'trackRoute' before initialization`，apply 抛错 = 整个插件失败 |
 | 拆分漏参 | 控制器拆成路由模块后，handler 读了作用域里已不存在的变量（`disposed` vs `isDisposed`） | 400 + 自己设的响应头；真调一次 handler 的测试才能抓到 |

@@ -2,11 +2,13 @@
 id: topics-own-registry
 reader: 想让 DSH「版本」区能正常更新的维护者
 fact-source: 2026-11-19 对 DSH app.asar、pnpm view、GitLab/GitHub Packages packument 的实测
-checked: 0.17.0
+checked: historical
 rot-if: DSH 版本检测字段或 registry 行为变化
 -->
 
-# 让 GUI 更新可用：自建静态 npm registry
+# 历史方案：自建静态 npm registry（已由 npmjs.org 取代）
+
+> 本文只作技术记录。当前发布通道固定为 npmjs.org（见 ../playbooks/publish.md）；静态 registry 需要自己托管 122 MB tarball 和 packument，不再使用。
 
 ## 为什么需要
 

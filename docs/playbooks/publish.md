@@ -119,13 +119,15 @@ npm run release:check   # 完整检查、registry、临时构建/打包；不发
 ### 3.3 发布到 npmjs.org
 
 ```powershell
-# 仓库根；需 .npmjs-token.tmp 或环境变量 NPM_TOKEN（bypass-2FA 的发布 token）
+# 仓库根；token 来自 .npmjs-token.tmp 或环境变量 NPM_TOKEN
 powershell -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
 ```
 
-npmjs 的发布 token 需 **Bypass two-factor authentication (2FA)** 且权限为 `Read and write (publish and stage)`；否则 publish 会被 401/403 拒绝。
+**token 要求**：npmjs granular token，权限 `Read and write (publish and stage)`，并勾选 **Bypass two-factor authentication (2FA)**；否则 publish 被 401/403 拒绝。**token 只用于发布**：它不能 unpublish，删包必须真人到网页过 2FA。token 只能放环境变量或系统临时文件，**绝不写进仓库**（GitHub Push Protection 会拦，且一旦推送就泄露）。
 
-脚本会：`build` → `pack-tgz.mjs` → `npm publish` 到 `publishConfig.registry`。
+脚本流程：`build` → `pack-tgz.mjs` → 在**系统临时目录**解压 tgz、改写 `publishConfig.registry` 为 npmjs → `npm publish` → finally 删除临时文件与临时 `.npmrc`。不要手改仓库里的 `package.json` 来切 registry。
+
+**发版前必须先确认版本号没被用掉**：npm 规定同一 `name@version` 一旦发布，即使 unpublish 也**不能再发**（会 409）。撤销过的版本必须换新号。查：`npm view <包名>@<版本> version --registry https://registry.npmjs.org/`，404 才算未占用；注意 npmjs 索引延迟，发布后短时间 404 不代表失败。
 
 ### 3.4 发布后验收（未过不许写「完成」）
 
@@ -133,7 +135,9 @@ npmjs 的发布 token 需 **Bypass two-factor authentication (2FA)** 且权限�
 npm view @newbiecheng/no996-editor version --registry https://registry.npmjs.org/
 ```
 
-- 输出 = 刚发的版本
+- `npm view <包名>@<版本> version` 输出 = 刚发的版本（**索引可能延迟几十分钟**；期间 PUT 202 表示服务端已接受，不要重发或换名）
+- 直接查 packument 的 `versions` 与单版本端点 `/<name>/<version>` 都出现该版本
+- `pnpm view <包名>@<版本> dsh` 能读到 `dsh.bundle`（GUI 更新的必要条件）
 - https://www.npmjs.com/package/@newbiecheng/no996-editor 能看到该版本
 - 真机：desktop 已是 registry 包 → 更新或重装 → 整应用重启 →「版本」区与侧栏「视频创作」正常
 

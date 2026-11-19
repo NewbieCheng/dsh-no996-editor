@@ -31,6 +31,18 @@
 | 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ **用户当轮明确要求后**运行 `powershell -File .\scripts\npmjs-publish.ps1` → `npm view` + 真机「版本」区 |
 | 包丢了 | `dsh plugin --profile desktop install`（勿在 Windows 手删 `@NewbieCheng`/`@newbiecheng` 目录） |
 
+### 1.2 npmjs 发布铁律（2026-11-19 事故后固化，违反必翻 incident-history.md）
+
+1. **发布通道只有 npmjs.org**。GitLab / GitHub Packages 不保存 `dsh` 字段，DSH GUI 版本区必定报「没有声明组合包，无法安装」；不要为了「按原渠道」再发回去。
+2. **GUI 可更新的充要条件**：`pnpm view <包名>@<版本> dsh` 能读到 `dsh.bundle`。发布后用 `node scripts/verify-registry-dsh.mjs` 核对，别只看 `npm publish` 的退出码。
+3. **token 只能进环境变量或系统临时文件**。绝不写 `.npmrc` 到仓库、绝不 `git add -A` 顺手提交。发布脚本用临时目录改写 manifest 的 `publishConfig.registry`，finally 删除临时 `.npmrc`。
+4. **Bypass-2FA token 只用于发布**：它不能 unpublish / 删包（403）；删除要真人在 npmjs 网页过 2FA。发布前想清楚版本号，删错了只能换新包名或新版本号。
+5. **同一 name@version 永久不可复用**，unpublish 也会留下 `0.0.0-stage` 占位并把 `latest` 指过去。撤销过的版本号必须换新号；发版前先 `npm view <包名>@<版本>` 确认 404。
+6. **发布成功 ≠ 立即可见**：PUT 202 后 packument 可能几十分钟才更新。短暂 404 时等待并复查 `versions` 与单版本端点，**不要重发、不要换名、不要改代码**。
+7. **品牌改名要同步 bundle id**：包名同时是 `cordis.patch.yml` 的 bundle 名与 `client.js` 的 ModuleLoader id/slot key。改包名后必须 `npm run build` 重建客户端、重建官方壳快照并重放补丁，否则插件无法激活。
+8. **探针包也是包**：验证用探针包发布后必须清理；清理需要真人 2FA，所以在发探针前就想好谁删、什么时候删。
+
+
 ## 2. 四层界面，两级手段
 
 四层（L0 我们的壳 / L1 官方桌面壳 / L2 Studio 编辑器 / L3 影片）按改动位置选择 token、CSS 或上游源码补丁；上游源码与构建方式见 [`docs/playbooks/upstream-bump.md`](docs/playbooks/upstream-bump.md)，注入边界见 [`docs/reference/injection-registry.md`](docs/reference/injection-registry.md)。不要假定 L2 只能注入 CSS。
