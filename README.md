@@ -20,13 +20,7 @@
 
 包名：`@newbiecheng/no996-editor`，发布在 npmjs.org，公开可装、无需 token。
 
-```powershell
-dsh plugin --profile desktop add @newbiecheng/no996-editor
-```
-
-或在 DSH 插件管理器按包名安装，之后可在「版本」Tab 检测并一键更新；出现 `restart-required` 时完整重启 DSH。更新前保存未保存的编辑。安装/更新/发版手册见 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
-
-### 手动安装（对照界面，3 步）
+### 方法一：界面安装（推荐，对照下图 3 步）
 
 1. DSH 左侧进「插件」页，点右上角「＋ 添加插件」。
 2. 弹框输入框里**只填包名**（不要填整条命令）：
@@ -34,6 +28,14 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor
 3. 安装源保持默认，点「安装」。装完按提示**重启 DSH**，侧栏出现「视频创作」即成功。
 
 ![手动安装指引](docs/assets/install-guide.png)
+
+### 方法二：命令安装
+
+```powershell
+dsh plugin --profile desktop add @newbiecheng/no996-editor
+```
+
+之后可在「版本」Tab 检测并一键更新；出现 `restart-required` 时完整重启 DSH。更新前保存未保存的编辑。安装/更新/发版手册见 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
 
 **GitLab 已弃用**：旧 GitLab Package Registry 不再发布、不再维护，也不再作为安装源；`npmjs.org` 是唯一包源。
 
