@@ -1,7 +1,16 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..4cee3df 100644
+index 26575ee..0a515f8 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
+@@ -6,7 +6,7 @@
+  * (lib/local-agent-run's saved turns).
+  */
+ import React from 'react';
+-import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Shapes, Square } from 'lucide-react';
++import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Square } from 'lucide-react';
+ import { buildPromptDisplay, type Turn } from '@openfilm/shared';
+ import { useT, useUiLocale } from '@/i18n';
+ import { ConversationBar } from '@/components/ConversationSessionBar';
 @@ -14,6 +14,7 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
@@ -285,7 +294,22 @@ index 26575ee..4cee3df 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1183,6 +1360,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1331,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+           hidden
+           onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
+         />
+-        {/* the Community: what there is to add to OpenFilm, and what was added, in Studio's Community window */}
+-        {app.showExamples ? (
+-          <Tooltip label={t('project.plugins')}>
+-            <button type="button" onClick={() => app.showExamples?.({ kind: 'plugins' })} className="openfilm-composer-tool" aria-label={t('project.plugins')}>
+-              <Shapes size={16} strokeWidth={1.75} />
+-            </button>
+-          </Tooltip>
+-        ) : null}
+         <Tooltip label={t('project.assets')}>
+           <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
+             <LibraryBig size={16} strokeWidth={1.75} />
+@@ -1183,6 +1352,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -302,7 +326,7 @@ index 26575ee..4cee3df 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1387,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1379,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}

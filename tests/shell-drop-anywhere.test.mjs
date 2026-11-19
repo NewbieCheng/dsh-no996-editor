@@ -29,9 +29,10 @@ test('the chat takes a file anywhere in the page', () => {
   assert.match(app, /\+    document\.addEventListener\('dragend', end\);/);
 });
 
-test('the empty conversation is not forked again; the page-wide drop covers it', () => {
-  const starters = series.patches.find(item => item.source === 'apps/desktop/chat/src/components/ProjectStarters.tsx');
-  assert.equal(starters, undefined, 'upstream owns the empty-state starters; do not fork them again');
+test('the empty conversation retains the library and page-wide drop without a separate drop box', () => {
+  const starters = patchBySource('apps/desktop/chat/src/components/ProjectStarters.tsx');
+  assert.match(starters, /^ .*id: 'library'/m);
+  assert.doesNotMatch(starters, /^\+.*(?:onDrop|id: 'community')/m);
   assert.match(app, /\+    document\.addEventListener\('drop', letGo\);/);
 });
 

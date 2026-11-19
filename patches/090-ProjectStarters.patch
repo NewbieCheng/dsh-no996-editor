@@ -1,0 +1,21 @@
+diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
+index 1733a09..5354ca9 100644
+--- a/apps/desktop/chat/src/components/ProjectStarters.tsx
++++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
+@@ -7,15 +7,13 @@
+  * what was added). A click opens it, as the button does.
+  */
+ import React from 'react';
+-import { LibraryBig, Shapes } from 'lucide-react';
++import { LibraryBig } from 'lucide-react';
+ import { useT } from '@/i18n';
+ import { app } from '../app-bridge';
+ 
+ export function ProjectStarters() {
+   const t = useT();
+-  /* the Community first, the library after: as the person reads left to right */
+   const cards = [
+-    ...(app.showExamples ? [{ id: 'community', icon: <Shapes size={14} strokeWidth={1.75} aria-hidden />, name: t('starter.communityName'), note: t('starter.communityNote'), open: () => app.showExamples?.({ kind: 'plugins' }) }] : []),
+     { id: 'library', icon: <LibraryBig size={14} strokeWidth={1.75} aria-hidden />, name: t('starter.libraryName'), note: t('starter.libraryNote'), open: () => app.setAssetsOpen(true) },
+   ];
+   return (

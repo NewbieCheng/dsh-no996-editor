@@ -1,0 +1,30 @@
+diff --git a/packages/openfilm/studio/ui/src/shell/top-bar.tsx b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
+index 0a51b5f..04e8fcd 100644
+--- a/packages/openfilm/studio/ui/src/shell/top-bar.tsx
++++ b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
+@@ -32,6 +32,7 @@ import { useSettings } from '@/components/settings/use-settings';
+ import { SpendAsks } from '@/components/SpendAsks';
+ import { Tooltip } from '@/components/Tooltip';
+ import { UpdateButton, WebUpdateButton } from '@/components/UpdateButton';
++import { WorkbenchAccountControls } from '@/components/WorkbenchAccount';
+ import { commandTo, topBarTools } from '@/studio/hub';
+ import type { useProjectFrame } from './ProjectFrame';
+ import { useWiring } from './frame';
+@@ -157,6 +158,8 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+         {history.button}
+         {/* the workbench's own: for the edit its export (the canvas has its own bars) */}
+         {bar?.tools}
++        {/* NO996-UPSTREAM: the workbench account chip (drawer, credits) sits with the bar's other buttons. */}
++        <WorkbenchAccountControls onSettings={setSettingsOpen} />
+         {/* the buttons plugins put on the bar (openfilm/studio topBar) */}
+         <PluginTools />
+         {/* the edit or the canvas, in the panes' place: the one shown, by its name, and a click for the other */}
+@@ -164,7 +167,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+           : canToggleCanvas ? <Tooltip label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} action="work-mode" side="bottom">
+           <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={layoutEditing} onClick={() => setCanvasOpen(!canvasOpen)}
+             className="flex h-[26px] shrink-0 items-center rounded-md bg-[var(--bg-hover)] px-2.5 text-[12.5px] font-medium text-[var(--text)] transition hover:bg-[var(--bg-pressed)]">
+-            {t(canvasOpen ? 'canvas.title' : 'canvas.editTitle')}
++            {t(canvasOpen ? 'canvas.editTitle' : 'canvas.title')}
+           </button>
+         </Tooltip> : null}
+       </div>

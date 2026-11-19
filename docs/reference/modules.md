@@ -8,17 +8,17 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。131 个模块、21240 行。
+> 生成命令：`npm run docs:gen`。134 个模块、21631 行。
 > 没有测试直接 import 的模块：18 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
-| `src/studio/studio-controller.mjs` | 1378 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/studio/studio-controller.mjs` | 1380 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/native/dsh-native-agent-service.mjs` | 1357 | createDshNativeAgentService | `diag-logs-route.test.mjs`、`dsh-native-agent-service.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1132 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
-| `src/studio/studio-proxy.mjs` | 1009 | startStudioProxy | `dev-hmr-proxy.test.mjs`、`diag-logs-route.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
+| `src/studio/studio-proxy.mjs` | 1022 | startStudioProxy | `dev-hmr-proxy.test.mjs`、`diag-logs-route.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
 | `src/official/official-facade.mjs` | 617 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/native/no996-llm-provider.mjs` | 543 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
 | `src/auth/workbench-auth.mjs` | 461 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth-jwt-session.test.mjs`、`workbench-auth.test.mjs` |
@@ -41,6 +41,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/asr/asr-models.mjs` | 192 | SENSE_VOICE, ensureModels, libraryCacheRoot, modelState, modelsRoot, senseVoiceDir… | `asr-models.test.mjs` |
 | `src/film/script-plan.mjs` | 186 | planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt… | `storyboard.test.mjs` |
 | `src/host/fallback-prompt.mjs` | 185 | buildFallbackPayload, createFallbackPrompt | `fallback-prompt.test.mjs` |
+| `src/tools/vision-tool.mjs` | 179 | createVisionTools, extractVisionFrame | `vision-tool.test.mjs` |
 | `src/tools/library-tool.mjs` | 177 | LIBRARY_KINDS, createLibraryTool | `library-transition.test.mjs`、`studio-tools.test.mjs`、`template-prompts.test.mjs`、`tool-schema.test.mjs` |
 | `src/film/storyboard.mjs` | 176 | KINDS, MOTIONS, STORYBOARD_FILE, VERSION, normalizeStoryboard, planFromStoryboard… | `storyboard.test.mjs` |
 | `src/tools/transcribe-tool.mjs` | 176 | createTranscribeTool | `transcribe-tool.test.mjs` |
@@ -62,6 +63,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/film/timeline-operations.mjs` | 142 | TimelineEditError, applyTimelineOperations | `timeline-operations.test.mjs` |
 | `src/auth/auth-bridge.mjs` | 141 | dispatchAuthAction, registerAuthBridge | `workbench-auth.test.mjs` |
 | `src/asr/asr-audio.mjs` | 140 | TARGET, extractPcm, parseProbeOutput, probeMedia, resolveFfmpeg, runFfmpeg | `asr-audio.test.mjs`、`asr-media.test.mjs` |
+| `src/tools/vision-browser.mjs` | 139 | withVisionBrowser | **无** |
 | `src/dev/index.mjs` | 137 | createDevExtensions, devFlags | `dev-browser-portal.test.mjs` |
 | `src/project/workspace-archive.mjs` | 131 | createArchiveWatcher | `workspace-archive.test.mjs` |
 | `src/studio/studio-controller/routes/environment.mjs` | 130 | createEnvironmentRoute | `environment-route.test.mjs` |
@@ -84,7 +86,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/tools/assets-tool.mjs` | 105 | createAssetsTool, flattenFiles | `assets-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/studio/studio-library-mirror.mjs` | 104 | SENSE_VOICE_PATHS, ensureStudioLibraryMirror | `studio-library-mirror.test.mjs` |
 | `src/host/download-stall.mjs` | 103 | DEFAULT_CONNECT_MS, DEFAULT_IDLE_MS, createStallWatch, linkSignals, stallReason | `download-stall.test.mjs` |
-| `src/studio/studio-proxy/upstream.mjs` | 103 | COMMAND_FAILURE, RESPONSE_HEADERS, SAFE_HEADERS, ancestorsFor, fail, friendlyCommandFailure… | **无** |
+| `src/studio/studio-proxy/upstream.mjs` | 103 | COMMAND_FAILURE, RESPONSE_HEADERS, SAFE_HEADERS, ancestorsFor, fail, friendlyCommandFailure… | `plugin-surface.test.mjs` |
 | `src/studio/desktop-loopback.mjs` | 102 | startDesktopLoopback | **无** |
 | `src/native/instruction-inventory.mjs` | 100 | headOf, instructionChain, projectRootOf | `agent-overlays.test.mjs` |
 | `src/host/bridge-trace.mjs` | 99 | createBridgeTrace | `bridge-trace.test.mjs` |
@@ -118,6 +120,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/film/library-transition.mjs` | 62 | planLibraryTransition | `library-transition.test.mjs` |
 | `src/project/editing-filter.mjs` | 60 | SESSION_FALLBACK, filterEditing, matchRange, normalizeQuery, projectDisplayTitle, sessionDisplayTitle | `editing-filter.test.mjs` |
 | `src/project/archive-bridge.mjs` | 59 | registerArchiveBridge | **无** |
+| `src/studio/studio-proxy/plugin-surface.mjs` | 58 | createPluginSurfaceProxy | `plugin-surface.test.mjs` |
 | `src/studio/studio-proxy/websocket.mjs` | 58 | MAX_FRAME, WS_GUID, frames, wsFrame | **无** |
 | `src/native/openfilm-skills.mjs` | 55 | apply, inject | `openfilm-skills-plugin.test.mjs` |
 | `src/studio/drag-probe.mjs` | 54 | installDragProbe | `drag-probe.test.mjs` |
@@ -151,8 +154,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 - `src/asr/transcribe-service.mjs`（255 行）
 - `src/ui/env-section.mjs`（153 行）
+- `src/tools/vision-browser.mjs`（139 行）
 - `src/official/official-approvals.mjs`（118 行）
-- `src/studio/studio-proxy/upstream.mjs`（103 行）
 - `src/studio/desktop-loopback.mjs`（102 行）
 - `src/dev/dev-badge-client.js`（98 行）
 - `src/dev/dev-routes.mjs`（91 行）

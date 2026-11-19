@@ -30,19 +30,18 @@ function main() {
   const head = git(checkout, 'rev-parse', 'HEAD').toString('utf8').trim();
   if (head !== COMMIT) fail(`Expected upstream HEAD ${COMMIT}, got ${head}`);
   // A matching HEAD alone does not identify the working-tree inputs used for a build.
-  // dsh-openfilm keeps exactly two upstream edits: the composer menu renders the
-  // permission row the Host offers (agent-menu-rows.ts), and its choices open in
-  // place (ModelPopover.tsx) instead of in a panel beside it.
-  // Any other tracked change is still refused, and the diff is recorded into the
-  // snapshot as patch.diff so the fork stays reviewable and re-appliable.
+  // Only explicitly reviewed changes are accepted; patch.diff records those
+  // inputs alongside the build so the fork remains reviewable and replayable.
   const PATCHED = [
     'apps/desktop/chat/src/App.tsx',
     'apps/desktop/chat/src/components/AgentActivityRow.tsx',
+    'apps/desktop/chat/src/components/BrandLogo.tsx',
     'apps/desktop/chat/src/components/ContextUsage.tsx',
     'apps/desktop/chat/src/components/ConversationSessionBar.tsx',
     'apps/desktop/chat/src/components/Markdown.tsx',
     'apps/desktop/chat/src/components/ModelPopover.tsx',
     'apps/desktop/chat/src/components/OnboardingGate.tsx',
+    'apps/desktop/chat/src/components/ProjectStarters.tsx',
     'apps/desktop/chat/src/components/TemplatePicker.tsx',
     'apps/desktop/chat/src/i18n/locales/en-US.ts',
     'apps/desktop/chat/src/i18n/locales/es.ts',
@@ -62,12 +61,17 @@ function main() {
     'apps/desktop/shell/brand-mark.ts',
     'apps/desktop/shell/login-city.js',
     'apps/desktop/shell/login.css',
+    'apps/desktop/shell/bridge.ts',
+    'apps/desktop/shell/index.html',
     'apps/desktop/shell/main.tsx',
     'packages/openfilm/studio/ui/src/App.tsx',
     'packages/openfilm/studio/ui/src/components/AppMenu.tsx',
+    'packages/openfilm/studio/ui/src/components/BrandLogo.tsx',
     'packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx',
     'packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx',
+    'packages/openfilm/studio/ui/src/components/PluginsWindow.tsx',
     'packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx',
+    'packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx',
     'packages/openfilm/studio/ui/src/components/WhatsNew.tsx',
     'packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx',
     'packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx',
@@ -80,9 +84,11 @@ function main() {
     'packages/openfilm/studio/ui/src/i18n/ja.ts',
     'packages/openfilm/studio/ui/src/i18n/ko.ts',
     'packages/openfilm/studio/ui/src/i18n/zh-CN.ts',
+    'packages/openfilm/studio/ui/src/lib/plugins-window.ts',
     'packages/openfilm/studio/ui/src/shell/top-bar.tsx',
     'packages/shared/src/contract.ts',
     'packages/shared/src/markdown-blocks.ts',
+    'packages/shared/src/no996-brand.ts',
   ];
   // Include staged + unstaged edits, and brand-new files on the PATCHED
   // allowlist (plain --untracked-files=no would omit OnboardingGate-style adds).

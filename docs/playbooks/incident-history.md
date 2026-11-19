@@ -179,8 +179,7 @@ iframe 的 `sandbox` 是"事件还没出生就被拦掉"的典型；**进程完�
 **`ThoughtRow` 从写下那天起就是死代码**。
 
 **改法**：A1 源码补丁，thought 作为独立 run 进入列表（不进工具折叠组）。补丁在
-`patches/140-agent-activity-runs.patch`，`scripts/build-official-shell.mjs` 的 PATCHED 白名单
-同步加了这个文件。（补丁编号随 OpenFilm 0.4.0 升级重排；按 `patches/series.json` 里的 `source` 找当前文件。）
+`patches/series.json` 里 `agent-activity-runs.ts` 对应的条目；`scripts/build-official-shell.mjs` 的 PATCHED 白名单同步加了这个文件。
 
 **边界**：ACP 一轮只发 1 个 message chunk，所以"逐字流式"改不了；能修的是思考先出现、回答整段到。
 

@@ -91,11 +91,10 @@ test('the shell snapshot declares its one upstream patch, or none at all', () =>
   assert.match(diff, /supplement=\{<No996Templates/, 'product templates must use the native examples gallery');
   assert.match(diff, /showExamples\?\.\(\{ kind: 'examples' \}\)/, 'the chat reference button must open native examples');
 
-  // AI film editor chrome (Batch O2): pane identity + empty/drop copy.
-  // OpenFilm 0.4.0 ships our Community + library starter chips upstream, so the
-  // snapshot no longer patches ProjectStarters: two copies would only drift.
-  assert.equal(manifest.patch.files.includes('apps/desktop/chat/src/components/ProjectStarters.tsx'), false,
-    'upstream owns the starter chips now; do not fork that file again');
+  // The product deliberately turns off only the upstream Community starter.
+  assert.ok(manifest.patch.files.includes('apps/desktop/chat/src/components/ProjectStarters.tsx'));
+  assert.match(diff, /^-.*id: 'community'/m);
+  assert.doesNotMatch(diff, /^\+.*id: 'community'/m);
   // Pane bar no longer repeats editor.title — empty-state h2 keeps the name.
   assert.doesNotMatch(diff, /data-editor-title/, 'pane bar must not duplicate the empty-state title');
   // 0.4.0 draws its own starter chips in place of our drop box, so `editor.dropHint`

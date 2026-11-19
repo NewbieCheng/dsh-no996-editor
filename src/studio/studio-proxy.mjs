@@ -6,6 +6,7 @@ import { officialUploadSource } from '../official/official-attachment.mjs';
 import { shellUiInjection, shellUiVersion } from '../ui/shell-extras.mjs';
 import { theme, themeSurfaceFor } from '../ui/theme.mjs';
 import { replaceTitle } from '../ui/brand.mjs';
+import { createPluginSurfaceProxy } from './studio-proxy/plugin-surface.mjs';
 import { MAX_FRAME, WS_GUID, frames, wsFrame } from './studio-proxy/websocket.mjs';
 import {
   RESPONSE_HEADERS,
@@ -72,12 +73,18 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   if (typeof authenticateBrowser !== 'function') throw new TypeError('Browser authentication callback is required');
   const editorUpstream = upstreamOrigin(upstream?.origin, '127.0.0.1');
   const filmUpstream = upstreamOrigin(upstream?.filmOrigin, 'localhost');
+  const pluginUpstream = upstream?.pluginOrigin ? upstreamOrigin(upstream.pluginOrigin, 'localhost') : null;
   const key = upstream?.key;
   // The pinned release generates a 24-byte hexadecimal key when not advertised.
   if (typeof key !== 'string' || !/^[a-f0-9]{48}$/.test(key)) throw new TypeError('Invalid Studio key');
   let closed = false;
   let editorOrigin;
   let filmOrigin;
+  let pluginOrigin;
+  const rewriteOrigins = value => {
+    const text = value.replaceAll(filmUpstream.origin, filmOrigin);
+    return pluginUpstream ? text.replaceAll(pluginUpstream.origin, pluginOrigin) : text;
+  };
   let officialRequests = 0;
   // Facts for the panel when the frame stays silent: was the shell page even
   // served, and was the preload injected? No project data or secrets here.
@@ -345,7 +352,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       for (const [name, value] of Object.entries(up.headers)) {
         if (RESPONSE_HEADERS.has(name) && typeof value === 'string') out[name] = value;
       }
-      const forbidden = [key, encodeURIComponent(key), Buffer.from(key).toString('base64'), editorUpstream.origin, filmUpstream.origin];
+      const forbidden = [key, encodeURIComponent(key), Buffer.from(key).toString('base64'), editorUpstream.origin, filmUpstream.origin, ...(pluginUpstream ? [pluginUpstream.origin] : [])];
       const headerText = JSON.stringify(out);
       if (forbidden.some((value) => headerText.includes(value))) { up.resume(); return fail(res, 502); }
       if (film) {
@@ -422,7 +429,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           if (text) {
             let value = body.toString('utf8');
             if (!Buffer.from(value).equals(body)) return fail(res, 502);
-            value = value.replaceAll(filmUpstream.origin, filmOrigin);
+            value = rewriteOrigins(value);
             // XXX surface: replace the curated vendor voice library with 不加班
             // clones + platform voices (see docs/XXX-no996-surface-and-voice.md).
             if (!film && rewriteLibraryVoices && req.method === 'GET' && url.pathname.replace(/\/+$/, '') === '/api/library/voices' && type.includes('application/json') && status === 200) {
@@ -845,6 +852,11 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     }
     if (!officialEvents(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
   });
+  const plugin = pluginUpstream && createPluginSurfaceProxy(pluginUpstream, () => ({
+    editor: editorOrigin, surface: closed ? null : pluginOrigin, upstreamEditor: editorUpstream.origin,
+  }), (method, lane, status) => {
+    say.warn('plugin-surface-http', { method, lane, status });
+  });
   const film = createServer((req, res) => forward(req, res, true));
   film.on('upgrade', (_req, socket) => socket.destroy());
   editor.on('upgrade', (req, socket, head) => {
@@ -902,7 +914,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
         try {
           const value = JSON.parse(data.toString('utf8'));
           if (!value || Array.isArray(value) || typeof value.type !== 'string') return close();
-          let text = JSON.stringify(value).replaceAll(filmUpstream.origin, filmOrigin);
+          let text = rewriteOrigins(JSON.stringify(value));
           if (text.includes(key) || text.includes(editorUpstream.origin) || text.includes(filmUpstream.origin)) return close();
           socket.write(wsFrame(1, Buffer.from(text), false));
         } catch { close(); }
@@ -922,8 +934,9 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       : Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822);
     editorOrigin = `http://${editorHost}:${await listen(editor, desktop ? editorHost : '127.0.0.1', preferredPort)}`;
     filmOrigin = `http://${filmHost}:${await listen(film, '127.0.0.1')}`;
+    if (plugin) pluginOrigin = `http://${filmHost}:${await listen(plugin, '127.0.0.1')}`;
   } catch {
-    await Promise.all([shutdown(editor), shutdown(film)]);
+    await Promise.all([shutdown(editor), shutdown(film), ...(plugin ? [shutdown(plugin)] : [])]);
     throw new Error('Studio proxy could not start');
   }
   // Two Studio calls the template installer needs. They stay inside this module
@@ -1003,7 +1016,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       sessions.clear();
       for (const socket of sockets) socket.destroy();
       sockets.clear();
-      await Promise.all([shutdown(editor), shutdown(film)]);
+      await Promise.all([shutdown(editor), shutdown(film), ...(plugin ? [shutdown(plugin)] : [])]);
     },
   });
 }

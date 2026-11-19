@@ -84,9 +84,10 @@ test('both components are mounted by the shell entry', () => {
   assert.match(patch, /RecoveryGate/);
   assert.match(patch, /EnvironmentNotice/);
   const starters = series.patches.find(entry => entry.source.endsWith('apps/desktop/chat/src/components/ProjectStarters.tsx'));
-  // OpenFilm 0.4.0 ships the Community + library starter chips upstream; the older
-  // drop-box starter (and its empty-state hints) is gone with it, so do not fork it.
-  assert.equal(starters, undefined, 'upstream owns the empty-state starters');
+  assert.ok(starters, 'series records removal of the Community starter');
+  const starterPatch = readFileSync(join(root, 'patches', starters.file), 'utf8');
+  assert.match(starterPatch, /^-.*id: 'community'/m);
+  assert.match(starterPatch, /^ .*app\.setAssetsOpen\(true\)/m);
   const models = series.patches.find(entry => entry.source.endsWith('packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx'));
   assert.ok(models, 'series records ModelsSection deep-link for Local services');
   assert.match(readFileSync(join(root, 'patches', models.file), 'utf8'), /openfilm\.settings\.card/);

@@ -45,6 +45,7 @@ import { createStudioHttp } from './studio-http.mjs';
 import { createFrameTool } from '../tools/frame-tool.mjs';
 import { createFilmTool } from '../tools/film-tool.mjs';
 import { createLibraryTool } from '../tools/library-tool.mjs';
+import { createVisionTools } from '../tools/vision-tool.mjs';
 import { createGetTool } from '../tools/get-tool.mjs';
 import { createImageGenTool } from '../tools/image-gen-tool.mjs';
 import { createClipTool } from '../tools/clip-tool.mjs';
@@ -952,6 +953,7 @@ export function createStudioController(ctx, createProxy, {
   };
   const filmTools = [
     createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: () => ctx.llm }),
+    ...createVisionTools({ isProjectAgent, projectOf: projectOfAgent, attachments: () => ctx.get('attachments') }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createLibraryTool({
       isProjectAgent,

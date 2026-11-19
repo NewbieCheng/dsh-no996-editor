@@ -33,8 +33,8 @@ try {
   const channels = [];
   const templateRoot = join(root, 'vendor/templates');
   proxy = await startStudioProxy({
-    upstream: { origin: `http://127.0.0.1:${studio.port}`, filmOrigin: studio.filmOrigin, key: studio.key },
-    authenticateBrowser: () => true, webOrigin: 'http://127.0.0.1:5999', officialShell: true,
+    upstream: studio,
+    authenticateBrowser: () => false, webOrigin: 'dsh-app://app', desktop: true, officialShell: true,
     authorizeOfficialProject: async () => true,
     attachOfficialEvents: async ({ res }) => {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
@@ -59,7 +59,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
-    return ['127.0.0.1', 'localhost'].includes(url.hostname) ? route.continue() : route.abort();
+    return ['127.0.0.1', '127.0.0.2', 'localhost'].includes(url.hostname) ? route.continue() : route.abort();
   });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -71,7 +71,7 @@ try {
     try { asked.push(route.request().postDataJSON()); } catch { /* not ours */ }
     await route.continue();
   });
-  await page.goto(proxy.bootstrapData().editorOrigin, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.goto(proxy.issueTicket().url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.getByRole('heading', { name: /No996 templates|No996 模板/ }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: /Start blank|空白开工/ }).waitFor();
   const card = page.locator('article').filter({ hasText: /纸纹讲堂/ });
@@ -103,7 +103,45 @@ try {
   assert.equal(diag, 0, `the page reported an error banner:\n${body.slice(0, 400)}`);
   assert.ok(body.trim().length > 20, 'the opened project rendered no text at all');
   await page.locator('[data-titlebar]').waitFor({ state: 'visible' });
-  assert.deepEqual(errors, [], 'opening the editor must not throw a page error');
+  // Real browser import with the editor Origin, not merely a successful HTTP response.
+  const loaded = await page.evaluate(async () => {
+    const response = await fetch('/api/plugins');
+    const { plugins } = await response.json();
+    const result = [];
+    for (const plugin of plugins.filter(item => item.element)) {
+      const { default: element } = await import(plugin.element);
+      if (!(element?.prototype instanceof HTMLElement)) throw new Error(`Invalid module: ${plugin.id}`);
+      result.push(plugin.id);
+    }
+    return result;
+  });
+  for (const id of ['edit', 'screening', 'canvas']) assert.ok(loaded.includes(id), `workbench module missing: ${id}`);
+  const mode = page.locator('[data-work-mode]');
+  const initialMode = await mode.getAttribute('data-work-mode');
+  const modes = ['edit', 'screening', 'canvas', 'edit'];
+  const waitForWorkbench = id => page.waitForFunction(async modeId => {
+    const { plugins } = await (await fetch('/api/plugins')).json();
+    const url = plugins.find(item => item.id === modeId)?.element;
+    if (!url) return false;
+    const { default: workbench } = await import(url);
+    return [...document.querySelectorAll('*')].some(node => node instanceof workbench && node.getBoundingClientRect().width > 0 && node.getBoundingClientRect().height > 0);
+  }, id, { polling: 400, timeout: 15000 });
+  for (let previous = initialMode, i = 0; i < modes.length; i++) {
+    const id = modes[i];
+    if (previous !== id) {
+      await mode.click();
+      await page.locator(`[data-mode-option="${id}"]`).click();
+      await page.locator(`[data-work-mode="${id}"]`).waitFor();
+      const guide = page.locator('[role="dialog"]').getByRole('button', { name: /关闭|Close/ });
+      if (await guide.count() && await guide.first().isVisible()) await guide.first().click();
+      previous = id;
+    }
+    await waitForWorkbench(id);
+    assert.equal(new URL(page.url()).pathname.split('/').at(-1), projectId);
+    await page.screenshot({ path: join(output, `mode-${id}.png`) });
+  }
+  await page.locator('[data-no996-account="topbar"]').waitFor();
+  assert.deepEqual(errors, [], 'opening and switching workbenches must not throw a page error');
   assert.doesNotMatch(body, /starter\.examples/, 'the chat must display the translated example label');
   assert.equal(await page.locator('[data-no996-onboarding]').count(), 0);
   assert.equal(await page.locator('[data-no996-template-react]').count(), 0);

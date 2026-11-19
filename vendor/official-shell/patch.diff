@@ -1,7 +1,16 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..4cee3df 100644
+index 26575ee..0a515f8 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
+@@ -6,7 +6,7 @@
+  * (lib/local-agent-run's saved turns).
+  */
+ import React from 'react';
+-import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Shapes, Square } from 'lucide-react';
++import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Square } from 'lucide-react';
+ import { buildPromptDisplay, type Turn } from '@openfilm/shared';
+ import { useT, useUiLocale } from '@/i18n';
+ import { ConversationBar } from '@/components/ConversationSessionBar';
 @@ -14,6 +14,7 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
@@ -285,7 +294,22 @@ index 26575ee..4cee3df 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1183,6 +1360,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1331,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+           hidden
+           onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
+         />
+-        {/* the Community: what there is to add to OpenFilm, and what was added, in Studio's Community window */}
+-        {app.showExamples ? (
+-          <Tooltip label={t('project.plugins')}>
+-            <button type="button" onClick={() => app.showExamples?.({ kind: 'plugins' })} className="openfilm-composer-tool" aria-label={t('project.plugins')}>
+-              <Shapes size={16} strokeWidth={1.75} />
+-            </button>
+-          </Tooltip>
+-        ) : null}
+         <Tooltip label={t('project.assets')}>
+           <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
+             <LibraryBig size={16} strokeWidth={1.75} />
+@@ -1183,6 +1352,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -302,7 +326,7 @@ index 26575ee..4cee3df 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1387,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1379,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -436,6 +460,50 @@ index 69c82b6..9eeb94e 100644
    /* The agent is speaking (text still streaming): no "Working" underneath, the text itself moves. Just after a
       paragraph, say nothing for a while (the seconds spent wrapping up a turn, or an act about to start)
       and say "Working" only once it is quiet. */
+diff --git a/apps/desktop/chat/src/components/BrandLogo.tsx b/apps/desktop/chat/src/components/BrandLogo.tsx
+index 683c9b4..4b8be1f 100644
+--- a/apps/desktop/chat/src/components/BrandLogo.tsx
++++ b/apps/desktop/chat/src/components/BrandLogo.tsx
+@@ -1,35 +1,13 @@
+ 'use client';
+ 
+ import React from 'react';
+-
+-/*
+- * The mark: a playhead over two clips, together an F, in the surrounding text color (currentColor).
+- * The clips are cut away around the playhead (a real gap, showing what is behind), so its shape holds in one color.
+- */
+-const VIEWBOX = '8 6 84 92';
+-const PLAYHEAD = 'M17 12H37Q40 12 40 15V27Q40 29 38.5 30.5L31 37V88Q31 92 27 92Q23 92 23 88V37L15.5 30.5Q14 29 14 27V15Q14 12 17 12Z';
++import { MARK_ACCENT, MARK_BODY, MARK_COLOR, MARK_VIEWBOX } from '../../../../../packages/shared/src/no996-brand';
+ 
+ export function BrandLogo({ size = 18, className }: { size?: number; className?: string }) {
+-  const gap = `openfilm-gap-${React.useId().replace(/:/g, '')}`;
+   return (
+-    <svg
+-      width={size}
+-      height={size}
+-      viewBox={VIEWBOX}
+-      fill="currentColor"
+-      className={`block shrink-0 ${className ?? ''}`.trim()}
+-      role="img"
+-      aria-label="OpenFilm"
+-    >
+-      <mask id={gap} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+-        <rect width="100" height="100" fill="#fff" />
+-        <path d={PLAYHEAD} stroke="#000" strokeWidth="7" strokeLinejoin="round" />
+-      </mask>
+-      <g mask={`url(#${gap})`}>
+-        <rect x="22" y="12" width="64" height="20" rx="5" />
+-        <rect x="25" y="44" width="47" height="19" rx="5" />
+-      </g>
+-      <path d={PLAYHEAD} />
++    <svg width={size} height={size} viewBox={MARK_VIEWBOX} className={`block shrink-0 ${className ?? ''}`.trim()} aria-hidden>
++      <path d={MARK_BODY} fill="currentColor" fillRule="evenodd" />
++      <path d={MARK_ACCENT} fill={MARK_COLOR} fillRule="evenodd" />
+     </svg>
+   );
+ }
 diff --git a/apps/desktop/chat/src/components/ContextUsage.tsx b/apps/desktop/chat/src/components/ContextUsage.tsx
 new file mode 100644
 index 0000000..d5de29c
@@ -1430,6 +1498,27 @@ index 0000000..ec02cbf
 +export function reopenOnboarding() {
 +  window.dispatchEvent(new Event(REOPEN));
 +}
+diff --git a/apps/desktop/chat/src/components/ProjectStarters.tsx b/apps/desktop/chat/src/components/ProjectStarters.tsx
+index 1733a09..5354ca9 100644
+--- a/apps/desktop/chat/src/components/ProjectStarters.tsx
++++ b/apps/desktop/chat/src/components/ProjectStarters.tsx
+@@ -7,15 +7,13 @@
+  * what was added). A click opens it, as the button does.
+  */
+ import React from 'react';
+-import { LibraryBig, Shapes } from 'lucide-react';
++import { LibraryBig } from 'lucide-react';
+ import { useT } from '@/i18n';
+ import { app } from '../app-bridge';
+ 
+ export function ProjectStarters() {
+   const t = useT();
+-  /* the Community first, the library after: as the person reads left to right */
+   const cards = [
+-    ...(app.showExamples ? [{ id: 'community', icon: <Shapes size={14} strokeWidth={1.75} aria-hidden />, name: t('starter.communityName'), note: t('starter.communityNote'), open: () => app.showExamples?.({ kind: 'plugins' }) }] : []),
+     { id: 'library', icon: <LibraryBig size={14} strokeWidth={1.75} aria-hidden />, name: t('starter.libraryName'), note: t('starter.libraryNote'), open: () => app.setAssetsOpen(true) },
+   ];
+   return (
 diff --git a/apps/desktop/chat/src/components/TemplatePicker.tsx b/apps/desktop/chat/src/components/TemplatePicker.tsx
 new file mode 100644
 index 0000000..f487575
@@ -1601,10 +1690,18 @@ index 0000000..f487575
 +  );
 +}
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..21ca5da 100644
+index b41b3f8..109172e 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
-@@ -19,6 +19,32 @@ export const enUS = {
+@@ -13,12 +13,38 @@ export const enUS = {
+   },
+   banner: {
+     studioFailed: 'Studio did not start: {error}',
+-    ffmpegMissing: 'Studio needs ffmpeg for video pictures, sound waves and exports. Install it, then reopen OpenFilm:',
++    ffmpegMissing: 'Studio needs ffmpeg for video pictures, sound waves and exports. Install it, then reopen No996 Studio:',
+     ffmpegDownloading: 'Getting ffmpeg for video pictures, sound and exports (about 50 MB, once)… {n}%',
+-    ffmpegFailed: 'ffmpeg did not download: {error}. Reopen OpenFilm to try again.',
++    ffmpegFailed: 'ffmpeg did not download: {error}. Reopen No996 Studio to try again.',
      browserDownloading: 'Downloading the browser Studio draws pages in (about 100 MB, once)…',
      browserFailed: 'The browser Studio draws pages in did not download: {error}',
    },
@@ -1637,7 +1734,7 @@ index b41b3f8..21ca5da 100644
    act: {
      waitingForYou: 'Waiting for you',
      /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
-@@ -130,8 +156,13 @@ export const enUS = {
+@@ -130,14 +156,19 @@ export const enUS = {
      previewFailed: 'This file could not be read',
    },
    composer: {
@@ -1651,6 +1748,22 @@ index b41b3f8..21ca5da 100644
      agentLoading: 'Loading…',
      agentNone: 'Agent',
      agentNoneShown: 'No agent is switched on for the chat.',
+     agentNotFound: 'Not found',
+     agentOptionsFailed: 'Couldn\'t start it to read its settings.',
+-    agentOutdated: 'It is older than OpenFilm needs. Update Codex, then',
++    agentOutdated: 'It is older than No996 Studio needs. Update Codex, then',
+     agentOwnKey: 'Your own key',
+     agentPermissionDeny: 'Don’t allow',
+     agentPermissionTitle: '{name} wants to do this',
+@@ -161,7 +192,7 @@ export const enUS = {
+     queued: 'Queued — sends when this turn finishes.',
+     queuedCancel: 'Don\'t send',
+     copyDiagnostics: 'Copy diagnostic report',
+-    copyDiagnosticsHint: 'What OpenFilm finds on this computer and its recent problems, to paste into an issue',
++    copyDiagnosticsHint: 'What No996 Studio finds on this computer and its recent problems, to paste into an issue',
+     diagnosticsCopied: 'Copied',
+     switchAccount: 'Switch account',
+     signedInAs: 'Signed in as {account}.',
 @@ -236,7 +267,7 @@ export const enUS = {
      plugins: 'Community',
      close: 'Close',
@@ -1677,11 +1790,50 @@ index b41b3f8..21ca5da 100644
      subtitle: 'Describe the film you want and your agent makes it, or start with your material.',
      communityName: 'Community',
      communityNote: 'Add plugins, skills and material',
+@@ -304,7 +338,7 @@ export const enUS = {
+     folderDialog: 'Import from a Folder',
+     make: 'Make one with the agent',
+     makeHint: 'It writes down how something was made, into Yours.',
+-    makePrompt: 'Turn what we did in this conversation into an OpenFilm skill: a folder with a SKILL.md (its name, a description of when to use it, then the steps), saved in {folder}. First tell me what it will cover and what to name it; save it once I agree.',
++    makePrompt: 'Turn what we did in this conversation into an No996 Studio skill: a folder with a SKILL.md (its name, a description of when to use it, then the steps), saved in {folder}. First tell me what it will cover and what to name it; save it once I agree.',
+     fromFolderTitle: 'From a folder',
+     dropHere: 'Drop a folder here',
+     orPick: 'or click to choose one',
+@@ -314,7 +348,7 @@ export const enUS = {
+   turnLog: {
+     thoughtNotKept: 'not kept in the agent\'s record',
+     skills: 'Skills and MCP',
+-    skillsOpenfilm: 'OpenFilm\'s skills',
++    skillsOpenfilm: 'No996 Studio\'s skills',
+     skillsHidden: 'Your own skills, off',
+     skillsUnfiltered: 'This agent has all your own skills, as in its own app',
+     mcpHidden: 'Your own MCP servers, off',
+@@ -418,7 +452,7 @@ export const enUS = {
+     description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
+     confirm: 'Undo',
+     cancel: 'Cancel',
+-    gone: 'This turn can no longer be undone: the files from before it are only kept while OpenFilm is open.',
++    gone: 'This turn can no longer be undone: the files from before it are only kept while No996 Studio is open.',
+     missed: 'Undone, except {names}: they could not be put back as they were.',
+   },
+ };
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..72e5e54 100644
+index cef5071..63784dd 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
-@@ -130,8 +130,13 @@ export const es: Words = {
+@@ -13,9 +13,9 @@ export const es: Words = {
+   },
+   banner: {
+     studioFailed: 'Studio no se inició: {error}',
+-    ffmpegMissing: 'Studio necesita ffmpeg para las imágenes de video, las ondas de sonido y las exportaciones. Instálalo y vuelve a abrir OpenFilm:',
++    ffmpegMissing: 'Studio necesita ffmpeg para las imágenes de video, las ondas de sonido y las exportaciones. Instálalo y vuelve a abrir No996 Studio:',
+     ffmpegDownloading: 'Obteniendo ffmpeg para imágenes de video, sonido y exportaciones (unos 50 MB, una sola vez)… {n} %',
+-    ffmpegFailed: 'ffmpeg no se descargó: {error}. Vuelve a abrir OpenFilm para intentarlo de nuevo.',
++    ffmpegFailed: 'ffmpeg no se descargó: {error}. Vuelve a abrir No996 Studio para intentarlo de nuevo.',
+     browserDownloading: 'Descargando el navegador en el que Studio dibuja las páginas (unos 100 MB, una sola vez)…',
+     browserFailed: 'El navegador en el que Studio dibuja las páginas no se descargó: {error}',
+   },
+@@ -130,14 +130,19 @@ export const es: Words = {
      previewFailed: 'No se pudo leer este archivo',
    },
    composer: {
@@ -1695,6 +1847,22 @@ index cef5071..72e5e54 100644
      agentLoading: 'Cargando…',
      agentNone: 'Agente',
      agentNoneShown: 'No hay ningún agente activado para el chat.',
+     agentNotFound: 'No encontrado',
+     agentOptionsFailed: 'No se pudo iniciar para leer su configuración.',
+-    agentOutdated: 'Es más antigua de lo que OpenFilm necesita. Actualiza Codex y luego',
++    agentOutdated: 'Es más antigua de lo que No996 Studio necesita. Actualiza Codex y luego',
+     agentOwnKey: 'Tu propia clave',
+     agentPermissionDeny: 'No permitir',
+     agentPermissionTitle: '{name} quiere hacer esto',
+@@ -161,7 +166,7 @@ export const es: Words = {
+     queued: 'En cola: se envía cuando termine este turno.',
+     queuedCancel: 'No enviar',
+     copyDiagnostics: 'Copiar informe de diagnóstico',
+-    copyDiagnosticsHint: 'Lo que OpenFilm encuentra en este equipo y sus problemas recientes, para pegar en un issue',
++    copyDiagnosticsHint: 'Lo que No996 Studio encuentra en este equipo y sus problemas recientes, para pegar en un issue',
+     diagnosticsCopied: 'Copiado',
+     switchAccount: 'Cambiar de cuenta',
+     signedInAs: 'Sesión iniciada como {account}.',
 @@ -251,6 +256,8 @@ export const es: Words = {
      untitledSession: 'Nuevo chat',
    },
@@ -1712,11 +1880,50 @@ index cef5071..72e5e54 100644
      subtitle: 'Describe la película que quieres y tu agente la hace, o empieza con tu material.',
      communityName: 'Comunidad',
      communityNote: 'Añade plugins, habilidades y material',
+@@ -303,7 +311,7 @@ export const es: Words = {
+     folderDialog: 'Importar desde una carpeta',
+     make: 'Hacer una con el agente',
+     makeHint: 'Pone por escrito cómo se hizo algo, en Tuyas.',
+-    makePrompt: 'Convierte lo que hicimos en esta conversación en una skill de OpenFilm: una carpeta con un SKILL.md (su nombre, una descripción de cuándo usarla y luego los pasos), guardada en {folder}. Primero dime qué cubrirá y cómo se llamará; guárdala cuando yo esté de acuerdo.',
++    makePrompt: 'Convierte lo que hicimos en esta conversación en una skill de No996 Studio: una carpeta con un SKILL.md (su nombre, una descripción de cuándo usarla y luego los pasos), guardada en {folder}. Primero dime qué cubrirá y cómo se llamará; guárdala cuando yo esté de acuerdo.',
+     fromFolderTitle: 'Desde una carpeta',
+     dropHere: 'Suelta una carpeta aquí',
+     orPick: 'o haz clic para elegirla',
+@@ -313,7 +321,7 @@ export const es: Words = {
+   turnLog: {
+     thoughtNotKept: 'no se guarda en el registro del agente',
+     skills: 'Skills y MCP',
+-    skillsOpenfilm: 'Skills de OpenFilm',
++    skillsOpenfilm: 'Skills de No996 Studio',
+     skillsHidden: 'Tus skills, desactivadas',
+     skillsUnfiltered: 'Este agente usa todas tus skills, como en su propia app',
+     mcpHidden: 'Tus servidores MCP, desactivados',
+@@ -417,7 +425,7 @@ export const es: Words = {
+     description: 'Los archivos del proyecto vuelven a como estaban antes de él, también lo cambiado después en Studio. El turno sale del chat y su mensaje vuelve al cuadro de abajo, para enviarlo de nuevo.',
+     confirm: 'Deshacer',
+     cancel: 'Cancelar',
+-    gone: 'Este turno ya no se puede deshacer: los archivos de antes solo se guardan mientras OpenFilm está abierto.',
++    gone: 'Este turno ya no se puede deshacer: los archivos de antes solo se guardan mientras No996 Studio está abierto.',
+     missed: 'Deshecho, salvo {names}: no se pudieron dejar como estaban.',
+   },
+ };
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..9e3e4a7 100644
+index 09e13c3..a88cc85 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
-@@ -130,8 +130,13 @@ export const ja: Words = {
+@@ -13,9 +13,9 @@ export const ja: Words = {
+   },
+   banner: {
+     studioFailed: 'Studio を起動できませんでした：{error}',
+-    ffmpegMissing: '動画の表示、波形、書き出しには ffmpeg が必要です。インストールしてから OpenFilm を開き直してください：',
++    ffmpegMissing: '動画の表示、波形、書き出しには ffmpeg が必要です。インストールしてから No996 Studio を開き直してください：',
+     ffmpegDownloading: '動画の表示、音声、書き出し用の ffmpeg を取得中（約 50 MB、初回のみ）… {n}%',
+-    ffmpegFailed: 'ffmpeg をダウンロードできませんでした：{error}。OpenFilm を開き直すともう一度試します。',
++    ffmpegFailed: 'ffmpeg をダウンロードできませんでした：{error}。No996 Studio を開き直すともう一度試します。',
+     browserDownloading: 'Studio がページを描画するブラウザーをダウンロード中（約 100 MB、初回のみ）…',
+     browserFailed: 'Studio がページを描画するブラウザーをダウンロードできませんでした：{error}',
+   },
+@@ -130,14 +130,19 @@ export const ja: Words = {
      previewFailed: 'このファイルを読み込めませんでした',
    },
    composer: {
@@ -1730,6 +1937,22 @@ index 09e13c3..9e3e4a7 100644
      agentLoading: '読み込み中…',
      agentNone: 'エージェント',
      agentNoneShown: 'チャットで使えるエージェントがオンになっていません。',
+     agentNotFound: '見つかりません',
+     agentOptionsFailed: '設定を読み込むために起動できませんでした。',
+-    agentOutdated: 'OpenFilm に必要なバージョンより古いです。Codex を更新してから',
++    agentOutdated: 'No996 Studio に必要なバージョンより古いです。Codex を更新してから',
+     agentOwnKey: '自分のキー',
+     agentPermissionDeny: '許可しない',
+     agentPermissionTitle: '{name} が次の操作を求めています',
+@@ -161,7 +166,7 @@ export const ja: Words = {
+     queued: '待機中 — このターンが終わると送信されます。',
+     queuedCancel: '送信しない',
+     copyDiagnostics: '診断レポートをコピー',
+-    copyDiagnosticsHint: 'このコンピュータで OpenFilm が見つけた状況と最近の問題。issue に貼り付けられます',
++    copyDiagnosticsHint: 'このコンピュータで No996 Studio が見つけた状況と最近の問題。issue に貼り付けられます',
+     diagnosticsCopied: 'コピーしました',
+     switchAccount: 'アカウントを切り替え',
+     signedInAs: '{account} でサインイン中です。',
 @@ -251,6 +256,8 @@ export const ja: Words = {
      untitledSession: '新しいチャット',
    },
@@ -1747,11 +1970,50 @@ index 09e13c3..9e3e4a7 100644
      subtitle: '作りたい映像を伝えるとエージェントが作ります。素材から始めることもできます。',
      communityName: 'コミュニティ',
      communityNote: 'プラグイン・スキル・素材を追加',
+@@ -303,7 +311,7 @@ export const ja: Words = {
+     folderDialog: 'フォルダから読み込む',
+     make: 'エージェントと一緒に作る',
+     makeHint: '作り方をスキルにまとめて「自分の」に保存します。',
+-    makePrompt: 'この会話でやったことを OpenFilm のスキルにまとめてください。SKILL.md を含むフォルダ（名前、いつ使うかの説明、その後に手順）として {folder} に保存します。まず内容と名前を教えてください。私が同意してから保存してください。',
++    makePrompt: 'この会話でやったことを No996 Studio のスキルにまとめてください。SKILL.md を含むフォルダ（名前、いつ使うかの説明、その後に手順）として {folder} に保存します。まず内容と名前を教えてください。私が同意してから保存してください。',
+     fromFolderTitle: 'フォルダから',
+     dropHere: 'ここにフォルダをドロップ',
+     orPick: 'またはクリックして選択',
+@@ -313,7 +321,7 @@ export const ja: Words = {
+   turnLog: {
+     thoughtNotKept: 'エージェントの記録には思考内容が保存されていません',
+     skills: 'スキルと MCP',
+-    skillsOpenfilm: 'OpenFilm のスキル',
++    skillsOpenfilm: 'No996 Studio のスキル',
+     skillsHidden: '自分のスキル（オフ）',
+     skillsUnfiltered: 'このエージェントは本来のアプリと同じく、自分のスキルをすべて使います',
+     mcpHidden: '自分の MCP サーバー（オフ）',
+@@ -417,7 +425,7 @@ export const ja: Words = {
+     description: 'プロジェクトのファイルはこのターンの前の状態に戻ります。その後 Studio で変えたところも戻ります。このターンはチャットから消え、メッセージは下の入力欄に戻るので、もう一度送れます。',
+     confirm: '元に戻す',
+     cancel: 'キャンセル',
+-    gone: 'このターンはもう元に戻せません。前のファイルは OpenFilm を開いている間だけ保持されます。',
++    gone: 'このターンはもう元に戻せません。前のファイルは No996 Studio を開いている間だけ保持されます。',
+     missed: '元に戻しましたが、{names} は元の状態に戻せませんでした。',
+   },
+ };
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index 07ac398..ad4a661 100644
+index 07ac398..de9efeb 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
-@@ -126,8 +126,13 @@ export const ko: Words = {
+@@ -9,9 +9,9 @@ export const ko: Words = {
+   },
+   banner: {
+     studioFailed: 'Studio를 시작하지 못했습니다: {error}',
+-    ffmpegMissing: '영상 화면, 음파, 내보내기에는 ffmpeg가 필요합니다. 설치한 뒤 OpenFilm을 다시 여세요:',
++    ffmpegMissing: '영상 화면, 음파, 내보내기에는 ffmpeg가 필요합니다. 설치한 뒤 No996 Studio을 다시 여세요:',
+     ffmpegDownloading: '영상 화면, 소리, 내보내기용 ffmpeg를 받는 중(약 50MB, 한 번만)… {n}%',
+-    ffmpegFailed: 'ffmpeg를 내려받지 못했습니다: {error}. OpenFilm을 다시 열면 다시 시도합니다.',
++    ffmpegFailed: 'ffmpeg를 내려받지 못했습니다: {error}. No996 Studio을 다시 열면 다시 시도합니다.',
+     browserDownloading: 'Studio가 페이지를 그리는 브라우저를 내려받는 중(약 100MB, 한 번만)…',
+     browserFailed: 'Studio가 페이지를 그리는 브라우저를 내려받지 못했습니다: {error}',
+   },
+@@ -126,14 +126,19 @@ export const ko: Words = {
      previewFailed: '이 파일을 읽을 수 없습니다',
    },
    composer: {
@@ -1765,6 +2027,22 @@ index 07ac398..ad4a661 100644
      agentLoading: '불러오는 중…',
      agentNone: '에이전트',
      agentNoneShown: '채팅에 켜 둔 에이전트가 없습니다.',
+     agentNotFound: '찾을 수 없음',
+     agentOptionsFailed: '설정을 읽으려고 실행했지만 시작하지 못했습니다.',
+-    agentOutdated: 'OpenFilm에 필요한 버전보다 오래되었습니다. Codex를 업데이트한 다음',
++    agentOutdated: 'No996 Studio에 필요한 버전보다 오래되었습니다. Codex를 업데이트한 다음',
+     agentOwnKey: '내 키',
+     agentPermissionDeny: '허용 안 함',
+     agentPermissionTitle: '{name}이(가) 다음 작업을 하려고 합니다',
+@@ -157,7 +162,7 @@ export const ko: Words = {
+     queued: '대기 중 — 이번 턴이 끝나면 보냅니다.',
+     queuedCancel: '보내지 않기',
+     copyDiagnostics: '진단 보고서 복사',
+-    copyDiagnosticsHint: '이 컴퓨터에서 OpenFilm이 확인한 상태와 최근 문제, issue에 붙여 넣을 수 있습니다',
++    copyDiagnosticsHint: '이 컴퓨터에서 No996 Studio이 확인한 상태와 최근 문제, issue에 붙여 넣을 수 있습니다',
+     diagnosticsCopied: '복사됨',
+     switchAccount: '계정 전환',
+     signedInAs: '{account}(으)로 로그인되어 있습니다.',
 @@ -247,6 +252,8 @@ export const ko: Words = {
      untitledSession: '새 채팅',
    },
@@ -1782,11 +2060,46 @@ index 07ac398..ad4a661 100644
      subtitle: '원하는 영상을 말하면 에이전트가 만듭니다. 소재부터 시작해도 됩니다.',
      communityName: '커뮤니티',
      communityNote: '플러그인, 스킬, 소재 추가',
+@@ -299,7 +307,7 @@ export const ko: Words = {
+     folderDialog: '폴더에서 가져오기',
+     make: '에이전트와 함께 만들기',
+     makeHint: '만드는 방법을 스킬로 정리해 내 스킬에 저장합니다.',
+-    makePrompt: '이 대화에서 한 작업을 OpenFilm 스킬로 정리해 주세요. SKILL.md가 들어 있는 폴더(이름, 언제 쓰는지에 대한 설명, 그다음 단계)로 {folder}에 저장합니다. 먼저 무엇을 담을지와 이름을 알려 주고, 제가 동의하면 저장해 주세요.',
++    makePrompt: '이 대화에서 한 작업을 No996 Studio 스킬로 정리해 주세요. SKILL.md가 들어 있는 폴더(이름, 언제 쓰는지에 대한 설명, 그다음 단계)로 {folder}에 저장합니다. 먼저 무엇을 담을지와 이름을 알려 주고, 제가 동의하면 저장해 주세요.',
+     fromFolderTitle: '폴더에서',
+     dropHere: '여기에 폴더를 끌어다 놓으세요',
+     orPick: '또는 클릭해서 선택',
+@@ -309,7 +317,7 @@ export const ko: Words = {
+   turnLog: {
+     thoughtNotKept: '에이전트 기록에 생각 내용이 저장되지 않았습니다',
+     skills: '스킬과 MCP',
+-    skillsOpenfilm: 'OpenFilm 스킬',
++    skillsOpenfilm: 'No996 Studio 스킬',
+     skillsHidden: '내 스킬(꺼짐)',
+     skillsUnfiltered: '이 에이전트는 자체 앱에서처럼 내 스킬을 모두 사용합니다',
+     mcpHidden: '내 MCP 서버(꺼짐)',
+@@ -413,7 +421,7 @@ export const ko: Words = {
+     description: '프로젝트 파일이 이번 턴 이전 상태로 돌아가고, 그 뒤 Studio에서 바꾼 내용도 함께 되돌아갑니다. 이번 턴은 대화에서 빠지고 메시지는 아래 입력창으로 돌아와 다시 보낼 수 있습니다.',
+     confirm: '실행 취소',
+     cancel: '취소',
+-    gone: '이 턴은 더 이상 실행 취소할 수 없습니다. 이전 파일은 OpenFilm이 열려 있는 동안만 보관됩니다.',
++    gone: '이 턴은 더 이상 실행 취소할 수 없습니다. 이전 파일은 No996 Studio이 열려 있는 동안만 보관됩니다.',
+     missed: '실행 취소했지만 {names}은(는) 원래대로 되돌리지 못했습니다.',
+   },
+ };
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..995a657 100644
+index 92e929a..175ac61 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-@@ -19,6 +19,32 @@ export const zhCN: Words = {
+@@ -13,12 +13,38 @@ export const zhCN: Words = {
+   },
+   banner: {
+     studioFailed: 'Studio 没有启动：{error}',
+-    ffmpegMissing: 'Studio 需要 ffmpeg 来显示视频画面、声音波形和导出。安装后重新打开 OpenFilm：',
++    ffmpegMissing: 'Studio 需要 ffmpeg 来显示视频画面、声音波形和导出。安装后重新打开 不加班剪辑：',
+     ffmpegDownloading: '正在获取 ffmpeg，用于视频画面、声音和导出（约 50 MB，仅一次）… {n}%',
+-    ffmpegFailed: 'ffmpeg 没有下载成功：{error}。重新打开 OpenFilm 再试。',
++    ffmpegFailed: 'ffmpeg 没有下载成功：{error}。重新打开 不加班剪辑 再试。',
      browserDownloading: '正在下载 Studio 绘制页面用的浏览器（约 100 MB，仅一次）…',
      browserFailed: 'Studio 绘制页面用的浏览器没有下载成功：{error}',
    },
@@ -1819,7 +2132,7 @@ index 92e929a..995a657 100644
    act: {
      waitingForYou: '在等你',
      /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
-@@ -130,8 +156,13 @@ export const zhCN: Words = {
+@@ -130,14 +156,19 @@ export const zhCN: Words = {
      previewFailed: '无法读取此文件',
    },
    composer: {
@@ -1833,6 +2146,22 @@ index 92e929a..995a657 100644
      agentLoading: '正在加载…',
      agentNone: '智能体',
      agentNoneShown: '对话中尚未开启任何智能体。',
+     agentNotFound: '未找到',
+     agentOptionsFailed: '无法启动它来读取设置。',
+-    agentOutdated: '它的版本比 OpenFilm 需要的旧。请先更新 Codex，然后',
++    agentOutdated: '它的版本比 不加班剪辑 需要的旧。请先更新 Codex，然后',
+     agentOwnKey: '自有密钥',
+     agentPermissionDeny: '不允许',
+     agentPermissionTitle: '{name} 想要执行以下操作',
+@@ -161,7 +192,7 @@ export const zhCN: Words = {
+     queued: '已排队，本轮结束后发送。',
+     queuedCancel: '不发送',
+     copyDiagnostics: '复制诊断信息',
+-    copyDiagnosticsHint: 'OpenFilm 在这台电脑上找到的情况和最近的问题，可以贴进 issue',
++    copyDiagnosticsHint: '不加班剪辑 在这台电脑上找到的情况和最近的问题，可以贴进 issue',
+     diagnosticsCopied: '已复制',
+     switchAccount: '切换账号',
+     signedInAs: '当前登录：{account}。',
 @@ -235,7 +266,7 @@ export const zhCN: Words = {
      plugins: '社区',
      close: '关闭',
@@ -1859,6 +2188,33 @@ index 92e929a..995a657 100644
      subtitle: '描述你想要的影片，智能体来做；也可以先放素材。',
      communityName: '社区',
      communityNote: '添加插件、技能和素材',
+@@ -303,7 +337,7 @@ export const zhCN: Words = {
+     folderDialog: '从文件夹导入',
+     make: '和 agent 一起做一个',
+     makeHint: '把一种做法写成 skill，存进“我的”。',
+-    makePrompt: '把这次对话里的做法整理成一个 OpenFilm skill：一个带 SKILL.md 的文件夹（名字、什么时候用的说明，然后是步骤），存到 {folder}。先告诉我它会包含什么、打算叫什么名字，我同意后再保存。',
++    makePrompt: '把这次对话里的做法整理成一个 不加班剪辑 skill：一个带 SKILL.md 的文件夹（名字、什么时候用的说明，然后是步骤），存到 {folder}。先告诉我它会包含什么、打算叫什么名字，我同意后再保存。',
+     fromFolderTitle: '从文件夹',
+     dropHere: '把文件夹拖到这里',
+     orPick: '或点击选择文件夹',
+@@ -313,7 +347,7 @@ export const zhCN: Words = {
+   turnLog: {
+     thoughtNotKept: 'agent 的记录里没有保存思考内容',
+     skills: 'Skills 和 MCP',
+-    skillsOpenfilm: 'OpenFilm 的 skill',
++    skillsOpenfilm: '不加班剪辑 的 skill',
+     skillsHidden: '你自己的 skill（已关闭）',
+     skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
+     mcpHidden: '你自己的 MCP 服务（已关闭）',
+@@ -417,7 +451,7 @@ export const zhCN: Words = {
+     description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
+     confirm: '撤销',
+     cancel: '取消',
+-    gone: '这一轮已无法撤销：之前的文件只在 OpenFilm 打开期间保留。',
++    gone: '这一轮已无法撤销：之前的文件只在 不加班剪辑 打开期间保留。',
+     missed: '已撤销，但 {names} 没能恢复成原来的样子。',
+   },
+ };
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
 index a5ba7ea..357ca7a 100644
 --- a/apps/desktop/chat/src/lib/agent-activity-runs.ts
@@ -3667,6 +4023,48 @@ index 0000000..1dab891
 +// The workbench brand mark (dark, white + orange), shared by the login gate.
 +// Copied verbatim from the old injection so the drawing does not drift.
 +export const BRAND_WHITE = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-8.22 0 1039.44 983\" role=\"img\" aria-label=\"今天不加班AI 深色模式Logo\">\n<title>今天不加班AI 标志（dark 白橙）</title>\n  <path fill=\"#FFFFFF\" fill-rule=\"evenodd\" d=\"M 239 262 L 239 345 L 450 346 L 171 625 L 295 625 L 443 478 L 445 723 L 541 723 L 543 479 L 689 635 L 761 577 L 751 563 L 609 408 L 509 407 L 569 345 L 775 345 L 775 262 Z M 601 16 L 530 8 L 470 9 L 422 15 L 381 24 L 337 38 L 303 52 L 273 67 L 241 86 L 208 109 L 170 141 L 143 168 L 105 214 L 77 256 L 58 291 L 38 338 L 24 382 L 14 427 L 9 467 L 8 530 L 12 573 L 18 606 L 31 652 L 46 690 L 68 733 L 93 772 L 123 811 L 166 856 L 191 878 L 226 904 L 268 929 L 302 945 L 348 961 L 407 973 L 443 974 L 319 846 L 286 831 L 257 813 L 220 783 L 187 748 L 153 700 L 127 650 L 109 600 L 100 554 L 97 510 L 99 467 L 107 417 L 122 367 L 148 310 L 171 272 L 208 226 L 244 191 L 290 157 L 334 133 L 365 120 L 421 104 L 477 96 L 522 95 L 567 99 L 622 111 L 674 130 L 725 158 L 768 190 L 811 232 L 841 269 L 861 300 L 876 328 L 891 364 L 900 391 L 910 435 L 993 409 L 987 381 L 974 340 L 954 293 L 935 258 L 907 215 L 867 166 L 831 130 L 810 112 L 786 94 L 745 68 L 712 51 L 678 37 L 651 28 Z\"/>\n  <path fill=\"#FF7200\" fill-rule=\"evenodd\" d=\"M 1014 452 L 801 510 L 851 548 L 510 847 L 408 744 L 337 808 L 337 810 L 505 971 L 507 971 L 924 612 L 967 662 Z\"/>\n</svg>";
+diff --git a/apps/desktop/shell/bridge.ts b/apps/desktop/shell/bridge.ts
+index d7ae66d..68ede83 100644
+--- a/apps/desktop/shell/bridge.ts
++++ b/apps/desktop/shell/bridge.ts
+@@ -310,10 +310,7 @@ export const host: StudioHost = {
+   onHover: (ref) => hover.set(ref ?? null),
+   onCommand: (listener) => {
+     command = listener;
+-    /* an openfilm:// link opens the Community on what it names: the one that opened the app, once Studio listens */
+-    void native.takeLink().then((link) => { if (link) listener({ type: 'show-examples', open: { kind: 'skill', name: link.uid } }); }, () => {});
+-    /* and those that come while the app runs */
+-    native.onOpenLink((link) => command?.({ type: 'show-examples', open: { kind: 'skill', name: link.uid } }));
++    // The embedded product does not offer Community deep links.
+   },
+   settings: { onOpen: (listener) => native.onOpenSettings(listener) },
+   /* read live: Studio may read the panel before or after the kept layout arrives */
+@@ -434,7 +431,9 @@ function commandFor(ref: StudioRef): StudioCommand {
+     return body.folder;
+   },
+   /* the composer's examples button: the examples over the film, to point at one or name a skill */
+-  showExamples: (open?: CommunityItem) => command?.({ type: 'show-examples', ...(open ? { open } : {}) }),
++  showExamples: (open?: CommunityItem) => {
++    if (!open || open.kind === 'examples' || open.kind === 'example') command?.({ type: 'show-examples', ...(open ? { open } : {}) });
++  },
+   onUseSkill: skillPicked.on,
+   onAsk: asked.on,
+   onAddSkill: skillAdd.on,
+diff --git a/apps/desktop/shell/index.html b/apps/desktop/shell/index.html
+index cba8c91..70a3205 100644
+--- a/apps/desktop/shell/index.html
++++ b/apps/desktop/shell/index.html
+@@ -3,8 +3,8 @@
+ <head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+-<title>OpenFilm</title>
+-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%228%206%2084%2092%22%20role%3D%22img%22%20aria-label%3D%22OpenFilm%22%3E%3Ctitle%3EOpenFilm%3C%2Ftitle%3E%3Cstyle%3E.i%7Bfill%3A%23111%7D%40media%20(prefers-color-scheme%3Adark)%7B.i%7Bfill%3A%23fff%7D%7D%3C%2Fstyle%3E%3Cmask%20id%3D%22gap%22%20maskUnits%3D%22userSpaceOnUse%22%20x%3D%220%22%20y%3D%220%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23fff%22%2F%3E%3Cpath%20d%3D%22M17%2012H37Q40%2012%2040%2015V27Q40%2029%2038.5%2030.5L31%2037V88Q31%2092%2027%2092Q23%2092%2023%2088V37L15.5%2030.5Q14%2029%2014%2027V15Q14%2012%2017%2012Z%22%20stroke%3D%22%23000%22%20stroke-width%3D%227%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fmask%3E%3Cg%20class%3D%22i%22%20mask%3D%22url(%23gap)%22%3E%3Crect%20x%3D%2222%22%20y%3D%2212%22%20width%3D%2264%22%20height%3D%2220%22%20rx%3D%225%22%2F%3E%3Crect%20x%3D%2225%22%20y%3D%2244%22%20width%3D%2247%22%20height%3D%2219%22%20rx%3D%225%22%2F%3E%3C%2Fg%3E%3Cpath%20class%3D%22i%22%20d%3D%22M17%2012H37Q40%2012%2040%2015V27Q40%2029%2038.5%2030.5L31%2037V88Q31%2092%2027%2092Q23%2092%2023%2088V37L15.5%2030.5Q14%2029%2014%2027V15Q14%2012%2017%2012Z%22%2F%3E%3C%2Fsvg%3E">
++<title>No996 Studio</title>
++<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20884%20836%22%3E%3Cstyle%3E.body%7Bfill%3A%23051d43%7D%40media(prefers-color-scheme%3Adark)%7B.body%7Bfill%3Awhite%7D%7D%3C%2Fstyle%3E%3Cpath%20class%3D%22body%22%20fill-rule%3D%22evenodd%22%20d%3D%22M%20201%20216%20L%20201%20280%20L%20202%20281%20L%20372%20281%20L%20373%20283%20L%20352%20312%20L%20336%20332%20L%20282%20392%20L%20280%20393%20L%20261%20414%20L%20259%20415%20L%20226%20449%20L%20185%20488%20L%20147%20522%20L%20249%20522%20L%20276%20500%20L%20303%20475%20L%20336%20442%20L%20376%20399%20L%20377%20400%20L%20377%20610%20L%20378%20611%20L%20448%20611%20L%20448%20394%20L%20449%20393%20L%20477%20419%20L%20535%20478%20L%20583%20534%20L%20586%20533%20L%20621%20504%20L%20645%20486%20L%20584%20421%20L%20528%20367%20L%20527%20365%20L%20501%20341%20L%20496%20338%20L%20439%20337%20L%20438%20336%20L%20430%20336%20L%20429%20335%20L%20469%20281%20L%20635%20281%20L%20635%20215%20L%20202%20215%20Z%20M%20492%209%20L%20485%209%20L%20484%208%20L%20470%207%20L%20469%206%20L%20458%206%20L%20457%205%20L%20415%204%20L%20414%205%20L%20393%205%20L%20392%206%20L%20372%207%20L%20371%208%20L%20359%209%20L%20358%2010%20L%20353%2010%20L%20352%2011%20L%20347%2011%20L%20346%2012%20L%20332%2014%20L%20331%2015%20L%20308%2020%20L%20301%2023%20L%20298%2023%20L%20280%2029%20L%20277%2031%20L%20272%2032%20L%20252%2041%20L%20250%2041%20L%20216%2058%20L%20209%2063%20L%20199%2068%20L%20177%2083%20L%20148%20106%20L%20114%20139%20L%2088%20170%20L%2064%20205%20L%2054%20224%20L%2052%20226%20L%2040%20250%20L%2040%20252%20L%2032%20269%20L%2019%20308%20L%2019%20311%20L%2014%20328%20L%2011%20347%20L%2010%20348%20L%208%20368%20L%207%20369%20L%207%20377%20L%206%20378%20L%206%20388%20L%205%20389%20L%205%20405%20L%204%20406%20L%204%20432%20L%205%20433%20L%204%20435%20L%205%20436%20L%205%20453%20L%206%20454%20L%207%20475%20L%208%20476%20L%208%20482%20L%209%20483%20L%209%20489%20L%2010%20490%20L%2012%20505%20L%2014%20510%20L%2016%20522%20L%2020%20533%20L%2020%20536%20L%2027%20557%20L%2036%20577%20L%2036%20579%20L%2048%20603%20L%2075%20646%20L%2099%20677%20L%20127%20707%20L%20155%20732%20L%20197%20762%20L%20235%20783%20L%20237%20783%20L%20246%20788%20L%20248%20788%20L%20255%20792%20L%20257%20792%20L%20270%20798%20L%20304%20809%20L%20311%20810%20L%20323%20814%20L%20342%20817%20L%20343%20818%20L%20355%20819%20L%20362%20821%20L%20377%20822%20L%20339%20791%20L%20320%20773%20L%20262%20712%20L%20241%20701%20L%20213%20682%20L%20189%20662%20L%20162%20634%20L%20139%20605%20L%20118%20571%20L%2099%20529%20L%2096%20518%20L%2094%20515%20L%2094%20512%20L%2092%20508%20L%2092%20505%20L%2090%20501%20L%2090%20498%20L%2086%20485%20L%2084%20470%20L%2083%20469%20L%2083%20464%20L%2082%20463%20L%2081%20446%20L%2080%20445%20L%2080%20432%20L%2079%20431%20L%2080%20390%20L%2081%20389%20L%2081%20381%20L%2082%20380%20L%2083%20367%20L%2084%20366%20L%2086%20352%20L%2088%20347%20L%2088%20343%20L%2090%20339%20L%2091%20332%20L%20100%20304%20L%20108%20287%20L%20108%20285%20L%20122%20257%20L%20136%20234%20L%20151%20213%20L%20165%20196%20L%20194%20167%20L%20226%20142%20L%20257%20123%20L%20299%20104%20L%20313%20100%20L%20316%2098%20L%20319%2098%20L%20326%2095%20L%20329%2095%20L%20333%2093%20L%20336%2093%20L%20349%2089%20L%20364%2087%20L%20365%2086%20L%20370%2086%20L%20371%2085%20L%20376%2085%20L%20377%2084%20L%20394%2083%20L%20395%2082%20L%20435%2081%20L%20436%2082%20L%20453%2082%20L%20454%2083%20L%20463%2083%20L%20464%2084%20L%20478%2085%20L%20479%2086%20L%20484%2086%20L%20485%2087%20L%20489%2087%20L%20490%2088%20L%20494%2088%20L%20495%2089%20L%20499%2089%20L%20500%2090%20L%20515%2093%20L%20543%20102%20L%20546%20104%20L%20563%20110%20L%20605%20132%20L%20616%20140%20L%20622%20143%20L%20642%20158%20L%20657%20171%20L%20682%20196%20L%20694%20210%20L%20714%20238%20L%20723%20253%20L%20726%20260%20L%20728%20262%20L%20736%20278%20L%20736%20280%20L%20740%20287%20L%20740%20289%20L%20746%20302%20L%20747%20307%20L%20749%20310%20L%20749%20313%20L%20758%20340%20L%20758%20343%20L%20762%20356%20L%20762%20360%20L%20794%20350%20L%20797%20348%20L%20800%20348%20L%20824%20339%20L%20830%20338%20L%20836%20335%20L%20835%20334%20L%20835%20330%20L%20834%20329%20L%20831%20314%20L%20827%20303%20L%20827%20300%20L%20817%20271%20L%20808%20251%20L%20808%20249%20L%20788%20210%20L%20778%20195%20L%20777%20192%20L%20774%20189%20L%20773%20186%20L%20751%20157%20L%20738%20142%20L%20711%20115%20L%20695%20101%20L%20669%2081%20L%20640%2062%20L%20600%2041%20L%20598%2041%20L%20576%2031%20L%20568%2029%20L%20565%2027%20L%20553%2023%20L%20550%2023%20L%20546%2021%20L%20543%2021%20L%20539%2019%20L%20536%2019%20L%20523%2015%20L%20519%2015%20L%20518%2014%20L%20514%2014%20L%20513%2013%20L%20509%2013%20L%20503%2011%20L%20498%2011%20Z%22%2F%3E%3Cpath%20fill%3D%22%23ff6400%22%20fill-rule%3D%22evenodd%22%20d%3D%22M%20879%20384%20L%20877%20382%20L%20873%20384%20L%20869%20384%20L%20856%20388%20L%20843%20390%20L%20839%20392%20L%20835%20392%20L%20822%20396%20L%20818%20396%20L%20814%20398%20L%20809%20398%20L%20805%20400%20L%20792%20402%20L%20788%20404%20L%20784%20404%20L%20772%20408%20L%20767%20408%20L%20763%20410%20L%20750%20412%20L%20746%20414%20L%20733%20416%20L%20729%20418%20L%20725%20418%20L%20724%20419%20L%20693%20426%20L%20692%20427%20L%20693%20430%20L%20706%20437%20L%20711%20441%20L%20716%20443%20L%20721%20447%20L%20726%20449%20L%20731%20453%20L%20736%20455%20L%20741%20459%20L%20735%20464%20L%20732%20468%20L%20715%20482%20L%20708%20490%20L%20693%20502%20L%20688%20508%20L%20681%20513%20L%20671%20522%20L%20668%20526%20L%20662%20530%20L%20661%20532%20L%20651%20540%20L%20648%20544%20L%20611%20576%20L%20606%20582%20L%20591%20594%20L%20586%20600%20L%20569%20614%20L%20566%20618%20L%20547%20634%20L%20544%20638%20L%20505%20672%20L%20502%20676%20L%20494%20682%20L%20483%20692%20L%20478%20698%20L%20470%20704%20L%20450%20723%20L%20445%20720%20L%20442%20716%20L%20423%20700%20L%20422%20698%20L%20401%20680%20L%20396%20674%20L%20377%20658%20L%20376%20656%20L%20358%20640%20L%20353%20643%20L%20345%20650%20L%20342%20654%20L%20327%20666%20L%20324%20670%20L%20309%20682%20L%20309%20683%20L%20303%20688%20L%20304%20691%20L%20378%20761%20L%20395%20779%20L%20442%20823%20L%20449%20831%20L%20451%20831%20L%20458%20825%20L%20459%20823%20L%20476%20809%20L%20479%20805%20L%20514%20775%20L%20517%20771%20L%20532%20759%20L%20535%20755%20L%20570%20725%20L%20573%20721%20L%20580%20716%20L%20609%20689%20L%20626%20675%20L%20629%20671%20L%20644%20659%20L%20644%20658%20L%20656%20647%20L%20664%20641%20L%20667%20637%20L%20674%20632%20L%20684%20623%20L%20685%20621%20L%20693%20615%20L%20703%20605%20L%20738%20575%20L%20741%20571%20L%20774%20543%20L%20779%20537%20L%20785%20533%20L%20804%20515%20L%20823%20540%20L%20825%20544%20L%20829%20548%20L%20831%20552%20L%20835%20556%20L%20837%20560%20L%20840%20563%20L%20842%20563%20L%20844%20558%20L%20844%20552%20L%20846%20547%20L%20846%20542%20L%20848%20537%20L%20848%20532%20L%20850%20527%20L%20850%20522%20L%20852%20517%20L%20852%20512%20L%20854%20507%20L%20856%20492%20L%20858%20488%20L%20858%20483%20L%20860%20478%20L%20862%20464%20L%20864%20459%20L%20864%20454%20L%20866%20449%20L%20866%20444%20L%20868%20439%20L%20868%20434%20L%20870%20429%20L%20870%20424%20L%20872%20419%20L%20872%20414%20L%20874%20410%20L%20874%20405%20L%20876%20400%20L%20876%20396%20L%20877%20395%20L%20877%20391%20Z%22%2F%3E%3C%2Fsvg%3E">
+ <script>
+   /* the theme before the first paint, so the wrong one never flashes: dark unless the person chose another */
+   (function () {
 diff --git a/apps/desktop/shell/login-city.js b/apps/desktop/shell/login-city.js
 new file mode 100644
 index 0000000..67c2c93
@@ -4504,27 +4902,249 @@ index 1d3117d..3753c88 100644
        );
    return <>{page}<ConnectionNotice /><WhatsNew /></>;
 diff --git a/packages/openfilm/studio/ui/src/components/AppMenu.tsx b/packages/openfilm/studio/ui/src/components/AppMenu.tsx
-index ba24621..a1e163f 100644
+index ba24621..37ecc3f 100644
 --- a/packages/openfilm/studio/ui/src/components/AppMenu.tsx
 +++ b/packages/openfilm/studio/ui/src/components/AppMenu.tsx
-@@ -164,14 +164,15 @@ export function AppMenu({ onSettings }: { onSettings: (section: SettingsSection)
-           <Community size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('assetDrawer.pluginsWindow')}</span>
-         </button>
-       )}
--      <button ref={communityTrigger} type="button" role="menuitem" tabIndex={-1} aria-haspopup="menu" aria-expanded={community} aria-controls={community ? `${id}-community` : undefined}
-+      {/* NO996-UPSTREAM: community and outbound menu rows are hidden; restore this condition to show them. */}
-+      {false ? <><button ref={communityTrigger} type="button" role="menuitem" tabIndex={-1} aria-haspopup="menu" aria-expanded={community} aria-controls={community ? `${id}-community` : undefined}
-         className={`${styles.row} ${community ? styles.active : ''}`}
-         onMouseEnter={() => openCommunity()} onMouseLeave={hideCommunitySoon}
-         onKeyDown={(event) => { if (event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); openCommunity(true); } }} onClick={(event) => { openCommunity(event.detail === 0); if (event.detail > 0) focusPanel(true); }}>
-         <Users size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('appMenu.community')}</span><ChevronRight size={12} className={styles.end} aria-hidden />
+@@ -1,190 +1,41 @@
+-/**
+- * The app menu opens on click: Settings; the Community window, in Studio in a browser only (the app opens it from the
+- * chat's button); where people talk (OpenFilm's groups and its maker's accounts), a flyout that opens on hover like the model menu;
+- * feedback; a star.
+- */
+ import React from 'react';
+-import { ChevronRight, MessageSquare, Settings2, Star, Users } from 'lucide-react';
+-import { COMMUNITY_ICON as Community } from './feature-kinds';
+-import { useLanguage, useT } from '@/i18n';
++import { Settings2 } from 'lucide-react';
++import { useT } from '@/i18n';
+ import { useClickOpen } from '@/lib/click-open';
+-import { studioHost } from '@/lib/host';
+-import { menuStep } from '@/lib/menu-position';
+-import { openPlugins } from '@/lib/plugins-window';
+-import { communityChannels, CREATOR_CHANNELS, CREATOR_HANDLE, PRODUCT_LINKS } from '@/lib/product-links';
+ import { BrandLogo } from './BrandLogo';
+ import { Popover } from './Popover';
+-import { SocialLogo, type SocialPlatform } from './SocialLogo';
+-import { Tooltip } from './Tooltip';
+-import { Toast, useToast } from './Toast';
+ import type { SettingsSection } from './settings/SettingsModal';
+ import styles from './AppMenu.module.css';
+ 
+-// Match the composer's side menus, including time to cross the small gap.
+-const SIDE_GAP = 2;
+-const SIDE_CLOSE_MS = 120;
+-
++/** No996's product menu. Community and upstream outbound links are not part of this workbench. */
+ export function AppMenu({ onSettings }: { onSettings: (section: SettingsSection) => void }) {
+   const t = useT();
+-  const language = useLanguage();
+   const popup = useClickOpen();
+-  const toast = useToast();
+-  const [community, setCommunity] = React.useState(false);
+-  const [position, setPosition] = React.useState<{ left: number; top: number } | null>(null);
+   const trigger = React.useRef<HTMLButtonElement>(null);
+-  const panel = React.useRef<HTMLDivElement>(null);
+-  const communityTrigger = React.useRef<HTMLButtonElement>(null);
+-  const flyout = React.useRef<HTMLDivElement>(null);
+-  const closeTimer = React.useRef<number | null>(null);
+-  const focused = React.useRef(false);
++  const settings = React.useRef<HTMLButtonElement>(null);
+   const id = React.useId();
+-  const chinese = language === 'zh-CN';
+-  const socials = CREATOR_CHANNELS.filter(channel => chinese || channel.id === 'instagram' || channel.id === 'youtube');
+-
+-  const stopTimer = React.useCallback(() => {
+-    if (closeTimer.current !== null) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+-  }, []);
+-  React.useEffect(() => {
+-    if (!popup.open) { stopTimer(); setCommunity(false); focused.current = false; }
+-  }, [popup.open, stopTimer]);
+-  React.useEffect(() => stopTimer, [stopTimer]);
+-
+-  const items = (inside: HTMLElement | null) => Array.from(inside?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? []);
+-  const focusItem = (row: HTMLElement | undefined) => { row?.focus({ preventScroll: true }); row?.scrollIntoView({ block: 'nearest' }); };
+-  const focus = (sub = false, last = false) => requestAnimationFrame(() => {
+-    const rows = items(sub ? flyout.current : panel.current);
+-    focusItem(rows[last ? rows.length - 1 : 0]);
+-  });
+-  const focusPanel = (sub = false) => requestAnimationFrame(() => (sub ? flyout.current : panel.current)?.focus({ preventScroll: true }));
++  const focusSettings = () => requestAnimationFrame(() => settings.current?.focus({ preventScroll: true }));
+   const dismiss = (restore = false) => {
+-    stopTimer(); setCommunity(false); popup.dismiss();
++    popup.dismiss();
+     if (restore) trigger.current?.focus({ preventScroll: true });
+-    focused.current = false;
+-  };
+-  const closeCommunity = (restore = false) => {
+-    stopTimer(); setCommunity(false);
+-    if (restore) communityTrigger.current?.focus({ preventScroll: true });
+   };
+-  const hideCommunitySoon = () => {
+-    stopTimer();
+-    closeTimer.current = window.setTimeout(() => { closeTimer.current = null; setCommunity(false); }, SIDE_CLOSE_MS);
+-  };
+-  const openCommunity = (enter = false) => {
+-    stopTimer(); setCommunity(true);
+-    if (enter) { popup.setOpen(true); focus(true); }
+-  };
+-
+-  React.useLayoutEffect(() => {
+-    if (!community || !popup.open) { setPosition(null); return; }
+-    const place = () => {
+-      const parent = panel.current?.getBoundingClientRect();
+-      const row = communityTrigger.current?.getBoundingClientRect();
+-      const child = flyout.current?.getBoundingClientRect();
+-      if (!parent || !row || !child) return;
+-      const edge = 8, gap = SIDE_GAP;
+-      let left = parent.right + gap;
+-      let top = row.top - 4;
+-      if (left + child.width > window.innerWidth - edge) {
+-        if (parent.left - gap - child.width >= edge) left = parent.left - gap - child.width;
+-        else { left = parent.left; top = parent.bottom + gap; }
+-      }
+-      left = Math.max(edge, Math.min(left, window.innerWidth - edge - child.width));
+-      top = Math.max(edge, Math.min(top, window.innerHeight - edge - child.height));
+-      setPosition({ left: left - parent.left, top: top - parent.top });
+-    };
+-    place();
+-    window.addEventListener('resize', place);
+-    window.addEventListener('scroll', place, true);
+-    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+-  }, [community, popup.open, language]);
+ 
+-  const onKeyDown = (event: React.KeyboardEvent, sub = false) => {
+-    if (event.key === 'Tab') { dismiss(); return; }
+-    if (sub && event.key === 'ArrowLeft') { event.preventDefault(); event.stopPropagation(); closeCommunity(true); return; }
+-    if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+-    if (event.key === 'ArrowRight' && !sub) return;
+-    event.preventDefault(); event.stopPropagation();
+-    const rows = items(sub ? flyout.current : panel.current);
+-    const current = rows.indexOf(document.activeElement as HTMLElement);
+-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1
+-      : menuStep(current, event.key === 'ArrowUp' ? -1 : 1, rows.length);
+-    focusItem(rows[next]);
+-  };
+-  const onBlur = (event: React.FocusEvent) => {
+-    const next = event.relatedTarget as Node | null;
+-    if (next && !panel.current?.contains(next) && !flyout.current?.contains(next) && next !== trigger.current) dismiss();
+-  };
+-  const link = (label: string, href: string, icon: React.ReactNode) => (
+-    <a role="menuitem" tabIndex={-1} href={href} target="_blank" rel="noreferrer" onMouseEnter={hideCommunitySoon} onFocus={() => closeCommunity()} onClick={() => dismiss(true)} className={styles.row}>
+-      <span className={styles.icon} aria-hidden>{icon}</span><span className={styles.label}>{t(label)}</span>
+-    </a>
+-  );
+-  const social = (channel: { id: SocialPlatform; href: string }) => {
+-    const name = channel.id === 'github' ? 'GitHub' : channel.id === 'discord' ? 'Discord' : t(`appMenu.social.${channel.id}`);
+-    return <Tooltip key={channel.id} label={name} side="bottom">
+-      <a role="menuitem" tabIndex={-1} className={styles.logo} aria-label={name} href={channel.href} target="_blank" rel="noreferrer" onClick={() => dismiss(true)}>
+-        <SocialLogo platform={channel.id} />
+-      </a>
+-    </Tooltip>;
+-  };
+-  const weChat = (group = false) => {
+-    const label = t(group ? 'appMenu.weChatGroup' : 'appMenu.weChatCopy').replace('{handle}', CREATOR_HANDLE);
+-    return <Tooltip label={label} side="bottom">
+-      <button type="button" role="menuitem" tabIndex={-1} className={styles.logo} aria-label={label} onClick={async () => {
+-        try {
+-          await navigator.clipboard.writeText(CREATOR_HANDLE);
+-          toast.show(t(group ? 'appMenu.weChatGroupCopied' : 'appMenu.weChatCopied').replace('{handle}', CREATOR_HANDLE));
+-        } catch {
+-          if (group) toast.show(t('appMenu.weChatGroupHint').replace('{handle}', CREATOR_HANDLE));
+-          else toast.showError(t('appMenu.weChatCopyFailed').replace('{handle}', CREATOR_HANDLE));
+-        }
+-      }}><SocialLogo platform="wechat" /></button>
+-    </Tooltip>;
+-  };
+-
+-  return <><Popover open={popup.open} onOpenChange={(next) => { if (next) popup.setOpen(true); else dismiss(focused.current); }} layer={10060}
+-    onEscapeKeyDown={(event) => { event.stopPropagation(); if (community) closeCommunity(focused.current); else dismiss(focused.current); }}
++  return <Popover open={popup.open} onOpenChange={popup.setOpen} layer={10060}
++    onEscapeKeyDown={(event) => { event.stopPropagation(); dismiss(true); }}
+     trigger={<button ref={trigger} type="button" aria-label={t('project.appMenu')} aria-haspopup="menu" aria-expanded={popup.open} aria-controls={popup.open ? id : undefined}
+-      onClick={(event) => { event.stopPropagation(); popup.toggle(); if (!popup.open) { if (event.detail === 0) focus(); else focusPanel(); } }}
++      onClick={(event) => { event.stopPropagation(); popup.toggle(); if (!popup.open) focusSettings(); }}
+       onKeyDown={(event) => {
+         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+-        event.preventDefault(); event.stopPropagation(); popup.setOpen(true); focus(false, event.key === 'ArrowUp');
++        event.preventDefault(); event.stopPropagation(); popup.setOpen(true); focusSettings();
+       }}
+       className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] outline-none transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] ${popup.open ? 'bg-[var(--bg-hover)] text-[var(--text)]' : ''}`}>
+       <BrandLogo size={15} />
+     </button>}>
+-    <div ref={panel} id={id} data-app-menu role="menu" tabIndex={-1} aria-label={t('project.appMenu')}
+-      onMouseLeave={hideCommunitySoon} onKeyDown={(event) => onKeyDown(event)} onFocusCapture={() => { focused.current = true; }} onBlur={onBlur} className={styles.menu}>
+-      <button type="button" role="menuitem" tabIndex={-1} className={styles.row} onMouseEnter={hideCommunitySoon} onFocus={() => closeCommunity()} onClick={() => { dismiss(true); onSettings('general'); }}>
++    <div id={id} data-app-menu role="menu" aria-label={t('project.appMenu')} className={styles.menu}
++      onKeyDown={(event) => { if (event.key === 'Tab') dismiss(); }}>
++      <button ref={settings} type="button" role="menuitem" tabIndex={-1} className={styles.row} onClick={() => { dismiss(); onSettings('general'); }}>
+         <Settings2 size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('settings.title')}</span>
        </button>
-       {link('appMenu.feedback', PRODUCT_LINKS.feedback, <MessageSquare size={15} />)}
+-      {/* in the app the Community opens from the chat's Add menu (+); Studio in a browser has no chat: here */}
+-      {studioHost ? null : (
+-        <button type="button" role="menuitem" tabIndex={-1} className={styles.row} onMouseEnter={hideCommunitySoon} onFocus={() => closeCommunity()} onClick={() => { dismiss(true); openPlugins(); }}>
+-          <Community size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('assetDrawer.pluginsWindow')}</span>
+-        </button>
+-      )}
+-      <button ref={communityTrigger} type="button" role="menuitem" tabIndex={-1} aria-haspopup="menu" aria-expanded={community} aria-controls={community ? `${id}-community` : undefined}
+-        className={`${styles.row} ${community ? styles.active : ''}`}
+-        onMouseEnter={() => openCommunity()} onMouseLeave={hideCommunitySoon}
+-        onKeyDown={(event) => { if (event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); openCommunity(true); } }} onClick={(event) => { openCommunity(event.detail === 0); if (event.detail > 0) focusPanel(true); }}>
+-        <Users size={15} className={styles.icon} aria-hidden /><span className={styles.label}>{t('appMenu.community')}</span><ChevronRight size={12} className={styles.end} aria-hidden />
+-      </button>
+-      {link('appMenu.feedback', PRODUCT_LINKS.feedback, <MessageSquare size={15} />)}
 -      {link('appMenu.star', PRODUCT_LINKS.github, <Star size={15} />)}
-+      {link('appMenu.star', PRODUCT_LINKS.github, <Star size={15} />)}</> : null}
      </div>
-     {community ? <div ref={flyout} id={`${id}-community`} data-community-menu role="menu" tabIndex={-1} aria-label={t('appMenu.community')}
-       className={styles.flyout} style={{ left: position?.left ?? `calc(100% + ${SIDE_GAP}px)`, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+-    {community ? <div ref={flyout} id={`${id}-community`} data-community-menu role="menu" tabIndex={-1} aria-label={t('appMenu.community')}
+-      className={styles.flyout} style={{ left: position?.left ?? `calc(100% + ${SIDE_GAP}px)`, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
+-      onMouseEnter={() => openCommunity()} onMouseLeave={hideCommunitySoon}
+-      onFocusCapture={() => { focused.current = true; popup.setOpen(true); }} onKeyDown={(event) => onKeyDown(event, true)} onBlur={onBlur}>
+-      <div className={styles.communityGroup} role="group" aria-label={t('appMenu.officialCommunity')}>
+-        <p className={styles.groupLabel}>{t('appMenu.officialCommunity')}</p>
+-        <div className={styles.logos}>{communityChannels(studioHost ? language : 'en').map(social)}{chinese ? weChat(true) : null}</div>
+-      </div>
+-      <div className={styles.communityGroup} role="group" aria-label={CREATOR_HANDLE}>
+-        <p className={styles.groupLabel}>{CREATOR_HANDLE}</p>
+-        <div className={styles.logos}>{chinese ? weChat() : null}{socials.map(social)}</div>
+-      </div>
+-    </div> : null}
+-  </Popover><Toast toast={toast.current} /></>;
++  </Popover>;
+ }
+diff --git a/packages/openfilm/studio/ui/src/components/BrandLogo.tsx b/packages/openfilm/studio/ui/src/components/BrandLogo.tsx
+index f6d252f..fb8ee12 100644
+--- a/packages/openfilm/studio/ui/src/components/BrandLogo.tsx
++++ b/packages/openfilm/studio/ui/src/components/BrandLogo.tsx
+@@ -1,25 +1,11 @@
+ import React from 'react';
++import { MARK_ACCENT, MARK_BODY, MARK_COLOR, MARK_VIEWBOX } from '../../../../../shared/src/no996-brand';
+ 
+-/*
+- * The mark: a playhead over two clips, forming an F, in the surrounding text's color. The clips are cut away around
+- * the playhead (a real gap, so whatever is behind shows through), which keeps the playhead's shape in one color.
+- */
+-const VIEWBOX = '8 6 84 92';
+-const PLAYHEAD = 'M17 12H37Q40 12 40 15V27Q40 29 38.5 30.5L31 37V88Q31 92 27 92Q23 92 23 88V37L15.5 30.5Q14 29 14 27V15Q14 12 17 12Z';
+-
+-export function BrandLogo({ size = 18 }: { size?: number }) {
+-  const gap = `openfilm-gap-${React.useId().replace(/:/g, '')}`;
++export function BrandLogo({ size = 18, className }: { size?: number; className?: string }) {
+   return (
+-    <svg width={size} height={size} viewBox={VIEWBOX} fill="currentColor" className="block shrink-0" role="img" aria-label="OpenFilm">
+-      <mask id={gap} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+-        <rect width="100" height="100" fill="#fff" />
+-        <path d={PLAYHEAD} stroke="#000" strokeWidth="7" strokeLinejoin="round" />
+-      </mask>
+-      <g mask={`url(#${gap})`}>
+-        <rect x="22" y="12" width="64" height="20" rx="5" />
+-        <rect x="25" y="44" width="47" height="19" rx="5" />
+-      </g>
+-      <path d={PLAYHEAD} />
++    <svg width={size} height={size} viewBox={MARK_VIEWBOX} className={`block shrink-0 ${className ?? ''}`.trim()} aria-hidden>
++      <path d={MARK_BODY} fill="currentColor" fillRule="evenodd" />
++      <path d={MARK_ACCENT} fill={MARK_COLOR} fillRule="evenodd" />
+     </svg>
+   );
+ }
 diff --git a/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
 new file mode 100644
 index 0000000..172da11
@@ -5217,6 +5837,70 @@ index bcb7089..ea9ab75 100644
      </div>
    );
  }
+diff --git a/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx b/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx
+index bd3b623..7919a9c 100644
+--- a/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx
++++ b/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx
+@@ -6,12 +6,10 @@
+  * agent, the library drawer). Opened from the chat's Community button, the OpenFilm menu and links (lib/plugins-window).
+  */
+ import React from 'react';
+-import { Blocks, CircleUserRound, Clapperboard, BookOpenText, Import, LibraryBig, Plus, Rss, Upload } from 'lucide-react';
++import { CircleUserRound } from 'lucide-react';
+ import { useT } from '@/i18n';
+-import { studioHost } from '@/lib/host';
+ import type { Plugin } from '@/lib/plugins';
+ import { closePlugins, showPluginsLine, showPluginsPage, usePluginsWindow, type PluginsLine } from '@/lib/plugins-window';
+-import { ContextMenu, type ContextMenuEntry } from './ContextMenu';
+ import { LargeDialog, LargeDialogGroup, LargeDialogPlace, LargeDialogSearch } from './LargeDialog';
+ import { PluginsPane } from './library/PluginsPane';
+ 
+@@ -22,24 +20,14 @@ export function PluginsWindow({ projectId, onWorkbenchOn }: { projectId: string
+   const t = useT();
+   const { open, line, page } = usePluginsWindow();
+   const [query, setQuery] = React.useState('');
+-  const [menu, setMenu] = React.useState<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
+   const search = React.useRef<HTMLInputElement>(null);
+   React.useEffect(() => { if (open) setQuery(''); }, [open]);
+   if (!open) return null;
+-  const importAny = studioHost?.skills?.add;
+   const place = (to: PluginsLine, icon: React.ReactNode, name: string, active = line === to) => (
+     <LargeDialogPlace key={to} icon={icon} active={active} onClick={() => showPluginsLine(to)}>{name}</LargeDialogPlace>
+   );
+-  /* adding what is elsewhere: a folder or a link (its kind is read from what it is), or another catalog to read */
+-  const addMenu = (e: React.MouseEvent<HTMLElement>) => {
+-    const r = e.currentTarget.getBoundingClientRect();
+-    setMenu({ x: r.left, y: r.top, items: [
+-      ...(importAny ? [{ id: 'import', label: t('assetDrawer.importAny'), icon: <Import size={15} />, onSelect: importAny }] : []),
+-      { id: 'sources', label: t('assetDrawer.sourcesManage'), note: t('assetDrawer.sourcesLine'), icon: <Rss size={15} />, onSelect: () => showPluginsLine('sources') },
+-    ] });
+-  };
+   return (
+-    <LargeDialog label={t('assetDrawer.pluginsWindow')} closeLabel={t('assetDrawer.closePlugins')} onClose={closePlugins} focusFirst={search}
++    <LargeDialog label={t('assetDrawer.place_mine')} closeLabel={t('assetDrawer.closePlugins')} onClose={closePlugins} focusFirst={search}
+       onEscape={() => { if (!page) return false; showPluginsPage(null); return true; }}
+       side={(
+         <>
+@@ -49,19 +37,6 @@ export function PluginsWindow({ projectId, onWorkbenchOn }: { projectId: string
+           <LargeDialogGroup>
+             {place('mine', <CircleUserRound {...ICON} />, t('assetDrawer.place_mine'))}
+           </LargeDialogGroup>
+-          {/* the Community: its plugins, its skills, its things for the library (a kind each on that page) */}
+-          <LargeDialogGroup title={t('assetDrawer.pluginsWindow')}>
+-            {place('plugins', <Blocks {...ICON} />, t('assetDrawer.tab_plugins'))}
+-            {place('skills', <BookOpenText {...ICON} />, t('assetDrawer.tab_skills'))}
+-            {place('assets', <LibraryBig {...ICON} />, t('assetDrawer.tab_assets'), line === 'assets' || line.startsWith('kind:'))}
+-            {place('examples', <Clapperboard {...ICON} />, t('assetDrawer.tab_examples'))}
+-          </LargeDialogGroup>
+-          {/* sharing what one made; adding what is elsewhere */}
+-          <div className="mt-auto flex flex-col gap-0.5 border-t border-[var(--border)] pt-3">
+-            {place('publish', <Upload {...ICON} />, t('assetDrawer.place_publish'))}
+-            <LargeDialogPlace icon={<Plus {...ICON} />} active={line === 'sources'} onClick={addMenu}>{t('assetDrawer.addMenu')}</LargeDialogPlace>
+-          </div>
+-          {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
+         </>
+       )}>
+       <PluginsPane line={line} query={query} projectId={projectId} opened={page} onOpen={showPluginsPage}
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
 index 7b8de03..9af9a55 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
@@ -5311,6 +5995,149 @@ index 7b8de03..9af9a55 100644
        {...(examples?.example ? { initial: examples.example } : {})}
        onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
        /* over a film: the example pointed at in its chat, for the agent to follow (as the Community does) */
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx b/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx
+index 4d98c5d..381df8c 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx
+@@ -3,16 +3,9 @@
+  * examples; ways to start a project on a workbench (the edit, the canvas); and at its foot the Community's news and this version, with what is new in it and an update when there is one.
+  */
+ import React from 'react';
+-import { Clapperboard, House, Scissors, Shapes, User, X } from 'lucide-react';
+-import { api, type StudioVersion } from '@/api';
+-import { useLanguage, useT } from '@/i18n';
+-import { accountState } from '@/lib/account';
+-import { useHostUpdate } from '@/lib/host';
+-import { openPlugins } from '@/lib/plugins-window';
+-import { sourcesApi, type News } from '@/lib/project-sources';
+-import { useProviders } from '@/lib/providers';
+-import { showWhatsNew } from '@/lib/whats-new';
+-import { Avatar } from './settings/AccountGroup';
++import { Clapperboard, House, Scissors, Shapes } from 'lucide-react';
++import { useT } from '@/i18n';
++import { WorkbenchAccountSummary } from './WorkbenchAccount';
+ import styles from './ProjectsSidebar.module.css';
+ 
+ export type ProjectsPlace = 'projects' | 'examples';
+@@ -39,7 +32,7 @@ export function ProjectsSidebar({ place, onPlace, onStart, starting }: {
+   );
+   return (
+     <nav className={styles.side} aria-label={t('projects.sideProjects')}>
+-      <AccountCard />
++      <div className={styles.account}><WorkbenchAccountSummary surface="projects" /></div>
+       <div className={styles.group}>
+         {row('projects', <House {...ICON} />, t('projects.sideProjects'))}
+         {row('examples', <Clapperboard {...ICON} />, t('projects.sideExamples'))}
+@@ -49,109 +42,6 @@ export function ProjectsSidebar({ place, onPlace, onStart, starting }: {
+         {start('edit', <Scissors {...ICON} />, t('projects.sideEdit'), t('projects.sideEditNote'))}
+         {start('canvas', <Shapes {...ICON} />, t('projects.sideCanvas'), t('projects.sideCanvasNote'))}
+       </div>
+-      <div className={styles.foot}>
+-        <NewsCard />
+-        <VersionCard />
+-      </div>
+     </nav>
+   );
+ }
+-
+-/** The OpenFilm account: signed in, its picture and name; else the local account and the way to sign in. */
+-function AccountCard() {
+-  const t = useT();
+-  const hook = useProviders();
+-  const own = hook.state?.providers.find((p) => p.id === 'openfilm');
+-  if (!own) return <div className={styles.account} aria-hidden />;
+-  const state = accountState(own, hook.state?.signingIn);
+-  const signedIn = state === 'signed-in' || state === 'env';
+-  const name = own.profile?.name || own.account || 'OpenFilm';
+-  if (signedIn) {
+-    return (
+-      <a className={styles.account} href={own.keysUrl} target="_blank" rel="noreferrer" data-projects-account="signed-in">
+-        <Avatar src={own.profile?.avatar} name={name} size={36} />
+-        <span className={styles.accountText}><strong>{name}</strong>{own.account && own.account !== name ? <small>{own.account}</small> : null}</span>
+-      </a>
+-    );
+-  }
+-  return (
+-    <div className={styles.account} data-projects-account="local">
+-      <span className={styles.accountMark}><User size={18} strokeWidth={1.7} aria-hidden /></span>
+-      <span className={styles.accountText}>
+-        <strong>{t('projects.accountLocal')}</strong>
+-        {state === 'signing-in'
+-          ? <small>{t('projects.accountSigningIn')}</small>
+-          : <button type="button" className={styles.signIn} disabled={hook.busy === 'openfilm'} onClick={() => void hook.signIn('openfilm')}>{t('projects.accountSignIn')}</button>}
+-      </span>
+-    </div>
+-  );
+-}
+-
+-const HIDDEN_NEWS = 'openfilm.projects.newsHidden';
+-const hiddenNews = (): string[] => { try { return JSON.parse(localStorage.getItem(HIDDEN_NEWS) ?? '[]') as string[]; } catch { return []; } };
+-
+-/** The Community's newest news that is now, until the person hides it; nothing offline or when there is none. */
+-function NewsCard() {
+-  const t = useT();
+-  const lang = useLanguage();
+-  const [news, setNews] = React.useState<News | null>(null);
+-  React.useEffect(() => {
+-    let live = true;
+-    void sourcesApi.news().then((list) => { if (live) setNews(list.find((n) => !hiddenNews().includes(n.id)) ?? null); });
+-    return () => { live = false; };
+-  }, []);
+-  if (!news) return null;
+-  const said = (words: Record<string, string>) => words[lang] ?? words[lang.split('-')[0]!] ?? words.en ?? '';
+-  const open = () => {
+-    const link = news.link;
+-    if (!link) return;
+-    const line = /^openfilm:\/\/community\/([a-z]+)$/.exec(link)?.[1];
+-    if (line) openPlugins({ line });
+-    else window.open(link, '_blank', 'noopener');
+-  };
+-  const hide = () => {
+-    try { localStorage.setItem(HIDDEN_NEWS, JSON.stringify([...hiddenNews(), news.id].slice(-50))); } catch { /* for now */ }
+-    setNews(null);
+-  };
+-  return (
+-    <div className={styles.news} data-projects-news={news.id}>
+-      <button type="button" className={styles.newsBody} disabled={!news.link} onClick={open}>
+-        {news.image ? <img src={news.image} alt="" /> : null}
+-        <strong>{said(news.title)}</strong>
+-        {said(news.text) ? <small>{said(news.text)}</small> : null}
+-      </button>
+-      <button type="button" className={styles.newsHide} aria-label={t('projects.newsClose')} title={t('projects.newsClose')} onClick={hide}><X size={13} /></button>
+-    </div>
+-  );
+-}
+-
+-/** This version and its notes; an update downloaded (the app) or out (npm) when there is one. */
+-function VersionCard() {
+-  const t = useT();
+-  const [info, setInfo] = React.useState<StudioVersion | null>(null);
+-  React.useEffect(() => { void api.version().then(setInfo).catch(() => {}); }, []);
+-  const ready = useHostUpdate();
+-  if (!info) return null;
+-  /* nothing to restart for: the whole card is one button, to what is new in this version */
+-  if (!ready && !(info.newer && info.latest)) {
+-    return (
+-      <button type="button" className={`${styles.version} ${styles.versionButton}`} data-projects-version={info.version} onClick={showWhatsNew}>
+-        <strong>{t('projects.versionLine').replace('{version}', info.version)}</strong>
+-        <small>{t('projects.versionNotes')}</small>
+-      </button>
+-    );
+-  }
+-  return (
+-    <div className={styles.version} data-projects-version={info.version}>
+-      <strong>{t('projects.versionLine').replace('{version}', info.version)}</strong>
+-      {ready ? (
+-        <>
+-          <small>{t('projects.versionReady').replace('{version}', ready.update.version)}</small>
+-          <button type="button" className={styles.versionAction} disabled={ready.update.status === 'installing'} onClick={() => void ready.restart()}>{t('projects.versionRestart')}</button>
+-        </>
+-      ) : info.newer && info.latest ? (
+-        <small>{t('projects.versionNewer').replace('{version}', info.latest)}</small>
+-      ) : null}
+-    </div>
+-  );
+-}
 diff --git a/packages/openfilm/studio/ui/src/components/WhatsNew.tsx b/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
 index e54deab..a26795f 100644
 --- a/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
@@ -5330,10 +6157,10 @@ index e54deab..a26795f 100644
        if (!live) return;
 diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
 new file mode 100644
-index 0000000..bf8fb12
+index 0000000..66e34a6
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
-@@ -0,0 +1,784 @@
+@@ -0,0 +1,811 @@
 +/**
 + * Workbench account chip + User Center drawer (~480px) for 不加班.
 + * Covers:
@@ -5358,7 +6185,8 @@ index 0000000..bf8fb12
 +} from 'lucide-react';
 +import { Tooltip } from './Tooltip';
 +import type { SettingsSection } from './settings/SettingsModal';
-+import { useT } from '@/i18n';
++import { useLanguage, useT } from '@/i18n';
++import { PRODUCT_NAME, PRODUCT_NAME_ZH } from '../../../../../shared/src/no996-brand';
 +
 +type Wallet = {
 +  available_points?: number | null;
@@ -5491,6 +6319,32 @@ index 0000000..bf8fb12
 +  if (status.dev) return '开发模式';
 +  if (status.guest) return '游客模式';
 +  return String(status.displayName || status.account || '已登录').trim().slice(0, 64);
++}
++
++/** Settings and the project browser display the same identity used by the top bar, not a provider login. */
++export function WorkbenchAccountSummary({ surface }: { surface: 'settings' | 'projects' }) {
++  const t = useT();
++  const language = useLanguage();
++  const [status, setStatus] = React.useState<AuthStatus | null>(null);
++  React.useEffect(() => {
++    let live = true;
++    let sequence = 0;
++    const refresh = () => {
++      const current = ++sequence;
++      void hostRpc<AuthStatus>('auth:status').then((next) => { if (live && current === sequence) setStatus(next); },
++        () => { if (live && current === sequence) setStatus(null); });
++    };
++    refresh();
++    window.addEventListener('no996-auth-changed', refresh);
++    return () => { live = false; window.removeEventListener('no996-auth-changed', refresh); };
++  }, []);
++  const product = language === 'zh-CN' ? PRODUCT_NAME_ZH : PRODUCT_NAME;
++  return (
++    <div data-no996-account={surface} className="flex min-w-0 flex-col gap-1">
++      <strong className="truncate text-[13px]">{product}</strong>
++      {status ? <span className="truncate text-[12px] text-[var(--text-muted)]">{labelOf(status) || t('projects.accountLocal')}</span> : null}
++    </div>
++  );
 +}
 +
 +function formatPoints(value: number | null | undefined): string {
@@ -5705,7 +6559,7 @@ index 0000000..bf8fb12
 +  ];
 +
 +  return (
-+    <div className={`pointer-events-auto flex min-w-0 items-center gap-1 ${className}`} data-workbench-account="">
++    <div className={`pointer-events-auto flex min-w-0 items-center gap-1 ${className}`} data-workbench-account="" data-no996-account="topbar">
 +      {name ? (
 +        <button
 +          type="button"
@@ -6119,10 +6973,71 @@ index 0000000..bf8fb12
 +  );
 +}
 diff --git a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
-index 92f4cf2..43a172f 100644
+index 92f4cf2..9f032c5 100644
 --- a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
 +++ b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
-@@ -548,10 +548,7 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+@@ -14,7 +14,7 @@
+  */
+ import { onRevealInLibrary, takeRevealed, type Revealed } from '@/lib/library-reveal';
+ import React from 'react';
+-import { AudioLines, BookmarkPlus, ChevronDown, ChevronsLeft, ChevronsRight, CircleHelp, FolderOpen, FolderPlus, Link2, Package, Pencil, Plus, Search, Star, Trash2, Upload, X } from 'lucide-react';
++import { AudioLines, BookmarkPlus, ChevronDown, ChevronsLeft, ChevronsRight, FolderOpen, FolderPlus, Link2, Package, Pencil, Plus, Search, Star, Trash2, X } from 'lucide-react';
+ import { useLanguage, useT } from '@/i18n';
+ import { studioHost } from '@/lib/host';
+ import { copyFromLibrary, inOrder, packKey, saveToEntry, shelfActions, useLibraryPlaces } from '@/lib/library-places';
+@@ -24,8 +24,6 @@ import {
+   BUILT_IN, TEXT_COMPONENT, askHere, toggleFavorite, builtInItem, prepareLibraryItem, isLibraryItemReady, libraryDragItem, libraryUrl, mayNeedFetch, nameOf, posterUrl, prepareTemplatePreview, previewUrl, setAdded, templateExamplePath, templatePreviewUrl,
+   inLibrary, makerName, savePack, useLibraryAdded, useLibraryFavorites, useLibraryHere, useLibraryIndex, type HereState, type LibraryCategory, type LibraryItem,
+ } from '@/lib/library';
+-import { openPlugins } from '@/lib/plugins-window';
+-import { COMMUNITY_ICON as Community, FEATURE_KINDS } from '../feature-kinds';
+ import { ConfirmDialog } from '../ConfirmDialog';
+ import { ContextMenu, type ContextMenuItem } from '../ContextMenu';
+ import { clearResourceDrag, dragPicture, peekResourceDrag, RESOURCE_DRAG_TYPE, setResourceDragData, type ResourceKind } from '@/lib/resource-drag';
+@@ -65,7 +63,6 @@ const RECORD = 'record';
+ const kindsOf = (cat: Category): readonly ResourceKind[] | null =>
+   cat === 'media' ? null : cat === 'music' || cat === 'sound' ? ['audio'] : cat === 'sticker' ? ['image'] : ['mg'];
+ /** Where the Community says how to make a thing of the library and send it in. */
+-const MAKING_GUIDE = 'https://github.com/openfilm/community/tree/main/assets#readme';
+ 
+ /** A line of the side bar: a new line of words, this project, the person's text looks, one of their folders, a pack. */
+ type Line = { key: string; kind: 'new' | 'project' | 'presets' | 'folder' | 'pack'; name: string; group?: string; link?: MediaLink; official?: boolean };
+@@ -389,7 +386,6 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     ...[...new Set((index?.items ?? []).filter((it) => it.cat === cat && it.by && it.group && inLibrary(it, added)).map((it) => it.group))]
+       .filter((id) => !listed.some((g) => g.id === id)).map((id) => ({ id, name: id }))];
+   /* a kind the Community has: more of it found there, and a thing's page there (its preview, its pack) */
+-  const inCommunity = (FEATURE_KINDS as readonly string[]).includes(cat);
+   const [menu, setMenu] = React.useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+   /* the side bar's own: a line's menu (or the "+" one), a folder being renamed, one being made */
+   const [railMenu, setRailMenu] = React.useState<{ x: number; y: number; flipTo?: number; items: ContextMenuItem[] } | null>(null);
+@@ -405,11 +401,9 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     /* a media file of the Community's: kept as a file of the person's own too (a copy, theirs to change) */
+     const keep = item.kind === 'file' ? saveToEntry(folders, { id: 'save', label: t('saved.add'), many: t('saved.addTo'), icon: <BookmarkPlus size={14} />,
+       pick: (into) => keepInMine(`${BUILT_IN}/${item.id}`, into, nameOf(item.name, lang)) }) : [];
+-    const details = inCommunity ? [{ id: 'details', label: t('assetDrawer.seeDetails'),
+-      onSelect: () => openPlugins({ line: `kind:${cat as LibraryCategory}`, page: `asset:${item.id}` }) }] : [];
+-    if (!keep.length && !details.length) return;
++    if (!keep.length) return;
+     e.preventDefault();
+-    setMenu({ x: e.clientX, y: e.clientY, items: [...keep, ...details] });
++    setMenu({ x: e.clientX, y: e.clientY, items: keep });
+   };
+   /* a thing of the library copied into one of the person's folders, said once it is there */
+   const keepInMine = (from: string, into: string, name?: string) => {
+@@ -459,7 +453,6 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     (line) => line.key, order);
+   /* the packs of a category, under its namespaces: OpenFilm's own (官方), those got from the Community (社区) */
+   const officialPacks = cat === 'text' ? [] : packsShown.filter((p) => p.official);
+-  const communityPacks = packsShown.filter((p) => !p.official);
+   const [folded, setFolded] = React.useState<Record<string, boolean>>(readFolded);
+   const fold = (id: string) => setFolded((was) => { const next = { ...was, [`${cat}:${id}`]: !was[`${cat}:${id}`] }; keepFolded(next); return next; });
+   const lines = [...head, ...movable];
+@@ -543,15 +536,11 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     : officialPacks.map(ofLine);
+   const spaces: RailNode[] = [
+     ...(officialChildren.length ? [{ ...railPick(OFFICIAL_ALL), key: 'openfilm', name: t('assetDrawer.railOfficial'), children: officialChildren }] : []),
+-    { ...railPick(COMMUNITY_ALL), key: 'community', name: t('assetDrawer.railCommunity'), children: communityPacks.map(ofLine) },
+   ];
    const nodes: RailNode[] = cat === 'voice' ? [
      { ...railPick(STARRED), name: t('assetDrawer.favorites') },
      { key: 'mine', name: t('assetDrawer.railMine'), on: inMine && !q, onPick: () => pickGroup(MY_VOICES) },
@@ -6134,6 +7049,79 @@ index 92f4cf2..43a172f 100644
    ] : cat === 'cover' ? [
      { ...railPick(''), name: t('covers.allLooks') },
      ...(covers?.looks?.categories ?? []).map((c) => ({ ...railPick(c.id), name: nameOf(c.name, lang) })),
+@@ -597,11 +586,9 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+   const lineMenu = (line: Line): ContextMenuItem[] => line.kind === 'folder' ? [
+     { id: 'rename', label: t('assets.rename'), icon: <Pencil size={14} />, onSelect: () => setRenaming(line.key) },
+     { id: 'reveal', label: t('projects.revealFolder'), icon: <FolderOpen size={14} />, onSelect: () => savedActions.reveal(line.key, Boolean(line.link)) },
+-    { id: 'publish', label: t('assetDrawer.contribute'), icon: <Upload size={14} />, onSelect: () => openPlugins({ line: 'publish' }) },
+     { id: 'delete', label: t(line.link ? 'resourceCenter.removeLink' : 'assets.delete'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setGone(line) },
+   ] : line.kind === 'pack' ? [
+     /* the Community's packs only: OpenFilm's own are not in the Community (they are its 官方) */
+-    ...(inCommunity && !line.official ? [{ id: 'community', label: t('assetDrawer.seeInCommunity'), icon: <Community size={14} />, onSelect: () => openPlugins({ line: `kind:${cat as LibraryCategory}` }) }] : []),
+     /* a pack of the Community's media: its files kept as a folder of the person's own too */
+     ...(cat === 'media' && !line.official && line.group ? [{ id: 'save', label: t('assetDrawer.saveToMine'), icon: <BookmarkPlus size={14} />,
+       onSelect: () => { const id = line.group!; void savePack(id, lang).then((path) => { refreshSaved(); setNotice(t('saved.added').replace('{n}', '1').replace('{place}', path.split('/').at(-1) ?? '')); },
+@@ -629,29 +616,17 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+   });
+   /* where "Upload files…" puts them: the folder or the project shown, else the project */
+   const uploadInto = ownShown ? current.key : 'project';
+-  const kindName = categoryName(cat);
+-  /* the media's "+ Add": folders made or linked, more from the Community, how to make media and contributing them (a
+-     folder's own upload is in its pane) */
++  /* The media's "+ Add" creates or links folders; a folder's upload is in its pane. */
+   const addMenu = (): ContextMenuItem[] => [
+     { id: 'folder', label: t('assets.newFolder'), icon: <FolderPlus size={14} />, onSelect: () => setMaking(true) },
+     { id: 'link', label: t('assetDrawer.linkFolder'), note: t('resourceCenter.networkHint'), icon: <Link2 size={14} />, onSelect: () => void linkFolder() },
+-    { id: 'community', label: t('assetDrawer.getMore'), icon: <Community size={14} />, onSelect: () => openPlugins(inCommunity ? { line: `kind:${cat as LibraryCategory}` } : {}) },
+-    { id: 'how', label: t('assetDrawer.howToMake').replace('{kind}', kindName), icon: <CircleHelp size={14} />, onSelect: () => { window.open(MAKING_GUIDE, '_blank', 'noreferrer'); } },
+-    { id: 'publish', label: t('assetDrawer.contribute'), icon: <Upload size={14} />, onSelect: () => openPlugins({ line: 'publish' }) },
+   ];
+   /* OpenFilm's own packs taken out of this category: the menu that puts them back */
+   const hiddenBack = (): ContextMenuItem[] => hidden.some((key) => packs.some((p) => p.key === key && p.official))
+     ? [{ id: 'hidden', label: t('assetDrawer.removedPacks'), icon: <Package size={14} />,
+       submenu: packs.filter((p) => p.official && hidden.includes(p.key)).map((p) => ({ id: p.key, label: p.name, onSelect: () => void shelfActions.hide(p.key, false) })) }]
+     : [];
+-  /* "+ Add" of a category's side bar: more of it from the Community, how to make it, sending one, and OpenFilm's packs
+-     taken out, put back */
+-  const kindMenu = (): ContextMenuItem[] => [
+-    { id: 'community', label: t('assetDrawer.getMore'), icon: <Community size={14} />, onSelect: () => openPlugins(inCommunity ? { line: `kind:${cat as LibraryCategory}` } : {}) },
+-    { id: 'how', label: t('assetDrawer.howToMake').replace('{kind}', kindName), icon: <CircleHelp size={14} />, onSelect: () => { window.open(MAKING_GUIDE, '_blank', 'noreferrer'); } },
+-    { id: 'publish', label: t('assetDrawer.contribute'), icon: <Upload size={14} />, onSelect: () => openPlugins({ line: 'publish' }) },
+-    ...hiddenBack(),
+-  ];
++  const kindMenu = hiddenBack();
+   /* one of the person's folders (or a pack) in the media's side bar: renamed in place, held and moved, dropped on */
+   const mineLine = (line: Line, i: number, look: 'box' | 'child') => renaming === line.key ? (
+     <RailName key={line.key} value={line.name} onDone={(name) => { setRenaming(null); renameFolder(line, name); }} onCancel={() => setRenaming(null)} />
+@@ -843,14 +818,14 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+             {/* at the side bar's foot: adding to the library (files, a folder, a linked one, more from the Community) */}
+             <input ref={uploadRef} type="file" multiple className="hidden" onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) onUpload(files, uploadInto); }} />
+             {/* a category's: more of it from the Community; the media's: "+ Add", said beside its sign */}
+-            {sectioned ? (
++            {sectioned ? (kindMenu.length ? (
+               <button type="button" data-rail-add=""
+-                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setRailMenu({ x: r.left, y: r.bottom, flipTo: r.top - 4, items: kindMenu() }); }}
++                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setRailMenu({ x: r.left, y: r.bottom, flipTo: r.top - 4, items: kindMenu }); }}
+                 className="mt-auto flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-[12px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]">
+                 <Plus size={14} aria-hidden className="shrink-0" />
+                 <span className="truncate">{t('assetDrawer.addMenu')}</span>
+               </button>
+-            ) : ownLines ? null : (
++            ) : null) : ownLines ? null : (
+               <button type="button" data-rail-add=""
+                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setRailMenu({ x: r.left, y: r.bottom, flipTo: r.top - 4, items: addMenu() }); }}
+                 className="mt-auto flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-[12px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]">
+@@ -911,9 +886,7 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+                 ) : !items.length && !mineItems.length ? (
+                   q ? <Empty icon="search" text={t('assetDrawer.nothing').replace('{q}', query.trim())} />
+                     : group === STARRED ? <Empty icon="star" text={t('assetDrawer.noFavorites')} />
+-                    /* nothing got from the Community yet: the way to get some, its kind's page there */
+-                    : group === COMMUNITY_ALL ? <Empty icon="community" text={t('assetDrawer.communityNone').replace('{kind}', kindName)}
+-                        action={t('assetDrawer.getMore')} block onAction={() => openPlugins(inCommunity ? { line: `kind:${cat as LibraryCategory}` } : {})} />
++
+                     : cat === 'music' ? <Empty icon="music" text={t('assetDrawer.musicSoon')} action={askMusic ? t('assetDrawer.musicMake') : undefined}
+                         onAction={() => askMusic?.({ text: t('assetDrawer.musicAsk'), refs: [] })} />
+                         : null
 diff --git a/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx b/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx
 index 666b798..53ba676 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/DiagnosticsGroup.tsx
@@ -6174,29 +7162,33 @@ index 4c99bb2..37d3cda 100644
    const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
    const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;
 diff --git a/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
-index 2bc2346..5613709 100644
+index 2bc2346..7e4b7cd 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
-@@ -47,12 +47,15 @@ const chipClass = 'inline-flex h-9 items-center gap-2 rounded-full border px-3.5
+@@ -47,12 +47,12 @@ const chipClass = 'inline-flex h-9 items-center gap-2 rounded-full border px-3.5
   */
  export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOpen: (id: string) => void; local?: React.ReactNode }) {
    const t = useT();
 -  const rows = hook.state?.providers ?? [];
-+  // NO996-UPSTREAM: hide third-party provider chips, not their credentials or APIs.
-+  // Remove this filter and restore the expansion control to show the upstream list.
-+  const rows = (hook.state?.providers ?? []).filter((p) => /^(openfilm|no996|local)$/i.test(p.id));
-   /* OpenFilm's own first, then the others */
-   const own = rows.find((p) => p.id === 'openfilm');
-   /* Local services has its own chip (`local`) */
-   const order = providerOrder(rows.filter((p) => p !== own && p.id !== 'local'));
+-  /* OpenFilm's own first, then the others */
+-  const own = rows.find((p) => p.id === 'openfilm');
+-  /* Local services has its own chip (`local`) */
+-  const order = providerOrder(rows.filter((p) => p !== own && p.id !== 'local'));
 -  const [all, setAll] = React.useState(false);
++  // The embedded product uses the No996 account. Keep previously configured provider
++  // credentials and APIs intact; do not present upstream sign-in as product sign-in.
++  const rows = (hook.state?.providers ?? []).filter((p) => /^(no996|local)$/i.test(p.id));
++  const order = providerOrder(rows.filter((p) => p.id !== 'local'));
 +  // NO996-UPSTREAM: the expandable third-party provider list is hidden, not disabled.
 +  const all = false;
    const chip = (p: OwnProvider) => (
      <button key={p.id} type="button" onClick={() => onOpen(p.id)}
        className={`${chipClass} ${p.source ? 'border-[var(--border-strong)] text-[var(--text)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
-@@ -68,18 +71,14 @@ export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOp
-         {own ? chip(own) : null}
+@@ -65,21 +65,16 @@ export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOp
+   return (
+     <div className="mb-10">
+       <div className="flex flex-wrap gap-2">
+-        {own ? chip(own) : null}
          {order.connected.map(chip)}
          {order.recommended.map(chip)}
 -        {all ? order.more.map(chip) : null}
@@ -6217,10 +7209,10 @@ index 2bc2346..5613709 100644
        {/* a key that was refused says why in its card; a custom service's under its form */}
        {hook.problem && !rows.some((p) => p.id === hook.problemFor) && !customProblem(hook) ? <p className={settingsError}>{hook.problem}</p> : null}
 diff --git a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
-index 1e72831..3e33f6e 100644
+index 1e72831..356b504 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
-@@ -3,23 +3,23 @@
+@@ -3,25 +3,26 @@
   * right as a page of titled groups. General (the account, the theme and the language), Agents (in an app with a chat: the agents
   * it can use), Services (which model makes each kind of media, and the services connected for it), the keyboard
   * shortcuts, Advanced and Developer; the search finds a section by any phrase on it. At the
@@ -6246,9 +7238,13 @@ index 1e72831..3e33f6e 100644
 -import { SettingsButton, SettingsGroup, SettingsItem, SettingsPage, SettingsSegmented, SettingsSwitch } from './ui';
 +import { SettingsGroup, SettingsItem, SettingsPage, SettingsSegmented, SettingsSwitch } from './ui';
  import { useThemeMode, type ThemeMode } from './theme';
- import { AccountGroup } from './AccountGroup';
+-import { AccountGroup } from './AccountGroup';
++import { WorkbenchAccountSummary } from '../WorkbenchAccount';
++import { PRODUCT_NAME, PRODUCT_NAME_ZH } from '../../../../../../shared/src/no996-brand';
  import { StorageGroup, StorageEntry } from './StorageGroup';
-@@ -36,12 +36,8 @@ const navNow = (): Array<{ group: 'settings' | 'help'; sections: SettingsSection
+ import { LargeDialog, LargeDialogGroup, LargeDialogPage, LargeDialogPlace, LargeDialogSearch } from '../LargeDialog';
+ import { LibraryCategoriesGroup } from './LibraryCategoriesGroup';
+@@ -36,12 +37,8 @@ const navNow = (): Array<{ group: 'settings' | 'help'; sections: SettingsSection
    { group: 'help', sections: ['shortcuts', 'advanced', 'developer'] },
  ];
  
@@ -6263,7 +7259,7 @@ index 1e72831..3e33f6e 100644
  
  const SECTION_ICON: Record<SettingsSection, React.ReactNode> = {
    general: <Settings2 size={18} strokeWidth={1.75} />,
-@@ -110,11 +106,9 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+@@ -110,11 +107,6 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
              </LargeDialogGroup>
            ))}
            {found.length === 0 ? <p className="px-2.5 pt-4 text-[14px] text-[var(--text-faint)]">{t('settings.noResults')}</p> : null}
@@ -6272,13 +7268,21 @@ index 1e72831..3e33f6e 100644
 -              <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="rounded-[4px] transition hover:text-[var(--text)]">{t(link.label)}</a>
 -            ))}
 -          </div>
-+          {/* NO996-UPSTREAM: the nav foot names the pinned OpenFilm this build wraps, not upstream's
-+              GitHub / examples / site links (those point at the wrong product). */}
-+          <EmbeddedCompatNote />
          </>
        )}>
        {/* one column in the middle of whatever room the window gives */}
-@@ -187,11 +181,45 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
+@@ -148,7 +140,9 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
+ 
+   return (
+     <SettingsPage>
+-      <AccountGroup />
++      <SettingsGroup title={t('settings.account.group')}>
++        <div className="py-3"><WorkbenchAccountSummary surface="settings" /></div>
++      </SettingsGroup>
+       <SettingsGroup title={t('settings.appearance.group')}>
+         <SettingsItem
+           title={t('settings.appearance.theme')}
+@@ -187,11 +181,28 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
        <SettingsGroup title={t('settings.storage.group')}>
          <StorageEntry onOpen={onStorage} />
        </SettingsGroup>
@@ -6288,36 +7292,19 @@ index 1e72831..3e33f6e 100644
    );
  }
  
-+/** Nav foot: which OpenFilm this wrapper is built on. Replaces upstream's GitHub / examples / site links. */
-+function EmbeddedCompatNote() {
-+  const t = useT();
-+  const [version, setVersion] = React.useState(OPENFILM_PIN);
-+  React.useEffect(() => {
-+    void api.version().then((v) => { if (v?.version) setVersion(v.version); }).catch(() => {});
-+  }, []);
-+  return (
-+    <div className="mt-auto px-2.5 pt-6 text-[13px] text-[var(--text-faint)]">
-+      {t('settings.links.compat').replace('{version}', version)}
-+    </div>
-+  );
-+}
-+
 +/**
 + * DSH-embedded About: this build cannot self-update through Studio, so do not
 + * show check/download/fail rows. Attribution stays on screen as a stable line.
 + */
 +function EmbeddedAboutGroup() {
 +  const t = useT();
++  const language = useLanguage();
 +  const [info, setInfo] = React.useState<StudioVersion | null>(null);
 +  React.useEffect(() => { void api.version().then(setInfo).catch(() => {}); }, []);
 +  return (
 +    <SettingsGroup title={t('settings.about.group')}>
-+      <SettingsItem
-+        title={info ? `OpenFilm ${info.version}` : 'OpenFilm'}
-+        description={t('settings.about.embedded')}
-+      >
-+        {hasNotes(info?.version) ? <WhatsNewLink /> : null}
-+      </SettingsItem>
++      <SettingsItem title={language === 'zh-CN' ? PRODUCT_NAME_ZH : PRODUCT_NAME}
++        description={`${t('settings.about.embedded')} · ${info?.version || OPENFILM_PIN}`} />
 +    </SettingsGroup>
 +  );
 +}
@@ -6325,7 +7312,7 @@ index 1e72831..3e33f6e 100644
  /** In the app: the system's notification of a chat's turn done, stopped or waiting, while its window is not in front. */
  function NotificationsGroup() {
    const t = useT();
-@@ -302,66 +330,6 @@ function AdvancedSection() {
+@@ -302,66 +313,6 @@ function AdvancedSection() {
    );
  }
  
@@ -6392,7 +7379,7 @@ index 1e72831..3e33f6e 100644
  /** This release's notes again (components/WhatsNew). */
  function WhatsNewLink() {
    const t = useT();
-@@ -373,79 +341,6 @@ function WhatsNewLink() {
+@@ -373,79 +324,6 @@ function WhatsNewLink() {
    );
  }
  
@@ -6473,9 +7460,123 @@ index 1e72831..3e33f6e 100644
   * Diagnostics (DiagnosticsGroup), for when something does not work; how playing goes, in the viewer's corner
   * (lib/preview-prefs `stats`); in the app, what its chat shows of each turn: what it changed in the files, and its
 diff --git a/packages/openfilm/studio/ui/src/i18n/en.ts b/packages/openfilm/studio/ui/src/i18n/en.ts
-index 4be139f..e9b233c 100644
+index 4be139f..9493c94 100644
 --- a/packages/openfilm/studio/ui/src/i18n/en.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/en.ts
+@@ -133,7 +133,7 @@ export const en = {
+     removeCover: "Remove cover",
+     coverSaving: "Saving…",
+     coverInvalid: "Choose a valid PNG, JPEG or WebP image up to 5 MB.",
+-    discoverNote: 'Films made with OpenFilm, to start from or to learn from.',
++    discoverNote: 'Films made with No996 Studio, to start from or to learn from.',
+     workflow: 'Workflows',
+     style: 'Styles',
+     fromFolder: 'Folder',
+@@ -282,7 +282,7 @@ export const en = {
+   connection: {
+     lost: 'Lost the connection to Studio. Reconnecting…',
+     gone: 'Studio has stopped. Run this in a terminal, or ask your agent to open OpenFilm again: this page reconnects by itself.',
+-    goneApp: 'Studio has stopped. Quit and reopen the OpenFilm app to bring it back.',
++    goneApp: 'Studio has stopped. Quit and reopen the No996 Studio app to bring it back.',
+     copied: 'Copied',
+     lockedTitle: 'This browser isn’t signed in to Studio',
+     lockedBody: 'Studio is running, but it only lets in a browser that opened it once with its key. Open the full address `openfilm open` (or `pnpm dev`) printed, the one with ?key= in it; after that, this browser can use Studio’s address as it is.',
+@@ -303,7 +303,7 @@ export const en = {
+ 
+     all: "All assets",
+     recent: "Recently added",
+-    managed: "OpenFilm assets",
++    managed: "No996 Studio assets",
+     quickAccess: "Quick access",
+     locations: "Locations",
+     connectFolder: "Connect folder…",
+@@ -503,7 +503,7 @@ export const en = {
+         network: 'Couldn’t reach GitHub. Check your internet connection.',
+         ref: 'That branch or tag isn’t in the repository.',
+         noFolder: 'That folder isn’t in the repository.',
+-        noFilm: 'There’s no film.html in that folder, so it isn’t an OpenFilm film.',
++        noFilm: 'There’s no film.html in that folder, so it isn’t an No996 Studio film.',
+         tooBig: 'It’s too big to get, so it was stopped.',
+         timeout: 'Nothing came for a while, so it was stopped. Check your internet connection, then try again.',
+         git: 'This one needs git: it is private, or not on GitHub. Install git, then try again.',
+@@ -759,7 +759,7 @@ export const en = {
+     noCaptions: 'This film has no subtitles.',
+     noAudio: 'This film has no sound.',
+     noFolder: 'Choose where to save first.',
+-    engineDown: 'The local engine is not responding. Restart OpenFilm and try again.',
++    engineDown: 'The local engine is not responding. Restart No996 Studio and try again.',
+     engineDesktop: 'Renders on this computer with hardware encoding. Nothing is uploaded.',
+     queueing: 'Starting…',
+     export: 'Export',
+@@ -816,7 +816,7 @@ export const en = {
+       logs: 'Every request sent to the model, in full. Private: off by default.',
+     },
+     projectPartNone: 'This project has none.',
+-    projectHint: 'Caches are never included: OpenFilm makes them again when the project is opened.',
++    projectHint: 'Caches are never included: No996 Studio makes them again when the project is opened.',
+     captionTracksDrawn: 'Caption tracks are part of the picture and come with it; hide a track on the timeline to leave it out.',
+   },
+   exportTray: {
+@@ -910,7 +910,7 @@ export const en = {
+     filmNotReady: 'The video isn’t ready yet',
+     filmCannotExport: 'The film can’t be exported while it can’t be drawn:',
+     untitled: 'Untitled',
+-    appMenu: 'OpenFilm menu',
++    appMenu: 'Studio menu',
+     close: 'Close',
+     deleteFailed: 'Delete failed. Please retry.',
+     renameFailed: 'Rename failed. Please retry.',
+@@ -1091,7 +1091,7 @@ export const en = {
+     kindRestoreOlder: 'Restored an earlier version',
+     kindUpgrade: 'Kept all the project’s files',
+     kindParked: 'Changes left on “{name}”',
+-    loadFailed: 'Version history couldn’t be read. Try again; if it keeps failing, restart OpenFilm.',
++    loadFailed: 'Version history couldn’t be read. Try again; if it keeps failing, restart No996 Studio.',
+     retry: 'Try again',
+     errorNoFilm: 'This version has no film.html to bring back. Pick an earlier one.',
+     errorMissingFilm: 'film.html is missing, so there is nothing to save as a version. Restore it first: from a version here, or from before the agent’s turn.',
+@@ -1806,7 +1806,7 @@ export const en = {
+     workbenchAddedTimeline: "Added to the timeline",
+     workbenchOpen: "Open",
+     noPluginsOn: "No editor is on. Turn one on in Features to work on the film.",
+-    surfaceMissing: "This version of OpenFilm has no surface for this editor.",
++    surfaceMissing: "This version of No996 Studio has no surface for this editor.",
+     surfaceStarting: "Starting…",
+     surfaceNotAllowed: "This editor runs code of its own on your computer. Allow it on its page in Features.",
+     surfaceFailed: "This editor's program did not start.",
+@@ -2504,7 +2504,7 @@ export const en = {
+     undoDelete: "Undo delete",
+     import: "Import",
+     export: "Export",
+-    importFailed: "This file contains no valid OpenFilm layouts, or is too large.",
++    importFailed: "This file contains no valid No996 Studio layouts, or is too large.",
+     imported: "Imported {n} layouts.",
+     importLimit: "No new layouts imported. Up to 24 layouts can be saved.",
+     dock_left: "Dock left",
+@@ -3109,19 +3109,19 @@ export const en = {
+       cancel: 'Discard the recording',
+       saving: 'Saving the recording…',
+       fileName: 'Recording',
+-      denied: 'OpenFilm may not use the microphone: allow it in your system’s privacy settings (or the browser’s site settings) and try again.',
++      denied: 'No996 Studio may not use the microphone: allow it in your system’s privacy settings (or the browser’s site settings) and try again.',
+       missing: 'No microphone was found.',
+       failed: 'Recording could not start.',
+       hint: 'Starts at the playhead and goes onto a sound track. It goes on recording while the library shows something else.',
+     },
+     split: 'Split',
+-    subtitlesConnect: 'Making subtitles needs a service that transcribes: connect one in Settings (the OpenFilm logo at the top left) → Services',
++    subtitlesConnect: 'Making subtitles needs a service that transcribes: connect one in Settings (the No996 Studio logo at the top left) → Services',
+     subtitlesFailed: 'Subtitles could not be made: {error}',
+     subtitleLanguageTranslate: 'Translate into',
+     subtitleTranslating: 'Translating the voices into {lang}…',
+     subtitleTranslateFailed: "Couldn't translate right now.",
+-    subtitleTranslateConnect: 'Connect a service that translates in Settings (the OpenFilm logo at the top left) → Services.',
+-    subtitleTranslateAgent: 'Translating subtitles uses your agent\'s own model: connect an agent in Settings (the OpenFilm logo at the top left) → Agents.',
++    subtitleTranslateConnect: 'Connect a service that translates in Settings (the No996 Studio logo at the top left) → Services.',
++    subtitleTranslateAgent: 'Translating subtitles uses your agent\'s own model: connect an agent in Settings (the No996 Studio logo at the top left) → Agents.',
+     removeBlock: 'Delete',
+     rippleRemove: 'Ripple delete',
+     menuSplitHere: 'Split at playhead',
 @@ -3470,6 +3470,7 @@ export const en = {
        github: 'GitHub',
        examples: 'Examples',
@@ -6484,6 +7585,15 @@ index 4be139f..e9b233c 100644
      },
      sections: {
        agents: 'Agents',
+@@ -3482,7 +3483,7 @@ export const en = {
+     notifications: {
+       group: 'Notifications',
+       turns: 'When the agent finishes',
+-      turnsHint: 'When OpenFilm isn’t in front: a notification when a turn is done, stops with an error, or waits for your answer. Clicking it opens the project.',
++      turnsHint: 'When No996 Studio isn’t in front: a notification when a turn is done, stops with an error, or waits for your answer. Clicking it opens the project.',
+     },
+     account: {
+       group: 'Account',
 @@ -3505,7 +3506,7 @@ export const en = {
        language: 'Language',
        languageSystem: 'Same as the system',
@@ -6493,6 +7603,17 @@ index 4be139f..e9b233c 100644
      },
      storage: {
        group: "Storage",
+@@ -3529,8 +3530,8 @@ export const en = {
+       clear: "Clear cache",
+       cleared: "Cleared {size}.",
+       projectLine: "{size}, {clearable} cache",
+-      ours: "OpenFilm takes",
+-      area: {projects: "Projects", linked: "Linked projects", saved: "Library", skills: "My skills", exports: "Exports", cache: "Cache", app: "OpenFilm itself" },
++      ours: "No996 Studio takes",
++      area: {projects: "Projects", linked: "Linked projects", saved: "Library", skills: "My skills", exports: "Exports", cache: "Cache", app: "No996 Studio itself" },
+       areaNote: {projects: "{count} projects in the projects folder", linked: "{count} projects in folders elsewhere, opened in place", saved: "your media, for every film", skills: "skills you added or wrote", exports: "finished videos", cache: "made while previewing and exporting; made again when needed", app: "models, the downloaded library, logs" },
+       parts: "media {media} · versions {history} · conversations {talk} · files {files}",
+     },
 @@ -3556,6 +3557,7 @@ export const en = {
      },
      about: {
@@ -6502,9 +7623,123 @@ index 4be139f..e9b233c 100644
        checking: 'Checking…',
        failed: 'Couldn’t reach npm. Try again later.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/es.ts b/packages/openfilm/studio/ui/src/i18n/es.ts
-index cd10a7b..75b773d 100644
+index cd10a7b..f18d82b 100644
 --- a/packages/openfilm/studio/ui/src/i18n/es.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/es.ts
+@@ -126,7 +126,7 @@ export const es: Words = {
+     removeCover: "Quitar portada",
+     coverSaving: "Guardando…",
+     coverInvalid: "Elige una imagen PNG, JPEG o WebP válida de hasta 5 MB.",
+-    discoverNote: 'Películas hechas con OpenFilm, para empezar con ellas o aprender de cómo están hechas.',
++    discoverNote: 'Películas hechas con No996 Studio, para empezar con ellas o aprender de cómo están hechas.',
+     workflow: 'Flujos de trabajo',
+     style: 'Estilos',
+     fromFolder: 'Carpeta',
+@@ -275,7 +275,7 @@ export const es: Words = {
+   connection: {
+     lost: 'Se perdió la conexión con Studio. Reconectando…',
+     gone: 'Studio se ha detenido. Ejecuta esto en una terminal o pide a tu agente que vuelva a abrir OpenFilm: esta página se reconecta sola.',
+-    goneApp: 'Studio se ha detenido. Cierra y vuelve a abrir la app OpenFilm para recuperarlo.',
++    goneApp: 'Studio se ha detenido. Cierra y vuelve a abrir la app No996 Studio para recuperarlo.',
+     copied: 'Copiado',
+     lockedTitle: 'Este navegador no ha entrado en Studio',
+     lockedBody: 'Studio está en marcha, pero solo deja entrar a un navegador que lo abrió una vez con su clave. Abre la dirección completa que mostró `openfilm open` (o `pnpm dev`), la que lleva ?key=; después, este navegador puede usar la dirección de Studio tal cual.',
+@@ -296,7 +296,7 @@ export const es: Words = {
+ 
+     all: "Todos los recursos",
+     recent: "Añadidos recientemente",
+-    managed: "Recursos de OpenFilm",
++    managed: "Recursos de No996 Studio",
+     quickAccess: "Acceso rápido",
+     locations: "Ubicaciones",
+     connectFolder: "Conectar carpeta…",
+@@ -496,7 +496,7 @@ export const es: Words = {
+         network: 'No se pudo conectar con GitHub. Revisa tu conexión a internet.',
+         ref: 'Esa rama o etiqueta no está en el repositorio.',
+         noFolder: 'Esa carpeta no está en el repositorio.',
+-        noFilm: 'No hay film.html en esa carpeta, así que no es una película de OpenFilm.',
++        noFilm: 'No hay film.html en esa carpeta, así que no es una película de No996 Studio.',
+         tooBig: 'Es demasiado grande, así que se detuvo.',
+         timeout: 'No llegó nada durante un rato, así que se detuvo. Revisa tu conexión a internet y vuelve a intentarlo.',
+         git: 'Este necesita git: es privado o no está en GitHub. Instala git y vuelve a intentarlo.',
+@@ -748,7 +748,7 @@ export const es: Words = {
+     noCaptions: 'Esta película no tiene subtítulos.',
+     noAudio: 'Esta película no tiene sonido.',
+     noFolder: 'Elige primero dónde guardar.',
+-    engineDown: 'El motor local no responde. Reinicia OpenFilm e inténtalo de nuevo.',
++    engineDown: 'El motor local no responde. Reinicia No996 Studio e inténtalo de nuevo.',
+     engineDesktop: 'Se renderiza en este equipo con codificación por hardware. No se sube nada.',
+     queueing: 'Iniciando…',
+     export: 'Exportar',
+@@ -805,7 +805,7 @@ export const es: Words = {
+       logs: 'Cada solicitud enviada al modelo, completa. Privado: desactivado por defecto.',
+     },
+     projectPartNone: 'Este proyecto no tiene.',
+-    projectHint: 'Las cachés nunca se incluyen: OpenFilm las vuelve a crear al abrir el proyecto.',
++    projectHint: 'Las cachés nunca se incluyen: No996 Studio las vuelve a crear al abrir el proyecto.',
+     captionTracksDrawn: 'Las pistas de subtítulos son parte de la imagen y se exportan con ella; oculta una pista en la línea de tiempo para dejarla fuera.',
+   },
+   exportTray: {
+@@ -898,7 +898,7 @@ export const es: Words = {
+     filmNotReady: 'El video aún no está listo',
+     filmCannotExport: 'La película no se puede exportar mientras no se pueda dibujar:',
+     untitled: 'Sin título',
+-    appMenu: 'Menú de OpenFilm',
++    appMenu: 'Menú de Studio',
+     close: 'Cerrar',
+     deleteFailed: 'No se pudo eliminar. Inténtalo de nuevo.',
+     renameFailed: 'No se pudo cambiar el nombre. Inténtalo de nuevo.',
+@@ -1079,7 +1079,7 @@ export const es: Words = {
+     kindRestoreOlder: 'Restaurada una versión anterior',
+     kindUpgrade: 'Se guardan todos los archivos del proyecto',
+     kindParked: 'Cambios dejados en «{name}»',
+-    loadFailed: 'No se pudo leer el historial de versiones. Inténtalo de nuevo; si sigue fallando, reinicia OpenFilm.',
++    loadFailed: 'No se pudo leer el historial de versiones. Inténtalo de nuevo; si sigue fallando, reinicia No996 Studio.',
+     retry: 'Reintentar',
+     errorNoFilm: "Esta versión no tiene film.html que recuperar. Elige una anterior.",
+     errorMissingFilm: 'Falta film.html, así que no hay nada que guardar como versión. Restáuralo primero: desde una versión de aquí o desde antes del turno del agente.',
+@@ -1794,7 +1794,7 @@ export const es: Words = {
+     workbenchAddedTimeline: "Añadido a la línea de tiempo",
+     workbenchOpen: "Abrir",
+     noPluginsOn: "No hay ningun editor activada. Activa uno en Funciones para trabajar en el vídeo.",
+-    surfaceMissing: "Esta versión de OpenFilm no tiene la interfaz de este editor.",
++    surfaceMissing: "Esta versión de No996 Studio no tiene la interfaz de este editor.",
+     surfaceStarting: "Iniciando…",
+     surfaceNotAllowed: "Este editor ejecuta su propio código en tu ordenador. Permítelo en su página, en Funciones.",
+     surfaceFailed: "El programa de este editor no se inició.",
+@@ -2491,7 +2491,7 @@ export const es: Words = {
+     undoDelete: "Deshacer eliminación",
+     import: "Importar",
+     export: "Exportar",
+-    importFailed: "El archivo no contiene diseños válidos de OpenFilm o es demasiado grande.",
++    importFailed: "El archivo no contiene diseños válidos de No996 Studio o es demasiado grande.",
+     imported: "Se importaron {n} diseños.",
+     importLimit: "No se importaron diseños nuevos. Puedes guardar hasta 24.",
+     dock_left: "Acoplar a la izquierda",
+@@ -3096,19 +3096,19 @@ export const es: Words = {
+       cancel: 'Descartar la grabación',
+       saving: 'Guardando la grabación…',
+       fileName: 'Grabación',
+-      denied: 'OpenFilm no puede usar el micrófono: permítelo en los ajustes de privacidad del sistema (o en los ajustes del sitio del navegador) e inténtalo de nuevo.',
++      denied: 'No996 Studio no puede usar el micrófono: permítelo en los ajustes de privacidad del sistema (o en los ajustes del sitio del navegador) e inténtalo de nuevo.',
+       missing: 'No se encontró ningún micrófono.',
+       failed: 'No se pudo empezar a grabar.',
+       hint: 'Empieza en el cabezal y va a una pista de sonido. Sigue grabando mientras la biblioteca muestra otra cosa.',
+     },
+     split: 'Dividir',
+-    subtitlesConnect: 'Para crear subtítulos hace falta un servicio de transcripción: conecta uno en Configuración (el logotipo de OpenFilm, arriba a la izquierda) → Servicios',
++    subtitlesConnect: 'Para crear subtítulos hace falta un servicio de transcripción: conecta uno en Configuración (el logotipo de No996 Studio, arriba a la izquierda) → Servicios',
+     subtitlesFailed: 'No se pudieron crear los subtítulos: {error}',
+     subtitleLanguageTranslate: 'Traducir a',
+     subtitleTranslating: 'Traduciendo las voces a {lang}…',
+     subtitleTranslateFailed: 'No se pudo traducir ahora mismo.',
+-    subtitleTranslateConnect: 'Conecta un servicio de traducción en Configuración (el logotipo de OpenFilm, arriba a la izquierda) → Servicios.',
+-    subtitleTranslateAgent: 'Traducir subtítulos usa el propio modelo de tu agente: conecta uno en Configuración (el logotipo de OpenFilm, arriba a la izquierda) → Agentes.',
++    subtitleTranslateConnect: 'Conecta un servicio de traducción en Configuración (el logotipo de No996 Studio, arriba a la izquierda) → Servicios.',
++    subtitleTranslateAgent: 'Traducir subtítulos usa el propio modelo de tu agente: conecta uno en Configuración (el logotipo de No996 Studio, arriba a la izquierda) → Agentes.',
+     removeBlock: 'Eliminar',
+     rippleRemove: 'Eliminar con desplazamiento',
+     menuSplitHere: 'Dividir en el cabezal de reproducción',
 @@ -3435,6 +3435,7 @@ export const es: Words = {
        github: 'GitHub',
        examples: 'Ejemplos',
@@ -6513,6 +7748,15 @@ index cd10a7b..75b773d 100644
      },
      sections: {
        agents: 'Agentes',
+@@ -3447,7 +3448,7 @@ export const es: Words = {
+     notifications: {
+       group: 'Notificaciones',
+       turns: 'Avisar cuando el agente termine',
+-      turnsHint: 'Cuando OpenFilm no está al frente: una notificación cuando un turno termina, se detiene por un error o espera tu respuesta. Al hacer clic se abre el proyecto.',
++      turnsHint: 'Cuando No996 Studio no está al frente: una notificación cuando un turno termina, se detiene por un error o espera tu respuesta. Al hacer clic se abre el proyecto.',
+     },
+     account: {
+       group: 'Cuenta',
 @@ -3470,7 +3471,7 @@ export const es: Words = {
        language: 'Idioma',
        languageSystem: 'Igual que el sistema',
@@ -6522,6 +7766,17 @@ index cd10a7b..75b773d 100644
      },
      storage: {
        group: "Almacenamiento",
+@@ -3494,8 +3495,8 @@ export const es: Words = {
+       clear: "Borrar caché",
+       cleared: "Se borraron {size}.",
+       projectLine: "{size}, caché {clearable}",
+-      ours: "OpenFilm ocupa",
+-      area: {projects: "Proyectos", linked: "Proyectos vinculados", saved: "Biblioteca", skills: "Mis habilidades", exports: "Exportaciones", cache: "Caché", app: "OpenFilm" },
++      ours: "No996 Studio ocupa",
++      area: {projects: "Proyectos", linked: "Proyectos vinculados", saved: "Biblioteca", skills: "Mis habilidades", exports: "Exportaciones", cache: "Caché", app: "No996 Studio" },
+       areaNote: {projects: "{count} proyectos en la carpeta de proyectos", linked: "{count} proyectos en carpetas de otro lugar", saved: "tus medios, para todas las películas", skills: "habilidades que añadiste o escribiste", exports: "vídeos terminados", cache: "creada al previsualizar y exportar; se vuelve a crear", app: "modelos, biblioteca descargada, registros" },
+       parts: "medios {media} · versiones {history} · conversaciones {talk} · archivos {files}",
+     },
 @@ -3521,6 +3522,7 @@ export const es: Words = {
      },
      about: {
@@ -6531,9 +7786,123 @@ index cd10a7b..75b773d 100644
        checking: 'Comprobando…',
        failed: 'No se pudo contactar con npm. Inténtalo más tarde.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ja.ts b/packages/openfilm/studio/ui/src/i18n/ja.ts
-index bebc8ac..fc7d216 100644
+index bebc8ac..9c91a1e 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ja.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ja.ts
+@@ -126,7 +126,7 @@ export const ja: Words = {
+     removeCover: "カバーを外す",
+     coverSaving: "保存中…",
+     coverInvalid: "5 MB 以下の有効な PNG、JPEG、WebP 画像を選択してください。",
+-    discoverNote: 'OpenFilm で作った映像。ここから始めることも、作り方を参考にすることもできます。',
++    discoverNote: 'No996 Studio で作った映像。ここから始めることも、作り方を参考にすることもできます。',
+     workflow: 'ワークフロー',
+     style: 'スタイル',
+     fromFolder: 'フォルダ',
+@@ -275,7 +275,7 @@ export const ja: Words = {
+   connection: {
+     lost: 'Studio との接続が切れました。再接続しています…',
+     gone: 'Studio が停止しました。ターミナルでこのコマンドを実行するか、エージェントに OpenFilm を開き直してもらってください。このページは自動で再接続します。',
+-    goneApp: 'Studio が停止しました。OpenFilm アプリを終了して開き直すと復旧します。',
++    goneApp: 'Studio が停止しました。No996 Studio アプリを終了して開き直すと復旧します。',
+     copied: 'コピーしました',
+     lockedTitle: 'このブラウザーは Studio にサインインしていません',
+     lockedBody: 'Studio は動いていますが、キー付きのアドレスで一度開いたブラウザーしか受け付けません。`openfilm open`（開発中は `pnpm dev`）が表示した ?key= 付きの完全なアドレスを開いてください。一度開けば、このブラウザーは Studio のアドレスをそのまま使えます。',
+@@ -296,7 +296,7 @@ export const ja: Words = {
+ 
+     all: "すべての素材",
+     recent: "最近追加した素材",
+-    managed: "OpenFilm の素材",
++    managed: "No996 Studio の素材",
+     quickAccess: "クイックアクセス",
+     locations: "保存場所",
+     connectFolder: "フォルダを接続…",
+@@ -496,7 +496,7 @@ export const ja: Words = {
+         network: 'GitHub に接続できませんでした。インターネット接続を確認してください。',
+         ref: 'そのブランチまたはタグはリポジトリにありません。',
+         noFolder: 'そのフォルダーはリポジトリにありません。',
+-        noFilm: 'そのフォルダーには film.html がないため、OpenFilm のフィルムではありません。',
++        noFilm: 'そのフォルダーには film.html がないため、No996 Studio のフィルムではありません。',
+         tooBig: '大きすぎるため、取得を止めました。',
+         timeout: 'しばらく何も届かなかったため、止めました。インターネット接続を確認して、もう一度お試しください。',
+         git: 'これは非公開か GitHub 以外にあるため、git が必要です。git をインストールしてから、もう一度お試しください。',
+@@ -748,7 +748,7 @@ export const ja: Words = {
+     noCaptions: 'この映像には字幕がありません。',
+     noAudio: 'この映像にはサウンドがありません。',
+     noFolder: '先に保存先を選んでください。',
+-    engineDown: 'ローカルエンジンが応答しません。OpenFilm を再起動してもう一度お試しください。',
++    engineDown: 'ローカルエンジンが応答しません。No996 Studio を再起動してもう一度お試しください。',
+     engineDesktop: 'このコンピューター上でハードウェアエンコードによりレンダリングします。何もアップロードされません。',
+     queueing: '開始しています…',
+     export: '書き出し',
+@@ -805,7 +805,7 @@ export const ja: Words = {
+       logs: 'モデルに送ったリクエストの全文。プライベートなため既定ではオフです。',
+     },
+     projectPartNone: 'このプロジェクトにはまだありません。',
+-    projectHint: 'キャッシュは含まれません。プロジェクトを開くと OpenFilm が作り直します。',
++    projectHint: 'キャッシュは含まれません。プロジェクトを開くと No996 Studio が作り直します。',
+     captionTracksDrawn: '字幕トラックは映像の一部として一緒に書き出されます。不要ならタイムラインでトラックを非表示にしてください。',
+   },
+   exportTray: {
+@@ -898,7 +898,7 @@ export const ja: Words = {
+     filmNotReady: 'ビデオはまだ準備できていません',
+     filmCannotExport: '映像を描画できない間は書き出せません：',
+     untitled: '名称未設定',
+-    appMenu: 'OpenFilm メニュー',
++    appMenu: 'Studio メニュー',
+     close: '閉じる',
+     deleteFailed: '削除に失敗しました。もう一度お試しください。',
+     renameFailed: '名前の変更に失敗しました。もう一度お試しください。',
+@@ -1079,7 +1079,7 @@ export const ja: Words = {
+     kindRestoreOlder: '以前のバージョンを復元',
+     kindUpgrade: 'プロジェクトの全ファイルを保存',
+     kindParked: '「{name}」に残された変更',
+-    loadFailed: 'バージョン履歴を読み込めませんでした。もう一度お試しください。続く場合は OpenFilm を再起動してください。',
++    loadFailed: 'バージョン履歴を読み込めませんでした。もう一度お試しください。続く場合は No996 Studio を再起動してください。',
+     retry: '再試行',
+     errorNoFilm: "このバージョンには戻せる film.html がありません。もっと前のバージョンを選んでください。",
+     errorMissingFilm: 'film.html が見つからないため、バージョンとして保存できるものがありません。まず復元してください：ここにあるバージョンから、またはエージェントのターン前の状態から。',
+@@ -1794,7 +1794,7 @@ export const ja: Words = {
+     workbenchAddedTimeline: "タイムラインに追加しました",
+     workbenchOpen: "開く",
+     noPluginsOn: "オンのエディターがありません。「機能」でオンにすると、映像を作れます。",
+-    surfaceMissing: "この OpenFilm には、このエディターの画面がありません。",
++    surfaceMissing: "この No996 Studio には、このエディターの画面がありません。",
+     surfaceStarting: "起動中…",
+     surfaceNotAllowed: "このエディターはお使いのコンピュータで独自のコードを実行します。「機能」でそのページを開いて許可してください。",
+     surfaceFailed: "このエディターのプログラムを起動できませんでした。",
+@@ -2491,7 +2491,7 @@ export const ja: Words = {
+     undoDelete: "削除を取り消す",
+     import: "読み込み",
+     export: "書き出し",
+-    importFailed: "有効なOpenFilmレイアウトがないか、ファイルが大きすぎます。",
++    importFailed: "有効なNo996 Studioレイアウトがないか、ファイルが大きすぎます。",
+     imported: "{n}件のレイアウトを読み込みました。",
+     importLimit: "新しいレイアウトはありません。最大24件保存できます。",
+     dock_left: "左に配置",
+@@ -3096,19 +3096,19 @@ export const ja: Words = {
+       cancel: '録音を破棄',
+       saving: '録音を保存しています…',
+       fileName: '録音',
+-      denied: 'OpenFilm はマイクを使えません。システムのプライバシー設定（またはブラウザのサイト設定）で許可してから、もう一度お試しください。',
++      denied: 'No996 Studio はマイクを使えません。システムのプライバシー設定（またはブラウザのサイト設定）で許可してから、もう一度お試しください。',
+       missing: 'マイクが見つかりません。',
+       failed: '録音を開始できませんでした。',
+       hint: '再生ヘッドの位置から録音し、サウンドトラックに置きます。ほかのカテゴリを見ている間も録音は続きます。',
+     },
+     split: '分割',
+-    subtitlesConnect: '字幕の作成には文字起こしサービスが必要です。設定（左上の OpenFilm ロゴ）→ サービスで接続してください',
++    subtitlesConnect: '字幕の作成には文字起こしサービスが必要です。設定（左上の No996 Studio ロゴ）→ サービスで接続してください',
+     subtitlesFailed: '字幕を作成できませんでした：{error}',
+     subtitleLanguageTranslate: '翻訳先',
+     subtitleTranslating: '音声を{lang}に翻訳中…',
+     subtitleTranslateFailed: '現在翻訳できません。',
+-    subtitleTranslateConnect: '設定（左上の OpenFilm ロゴ）→ サービスで翻訳サービスを接続してください。',
+-    subtitleTranslateAgent: '字幕の翻訳にはエージェント自身のモデルを使います。設定（左上の OpenFilm ロゴ）→ エージェントで接続してください。',
++    subtitleTranslateConnect: '設定（左上の No996 Studio ロゴ）→ サービスで翻訳サービスを接続してください。',
++    subtitleTranslateAgent: '字幕の翻訳にはエージェント自身のモデルを使います。設定（左上の No996 Studio ロゴ）→ エージェントで接続してください。',
+     removeBlock: '削除',
+     rippleRemove: 'リップル削除',
+     menuSplitHere: '再生ヘッドで分割',
 @@ -3435,6 +3435,7 @@ export const ja: Words = {
        github: 'GitHub',
        examples: 'サンプル',
@@ -6542,6 +7911,15 @@ index bebc8ac..fc7d216 100644
      },
      sections: {
        agents: 'エージェント',
+@@ -3447,7 +3448,7 @@ export const ja: Words = {
+     notifications: {
+       group: '通知',
+       turns: 'エージェントの完了を通知',
+-      turnsHint: 'OpenFilm が前面にないとき、ターンの完了、エラーでの中断、回答待ちをシステム通知で知らせます。クリックするとそのプロジェクトを開きます。',
++      turnsHint: 'No996 Studio が前面にないとき、ターンの完了、エラーでの中断、回答待ちをシステム通知で知らせます。クリックするとそのプロジェクトを開きます。',
+     },
+     account: {
+       group: 'アカウント',
 @@ -3470,7 +3471,7 @@ export const ja: Words = {
        language: '言語',
        languageSystem: 'システムに合わせる',
@@ -6551,6 +7929,17 @@ index bebc8ac..fc7d216 100644
      },
      storage: {
        group: "ストレージ",
+@@ -3494,8 +3495,8 @@ export const ja: Words = {
+       clear: "キャッシュを消去",
+       cleared: "{size} を消去しました。",
+       projectLine: "{size}（キャッシュ {clearable}）",
+-      ours: "OpenFilm の使用量",
+-      area: {projects: "プロジェクト", linked: "リンクしたプロジェクト", saved: "素材ライブラリ", skills: "マイスキル", exports: "書き出し", cache: "キャッシュ", app: "OpenFilm 本体" },
++      ours: "No996 Studio の使用量",
++      area: {projects: "プロジェクト", linked: "リンクしたプロジェクト", saved: "素材ライブラリ", skills: "マイスキル", exports: "書き出し", cache: "キャッシュ", app: "No996 Studio 本体" },
+       areaNote: {projects: "プロジェクトの場所にある {count} 個", linked: "別の場所のフォルダにある {count} 個", saved: "自分の素材（全作品共通）", skills: "追加した・自作のスキル", exports: "書き出した作品", cache: "プレビューと書き出しで作成、必要なら作り直し", app: "モデル、ダウンロードした素材ライブラリ、ログ" },
+       parts: "素材 {media} · バージョン {history} · 会話 {talk} · ファイル {files}",
+     },
 @@ -3521,6 +3522,7 @@ export const ja: Words = {
      },
      about: {
@@ -6560,9 +7949,123 @@ index bebc8ac..fc7d216 100644
        checking: '確認中…',
        failed: 'npm に接続できません。しばらくしてからもう一度お試しください。',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ko.ts b/packages/openfilm/studio/ui/src/i18n/ko.ts
-index f5955a6..05c7e52 100644
+index f5955a6..12fec96 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ko.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ko.ts
+@@ -124,7 +124,7 @@ export const ko: Words = {
+     removeCover: "표지 제거",
+     coverSaving: "저장 중…",
+     coverInvalid: "5 MB 이하의 올바른 PNG, JPEG 또는 WebP 이미지를 선택하세요.",
+-    discoverNote: 'OpenFilm으로 만든 영상. 여기서 시작하거나 만든 방식을 참고하세요.',
++    discoverNote: 'No996 Studio으로 만든 영상. 여기서 시작하거나 만든 방식을 참고하세요.',
+     workflow: '작업',
+     style: '스타일',
+     fromFolder: '폴더',
+@@ -273,7 +273,7 @@ export const ko: Words = {
+   connection: {
+     lost: 'Studio와의 연결이 끊겼습니다. 다시 연결하는 중…',
+     gone: 'Studio가 멈췄습니다. 터미널에서 이 명령을 실행하거나 에이전트에게 OpenFilm을 다시 열어 달라고 하세요. 이 페이지는 자동으로 다시 연결됩니다.',
+-    goneApp: 'Studio가 멈췄습니다. OpenFilm 앱을 종료했다가 다시 열면 복구됩니다.',
++    goneApp: 'Studio가 멈췄습니다. No996 Studio 앱을 종료했다가 다시 열면 복구됩니다.',
+     copied: '복사됨',
+     lockedTitle: '이 브라우저는 Studio에 로그인되어 있지 않습니다',
+     lockedBody: 'Studio는 실행 중이지만, 키가 붙은 주소로 한 번 연 브라우저만 받아들입니다. `openfilm open`(개발 중에는 `pnpm dev`)이 출력한 ?key= 가 붙은 전체 주소를 여세요. 한 번 열면 이 브라우저는 Studio 주소를 그대로 쓸 수 있습니다.',
+@@ -294,7 +294,7 @@ export const ko: Words = {
+ 
+     all: "모든 소재",
+     recent: "최근 추가",
+-    managed: "OpenFilm 소재",
++    managed: "No996 Studio 소재",
+     quickAccess: "빠른 접근",
+     locations: "저장 위치",
+     connectFolder: "폴더 연결…",
+@@ -494,7 +494,7 @@ export const ko: Words = {
+         network: 'GitHub에 연결할 수 없습니다. 인터넷 연결을 확인하세요.',
+         ref: '저장소에 그 브랜치나 태그가 없습니다.',
+         noFolder: '저장소에 그 폴더가 없습니다.',
+-        noFilm: '그 폴더에는 film.html이 없어서 OpenFilm 필름이 아닙니다.',
++        noFilm: '그 폴더에는 film.html이 없어서 No996 Studio 필름이 아닙니다.',
+         tooBig: '너무 커서 가져오기를 멈췄습니다.',
+         timeout: '한동안 아무것도 받지 못해 멈췄습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.',
+         git: '비공개이거나 GitHub에 없는 저장소라 git이 필요합니다. git을 설치한 뒤 다시 시도하세요.',
+@@ -746,7 +746,7 @@ export const ko: Words = {
+     noCaptions: '이 영상에는 자막이 없습니다.',
+     noAudio: '이 영상에는 사운드가 없습니다.',
+     noFolder: '먼저 저장 위치를 선택하세요.',
+-    engineDown: '로컬 엔진이 응답하지 않습니다. OpenFilm을 다시 시작한 뒤 다시 시도하세요.',
++    engineDown: '로컬 엔진이 응답하지 않습니다. No996 Studio을 다시 시작한 뒤 다시 시도하세요.',
+     engineDesktop: '이 컴퓨터에서 하드웨어 인코딩으로 렌더링합니다. 아무것도 업로드되지 않습니다.',
+     queueing: '시작하는 중…',
+     export: '내보내기',
+@@ -803,7 +803,7 @@ export const ko: Words = {
+       logs: '모델에 보낸 요청 전체. 개인적인 내용이라 기본적으로 꺼져 있습니다.',
+     },
+     projectPartNone: '이 프로젝트에는 아직 없습니다.',
+-    projectHint: '캐시는 포함되지 않습니다. 프로젝트를 열면 OpenFilm이 다시 만듭니다.',
++    projectHint: '캐시는 포함되지 않습니다. 프로젝트를 열면 No996 Studio이 다시 만듭니다.',
+     captionTracksDrawn: '자막 트랙은 화면의 일부라 함께 내보내집니다. 빼려면 타임라인에서 트랙을 숨기세요.',
+   },
+   exportTray: {
+@@ -896,7 +896,7 @@ export const ko: Words = {
+     filmNotReady: '비디오가 아직 준비되지 않았습니다',
+     filmCannotExport: '영상을 그릴 수 없는 동안에는 내보낼 수 없습니다:',
+     untitled: '제목 없음',
+-    appMenu: 'OpenFilm 메뉴',
++    appMenu: 'Studio 메뉴',
+     close: '닫기',
+     deleteFailed: '삭제하지 못했습니다. 다시 시도하세요.',
+     renameFailed: '이름을 변경하지 못했습니다. 다시 시도하세요.',
+@@ -1077,7 +1077,7 @@ export const ko: Words = {
+     kindRestoreOlder: '이전 버전 복원함',
+     kindUpgrade: '프로젝트의 모든 파일 저장',
+     kindParked: '“{name}”에 남겨 둔 변경',
+-    loadFailed: '버전 기록을 읽지 못했습니다. 다시 시도하고, 계속 실패하면 OpenFilm을 다시 시작하세요.',
++    loadFailed: '버전 기록을 읽지 못했습니다. 다시 시도하고, 계속 실패하면 No996 Studio을 다시 시작하세요.',
+     retry: '다시 시도',
+     errorNoFilm: "이 버전에는 되돌릴 film.html이 없습니다. 더 이전 버전을 고르세요.",
+     errorMissingFilm: 'film.html이 없어 버전으로 저장할 것이 없습니다. 먼저 복원하세요: 여기의 버전에서, 또는 에이전트의 턴 이전 상태로.',
+@@ -1792,7 +1792,7 @@ export const ko: Words = {
+     workbenchAddedTimeline: "타임라인에 추가했습니다",
+     workbenchOpen: "열기",
+     noPluginsOn: "켜진 에디터가 없습니다. \"기능\"에서 하나를 켜면 영상을 만들 수 있습니다.",
+-    surfaceMissing: "이 버전의 OpenFilm에는 이 에디터의 화면이 없습니다.",
++    surfaceMissing: "이 버전의 No996 Studio에는 이 에디터의 화면이 없습니다.",
+     surfaceStarting: "시작하는 중…",
+     surfaceNotAllowed: "이 에디터는 컴퓨터에서 자체 코드를 실행합니다. \"기능\"에서 해당 페이지를 열어 허용하세요.",
+     surfaceFailed: "이 에디터의 프로그램이 시작되지 않았습니다.",
+@@ -2489,7 +2489,7 @@ export const ko: Words = {
+     undoDelete: "삭제 취소",
+     import: "가져오기",
+     export: "내보내기",
+-    importFailed: "유효한 OpenFilm 레이아웃이 없거나 파일이 너무 큽니다.",
++    importFailed: "유효한 No996 Studio 레이아웃이 없거나 파일이 너무 큽니다.",
+     imported: "레이아웃 {n}개를 가져왔습니다.",
+     importLimit: "새 레이아웃이 없습니다. 최대 24개까지 저장할 수 있습니다.",
+     dock_left: "왼쪽에 고정",
+@@ -3094,19 +3094,19 @@ export const ko: Words = {
+       cancel: '녹음 버리기',
+       saving: '녹음을 저장하는 중…',
+       fileName: '녹음',
+-      denied: 'OpenFilm이 마이크를 사용할 수 없습니다. 시스템 개인정보 보호 설정(또는 브라우저의 사이트 설정)에서 허용한 뒤 다시 시도하세요.',
++      denied: 'No996 Studio이 마이크를 사용할 수 없습니다. 시스템 개인정보 보호 설정(또는 브라우저의 사이트 설정)에서 허용한 뒤 다시 시도하세요.',
+       missing: '마이크를 찾을 수 없습니다.',
+       failed: '녹음을 시작할 수 없습니다.',
+       hint: '재생헤드 위치부터 녹음해 사운드 트랙에 넣습니다. 다른 카테고리를 보는 동안에도 녹음은 계속됩니다.',
+     },
+     split: '분할',
+-    subtitlesConnect: '자막을 만들려면 음성 인식 서비스가 필요합니다. 설정(왼쪽 위 OpenFilm 로고) → 서비스에서 연결하세요',
++    subtitlesConnect: '자막을 만들려면 음성 인식 서비스가 필요합니다. 설정(왼쪽 위 No996 Studio 로고) → 서비스에서 연결하세요',
+     subtitlesFailed: '자막을 만들지 못했습니다: {error}',
+     subtitleLanguageTranslate: '번역할 언어',
+     subtitleTranslating: '음성을 {lang}(으)로 번역하는 중…',
+     subtitleTranslateFailed: '지금은 번역할 수 없습니다.',
+-    subtitleTranslateConnect: '설정(왼쪽 위 OpenFilm 로고) → 서비스에서 번역 서비스를 연결하세요.',
+-    subtitleTranslateAgent: '자막 번역에는 에이전트 자체 모델을 씁니다. 설정(왼쪽 위 OpenFilm 로고) → 에이전트에서 연결하세요.',
++    subtitleTranslateConnect: '설정(왼쪽 위 No996 Studio 로고) → 서비스에서 번역 서비스를 연결하세요.',
++    subtitleTranslateAgent: '자막 번역에는 에이전트 자체 모델을 씁니다. 설정(왼쪽 위 No996 Studio 로고) → 에이전트에서 연결하세요.',
+     removeBlock: '삭제',
+     rippleRemove: '리플 삭제',
+     menuSplitHere: '재생 헤드에서 분할',
 @@ -3432,6 +3432,7 @@ export const ko: Words = {
        github: 'GitHub',
        examples: '예제',
@@ -6571,6 +8074,15 @@ index f5955a6..05c7e52 100644
      },
      sections: {
        agents: '에이전트',
+@@ -3444,7 +3445,7 @@ export const ko: Words = {
+     notifications: {
+       group: '알림',
+       turns: '에이전트가 끝나면 알림',
+-      turnsHint: 'OpenFilm이 앞에 있지 않을 때 한 차례가 끝나거나, 오류로 멈추거나, 답을 기다리면 시스템 알림을 보냅니다. 알림을 누르면 그 프로젝트가 열립니다.',
++      turnsHint: 'No996 Studio이 앞에 있지 않을 때 한 차례가 끝나거나, 오류로 멈추거나, 답을 기다리면 시스템 알림을 보냅니다. 알림을 누르면 그 프로젝트가 열립니다.',
+     },
+     account: {
+       group: '계정',
 @@ -3467,7 +3468,7 @@ export const ko: Words = {
        language: '언어',
        languageSystem: '시스템 설정 따르기',
@@ -6580,6 +8092,17 @@ index f5955a6..05c7e52 100644
      },
      storage: {
        group: "저장 공간",
+@@ -3491,8 +3492,8 @@ export const ko: Words = {
+       clear: "캐시 지우기",
+       cleared: "{size}를 지웠습니다.",
+       projectLine: "{size}, 캐시 {clearable}",
+-      ours: "OpenFilm 사용량",
+-      area: {projects: "프로젝트", linked: "연결된 프로젝트", saved: "라이브러리", skills: "내 스킬", exports: "내보내기", cache: "캐시", app: "OpenFilm 자체" },
++      ours: "No996 Studio 사용량",
++      area: {projects: "프로젝트", linked: "연결된 프로젝트", saved: "라이브러리", skills: "내 스킬", exports: "내보내기", cache: "캐시", app: "No996 Studio 자체" },
+       areaNote: {projects: "프로젝트 위치의 프로젝트 {count}개", linked: "다른 위치 폴더의 프로젝트 {count}개", saved: "내 미디어 (모든 영상 공용)", skills: "추가하거나 직접 만든 스킬", exports: "완성 영상", cache: "미리보기와 내보내기 중 생성; 필요하면 다시 생성", app: "모델, 내려받은 라이브러리, 로그" },
+       parts: "미디어 {media} · 버전 {history} · 대화 {talk} · 파일 {files}",
+     },
 @@ -3518,6 +3519,7 @@ export const ko: Words = {
      },
      about: {
@@ -6589,9 +8112,123 @@ index f5955a6..05c7e52 100644
        checking: '확인 중…',
        failed: 'npm에 연결할 수 없습니다. 잠시 후 다시 시도하세요.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
-index debd95b..7fda8f6 100644
+index debd95b..eeb2a5e 100644
 --- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
+@@ -132,7 +132,7 @@ export const zhCN: Words = {
+     removeCover: "移除封面",
+     coverSaving: "保存中…",
+     coverInvalid: "请选择有效的 PNG、JPEG 或 WebP 图片，最大 5 MB。",
+-    discoverNote: '用 OpenFilm 做的片子，可以从它开始，也可以参考它的做法。',
++    discoverNote: '用 不加班剪辑 做的片子，可以从它开始，也可以参考它的做法。',
+     workflow: '场景',
+     style: '风格',
+     fromFolder: '文件夹',
+@@ -281,7 +281,7 @@ export const zhCN: Words = {
+   connection: {
+     lost: '与 Studio 的连接中断了，正在重新连接…',
+     gone: 'Studio 已停止运行。在终端运行下面这条命令，或让智能体重新打开 OpenFilm，这个页面会自动重新连上。',
+-    goneApp: 'Studio 已停止运行。退出并重新打开 OpenFilm 应用即可恢复。',
++    goneApp: 'Studio 已停止运行。退出并重新打开 不加班剪辑 应用即可恢复。',
+     copied: '已复制',
+     lockedTitle: '这个浏览器还没有登录 Studio',
+     lockedBody: 'Studio 正在运行，但只接受用带 key 的地址打开过一次的浏览器。请打开 `openfilm open`（开发时是 `pnpm dev`）打印的完整地址，也就是带 ?key= 的那个；打开一次之后，这个浏览器就能直接用 Studio 的地址了。',
+@@ -302,7 +302,7 @@ export const zhCN: Words = {
+ 
+     all: "全部素材",
+     recent: "最近添加",
+-    managed: "OpenFilm 素材",
++    managed: "不加班剪辑 素材",
+     quickAccess: "快速访问",
+     locations: "存储位置",
+     connectFolder: "连接文件夹…",
+@@ -502,7 +502,7 @@ export const zhCN: Words = {
+         network: '无法连接 GitHub。请检查网络连接。',
+         ref: '仓库中没有这个分支或标签。',
+         noFolder: '仓库中没有这个文件夹。',
+-        noFilm: '这个文件夹里没有 film.html，它不是 OpenFilm 影片。',
++        noFilm: '这个文件夹里没有 film.html，它不是 不加班剪辑 影片。',
+         tooBig: '内容太大，已停止获取。',
+         timeout: '一段时间内没有收到任何数据，已停止。请检查网络连接后重试。',
+         git: '这个仓库是私有的或不在 GitHub 上，需要 git。请安装 git 后重试。',
+@@ -758,7 +758,7 @@ export const zhCN: Words = {
+     noCaptions: '此影片没有字幕。',
+     noAudio: '此影片没有声音。',
+     noFolder: '请先选择保存位置。',
+-    engineDown: '本地引擎没有响应。请重启 OpenFilm 后再试。',
++    engineDown: '本地引擎没有响应。请重启 不加班剪辑 后再试。',
+     engineDesktop: '在这台电脑上使用硬件编码渲染，不会上传任何内容。',
+     queueing: '正在开始…',
+     export: '导出',
+@@ -815,7 +815,7 @@ export const zhCN: Words = {
+       logs: '每次发给模型的完整请求。属于私人内容，默认不导出。',
+     },
+     projectPartNone: '这个项目还没有。',
+-    projectHint: '缓存不会导出：项目打开时 OpenFilm 会重新生成。',
++    projectHint: '缓存不会导出：项目打开时 不加班剪辑 会重新生成。',
+     captionTracksDrawn: '字幕轨是画面的一部分，会一起导出；不想要时在时间线上隐藏字幕轨。',
+   },
+   exportTray: {
+@@ -909,7 +909,7 @@ export const zhCN: Words = {
+     filmNotReady: '视频尚未就绪',
+     filmCannotExport: '影片无法绘制，因此无法导出：',
+     untitled: '未命名',
+-    appMenu: 'OpenFilm 菜单',
++    appMenu: '工作台菜单',
+     close: '关闭',
+     deleteFailed: '删除失败，请重试。',
+     renameFailed: '重命名失败，请重试。',
+@@ -1090,7 +1090,7 @@ export const zhCN: Words = {
+     kindRestoreOlder: '恢复了更早的版本',
+     kindUpgrade: '开始保存项目的全部文件',
+     kindParked: '留在「{name}」上的改动',
+-    loadFailed: '版本历史读取失败。请重试；如果一直失败，请重启 OpenFilm。',
++    loadFailed: '版本历史读取失败。请重试；如果一直失败，请重启 不加班剪辑。',
+     retry: '重试',
+     errorNoFilm: '这个版本里没有 film.html 可以恢复，请选更早的版本。',
+     errorMissingFilm: 'film.html 不见了，所以没有可以保存为版本的内容。请先恢复它：从这里的某个版本，或从智能体这一轮之前的状态。',
+@@ -1805,7 +1805,7 @@ export const zhCN: Words = {
+     workbenchAddedTimeline: "已加到时间线",
+     workbenchOpen: "打开",
+     noPluginsOn: "没有打开任何编辑器。在「功能」里打开一个，就可以开始做片子。",
+-    surfaceMissing: "这个版本的 OpenFilm 里没有这个编辑器的界面。",
++    surfaceMissing: "这个版本的 不加班剪辑 里没有这个编辑器的界面。",
+     surfaceStarting: "正在启动…",
+     surfaceNotAllowed: "这个编辑器要在你的电脑上运行自己的代码。请在「功能」里打开它的页面并允许。",
+     surfaceFailed: "这个编辑器的程序没有启动起来。",
+@@ -2503,7 +2503,7 @@ export const zhCN: Words = {
+     undoDelete: "撤销删除",
+     import: "导入",
+     export: "导出",
+-    importFailed: "文件中没有有效的 OpenFilm 布局，或文件过大。",
++    importFailed: "文件中没有有效的 不加班剪辑 布局，或文件过大。",
+     imported: "已导入 {n} 个布局。",
+     importLimit: "未导入新布局，最多可保存 24 个。",
+     dock_left: "停靠左侧",
+@@ -3108,19 +3108,19 @@ export const zhCN: Words = {
+       cancel: '丢弃这段录音',
+       saving: '正在保存录音…',
+       fileName: '录音',
+-      denied: 'OpenFilm 没有麦克风权限：请在系统的隐私设置（或浏览器的网站设置）里允许后再试。',
++      denied: '不加班剪辑 没有麦克风权限：请在系统的隐私设置（或浏览器的网站设置）里允许后再试。',
+       missing: '没有找到麦克风。',
+       failed: '没能开始录音。',
+       hint: '从播放头处开始录，录好放在一条声音轨道上。切到别的分类也会继续录。',
+     },
+     split: '分割',
+-    subtitlesConnect: '生成字幕需要一个语音转写服务：请在设置（左上角的 OpenFilm 标志）→ 服务中连接一个',
++    subtitlesConnect: '生成字幕需要一个语音转写服务：请在设置（左上角的 不加班剪辑 标志）→ 服务中连接一个',
+     subtitlesFailed: '无法生成字幕：{error}',
+     subtitleLanguageTranslate: '翻译为',
+     subtitleTranslating: '正在将语音翻译为 {lang}…',
+     subtitleTranslateFailed: '暂时无法翻译。',
+-    subtitleTranslateConnect: '请在设置（左上角的 OpenFilm 标志）→ 服务中连接一个翻译服务。',
+-    subtitleTranslateAgent: '翻译字幕用你的 Agent 自己的模型：请在设置（左上角的 OpenFilm 标志）→ 智能体中连接一个 Agent。',
++    subtitleTranslateConnect: '请在设置（左上角的 不加班剪辑 标志）→ 服务中连接一个翻译服务。',
++    subtitleTranslateAgent: '翻译字幕用你的 Agent 自己的模型：请在设置（左上角的 不加班剪辑 标志）→ 智能体中连接一个 Agent。',
+     removeBlock: '删除',
+     rippleRemove: '波纹删除',
+     menuSplitHere: '在播放头处分割',
 @@ -3469,6 +3469,7 @@ export const zhCN: Words = {
        github: 'GitHub',
        examples: '示例',
@@ -6600,6 +8237,15 @@ index debd95b..7fda8f6 100644
      },
      sections: {
        agents: '智能体',
+@@ -3481,7 +3482,7 @@ export const zhCN: Words = {
+     notifications: {
+       group: '通知',
+       turns: '智能体做完时提醒',
+-      turnsHint: 'OpenFilm 不在前台时，一轮做完、出错中断、或在等你回答，都会发系统通知。点通知回到那个项目。',
++      turnsHint: '不加班剪辑 不在前台时，一轮做完、出错中断、或在等你回答，都会发系统通知。点通知回到那个项目。',
+     },
+     account: {
+       group: '账号',
 @@ -3504,7 +3505,7 @@ export const zhCN: Words = {
        language: '语言',
        languageSystem: '跟随系统',
@@ -6609,6 +8255,17 @@ index debd95b..7fda8f6 100644
      },
      storage: {
        group: "存储",
+@@ -3528,8 +3529,8 @@ export const zhCN: Words = {
+       clear: "清理缓存",
+       cleared: "已清理 {size}。",
+       projectLine: "{size}，缓存 {clearable}",
+-      ours: "OpenFilm 占用",
+-      area: {projects: "项目", linked: "链接的项目", saved: "素材库", skills: "我的技能", exports: "导出", cache: "缓存", app: "OpenFilm 自用" },
++      ours: "不加班剪辑 占用",
++      area: {projects: "项目", linked: "链接的项目", saved: "素材库", skills: "我的技能", exports: "导出", cache: "缓存", app: "不加班剪辑 自用" },
+       areaNote: {projects: "项目位置里的 {count} 个项目", linked: "{count} 个项目，在其他位置的文件夹，原地打开", saved: "你的素材，所有影片共用", skills: "你添加或自己写的技能", exports: "导出的成片", cache: "预览和导出时生成，清理后用到时会重新生成", app: "模型、下载的素材库、日志" },
+       parts: "素材 {media} · 版本 {history} · 对话 {talk} · 文件 {files}",
+     },
 @@ -3555,6 +3556,7 @@ export const zhCN: Words = {
      },
      about: {
@@ -6617,8 +8274,21 @@ index debd95b..7fda8f6 100644
        check: '检查更新',
        checking: '正在检查…',
        failed: '连不上 npm，请稍后再试。',
+diff --git a/packages/openfilm/studio/ui/src/lib/plugins-window.ts b/packages/openfilm/studio/ui/src/lib/plugins-window.ts
+index df44764..c78139d 100644
+--- a/packages/openfilm/studio/ui/src/lib/plugins-window.ts
++++ b/packages/openfilm/studio/ui/src/lib/plugins-window.ts
+@@ -34,7 +34,7 @@ const set = (next: PluginsWindowState) => { state = next; for (const l of listen
+ 
+ /** Open the window: on a list, and on a page in it (none: the list). */
+ export function openPlugins(how: { line?: PluginsLine | string; page?: string | null } = {}): void {
+-  set({ open: true, line: how.line ? named(how.line) : how.page ? state.line : FIRST_LINE, page: how.page ?? null });
++  if (how.line === 'mine') set({ open: true, line: 'mine', page: how.page ?? null });
+ }
+ export function closePlugins(): void { set({ ...state, open: false, page: null }); }
+ export function showPluginsLine(line: PluginsLine | string): void { set({ ...state, line: named(line), page: null }); }
 diff --git a/packages/openfilm/studio/ui/src/shell/top-bar.tsx b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
-index 0a51b5f..b8471ec 100644
+index 0a51b5f..04e8fcd 100644
 --- a/packages/openfilm/studio/ui/src/shell/top-bar.tsx
 +++ b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
 @@ -32,6 +32,7 @@ import { useSettings } from '@/components/settings/use-settings';
@@ -6629,7 +8299,7 @@ index 0a51b5f..b8471ec 100644
  import { commandTo, topBarTools } from '@/studio/hub';
  import type { useProjectFrame } from './ProjectFrame';
  import { useWiring } from './frame';
-@@ -157,14 +158,16 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+@@ -157,6 +158,8 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
          {history.button}
          {/* the workbench's own: for the edit its export (the canvas has its own bars) */}
          {bar?.tools}
@@ -6638,14 +8308,12 @@ index 0a51b5f..b8471ec 100644
          {/* the buttons plugins put on the bar (openfilm/studio topBar) */}
          <PluginTools />
          {/* the edit or the canvas, in the panes' place: the one shown, by its name, and a click for the other */}
-         {pickBench ? <ModeSwitcher now={shownBench} plugins={benchPlugins} onPick={showWorkbench} onGuide={() => guide.open(shownBench)} disabled={layoutEditing} />
--          : canToggleCanvas ? <Tooltip label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} action="work-mode" side="bottom">
--          <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={layoutEditing} onClick={() => setCanvasOpen(!canvasOpen)}
-+          : canToggleCanvas && canvasOpen ? <Tooltip label={t('canvas.toEdit')} action="work-mode" side="bottom">
-+          <button type="button" aria-label={t('canvas.toEdit')} data-work-mode="canvas" disabled={layoutEditing} onClick={() => setCanvasOpen(false)}
+@@ -164,7 +167,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+           : canToggleCanvas ? <Tooltip label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} action="work-mode" side="bottom">
+           <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={layoutEditing} onClick={() => setCanvasOpen(!canvasOpen)}
              className="flex h-[26px] shrink-0 items-center rounded-md bg-[var(--bg-hover)] px-2.5 text-[12.5px] font-medium text-[var(--text)] transition hover:bg-[var(--bg-pressed)]">
 -            {t(canvasOpen ? 'canvas.title' : 'canvas.editTitle')}
-+            {t('canvas.editTitle')}
++            {t(canvasOpen ? 'canvas.editTitle' : 'canvas.title')}
            </button>
          </Tooltip> : null}
        </div>
@@ -6732,3 +8400,16 @@ index bfafa9c..3f78b5b 100644
      return { kind: 'link', text: linkText, href: safe };
    }
    return null;
+diff --git a/packages/shared/src/no996-brand.ts b/packages/shared/src/no996-brand.ts
+new file mode 100644
+index 0000000..aa259c5
+--- /dev/null
++++ b/packages/shared/src/no996-brand.ts
+@@ -0,0 +1,7 @@
++/** No996 product identity, sourced from dsh-openfilm brand/brand.json and logo-symbol-color.svg. */
++export const PRODUCT_NAME = "No996 Studio";
++export const PRODUCT_NAME_ZH = "不加班剪辑";
++export const MARK_VIEWBOX = '0 0 884 836';
++export const MARK_BODY = "M 201 216 L 201 280 L 202 281 L 372 281 L 373 283 L 352 312 L 336 332 L 282 392 L 280 393 L 261 414 L 259 415 L 226 449 L 185 488 L 147 522 L 249 522 L 276 500 L 303 475 L 336 442 L 376 399 L 377 400 L 377 610 L 378 611 L 448 611 L 448 394 L 449 393 L 477 419 L 535 478 L 583 534 L 586 533 L 621 504 L 645 486 L 584 421 L 528 367 L 527 365 L 501 341 L 496 338 L 439 337 L 438 336 L 430 336 L 429 335 L 469 281 L 635 281 L 635 215 L 202 215 Z M 492 9 L 485 9 L 484 8 L 470 7 L 469 6 L 458 6 L 457 5 L 415 4 L 414 5 L 393 5 L 392 6 L 372 7 L 371 8 L 359 9 L 358 10 L 353 10 L 352 11 L 347 11 L 346 12 L 332 14 L 331 15 L 308 20 L 301 23 L 298 23 L 280 29 L 277 31 L 272 32 L 252 41 L 250 41 L 216 58 L 209 63 L 199 68 L 177 83 L 148 106 L 114 139 L 88 170 L 64 205 L 54 224 L 52 226 L 40 250 L 40 252 L 32 269 L 19 308 L 19 311 L 14 328 L 11 347 L 10 348 L 8 368 L 7 369 L 7 377 L 6 378 L 6 388 L 5 389 L 5 405 L 4 406 L 4 432 L 5 433 L 4 435 L 5 436 L 5 453 L 6 454 L 7 475 L 8 476 L 8 482 L 9 483 L 9 489 L 10 490 L 12 505 L 14 510 L 16 522 L 20 533 L 20 536 L 27 557 L 36 577 L 36 579 L 48 603 L 75 646 L 99 677 L 127 707 L 155 732 L 197 762 L 235 783 L 237 783 L 246 788 L 248 788 L 255 792 L 257 792 L 270 798 L 304 809 L 311 810 L 323 814 L 342 817 L 343 818 L 355 819 L 362 821 L 377 822 L 339 791 L 320 773 L 262 712 L 241 701 L 213 682 L 189 662 L 162 634 L 139 605 L 118 571 L 99 529 L 96 518 L 94 515 L 94 512 L 92 508 L 92 505 L 90 501 L 90 498 L 86 485 L 84 470 L 83 469 L 83 464 L 82 463 L 81 446 L 80 445 L 80 432 L 79 431 L 80 390 L 81 389 L 81 381 L 82 380 L 83 367 L 84 366 L 86 352 L 88 347 L 88 343 L 90 339 L 91 332 L 100 304 L 108 287 L 108 285 L 122 257 L 136 234 L 151 213 L 165 196 L 194 167 L 226 142 L 257 123 L 299 104 L 313 100 L 316 98 L 319 98 L 326 95 L 329 95 L 333 93 L 336 93 L 349 89 L 364 87 L 365 86 L 370 86 L 371 85 L 376 85 L 377 84 L 394 83 L 395 82 L 435 81 L 436 82 L 453 82 L 454 83 L 463 83 L 464 84 L 478 85 L 479 86 L 484 86 L 485 87 L 489 87 L 490 88 L 494 88 L 495 89 L 499 89 L 500 90 L 515 93 L 543 102 L 546 104 L 563 110 L 605 132 L 616 140 L 622 143 L 642 158 L 657 171 L 682 196 L 694 210 L 714 238 L 723 253 L 726 260 L 728 262 L 736 278 L 736 280 L 740 287 L 740 289 L 746 302 L 747 307 L 749 310 L 749 313 L 758 340 L 758 343 L 762 356 L 762 360 L 794 350 L 797 348 L 800 348 L 824 339 L 830 338 L 836 335 L 835 334 L 835 330 L 834 329 L 831 314 L 827 303 L 827 300 L 817 271 L 808 251 L 808 249 L 788 210 L 778 195 L 777 192 L 774 189 L 773 186 L 751 157 L 738 142 L 711 115 L 695 101 L 669 81 L 640 62 L 600 41 L 598 41 L 576 31 L 568 29 L 565 27 L 553 23 L 550 23 L 546 21 L 543 21 L 539 19 L 536 19 L 523 15 L 519 15 L 518 14 L 514 14 L 513 13 L 509 13 L 503 11 L 498 11 Z";
++export const MARK_ACCENT = "M 879 384 L 877 382 L 873 384 L 869 384 L 856 388 L 843 390 L 839 392 L 835 392 L 822 396 L 818 396 L 814 398 L 809 398 L 805 400 L 792 402 L 788 404 L 784 404 L 772 408 L 767 408 L 763 410 L 750 412 L 746 414 L 733 416 L 729 418 L 725 418 L 724 419 L 693 426 L 692 427 L 693 430 L 706 437 L 711 441 L 716 443 L 721 447 L 726 449 L 731 453 L 736 455 L 741 459 L 735 464 L 732 468 L 715 482 L 708 490 L 693 502 L 688 508 L 681 513 L 671 522 L 668 526 L 662 530 L 661 532 L 651 540 L 648 544 L 611 576 L 606 582 L 591 594 L 586 600 L 569 614 L 566 618 L 547 634 L 544 638 L 505 672 L 502 676 L 494 682 L 483 692 L 478 698 L 470 704 L 450 723 L 445 720 L 442 716 L 423 700 L 422 698 L 401 680 L 396 674 L 377 658 L 376 656 L 358 640 L 353 643 L 345 650 L 342 654 L 327 666 L 324 670 L 309 682 L 309 683 L 303 688 L 304 691 L 378 761 L 395 779 L 442 823 L 449 831 L 451 831 L 458 825 L 459 823 L 476 809 L 479 805 L 514 775 L 517 771 L 532 759 L 535 755 L 570 725 L 573 721 L 580 716 L 609 689 L 626 675 L 629 671 L 644 659 L 644 658 L 656 647 L 664 641 L 667 637 L 674 632 L 684 623 L 685 621 L 693 615 L 703 605 L 738 575 L 741 571 L 774 543 L 779 537 L 785 533 L 804 515 L 823 540 L 825 544 L 829 548 L 831 552 L 835 556 L 837 560 L 840 563 L 842 563 L 844 558 L 844 552 L 846 547 L 846 542 L 848 537 L 848 532 L 850 527 L 850 522 L 852 517 L 852 512 L 854 507 L 856 492 L 858 488 L 858 483 L 860 478 L 862 464 L 864 459 L 864 454 L 866 449 L 866 444 L 868 439 L 868 434 L 870 429 L 870 424 L 872 419 L 872 414 L 874 410 L 874 405 L 876 400 L 876 396 L 877 395 L 877 391 Z";
++export const MARK_COLOR = "#ff6400";

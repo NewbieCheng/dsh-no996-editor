@@ -24,6 +24,7 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 |---|---|---|
 | 看不到插件或版本区 | profile、registry 包名、安装来源与重启提示 | [安装 / 更新手册](publish.md) |
 | 面板白屏或启动超时 | 页面 origin、bootstrap 请求、Host 日志和 Studio 健康情况 | [开发文档](../DEVELOPMENT.md)；历史案例仅用于提出假设 |
+| 剪辑／放映／画布报 `Failed to fetch dynamically imported module` | 查看浏览器 Network：内置工作台模块应从独立的本地插件页面代理加载，不应直连 Studio 的内部模块端口 | 查 `plugin-surface-http` 的 HTTP 状态与 `s`（模块）或 `f`（项目文件）类别；诊断不记录授权 URL。HTTP 200 但缺少编辑器对应的 `Access-Control-Allow-Origin` 也会加载失败，不能只测端口。 |
 | 对话无响应或模型不符 | 会话 ID、模型选择、原生会话日志和诊断事件 | [架构](../ARCHITECTURE.md)；不要以旧 `acp-*` 日志缺失判错 |
 | 上下文圆环 0% 或 12 点小黑点 | `native-attach` 的 `usage`、`projections().contextPressure / contextBreakdown`、`ContextUsage.tsx` 是否已重编 | [架构](../ARCHITECTURE.md)；0% 不应渲染 `round` 进度弧 |
 | 思考强度需发消息才同步 | `native-select-thinking` 日志、`attach` 是否同步 `agentPrefs`、空白会话 `store.setSelection` | [架构](../ARCHITECTURE.md)；核对 `official-facade.mjs` 的 `conversationId` |
