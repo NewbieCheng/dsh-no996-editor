@@ -42,7 +42,7 @@ rot-if: 换 registry、包名、scope 大小写规则、或 DSH 安装/更新方
 4. **只在要求发版时**：按 §3 确定未占用的新版本并同步版本、锁文件、CHANGELOG 和 STATE；准备烘焙及构建产物，检查变更并按授权提交。干净工作区运行 `npm run release:check`：它会检查版本和 Git、查询 registry、运行完整检查，并在临时目录构建和打包验证；任何一项失败都停止。它不发布，也不支持跳过正式闸门。通过后才依 §3.3、按授权发布。
 5. **发后核验 / 更新**：按 §3.4 查询 npmjs registry 对应版本并在 npmjs.com 核对；仅用户授权时更新 desktop，先保存未保存编辑，按提示整应用重启。真机确认「版本」及侧栏功能；无法访问真机则明确标记待验，不能声称端到端完成。交付时报告改动、测试、源码提交/推送、发布版本、安装/重启和真机验证各自的实际状态及阻塞。
 
-> 本地脚本发布是默认路径：发布 channel 固定为 npmjs.org（唯一保留完整 packument、让 DSH GUI 可更新）。`.gitlab-ci.yml` 已停用。禁止泄露、提交 token 或临时 npm 配置。
+> 本地脚本发布是默认路径：发布 channel 固定为 npmjs.org（唯一保留完整 packument、让 DSH GUI 可更新）。GitLab CI 与 GitHub workflows 均已删除，不再跑 CI。禁止泄露、提交 token 或临时 npm 配置。
 
 ---
 

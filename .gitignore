@@ -24,3 +24,7 @@ dist/
 # 本机影片库（用户数据，不进 git、不进 npm 包）
 /films/
 .npmrc.npmjs
+
+# 本地调试残留（诊断转储、临时探针、旧包），绝不提交
+.diag.txt
+/film/
