@@ -1,53 +1,31 @@
-不加班剪辑 · No996 Editor 商业授权协议
-（Commercial License Agreement）
+Copyright (C) 2026 NewbieCheng
 
-版本：1.0    生效日期：2026-11-19
-权利人：NewbieCheng（以下简称"授权方"）
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-重要提示：使用前请完整阅读本协议。安装、复制、运行或 otherwise 使用本软件，即表示你已阅读并同意本协议全部条款。若你不接受，请勿安装或使用。
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-第一条 定义
-1. "本软件"指本仓库及其发布包 @newbiecheng/no996-editor 中的全部代码、文档、配置、补丁、构建产物、界面设计、商标与产品名称（以下统称"本产品"）。
-2. "上游组件"指本产品中捆绑或基于的第三方开源组件，包括但不限于 OpenFilm 及其依赖；上游组件仍受其各自许可证约束，见 vendor/official-shell/ 与 THIRD_PARTY_NOTICES.md。本协议不改变、不覆盖上游组件的许可证。
-3. "被授权方"指获得授权方书面授权、可在本协议范围内使用本产品的自然人或法人。
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-第二条 授权范围
-1. 个人学习使用：任何个人可免费下载、安装、运行本产品，仅用于本人非商业性的学习、研究、体验与个人影片制作。
-2. 商业使用：任何以商业为目的的使用（包括但不限于公司/团队内部使用、为客户提供服务、嵌入商业产品、销售或分发包含本产品的解决方案），必须事先取得授权方的书面商业授权，并按约定支付授权费用。未取得书面授权的商业使用构成侵权。
-3. 授权方有权自行决定是否授予商业授权、授权范围、期限与费用，无需说明理由。
 
-第三条 禁止事项（未经书面授权）
-1. 不得复制、分发、再许可、出售、出租、出借、转让本产品或其任何部分，亦不得将其作为任何形式的产品/服务对外提供或再分发（包括免费分发、打包进镜像/插件市场/内部仓库）。
-2. 不得对本产品进行反向工程、反编译、反汇编，或试图从构建产物还原源码（上游组件依其自身许可证允许的范围除外）。
-3. 不得删除、修改或隐藏本产品中的版权声明、商标、产品名称、授权标识或本协议内容。
-4. 不得使用"不加班剪辑""No996 Editor""No996 Studio"或授权方的名称、标识、 Logo 进行任何未经授权的宣传、背书暗示或商业标识使用。
-5. 不得规避、绕过或破坏本产品的授权校验、登录门或技术保护措施。
+本程序是自由软件：你可以再分发之和/或依照由自由软件基金会发布的
+GNU 通用公共许可证修改之，无论是版本 3 许可证，还是（按你的决定）
+任何以后版都可以。
 
-第四条 知识产权
-1. 本产品（不含上游组件）的著作权、商标权、专利权及其他知识产权均归授权方所有。本协议仅为使用许可，不转让任何所有权。
-2. 你对本产品的任何修改、衍生作品，其权利归属仍受本协议约束；未经书面授权不得对外发布或分发。
+本程序是希望它能有用，但没有任何担保；甚至没有可销售性或适合
+特定用途的默示担保。更多细节请参阅 GNU 通用公共许可证。
 
-第五条 免责声明
-1. 本产品按"现状"提供，不附带任何明示或默示保证（包括但不限于适销性、特定用途适用性、不侵权保证）。
-2. 在法律允许的最大范围内，授权方不对因使用或无法使用本产品而产生的任何直接、间接、附带、特殊或后果性损害承担责任。
-
-第六条 期限与终止
-1. 本协议自你首次使用起生效，授权方有权随时终止或调整授权条款。
-2. 违反本协议任一条款，授权立即自动终止；你须停止一切使用并删除本产品副本。
-
-第七条 上游组件
-本产品包含的上游组件（如 OpenFilm）依其自身开源许可证授权，相关许可证与第三方声明随产品提供。本协议仅适用于授权方享有权利的接入代码与产品整体；如本协议与上游组件许可证冲突，就上游组件以上游许可证为准。
-
-第八条 其他
-1. 本协议的订立、效力、解释与争议解决适用中华人民共和国法律。
-2. 商业授权咨询：请联系授权方（GitHub: NewbieCheng）获取书面授权。
+你应该已经收到一份 GNU 通用公共许可证的副本。如果没有，请参阅
+<https://www.gnu.org/licenses/>。
 
 ---
 
-Commercial License Agreement (summary)
-
-Copyright (c) 2026 NewbieCheng. All rights reserved.
-
-Personal, non-commercial learning and personal video creation are permitted free of charge. Any commercial use - including internal corporate/team use, service provision, embedding in commercial products, or sale/distribution of solutions containing this product - requires a prior written commercial license from the copyright holder. Without such license, you may not copy, redistribute, sublicense, sell, or otherwise make this product available to third parties in any form. Reverse engineering, removal of notices or marks, and use of the product names/logos without authorization are prohibited.
-
-This product bundles third-party open-source components (including OpenFilm), which remain governed by their own licenses under vendor/official-shell/ and THIRD_PARTY_NOTICES.md. This agreement does not alter those licenses. THE PRODUCT IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. For commercial licensing, contact the copyright holder (GitHub: NewbieCheng).
+上游组件说明：本产品捆绑的上游组件（含 OpenFilm）依其各自许可证授权，
+见 vendor/official-shell/ 与 THIRD_PARTY_NOTICES.md；本许可证适用于
+授权方享有权利的接入代码，不改变上游组件的许可证条款。

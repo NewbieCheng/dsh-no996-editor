@@ -52,9 +52,9 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor
 
 专题：[模板](docs/TEMPLATES.md)、[动效](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)。
 
-## 许可与授权
+## 许可
 
-本产品为**商业授权软件**，不是开源软件。个人可免费用于学习、研究和非商业的个人影片制作；任何商业使用（公司/团队内部使用、对外服务、嵌入商业产品、销售或再分发）必须事先取得授权方的书面商业授权。禁止未经授权的分发、再许可、出售、反向工程或品牌冒用。详见 [LICENSE](LICENSE)。
+本产品以 **GNU General Public License v3（或更高版本）** 发布，详见 [LICENSE](LICENSE)。
 
 其中捆绑的第三方开源组件仍受各自许可证约束，见 [vendor/official-shell](vendor/official-shell) 与 `THIRD_PARTY_NOTICES.md`。
 
@@ -64,4 +64,4 @@ dsh plugin --profile desktop add @newbiecheng/no996-editor
 
 ## English summary
 
-No996 Editor is an AI video editing workbench delivered as a DSH plugin: a full editing environment on the left, a native DSH conversation on the right. It supports conversational editing, storyboard planning, timeline editing, transcript and subtitles, free CC0 media, and local person-cutout / face-position tools. Install `@newbiecheng/no996-editor` from npmjs.org. Requires Node 22.2+, a DSH host with native session controller, and ffmpeg/ffprobe. This is commercial-license software, not open source: personal non-commercial learning is free; any commercial use requires a written license from the copyright holder (see LICENSE). Based on OpenFilm 0.4.0.
+No996 Editor is an AI video editing workbench delivered as a DSH plugin: a full editing environment on the left, a native DSH conversation on the right. It supports conversational editing, storyboard planning, timeline editing, transcript and subtitles, free CC0 media, and local person-cutout / face-position tools. Install `@newbiecheng/no996-editor` from npmjs.org. Requires Node 22.2+, a DSH host with native session controller, and ffmpeg/ffprobe. Released under the GNU General Public License v3 or later (see LICENSE). Bundled third-party components keep their own licenses under vendor/official-shell and THIRD_PARTY_NOTICES.md. Based on OpenFilm 0.4.0.
