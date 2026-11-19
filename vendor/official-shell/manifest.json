@@ -1,5 +1,5 @@
 {
-  "generator": "packages/dsh-openfilm/scripts/build-official-shell.mjs",
+  "generator": "packages/dsh-no996-editor/scripts/build-official-shell.mjs",
   "version": "0.4.0",
   "commit": "715c3a6e46b11a0b3ee038e8f7b3e3b4e19c5c36",
   "upstream": {

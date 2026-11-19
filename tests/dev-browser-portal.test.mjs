@@ -146,7 +146,7 @@ test('isReleasePackage fails closed on releaseBuild stamp or missing src/dev', (
   assert.equal(flags.openBrowser, true);
   assert.equal(flags.blockedByRelease, false);
 
-  const temp = mkdtempSync(join(tmpdir(), 'dsh-openfilm-dist-test-'));
+  const temp = mkdtempSync(join(tmpdir(), 'dsh-no996-editor-dist-test-'));
   try {
     // Missing package.json -> treated as release (fail closed).
     assert.equal(isReleasePackage(temp), true);

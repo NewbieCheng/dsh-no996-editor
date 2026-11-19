@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/agent-transcript.ts b/apps/desktop/chat/src/lib/agent-transcript.ts
-index 48d05f4..09041c4 100644
+index 48d05f4..1c4f313 100644
 --- a/apps/desktop/chat/src/lib/agent-transcript.ts
 +++ b/apps/desktop/chat/src/lib/agent-transcript.ts
 @@ -16,6 +16,7 @@ import {
@@ -36,7 +36,7 @@ index 48d05f4..09041c4 100644
 +  const next = items.map((item) => {
 +    if (item.kind !== 'thought' || !item.pending) return item;
 +    changed = true;
-+    /* dsh-openfilm: the turn has one thought row, so it is closed and reopened several times; the end
++    /* dsh-no996-editor: the turn has one thought row, so it is closed and reopened several times; the end
 +       time is the latest close, not the first, or the row would report the first tool call's moment as
 +       the end of its thinking. */
 +    return { ...item, pending: false, endedAt: now };
@@ -76,7 +76,7 @@ index 48d05f4..09041c4 100644
 -    case 'agent-thinking':
 -      return items;
 +    /**
-+     * dsh-openfilm: thinking is kept as a row of its own.
++     * dsh-no996-editor: thinking is kept as a row of its own.
 +     *
 +     * It used to only drive the status line underneath, which is all a built-in agent's reasoning could
 +     * do — it never sent any. Our bridging agent does send it, so a turn that thought for 16s should say

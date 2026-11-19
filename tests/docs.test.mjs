@@ -7,7 +7,7 @@ import { checkDocs, linksIn, markdownFiles, stripFences } from '../scripts/docs-
 import { checkBrand, walkStrings } from '../scripts/brand-check.mjs';
 
 function temp() {
-  return mkdtempSync(join(tmpdir(), 'dsh-openfilm-docs-'));
+  return mkdtempSync(join(tmpdir(), 'dsh-no996-editor-docs-'));
 }
 
 test('a dead relative link is reported, a live one is not', () => {

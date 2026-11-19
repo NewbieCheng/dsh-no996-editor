@@ -23,13 +23,13 @@ rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载�
   │    └─ 将主题变量烘焙进 vendor/official-shell/ui/assets/no996-theme.css 并重算 manifest
   ├─ npm run build
   │    └─ esbuild 将 src/studio/studio-entry.js 等打包为单文件 client.js
-  └─ `scripts/pack-tgz.mjs` + `scripts/gitlab-npm-publish.ps1`
-       └─ 发布 `@newbiecheng/dsh-openfilm` 到 GitLab Package Registry（见 [`playbooks/publish.md`](../playbooks/publish.md)）
+  └─ `scripts/pack-tgz.mjs` + `scripts/npmjs-publish.ps1`
+       └─ 发布 `@newbiecheng/dsh-no996-editor` 到 npmjs.org（见 [`playbooks/publish.md`](../playbooks/publish.md)）
 ```
 
 ## 2. 分发依赖矩阵（防坏包机制）
 
-用户从 **GitLab Package Registry** 安装；tarball 仍按 `files` + `bundledDependencies` 打齐，依赖按"随包内置"与"平台按需"两层隔离：
+用户从 **npmjs.org** 安装；tarball 仍按 `files` + `bundledDependencies` 打齐，依赖按"随包内置"与"平台按需"两层隔离：
 
 | 类别 | 包含项 | 分发方式 | 说明 |
 |---|---|---|---|

@@ -35,7 +35,7 @@ try {
     headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(15000),
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status} (package not published yet?)`);
   const packument = await response.json();
   registryDsh = packument?.versions?.[version]?.dsh?.bundle?.patch ?? null;
 } catch (error) {

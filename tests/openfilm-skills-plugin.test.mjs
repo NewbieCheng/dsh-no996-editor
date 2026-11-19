@@ -42,5 +42,5 @@ test('cordis.patch.yml links preset-openfilm-video-editing with persona, root ma
   assert.match(yaml, /- \.film/);
   assert.match(yaml, /- film\.html/);
   assert.match(yaml, /includeDefaultRoots: false/);
-  assert.match(yaml, /@newbiecheng\/dsh-openfilm\/openfilm-skills/);
+  assert.match(yaml, /@newbiecheng\/dsh-no996-editor\/openfilm-skills/);
 });

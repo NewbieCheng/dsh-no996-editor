@@ -1,12 +1,12 @@
 diff --git a/apps/desktop/chat/src/components/Markdown.tsx b/apps/desktop/chat/src/components/Markdown.tsx
-index ebd7224..710ef20 100644
+index ebd7224..c4cc286 100644
 --- a/apps/desktop/chat/src/components/Markdown.tsx
 +++ b/apps/desktop/chat/src/components/Markdown.tsx
 @@ -142,6 +142,9 @@ function inline(text: string): React.ReactNode[] {
      }
      if (piece.kind === 'strong') return <strong key={index} className="font-semibold">{withRefs(piece.text)}</strong>;
      if (piece.kind === 'em') return <em key={index} className="italic">{withRefs(piece.text)}</em>;
-+    /* dsh-openfilm: a picture in the transcript, drawn in place — a rendered frame or a contact sheet
++    /* dsh-no996-editor: a picture in the transcript, drawn in place — a rendered frame or a contact sheet
 +       reads as an image, and clicking it opens the full-size preview. */
 +    if (piece.kind === 'image') return <InlinePicture key={index} src={piece.href} />;
      if (piece.kind === 'link' && audioLinkPath(piece.href)) return <AudioLink key={index} href={piece.href} text={piece.text} />;
@@ -17,7 +17,7 @@ index ebd7224..710ef20 100644
  }
  
 +/**
-+ * dsh-openfilm: ![](url) drawn as a picture.
++ * dsh-no996-editor: ![](url) drawn as a picture.
 + *
 + * The frame an agent renders is the thing the person is looking at, so it belongs in the conversation
 + * rather than behind a link. Clicking opens the same full-size preview attachments use.

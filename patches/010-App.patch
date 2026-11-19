@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..18fa54a 100644
+index 26575ee..096df0f 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -70,7 +70,7 @@ index 26575ee..18fa54a 100644
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
    React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
-+  /* dsh-openfilm: the sidebar editing area switches conversations inside the same
++  /* dsh-no996-editor: the sidebar editing area switches conversations inside the same
 +     project folder (and across projects) via a custom window event. */
 +  React.useEffect(() => {
 +    const onSelect = (event: Event) => {
@@ -100,7 +100,7 @@ index 26575ee..18fa54a 100644
 +    window.addEventListener('no996-openfilm:select-session', onSelect);
 +    return () => window.removeEventListener('no996-openfilm:select-session', onSelect);
 +  }, [project.id, projectKey]);
-+  /* dsh-openfilm: the sidebar outside this page (and Studio itself) can add or
++  /* dsh-no996-editor: the sidebar outside this page (and Studio itself) can add or
 +     delete a conversation while this list sits in state. Re-read on a slow tick and
 +     when the window comes back, so both sides agree without a reload. A deleted
 +     conversation that was open leaves the empty starter — it must not silently
@@ -131,7 +131,7 @@ index 26575ee..18fa54a 100644
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
-+  /* dsh-openfilm: files may be let go anywhere in the page, not only on the composer card */
++  /* dsh-no996-editor: files may be let go anywhere in the page, not only on the composer card */
 +  const [pageDropping, setPageDropping] = React.useState(false);
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
@@ -140,7 +140,7 @@ index 26575ee..18fa54a 100644
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
-+  /* dsh-openfilm: the host page catches drops the frame cannot see and hands the
++  /* dsh-no996-editor: the host page catches drops the frame cannot see and hands the
 +     files over; this is where they join the composer. Host never fires our
 +     drop/dragleave, so clear pageDropping here or "松手即可附上" sticks. */
 +  React.useEffect(() => {
@@ -156,12 +156,12 @@ index 26575ee..18fa54a 100644
      (data: DataTransfer) => transferHasStudioRefs(data) || [...data.types].includes('Files'),
      [],
    );
-+  /* dsh-openfilm: take a file anywhere in this page.
++  /* dsh-no996-editor: take a file anywhere in this page.
 +     Embedded in a host window there is often no drop target but this composer, and the "素材丢这里" box was text
 +     that accepted nothing — every other pixel showed the system's "no entry" cursor. The composer keeps its own
 +     handler (it knows where the caret is); this one catches the rest and puts the pill at the pointer. */
 +  React.useEffect(() => {
-+    /* dsh-openfilm: `types` is not reliable for a drag that starts outside the
++    /* dsh-no996-editor: `types` is not reliable for a drag that starts outside the
 +       app (an OS file drag can reach `dragover` with an empty list), and a page
 +       that does not preventDefault on dragover is refused outright — the cursor
 +       stays at "no entry" and no drop follows. So accept the hover, then decide
@@ -204,7 +204,7 @@ index 26575ee..18fa54a 100644
      });
      return pills;
    }, []);
-+  /* dsh-openfilm: attach the current conversation on open/switch so context usage
++  /* dsh-no996-editor: attach the current conversation on open/switch so context usage
 +     and real model/thinking options populate without waiting for a user prompt. */
 +  const resumeSessionId = shownSessionItem?.agentSessions?.[agent] ?? null;
 +  const ownAgentPrefs = shownSessionItem?.agentPrefs?.[agent];

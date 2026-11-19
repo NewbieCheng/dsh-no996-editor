@@ -1,21 +1,21 @@
 {
-  "name": "@newbiecheng/dsh-openfilm",
+  "name": "@newbiecheng/dsh-no996-editor",
   "version": "0.17.0",
-  "description": "OpenFilm video studio as a DSH plugin: the official Studio + Chat shell, bridged to a DSH session.",
+  "description": "No996 Editor (不加班剪辑): OpenFilm-based video studio as a DSH plugin, bridged to native DSH sessions.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/NewbieCheng/dsh-openfilm.git"
+    "url": "https://github.com/NewbieCheng/dsh-no996-editor.git"
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://gitlab.com/api/v4/projects/89041706/packages/npm/"
+    "registry": "https://registry.npmjs.org/"
   },
   "keywords": [
     "dsh",
     "plugin",
-    "openfilm",
+    "no996",
     "video",
     "cordis"
   ],
@@ -72,7 +72,7 @@
   },
   "engines": {
     "node": ">=22.2",
-    "dsh": ">=0.2.0-rc.1 <0.3.0-0"
+    "dsh": ">=0.2.1"
   },
   "bundledDependencies": [
     "openfilm",

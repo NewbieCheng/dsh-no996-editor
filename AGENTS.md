@@ -1,4 +1,4 @@
-# AGENTS.md — dsh-openfilm / No996 Studio
+# AGENTS.md — dsh-no996-editor / No996 Studio
 
 给在本仓工作的智能体的操作手册。**先读四篇**：[`README.md`](README.md)、[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)、[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)、[`docs/STATE.md`](docs/STATE.md)；地图 [`docs/index.md`](docs/index.md)。
 
@@ -12,23 +12,23 @@
 
 1. **不碰用户既有项目和会话。** 模板安装只新建目录；不迁移、不删除、不改写别人的 `film.html`。
 2. **自动化测试禁止真实模型调用。** 只用 mock 与 `mkdtemp`。
-3. **源码只推 GitHub `NewbieCheng/dsh-openfilm`。** 插件只从 GitLab Package Registry 安装/更新（包名 **`@newbiecheng/dsh-openfilm`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 GitLab 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
+3. **源码只推 GitHub `NewbieCheng/dsh-no996-editor`。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/dsh-no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
 4. **未验证不得声称完成。** 真机 GUI 里看到行为才算“好了”。
 5. **不要把 `openfilm_draft` 当保存**（纯内存草稿）；**不要把 Studio 代理当安全边界**（本机回环集成，不是沙箱）。
 
 ### 1.1 装 / 更 / 发（最短清单）
 
-开发、验证、提交、推送、发布到更新的 **AI 最短 SOP** 和完整步骤只认 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。源码只推 GitHub，GitLab 只作包 registry。
+开发、验证、提交、推送、发布到更新的 **AI 最短 SOP** 和完整步骤只认 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。源码只推 GitHub，npmjs.org 只作包 registry。
 
 **当前阶段：本机调试。** 用户已授权把工作区构建装进本机 DSH 用于验证（装之前备份 profile 记录、装之后告知重启）；**发版不随开发自动串联**：改版本号、提交、推送、`npm publish`、tag/CI 发布都只在该用户当轮明确要求时执行。安装、更新、发版是三个独立动作，不能合并不说明。
 
-**GitLab registry 会丢 `dsh` 字段（2026-11-19 实证）：** DSH 的插件版本区靠 `pnpm view <包名>@<版本>` 的 `dsh.bundle` 判断能否安装；GitLab 项目级 npm registry **不保存** `dsh` / `description` 等自定义字段（`npm publish` 发出的 manifest 是完整的，GitLab 落库只剩 name/version/dist/engines/dependencies/devDependencies）。因此 **GitLab 上的任何版本在 GUI 都会显示「没有声明组合包，无法安装」**，CLI `dsh plugin add @newbiecheng/dsh-openfilm@<版本>` 不受影响（它读 tarball 内完整 package.json）。这不是包坏了，也不是缓存。修复只能是换一个保留完整 packument 的 npm registry；改 package.json 字段、重发同版本都没有用。发布后闸门 `scripts/verify-registry-dsh.mjs` 会检查这一点并明确报错，不要把它当成普通测试失败去改源码。
+**registry 必须保留 `dsh` 字段（2026-11-19 实证）：** DSH 的版本区靠 `pnpm view <包名>@<版本>` 的 `dsh.bundle` 判断能否安装。GitLab 与 GitHub Packages 都不保存 `dsh` 等自定义 manifest 字段，GUI 会显示「没有声明组合包，无法安装」；只有 npmjs.org 等标准 registry 保留完整 packument。因此发布通道固定为 npmjs.org。发布后跑 `node scripts/verify-registry-dsh.mjs` 确认 `dsh.bundle` 可被调用。
 
 | 事 | 命令 / 动作 |
 |---|---|
 | 本机调试装 | 打包工作区 → `dsh plugin --profile desktop add <本地包>`（仅本机调试；先记下当前版本，验证完按需回滚） |
-| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/dsh-openfilm` / 版本选项卡 → 整应用重启 |
-| 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ **用户当轮明确要求后**运行 `powershell -File .\scripts\gitlab-npm-publish.ps1` → `npm view` + 真机「版本」区 |
+| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor` / 版本选项卡 → 整应用重启 |
+| 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ **用户当轮明确要求后**运行 `powershell -File .\scripts\npmjs-publish.ps1` → `npm view` + 真机「版本」区 |
 | 包丢了 | `dsh plugin --profile desktop install`（勿在 Windows 手删 `@NewbieCheng`/`@newbiecheng` 目录） |
 
 ## 2. 四层界面，两级手段
@@ -82,5 +82,5 @@ openfilm_library(kind=template, take=<id>)
 ## 5. 端口、证据与规范
 
 - **端口**：编辑器代理 `:47822`、调试窗口 `:47821`（`0`=关）；桌面页面来源为 `dsh-app://app`。变量全表见 [`docs/reference/env-vars.md`](docs/reference/env-vars.md)。
-- **证据入口**：出事先看 [`docs/playbooks/incident.md`](docs/playbooks/incident.md)。`POST /api/no996-openfilm/diagnose` 与 `%TEMP%\dsh-openfilm\plugin.log`；进度只写在 [`docs/STATE.md`](docs/STATE.md)。
+- **证据入口**：出事先看 [`docs/playbooks/incident.md`](docs/playbooks/incident.md)。`POST /api/no996-openfilm/diagnose` 与 `%TEMP%\dsh-no996-editor\plugin.log`；进度只写在 [`docs/STATE.md`](docs/STATE.md)。
 - **不要做**：不手改 `client.js`；不让 `openfilm_draft` 承担保存/导出；不声称未接通的预览/导出沙箱已接通；不在业务提示词里塞风格库/镜头卡/模板全文。

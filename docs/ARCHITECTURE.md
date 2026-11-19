@@ -19,7 +19,7 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
 └───────────────────────────────▲──────────────────────────────┘
                                 │ Host 进程内直接适配（零子进程）
 ┌───────────────────────────────┴──────────────────────────────┐
-│ dsh-openfilm（DSH Cordis 插件，运行在 DSH Host 进程内）       │
+│ dsh-no996-editor（DSH Cordis 插件，运行在 DSH Host 进程内）       │
 │  ├─ dsh-native-agent-service：直连 ctx.sessionController      │
 │  │    · create({ workspaceId, agentPreset: 'openfilm-video-editing' })
 │  │    · prompt / follow(assistantStream: true) / cancel       │
@@ -41,7 +41,7 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
 
 ### 2.2 预设联动、指令链与模板提示词注入
 1. **预设与 Skill 隔离**（[cordis.patch.yml](../cordis.patch.yml)）：
-   - `preset-openfilm-video-editing` 内置 `@deepseek-ai/dsh-persona`（剪辑与动效搭档人设）、`@newbiecheng/dsh-openfilm/openfilm-prompt`、`@newbiecheng/dsh-openfilm/openfilm-skills`（仅注册 `skills/` 下的 `openfilm-director`、`openfilm-editing`、`openfilm-motion`），并设 `skill-filesystem.includeDefaultRoots: false`，彻底隔离全局无关 Skill。
+   - `preset-openfilm-video-editing` 内置 `@deepseek-ai/dsh-persona`（剪辑与动效搭档人设）、`@newbiecheng/dsh-no996-editor/openfilm-prompt`、`@newbiecheng/dsh-no996-editor/openfilm-skills`（仅注册 `skills/` 下的 `openfilm-director`、`openfilm-editing`、`openfilm-motion`），并设 `skill-filesystem.includeDefaultRoots: false`，彻底隔离全局无关 Skill。
    - `agent-instructions` 配置 `projectRootMarkers: ['.git', '.film', 'film.html']`，保证影片文件夹自身就是指令根，仓库/单仓上层的 `AGENTS.md` 不进入影片对话。
 2. **模板专属提示词注入**（[template-prompts.mjs](../src/film/template-prompts.mjs)）：
    - 每个视频模板可在 `vendor/templates/<id>/prompt.md`（≤ 2 KB）定义自己的“设定、节奏、镜头与屏上字规矩”。

@@ -9,8 +9,8 @@ import { inspectRepo, gitOutput, releaseProblems } from './release-check.mjs';
 import { resolveOfficialShell } from '../src/official/official-shell.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const REGISTRY = 'https://gitlab.com/api/v4/projects/89041706/packages/npm/';
-const NAME = '@newbiecheng/dsh-openfilm';
+const REGISTRY = 'https://registry.npmjs.org/';
+const NAME = '@newbiecheng/dsh-no996-editor';
 
 export function registryProblems(output, version) {
   let values;
@@ -82,13 +82,13 @@ async function main() {
   run(process.execPath, [npm, 'run', 'check']);
   run(process.execPath, ['scripts/theme-bake.mjs', '--check']);
   await resolveOfficialShell();
-  const temp = mkdtempSync(join(tmpdir(), 'dsh-openfilm-release-check-'));
+  const temp = mkdtempSync(join(tmpdir(), 'dsh-no996-editor-release-check-'));
   try {
     const built = join(temp, 'client.js');
     run(process.execPath, ['scripts/build.mjs', '--outfile', built]);
     if (!readFileSync(built).equals(readFileSync(join(ROOT, 'client.js')))) throw new Error('client.js differs from a fresh build; build and commit it before release');
     run(process.execPath, ['scripts/pack-tgz.mjs', '--out-dir', temp]);
-    const archive = join(temp, `newbiecheng-dsh-openfilm-${state.version}.tgz`);
+    const archive = join(temp, `newbiecheng-dsh-no996-editor-${state.version}.tgz`);
     const tar = process.platform === 'win32' ? 'C:\\Windows\\System32\\tar.exe' : 'tar';
     const listing = execFileSync(tar, ['-tzf', archive], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
     const archiveErrors = archiveProblems(listing);

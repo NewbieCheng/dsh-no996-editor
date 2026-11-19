@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
-index a5ba7ea..357ca7a 100644
+index a5ba7ea..16958b8 100644
 --- a/apps/desktop/chat/src/lib/agent-activity-runs.ts
 +++ b/apps/desktop/chat/src/lib/agent-activity-runs.ts
 @@ -14,7 +14,7 @@ import type { AgentActAsset } from '@openfilm/shared';
@@ -17,7 +17,7 @@ index a5ba7ea..357ca7a 100644
      /* Status words (thinking, working…) stay in the status line, not the tool list. */
 -    if (item.kind === 'thought' || isEphemeral(item)) continue;
 +    if (isEphemeral(item)) continue;
-+    /* dsh-openfilm: a thought gets a row of its own. It used to be dropped here, which made the
++    /* dsh-no996-editor: a thought gets a row of its own. It used to be dropped here, which made the
 +       renderer's ThoughtRow unreachable and left a reasoning turn looking like it did nothing. */
 +    if (item.kind === 'thought') {
 +      runs.push({ items: [item] });

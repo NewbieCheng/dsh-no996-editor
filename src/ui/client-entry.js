@@ -4,7 +4,7 @@ import { layoutTimeline } from '../film/timeline-layout.mjs'
 import { startDraft, appendDraft, undoDraft } from '../film/draft-session.mjs'
 
 window.__ModuleLoader__.load({
-  id: '@newbiecheng/dsh-openfilm',
+  id: '@newbiecheng/dsh-no996-editor',
   factory(require) {
     const React = require('react')
     const h = React.createElement

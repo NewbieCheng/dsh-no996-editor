@@ -62,7 +62,7 @@ async function collect(ctx) {
   return report;
 }
 
-export function reportPresetStatus(ctx, { file = join(tmpdir(), 'dsh-openfilm-preset.json'), attempts = 20, delayMs = 500 } = {}) {
+export function reportPresetStatus(ctx, { file = join(tmpdir(), 'dsh-no996-editor-preset.json'), attempts = 20, delayMs = 500 } = {}) {
   const done = (async () => {
     let report;
     let attempt = 0;

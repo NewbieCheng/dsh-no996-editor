@@ -44,7 +44,7 @@ const excludes = rawFiles
   .filter(rel => !(devMode && DEV_KEPT.has(rel)))
 const bundled = pkg.bundledDependencies || pkg.bundleDependencies || []
 
-const stagingRoot = mkdtempSync(join(tmpdir(), 'dsh-openfilm-pack-'))
+const stagingRoot = mkdtempSync(join(tmpdir(), 'dsh-no996-editor-pack-'))
 const pkgDir = join(stagingRoot, 'package')
 const modulesDir = join(pkgDir, 'node_modules')
 mkdirSync(pkgDir, { recursive: true })

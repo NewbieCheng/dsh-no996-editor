@@ -55,7 +55,7 @@ export function redact(fields) {
   return out;
 }
 
-export function createPluginLog({ file = join(tmpdir(), 'dsh-openfilm', 'plugin.log'), limit = 512 * 1024, keep = 1, recent = 200 } = {}) {
+export function createPluginLog({ file = join(tmpdir(), 'dsh-no996-editor', 'plugin.log'), limit = 512 * 1024, keep = 1, recent = 200 } = {}) {
   const ring = [];
   let queue = Promise.resolve();
   let writes = 0;
