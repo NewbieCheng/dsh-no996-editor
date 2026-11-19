@@ -83,6 +83,15 @@ function createPage() {
   return { native, calls, events };
 }
 
+test('OpenFilm 0.4 can register its command listener without an OS link or a Host RPC', async () => {
+  const { native, calls } = createPage();
+  assert.equal(await native.takeLink(), null);
+  const stop = native.onOpenLink(() => assert.fail('embedded shell must not receive OS protocol events'));
+  assert.equal(typeof stop, 'function');
+  stop();
+  assert.deepEqual(calls, []);
+});
+
 test('the injected page code builds the three menu rows from the RPC layer', async () => {
   const page = createPage();
   const probed = await page.native.localAgents.probe('deepseek', 'preview-model-val');

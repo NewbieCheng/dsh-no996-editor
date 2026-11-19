@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..7c2cf9f 100644
+index 92e929a..995a657 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -19,6 +19,32 @@ export const zhCN: Words = {
@@ -67,3 +67,11 @@ index 92e929a..7c2cf9f 100644
      archive: '归档',
      archived: '已归档',
      asking: '等你回答',
+@@ -264,6 +297,7 @@ export const zhCN: Words = {
+     unpin: '取消置顶',
+   },
+   starter: {
++    examples: "从示例开始",
+     subtitle: '描述你想要的影片，智能体来做；也可以先放素材。',
+     communityName: '社区',
+     communityNote: '添加插件、技能和素材',

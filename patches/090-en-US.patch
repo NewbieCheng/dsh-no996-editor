@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..065dcf4 100644
+index b41b3f8..21ca5da 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -19,6 +19,32 @@ export const enUS = {
@@ -67,3 +67,11 @@ index b41b3f8..065dcf4 100644
      archive: 'Archive',
      archived: 'Archived',
      asking: 'Waiting for you',
+@@ -265,6 +298,7 @@ export const enUS = {
+     unpin: 'Unpin',
+   },
+   starter: {
++    examples: "Start from an example",
+     subtitle: 'Describe the film you want and your agent makes it, or start with your material.',
+     communityName: 'Community',
+     communityNote: 'Add plugins, skills and material',

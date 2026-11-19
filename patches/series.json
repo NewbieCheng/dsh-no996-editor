@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "0f9a6b4bb63177d070c90e420adb736f11659e09a3170403b7d81a3cc077d5a0"
+    "sha256": "d72c91836fc1f8ea71d33b537fd6760a3bc5d5105ca463f56f8ba9c4f1e234ef"
   },
   "patches": [
     {
@@ -77,40 +77,40 @@
       "file": "090-en-US.patch",
       "source": "apps/desktop/chat/src/i18n/locales/en-US.ts",
       "group": "i18n",
-      "sha256": "c7922fc20890985961d5a74a618c99c95886388f13d5661895bb3854abe6c2c3",
-      "bytes": 3298
+      "sha256": "c4bc2ee15166e46aaeb2df1061ba76216d4f038faa75eb8c58a772362c0ce0f1",
+      "bytes": 3609
     },
     {
       "id": "100-es",
       "file": "100-es.patch",
       "source": "apps/desktop/chat/src/i18n/locales/es.ts",
       "group": "i18n",
-      "sha256": "67d50976b565086a89f15d0ebbd7b07fbecf80776981f89aa51752188a8c412e",
-      "bytes": 1176
+      "sha256": "2559c22ff45650565a0237091e7c6f8eb753424c4c58e370ac494732dc86b462",
+      "bytes": 1509
     },
     {
       "id": "110-ja",
       "file": "110-ja.patch",
       "source": "apps/desktop/chat/src/i18n/locales/ja.ts",
       "group": "i18n",
-      "sha256": "a181767b014e23b040aa557a31f7aeddd4210c0f22487c60bca9a5011e11a8d5",
-      "bytes": 1377
+      "sha256": "2cdfa80374873d8e243bceb2c57d99f18df71a6c1c49c184ba062fb92f177276",
+      "bytes": 1765
     },
     {
       "id": "120-ko",
       "file": "120-ko.patch",
       "source": "apps/desktop/chat/src/i18n/locales/ko.ts",
       "group": "i18n",
-      "sha256": "4913a3b8a6cefe0fd7965138c6ebec7891e8b0994323a5184d2a5d5bb125888b",
-      "bytes": 1241
+      "sha256": "027de722f6a10e7e64ebdca3658deffeec62cdaa60df62a8f6b78cb005b7f036",
+      "bytes": 1582
     },
     {
       "id": "130-zh-CN",
       "file": "130-zh-CN.patch",
       "source": "apps/desktop/chat/src/i18n/locales/zh-CN.ts",
       "group": "i18n",
-      "sha256": "120a1c2140aff9f1a4d5d6e65943222ae81fa5ea75c5443c27d346773f3838a3",
-      "bytes": 3301
+      "sha256": "4eb8455337ba07d879347c16c1c1a7a8bac4f4df8c16ef05015a7e8e9b9a25a2",
+      "bytes": 3604
     },
     {
       "id": "140-agent-activity-runs",

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..093a5a3 100644
+index 09e13c3..9e3e4a7 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
 @@ -130,8 +130,13 @@ export const ja: Words = {
@@ -25,3 +25,11 @@ index 09e13c3..093a5a3 100644
      archive: 'アーカイブ',
      archived: 'アーカイブ済み',
      asking: '回答待ち',
+@@ -264,6 +271,7 @@ export const ja: Words = {
+     unpin: 'ピン留めを外す',
+   },
+   starter: {
++    examples: "作例から始める",
+     subtitle: '作りたい映像を伝えるとエージェントが作ります。素材から始めることもできます。',
+     communityName: 'コミュニティ',
+     communityNote: 'プラグイン・スキル・素材を追加',

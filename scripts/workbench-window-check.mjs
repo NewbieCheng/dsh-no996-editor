@@ -102,6 +102,9 @@ try {
   await page.screenshot({ path: join(output, 'copied.png') });
   assert.equal(diag, 0, `the page reported an error banner:\n${body.slice(0, 400)}`);
   assert.ok(body.trim().length > 20, 'the opened project rendered no text at all');
+  await page.locator('[data-titlebar]').waitFor({ state: 'visible' });
+  assert.deepEqual(errors, [], 'opening the editor must not throw a page error');
+  assert.doesNotMatch(body, /starter\.examples/, 'the chat must display the translated example label');
   assert.equal(await page.locator('[data-no996-onboarding]').count(), 0);
   assert.equal(await page.locator('[data-no996-template-react]').count(), 0);
 
@@ -109,7 +112,7 @@ try {
   // "start from an example" opens this same window in example mode, and picking
   // 参考 puts one pill in the message instead of creating a project.
   await page.getByRole('button', { name: '从示例开始' }).first().click();
-  const dialog = page.getByRole('dialog', { name: /项目|Projects/ });
+  const dialog = page.getByRole('dialog', { name: /资源中心|Resource [Cc]enter/ });
   await dialog.waitFor({ timeout: 30000 });
   const hero = dialog.locator('[role="button"]').filter({ hasText: /./ }).first();
   await hero.hover();

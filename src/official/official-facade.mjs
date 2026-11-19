@@ -601,6 +601,10 @@ function officialFacadeFactory(bridge) {
     onFullScreen: remoteEvent('desktop:full-screen', (value) => value === true),
     onToggleChat: remoteEvent('desktop:toggle-chat', () => undefined),
     onOpenSettings: remoteEvent('desktop:open-settings', () => undefined),
+    // The 0.4 desktop shell calls these even without a pending link. The embedded
+    // workbench is not registered as an openfilm:// protocol handler.
+    takeLink: async () => null,
+    onOpenLink: silentEvent,
     onStudioBrowser: silentEvent, onFfmpeg: silentEvent, onUpdate: silentEvent,
     restartToUpdate: denied('restartToUpdate'),
     updateState: async () => ({ status: 'disabled', availableVersion: null, error: null }),

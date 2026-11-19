@@ -1601,7 +1601,7 @@ index 0000000..f487575
 +  );
 +}
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..065dcf4 100644
+index b41b3f8..21ca5da 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -19,6 +19,32 @@ export const enUS = {
@@ -1669,8 +1669,16 @@ index b41b3f8..065dcf4 100644
      archive: 'Archive',
      archived: 'Archived',
      asking: 'Waiting for you',
+@@ -265,6 +298,7 @@ export const enUS = {
+     unpin: 'Unpin',
+   },
+   starter: {
++    examples: "Start from an example",
+     subtitle: 'Describe the film you want and your agent makes it, or start with your material.',
+     communityName: 'Community',
+     communityNote: 'Add plugins, skills and material',
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..ab77789 100644
+index cef5071..72e5e54 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
 @@ -130,8 +130,13 @@ export const es: Words = {
@@ -1696,8 +1704,16 @@ index cef5071..ab77789 100644
      archive: 'Archivar',
      archived: 'Archivados',
      asking: 'Esperando tu respuesta',
+@@ -264,6 +271,7 @@ export const es: Words = {
+     unpin: 'Dejar de fijar',
+   },
+   starter: {
++    examples: "Empezar con un ejemplo",
+     subtitle: 'Describe la película que quieres y tu agente la hace, o empieza con tu material.',
+     communityName: 'Comunidad',
+     communityNote: 'Añade plugins, habilidades y material',
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..093a5a3 100644
+index 09e13c3..9e3e4a7 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
 @@ -130,8 +130,13 @@ export const ja: Words = {
@@ -1723,8 +1739,16 @@ index 09e13c3..093a5a3 100644
      archive: 'アーカイブ',
      archived: 'アーカイブ済み',
      asking: '回答待ち',
+@@ -264,6 +271,7 @@ export const ja: Words = {
+     unpin: 'ピン留めを外す',
+   },
+   starter: {
++    examples: "作例から始める",
+     subtitle: '作りたい映像を伝えるとエージェントが作ります。素材から始めることもできます。',
+     communityName: 'コミュニティ',
+     communityNote: 'プラグイン・スキル・素材を追加',
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index 07ac398..4c867c1 100644
+index 07ac398..ad4a661 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
 @@ -126,8 +126,13 @@ export const ko: Words = {
@@ -1750,8 +1774,16 @@ index 07ac398..4c867c1 100644
      archive: '보관',
      archived: '보관됨',
      asking: '답변 대기 중',
+@@ -260,6 +267,7 @@ export const ko: Words = {
+     unpin: '고정 해제',
+   },
+   starter: {
++    examples: "예시로 시작",
+     subtitle: '원하는 영상을 말하면 에이전트가 만듭니다. 소재부터 시작해도 됩니다.',
+     communityName: '커뮤니티',
+     communityNote: '플러그인, 스킬, 소재 추가',
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..7c2cf9f 100644
+index 92e929a..995a657 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -19,6 +19,32 @@ export const zhCN: Words = {
@@ -1819,6 +1851,14 @@ index 92e929a..7c2cf9f 100644
      archive: '归档',
      archived: '已归档',
      asking: '等你回答',
+@@ -264,6 +297,7 @@ export const zhCN: Words = {
+     unpin: '取消置顶',
+   },
+   starter: {
++    examples: "从示例开始",
+     subtitle: '描述你想要的影片，智能体来做；也可以先放素材。',
+     communityName: '社区',
+     communityNote: '添加插件、技能和素材',
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
 index a5ba7ea..357ca7a 100644
 --- a/apps/desktop/chat/src/lib/agent-activity-runs.ts

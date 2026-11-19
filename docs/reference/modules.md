@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。131 个模块、21236 行。
+> 生成命令：`npm run docs:gen`。131 个模块、21240 行。
 > 没有测试直接 import 的模块：18 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -19,7 +19,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/native/dsh-native-agent-service.mjs` | 1357 | createDshNativeAgentService | `diag-logs-route.test.mjs`、`dsh-native-agent-service.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1132 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
 | `src/studio/studio-proxy.mjs` | 1009 | startStudioProxy | `dev-hmr-proxy.test.mjs`、`diag-logs-route.test.mjs`、`proxy-error-sanitize.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
-| `src/official/official-facade.mjs` | 613 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
+| `src/official/official-facade.mjs` | 617 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/native/no996-llm-provider.mjs` | 543 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
 | `src/auth/workbench-auth.mjs` | 461 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth-jwt-session.test.mjs`、`workbench-auth.test.mjs` |
 | `src/studio/studio-panel.mjs` | 395 | createStudioPanel, templateProjectUrl | `template-bridge.test.mjs`、`template-panel.test.mjs` |
