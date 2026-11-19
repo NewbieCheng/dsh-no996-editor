@@ -2,6 +2,11 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.17.1 - 品牌改名与 npmjs 发布通道
+
+- 插件改名为 @newbiecheng/dsh-no996-editor（不加班剪辑 / No996 Editor），发布通道改为 npmjs.org，GUI 版本检测可正常识别更新。
+- DSH 兼容下限放宽到 >=0.2.1。
+
 ## 0.17.0 —— Vibe 科普创作能力全面产品化与 4 档智能工作模式
 
 - **首推模板与创意升级（`vibe-explainer`）**：新增并置顶首推 `vibe-explainer`（Vibe 科普剧场，1080×1920 竖屏 8 镜 42 秒全物理动效样片与双轨无重叠拟音轨），示例画廊卡片新增「首推」徽章；同步升级 `paper-texture`、`replica-film`、`sketchnote`、`motion-styles` 4 个既有模板的提示词引导与运行时工具链（`paper-texture` 内置 `vibe-overlay.js` 支持人脸避让高亮贴片），鼓励 AI 基于主题原创物理隐喻而非死板套壳。
