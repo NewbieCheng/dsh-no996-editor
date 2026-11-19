@@ -2,7 +2,7 @@
 
 不加班工作台是一套面向创作者的 AI 影片剪辑工作台：在 DSH 里打开一个完整的剪辑环境，用对话驱动分镜、剪辑、动效与导出。左侧是时间轴与素材库，右侧是原生 DSH 对话；你说话，它按影片项目执行。
 
-当前版本以 [`package.json`](package.json) 与 [CHANGELOG.md](CHANGELOG.md) 为准；进度看 [docs/STATE.md](docs/STATE.md)。源码仓库：`NewbieCheng/no996-editor`（GitHub），GitLab 已弃用，不再发布与维护。
+当前版本以 [`package.json`](package.json) 与 [CHANGELOG.md](CHANGELOG.md) 为准；进度看 [docs/STATE.md](docs/STATE.md)。唯一源码仓库：[`NewbieCheng/dsh-no996-editor`](https://github.com/NewbieCheng/dsh-no996-editor)（GitHub，main 分支）；旧仓库 `NewbieCheng/dsh-openfilm` 与 GitLab 均已弃用，不再发布与维护。
 
 ## 能做什么
 
