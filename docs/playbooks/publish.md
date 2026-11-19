@@ -137,6 +137,14 @@ npm view @newbiecheng/dsh-openfilm version --registry https://gitlab.com/api/v4/
 - GitLab → Deploy → Package Registry 能看到该版本
 - 真机：desktop 已是 registry 包 → 更新或重装 → 整应用重启 →「版本」区与侧栏「视频创作」正常
 
+**GitLab 的 GUI 更新限制（2026-11-19 实证，别再误判）：** `npm publish` 发送的 manifest 是完整的，但 GitLab npm registry 落库只保留 `name / version / dist / engines / dependencies / devDependencies`，**不保存 `dsh`**。DSH 的版本区靠 `pnpm view <包名>@<版本>` 的 `dsh.bundle` 判定能否安装，所以 GitLab 上发布的每个版本在 GUI 都会显示「这个版本没有声明组合包，无法安装」。这不是包坏了，也不是缓存；改 `package.json` 字段、重发同一版本都没用。用户改用 CLI 更新：
+
+```powershell
+dsh plugin --profile desktop add @newbiecheng/dsh-openfilm@<版本>
+```
+
+发布后运行 `node scripts/verify-registry-dsh.mjs`：它检查源码里的 `dsh.bundle.patch` 并核对 registry 是否保留。输出 `REGISTRY-GUI` 是**已知限制（退出码 0）**，不是发布失败；输出 `RELEASE-PACKAGE` 且退出码 1 才是包本身出错。若要让 GUI 更新生效，必须换用保留完整 packument 的 registry（例如 npmjs.org），并先取得相应 token 与用户授权——不要擅自改红线。
+
 桌面若只改了 `package.json`、磁盘上包丢了：
 
 ```powershell

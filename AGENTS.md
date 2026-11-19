@@ -22,6 +22,8 @@
 
 **当前阶段：本机调试。** 用户已授权把工作区构建装进本机 DSH 用于验证（装之前备份 profile 记录、装之后告知重启）；**发版不随开发自动串联**：改版本号、提交、推送、`npm publish`、tag/CI 发布都只在该用户当轮明确要求时执行。安装、更新、发版是三个独立动作，不能合并不说明。
 
+**GitLab registry 会丢 `dsh` 字段（2026-11-19 实证）：** DSH 的插件版本区靠 `pnpm view <包名>@<版本>` 的 `dsh.bundle` 判断能否安装；GitLab 项目级 npm registry **不保存** `dsh` / `description` 等自定义字段（`npm publish` 发出的 manifest 是完整的，GitLab 落库只剩 name/version/dist/engines/dependencies/devDependencies）。因此 **GitLab 上的任何版本在 GUI 都会显示「没有声明组合包，无法安装」**，CLI `dsh plugin add @newbiecheng/dsh-openfilm@<版本>` 不受影响（它读 tarball 内完整 package.json）。这不是包坏了，也不是缓存。修复只能是换一个保留完整 packument 的 npm registry；改 package.json 字段、重发同版本都没有用。发布后闸门 `scripts/verify-registry-dsh.mjs` 会检查这一点并明确报错，不要把它当成普通测试失败去改源码。
+
 | 事 | 命令 / 动作 |
 |---|---|
 | 本机调试装 | 打包工作区 → `dsh plugin --profile desktop add <本地包>`（仅本机调试；先记下当前版本，验证完按需回滚） |
