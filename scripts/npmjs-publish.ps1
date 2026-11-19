@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+#Requires -Version 7.0
 <#
   Publish the current package.json version to npmjs.org.
   Reads token from .npmjs-token.tmp (local) or env NPM_TOKEN.
@@ -6,7 +6,7 @@
   and Read and write (publish and stage) permissions; see docs/playbooks/publish.md.
 
   Usage (repo root):
-    powershell -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
+    pwsh -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
 #>
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot

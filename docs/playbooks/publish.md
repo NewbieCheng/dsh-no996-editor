@@ -120,7 +120,7 @@ npm run release:check   # 完整检查、registry、临时构建/打包；不发
 
 ```powershell
 # 仓库根；token 来自 .npmjs-token.tmp 或环境变量 NPM_TOKEN
-powershell -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
+pwsh -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
 ```
 
 **token 要求**：npmjs granular token，权限 `Read and write (publish and stage)`，并勾选 **Bypass two-factor authentication (2FA)**；否则 publish 被 401/403 拒绝。**token 只用于发布**：它不能 unpublish，删包必须真人到网页过 2FA。token 只能放环境变量或系统临时文件，**绝不写进仓库**（GitHub Push Protection 会拦，且一旦推送就泄露）。
