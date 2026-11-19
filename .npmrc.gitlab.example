@@ -1,5 +1,0 @@
-# Copy to ~/.npmrc (user) or profiles/<name>/.npmrc (DSH profile), then fill token.
-# Never commit a real token. For publish, prefer CI variable NPM_TOKEN.
-
-@newbiecheng:registry=https://gitlab.com/api/v4/projects/89041706/packages/npm/
-//gitlab.com/api/v4/projects/89041706/packages/npm/:_authToken=YOUR_GITLAB_TOKEN

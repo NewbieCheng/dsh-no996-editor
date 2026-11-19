@@ -1,6 +1,0 @@
-# Publishing moved to npmjs.org (see scripts/npmjs-publish.ps1).
-# GitLab CI is no longer a publish channel: its registry drops the `dsh`
-# manifest field, so DSH's version screen cannot install/update such packages.
-# This file intentionally does nothing.
-stages:
-  - none
