@@ -71,7 +71,7 @@ test('the shell route gets the shell theme, project routes get the editor theme'
   const shell = await (await get(studio.origin, '/')).text();
   assert.match(shell, /data-no996-theme="shell"/);
   assert.match(shell, /--n996-accent/);
-  assert.match(shell, /<title>不加班剪辑<\/title>/);
+  assert.match(shell, /<title>不加班工作台<\/title>/);
   assert.doesNotMatch(shell, /data-no996-theme="studio"/);
 
   const editor = await (await get(studio.origin, '/projects/abc123')).text();
@@ -103,3 +103,4 @@ test('the kill switch removes the theme from the page', async (t) => {
   const html = await (await get(studio.origin, '/')).text();
   assert.doesNotMatch(html, /data-no996-theme/);
 });
+

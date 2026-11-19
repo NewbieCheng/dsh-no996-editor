@@ -98,7 +98,7 @@ test('About branding lives in SettingsModal (source or patch), not the injection
     : `${readFileSync(modal, 'utf8')}\n${readFileSync(zh, 'utf8')}`;
   assert.match(text, /settings\.about\.embedded/);
   assert.match(text, /embedded: '基于 OpenFilm 开发'/);
-  assert.match(text, /不加班剪辑 界面使用的语言/);
+  assert.match(text, /不加班工作台 界面使用的语言/);
   assert.ok(text.includes(`OPENFILM_PIN = '${pinned}'`) || text.includes(pinned), `pin ${pinned} must appear`);
 });
 
@@ -120,3 +120,4 @@ test('the overlay is re-read from disk so editing it needs only a refresh', asyn
     writeFileSync(file, original, 'utf8');
   }
 });
+

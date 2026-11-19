@@ -42,7 +42,7 @@ export function formatDiagnosticMarkdown({
   studioProblems,
 }) {
   const lines = [
-    '# No996 Studio / OpenFilm 诊断报告',
+    '# No996 Editor / OpenFilm 诊断报告',
     `- 导出时间: ${exportedAt}`,
     `- 插件版本: ${environment.pluginVersion} | OpenFilm: ${environment.openfilmVersion} | Node: ${environment.node} | 平台: ${environment.platform}/${environment.arch}`,
     `- Studio 状态: ${studio?.running ? `运行中 (port ${studio.port ?? '?'})` : '未运行'} | 预设 (${preset?.id ?? 'openfilm-video-editing'}): ${preset?.ok ? '正常' : `异常 (${preset?.detail ?? 'unknown'})`}`,
@@ -240,3 +240,4 @@ export function createDiagLogsController({
 
   return Object.freeze({ handleRpc, buildExport, disposers });
 }
+

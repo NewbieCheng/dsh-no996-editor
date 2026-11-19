@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { brandCssVars, getBrand, replaceTitle, validateBrand } from '../src/ui/brand.mjs';
 
 const RAW = Object.freeze({
-  name: '不加班剪辑',
-  nameEn: 'No996 Studio',
+  name: '不加班工作台',
+  nameEn: 'No996 Editor',
   slug: 'no996-studio',
   vendor: '不加班',
   tagline: '把一句话剪成一支片',
@@ -15,8 +15,8 @@ const RAW = Object.freeze({
 
 test('the repository brand file is valid and frozen', () => {
   const brand = getBrand();
-  assert.equal(brand.name, '不加班剪辑');
-  assert.equal(brand.nameEn, 'No996 Studio');
+  assert.equal(brand.name, '不加班工作台');
+  assert.equal(brand.nameEn, 'No996 Editor');
   assert.equal(brand.upstream.name, 'OpenFilm');
   assert.ok(Object.isFrozen(brand));
   assert.ok(Object.isFrozen(brand.colors));
@@ -36,7 +36,7 @@ test('attribution cannot be dropped while rebranding', () => {
 });
 
 test('names and slug stay in the shapes CSS and URLs can carry', () => {
-  assert.throws(() => validateBrand({ ...structuredClone(RAW), slug: 'No996 Studio' }), /kebab-case/);
+  assert.throws(() => validateBrand({ ...structuredClone(RAW), slug: 'No996 Editor' }), /kebab-case/);
   assert.throws(() => validateBrand({ ...structuredClone(RAW), name: '' }), /name must be/);
   assert.throws(() => validateBrand({ ...structuredClone(RAW), name: 'x'.repeat(25) }), /name must be/);
 });
@@ -50,8 +50,10 @@ test('every brand colour becomes a custom property', () => {
 });
 
 test('the upstream document title is replaced, not appended', () => {
-  assert.equal(replaceTitle('<html><head><title>OpenFilm</title></head></html>', getBrand()), '<html><head><title>不加班剪辑</title></head></html>');
+  assert.equal(replaceTitle('<html><head><title>OpenFilm</title></head></html>', getBrand()), '<html><head><title>不加班工作台</title></head></html>');
   assert.equal(replaceTitle('<html><head></head></html>', getBrand()), '<html><head></head></html>');
   const escaped = replaceTitle('<title>x</title>', validateBrand({ ...structuredClone(RAW), name: 'A<B' }));
   assert.match(escaped, /<title>A&lt;B<\/title>/);
 });
+
+

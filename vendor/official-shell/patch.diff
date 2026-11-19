@@ -2291,7 +2291,7 @@ index 07ac398..8b58aa4 100644
 +  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..1abde2d 100644
+index 92e929a..8029c16 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,12 +13,38 @@ export const zhCN: Words = {
@@ -2299,10 +2299,10 @@ index 92e929a..1abde2d 100644
    banner: {
      studioFailed: 'Studio 没有启动：{error}',
 -    ffmpegMissing: 'Studio 需要 ffmpeg 来显示视频画面、声音波形和导出。安装后重新打开 OpenFilm：',
-+    ffmpegMissing: 'Studio 需要 ffmpeg 来显示视频画面、声音波形和导出。安装后重新打开 不加班剪辑：',
++    ffmpegMissing: 'Studio 需要 ffmpeg 来显示视频画面、声音波形和导出。安装后重新打开 不加班工作台：',
      ffmpegDownloading: '正在获取 ffmpeg，用于视频画面、声音和导出（约 50 MB，仅一次）… {n}%',
 -    ffmpegFailed: 'ffmpeg 没有下载成功：{error}。重新打开 OpenFilm 再试。',
-+    ffmpegFailed: 'ffmpeg 没有下载成功：{error}。重新打开 不加班剪辑 再试。',
++    ffmpegFailed: 'ffmpeg 没有下载成功：{error}。重新打开 不加班工作台 再试。',
      browserDownloading: '正在下载 Studio 绘制页面用的浏览器（约 100 MB，仅一次）…',
      browserFailed: 'Studio 绘制页面用的浏览器没有下载成功：{error}',
    },
@@ -2352,7 +2352,7 @@ index 92e929a..1abde2d 100644
      agentNotFound: '未找到',
      agentOptionsFailed: '无法启动它来读取设置。',
 -    agentOutdated: '它的版本比 OpenFilm 需要的旧。请先更新 Codex，然后',
-+    agentOutdated: '它的版本比 不加班剪辑 需要的旧。请先更新 Codex，然后',
++    agentOutdated: '它的版本比 不加班工作台 需要的旧。请先更新 Codex，然后',
      agentOwnKey: '自有密钥',
      agentPermissionDeny: '不允许',
      agentPermissionTitle: '{name} 想要执行以下操作',
@@ -2361,7 +2361,7 @@ index 92e929a..1abde2d 100644
      queuedCancel: '不发送',
      copyDiagnostics: '复制诊断信息',
 -    copyDiagnosticsHint: 'OpenFilm 在这台电脑上找到的情况和最近的问题，可以贴进 issue',
-+    copyDiagnosticsHint: '不加班剪辑 在这台电脑上找到的情况和最近的问题，可以贴进 issue',
++    copyDiagnosticsHint: '不加班工作台 在这台电脑上找到的情况和最近的问题，可以贴进 issue',
      diagnosticsCopied: '已复制',
      switchAccount: '切换账号',
      signedInAs: '当前登录：{account}。',
@@ -2396,7 +2396,7 @@ index 92e929a..1abde2d 100644
      make: '和 agent 一起做一个',
      makeHint: '把一种做法写成 skill，存进“我的”。',
 -    makePrompt: '把这次对话里的做法整理成一个 OpenFilm skill：一个带 SKILL.md 的文件夹（名字、什么时候用的说明，然后是步骤），存到 {folder}。先告诉我它会包含什么、打算叫什么名字，我同意后再保存。',
-+    makePrompt: '把这次对话里的做法整理成一个 不加班剪辑 skill：一个带 SKILL.md 的文件夹（名字、什么时候用的说明，然后是步骤），存到 {folder}。先告诉我它会包含什么、打算叫什么名字，我同意后再保存。',
++    makePrompt: '把这次对话里的做法整理成一个 不加班工作台 skill：一个带 SKILL.md 的文件夹（名字、什么时候用的说明，然后是步骤），存到 {folder}。先告诉我它会包含什么、打算叫什么名字，我同意后再保存。',
      fromFolderTitle: '从文件夹',
      dropHere: '把文件夹拖到这里',
      orPick: '或点击选择文件夹',
@@ -2405,7 +2405,7 @@ index 92e929a..1abde2d 100644
      thoughtNotKept: 'agent 的记录里没有保存思考内容',
      skills: 'Skills 和 MCP',
 -    skillsOpenfilm: 'OpenFilm 的 skill',
-+    skillsOpenfilm: '不加班剪辑 的 skill',
++    skillsOpenfilm: '不加班工作台 的 skill',
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
@@ -2414,7 +2414,7 @@ index 92e929a..1abde2d 100644
      confirm: '撤销',
      cancel: '取消',
 -    gone: '这一轮已无法撤销：之前的文件只在 OpenFilm 打开期间保留。',
-+    gone: '这一轮已无法撤销：之前的文件只在 不加班剪辑 打开期间保留。',
++    gone: '这一轮已无法撤销：之前的文件只在 不加班工作台 打开期间保留。',
      missed: '已撤销，但 {names} 没能恢复成原来的样子。',
    },
 +  workMode: {
@@ -5475,12 +5475,12 @@ index f6d252f..fb8ee12 100644
  }
 diff --git a/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
 new file mode 100644
-index 0000000..172da11
+index 0000000..c26494d
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
 @@ -0,0 +1,659 @@
 +/**
-+ * In-app Error & Diagnostic Log Center for 不加班剪辑 / OpenFilm.
++ * In-app Error & Diagnostic Log Center for 不加班工作台 / OpenFilm.
 + *
 + * Unifies Host persistent daily logs (`$DSH_HOME/no996-openfilm/logs/diagnostics-*.jsonl`),
 + * live page buffer (`window.__no996DiagBuffer`), Studio `problems.jsonl`, and active
@@ -8147,7 +8147,7 @@ index 4be139f..bab0bda 100644
        about: {
          openfilm: 'OpenFilm\'s own service. Connect your OpenFilm account once and make voice-over, music, sound, transcripts, pictures and video with leading models, paid from your OpenFilm balance: no other accounts or keys.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/es.ts b/packages/openfilm/studio/ui/src/i18n/es.ts
-index cd10a7b..1039baf 100644
+index cd10a7b..e67580e 100644
 --- a/packages/openfilm/studio/ui/src/i18n/es.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/es.ts
 @@ -126,7 +126,7 @@ export const es: Words = {
@@ -8286,7 +8286,7 @@ index cd10a7b..1039baf 100644
        languageSystem: 'Igual que el sistema',
        themeHint: 'Claro, oscuro o igual que el sistema.',
 -      languageHint: 'El idioma en que se muestra OpenFilm.',
-+      languageHint: 'El idioma en que se muestra 不加班剪辑.',
++      languageHint: 'El idioma en que se muestra 不加班工作台.',
      },
      storage: {
        group: "Almacenamiento",
@@ -8329,7 +8329,7 @@ index cd10a7b..1039baf 100644
        about: {
          openfilm: 'El servicio propio de OpenFilm. Conecta tu cuenta de OpenFilm una vez y crea voz en off, música, sonido, transcripciones, imágenes y vídeo con modelos de primera, pagando con tu saldo de OpenFilm: sin otras cuentas ni claves.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ja.ts b/packages/openfilm/studio/ui/src/i18n/ja.ts
-index bebc8ac..ca870a6 100644
+index bebc8ac..61f6a3c 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ja.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ja.ts
 @@ -126,7 +126,7 @@ export const ja: Words = {
@@ -8468,7 +8468,7 @@ index bebc8ac..ca870a6 100644
        languageSystem: 'システムに合わせる',
        themeHint: 'ライト、ダーク、またはシステムに合わせる。',
 -      languageHint: 'OpenFilm の表示言語。',
-+      languageHint: '不加班剪辑の表示言語。',
++      languageHint: '不加班工作台の表示言語。',
      },
      storage: {
        group: "ストレージ",
@@ -8511,7 +8511,7 @@ index bebc8ac..ca870a6 100644
        about: {
          openfilm: 'OpenFilm 自身のサービス。OpenFilm アカウントを一度接続するだけで、ナレーション、音楽、効果音、書き起こし、画像、ビデオを主要なモデルで作れます。支払いは OpenFilm の残高から。ほかのアカウントやキーは不要です。',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ko.ts b/packages/openfilm/studio/ui/src/i18n/ko.ts
-index f5955a6..ee9142c 100644
+index f5955a6..47e936f 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ko.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ko.ts
 @@ -124,7 +124,7 @@ export const ko: Words = {
@@ -8650,7 +8650,7 @@ index f5955a6..ee9142c 100644
        languageSystem: '시스템 설정 따르기',
        themeHint: '라이트, 다크 또는 시스템 설정을 따릅니다.',
 -      languageHint: 'OpenFilm 화면에 표시되는 언어.',
-+      languageHint: '不加班剪辑 화면에 표시되는 언어.',
++      languageHint: '不加班工作台 화면에 표시되는 언어.',
      },
      storage: {
        group: "저장 공간",
@@ -8693,7 +8693,7 @@ index f5955a6..ee9142c 100644
        about: {
          openfilm: 'OpenFilm 자체 서비스입니다. OpenFilm 계정을 한 번 연결하면 선도적인 모델로 내레이션, 음악, 효과음, 대본, 이미지, 비디오를 만들고 OpenFilm 잔액에서 결제합니다. 다른 계정이나 키가 필요 없습니다.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
-index debd95b..223a1de 100644
+index debd95b..5a8e28d 100644
 --- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 @@ -132,7 +132,7 @@ export const zhCN: Words = {
@@ -8701,7 +8701,7 @@ index debd95b..223a1de 100644
      coverSaving: "保存中…",
      coverInvalid: "请选择有效的 PNG、JPEG 或 WebP 图片，最大 5 MB。",
 -    discoverNote: '用 OpenFilm 做的片子，可以从它开始，也可以参考它的做法。',
-+    discoverNote: '用 不加班剪辑 做的片子，可以从它开始，也可以参考它的做法。',
++    discoverNote: '用 不加班工作台 做的片子，可以从它开始，也可以参考它的做法。',
      workflow: '场景',
      style: '风格',
      fromFolder: '文件夹',
@@ -8710,7 +8710,7 @@ index debd95b..223a1de 100644
      lost: '与 Studio 的连接中断了，正在重新连接…',
      gone: 'Studio 已停止运行。在终端运行下面这条命令，或让智能体重新打开 OpenFilm，这个页面会自动重新连上。',
 -    goneApp: 'Studio 已停止运行。退出并重新打开 OpenFilm 应用即可恢复。',
-+    goneApp: 'Studio 已停止运行。退出并重新打开 不加班剪辑 应用即可恢复。',
++    goneApp: 'Studio 已停止运行。退出并重新打开 不加班工作台 应用即可恢复。',
      copied: '已复制',
      lockedTitle: '这个浏览器还没有登录 Studio',
      lockedBody: 'Studio 正在运行，但只接受用带 key 的地址打开过一次的浏览器。请打开 `openfilm open`（开发时是 `pnpm dev`）打印的完整地址，也就是带 ?key= 的那个；打开一次之后，这个浏览器就能直接用 Studio 的地址了。',
@@ -8719,7 +8719,7 @@ index debd95b..223a1de 100644
      all: "全部素材",
      recent: "最近添加",
 -    managed: "OpenFilm 素材",
-+    managed: "不加班剪辑 素材",
++    managed: "不加班工作台 素材",
      quickAccess: "快速访问",
      locations: "存储位置",
      connectFolder: "连接文件夹…",
@@ -8728,7 +8728,7 @@ index debd95b..223a1de 100644
          ref: '仓库中没有这个分支或标签。',
          noFolder: '仓库中没有这个文件夹。',
 -        noFilm: '这个文件夹里没有 film.html，它不是 OpenFilm 影片。',
-+        noFilm: '这个文件夹里没有 film.html，它不是 不加班剪辑 影片。',
++        noFilm: '这个文件夹里没有 film.html，它不是 不加班工作台 影片。',
          tooBig: '内容太大，已停止获取。',
          timeout: '一段时间内没有收到任何数据，已停止。请检查网络连接后重试。',
          git: '这个仓库是私有的或不在 GitHub 上，需要 git。请安装 git 后重试。',
@@ -8737,7 +8737,7 @@ index debd95b..223a1de 100644
      noAudio: '此影片没有声音。',
      noFolder: '请先选择保存位置。',
 -    engineDown: '本地引擎没有响应。请重启 OpenFilm 后再试。',
-+    engineDown: '本地引擎没有响应。请重启 不加班剪辑 后再试。',
++    engineDown: '本地引擎没有响应。请重启 不加班工作台 后再试。',
      engineDesktop: '在这台电脑上使用硬件编码渲染，不会上传任何内容。',
      queueing: '正在开始…',
      export: '导出',
@@ -8746,7 +8746,7 @@ index debd95b..223a1de 100644
      },
      projectPartNone: '这个项目还没有。',
 -    projectHint: '缓存不会导出：项目打开时 OpenFilm 会重新生成。',
-+    projectHint: '缓存不会导出：项目打开时 不加班剪辑 会重新生成。',
++    projectHint: '缓存不会导出：项目打开时 不加班工作台 会重新生成。',
      captionTracksDrawn: '字幕轨是画面的一部分，会一起导出；不想要时在时间线上隐藏字幕轨。',
    },
    exportTray: {
@@ -8764,7 +8764,7 @@ index debd95b..223a1de 100644
      kindUpgrade: '开始保存项目的全部文件',
      kindParked: '留在「{name}」上的改动',
 -    loadFailed: '版本历史读取失败。请重试；如果一直失败，请重启 OpenFilm。',
-+    loadFailed: '版本历史读取失败。请重试；如果一直失败，请重启 不加班剪辑。',
++    loadFailed: '版本历史读取失败。请重试；如果一直失败，请重启 不加班工作台。',
      retry: '重试',
      errorNoFilm: '这个版本里没有 film.html 可以恢复，请选更早的版本。',
      errorMissingFilm: 'film.html 不见了，所以没有可以保存为版本的内容。请先恢复它：从这里的某个版本，或从智能体这一轮之前的状态。',
@@ -8773,7 +8773,7 @@ index debd95b..223a1de 100644
      workbenchOpen: "打开",
      noPluginsOn: "没有打开任何编辑器。在「功能」里打开一个，就可以开始做片子。",
 -    surfaceMissing: "这个版本的 OpenFilm 里没有这个编辑器的界面。",
-+    surfaceMissing: "这个版本的 不加班剪辑 里没有这个编辑器的界面。",
++    surfaceMissing: "这个版本的 不加班工作台 里没有这个编辑器的界面。",
      surfaceStarting: "正在启动…",
      surfaceNotAllowed: "这个编辑器要在你的电脑上运行自己的代码。请在「功能」里打开它的页面并允许。",
      surfaceFailed: "这个编辑器的程序没有启动起来。",
@@ -8782,7 +8782,7 @@ index debd95b..223a1de 100644
      import: "导入",
      export: "导出",
 -    importFailed: "文件中没有有效的 OpenFilm 布局，或文件过大。",
-+    importFailed: "文件中没有有效的 不加班剪辑 布局，或文件过大。",
++    importFailed: "文件中没有有效的 不加班工作台 布局，或文件过大。",
      imported: "已导入 {n} 个布局。",
      importLimit: "未导入新布局，最多可保存 24 个。",
      dock_left: "停靠左侧",
@@ -8791,22 +8791,22 @@ index debd95b..223a1de 100644
        saving: '正在保存录音…',
        fileName: '录音',
 -      denied: 'OpenFilm 没有麦克风权限：请在系统的隐私设置（或浏览器的网站设置）里允许后再试。',
-+      denied: '不加班剪辑 没有麦克风权限：请在系统的隐私设置（或浏览器的网站设置）里允许后再试。',
++      denied: '不加班工作台 没有麦克风权限：请在系统的隐私设置（或浏览器的网站设置）里允许后再试。',
        missing: '没有找到麦克风。',
        failed: '没能开始录音。',
        hint: '从播放头处开始录，录好放在一条声音轨道上。切到别的分类也会继续录。',
      },
      split: '分割',
 -    subtitlesConnect: '生成字幕需要一个语音转写服务：请在设置（左上角的 OpenFilm 标志）→ 服务中连接一个',
-+    subtitlesConnect: '生成字幕需要一个语音转写服务：请在设置（左上角的 不加班剪辑 标志）→ 服务中连接一个',
++    subtitlesConnect: '生成字幕需要一个语音转写服务：请在设置（左上角的 不加班工作台 标志）→ 服务中连接一个',
      subtitlesFailed: '无法生成字幕：{error}',
      subtitleLanguageTranslate: '翻译为',
      subtitleTranslating: '正在将语音翻译为 {lang}…',
      subtitleTranslateFailed: '暂时无法翻译。',
 -    subtitleTranslateConnect: '请在设置（左上角的 OpenFilm 标志）→ 服务中连接一个翻译服务。',
 -    subtitleTranslateAgent: '翻译字幕用你的 Agent 自己的模型：请在设置（左上角的 OpenFilm 标志）→ 智能体中连接一个 Agent。',
-+    subtitleTranslateConnect: '请在设置（左上角的 不加班剪辑 标志）→ 服务中连接一个翻译服务。',
-+    subtitleTranslateAgent: '翻译字幕用你的 Agent 自己的模型：请在设置（左上角的 不加班剪辑 标志）→ 智能体中连接一个 Agent。',
++    subtitleTranslateConnect: '请在设置（左上角的 不加班工作台 标志）→ 服务中连接一个翻译服务。',
++    subtitleTranslateAgent: '翻译字幕用你的 Agent 自己的模型：请在设置（左上角的 不加班工作台 标志）→ 智能体中连接一个 Agent。',
      removeBlock: '删除',
      rippleRemove: '波纹删除',
      menuSplitHere: '在播放头处分割',
@@ -8823,7 +8823,7 @@ index debd95b..223a1de 100644
        group: '通知',
        turns: '智能体做完时提醒',
 -      turnsHint: 'OpenFilm 不在前台时，一轮做完、出错中断、或在等你回答，都会发系统通知。点通知回到那个项目。',
-+      turnsHint: '不加班剪辑 不在前台时，一轮做完、出错中断、或在等你回答，都会发系统通知。点通知回到那个项目。',
++      turnsHint: '不加班工作台 不在前台时，一轮做完、出错中断、或在等你回答，都会发系统通知。点通知回到那个项目。',
      },
      account: {
        group: '账号',
@@ -8832,7 +8832,7 @@ index debd95b..223a1de 100644
        languageSystem: '跟随系统',
        themeHint: '浅色、深色，或跟随系统。',
 -      languageHint: 'OpenFilm 界面使用的语言。',
-+      languageHint: '不加班剪辑 界面使用的语言。',
++      languageHint: '不加班工作台 界面使用的语言。',
      },
      storage: {
        group: "存储",
@@ -8842,8 +8842,8 @@ index debd95b..223a1de 100644
        projectLine: "{size}，缓存 {clearable}",
 -      ours: "OpenFilm 占用",
 -      area: {projects: "项目", linked: "链接的项目", saved: "素材库", skills: "我的技能", exports: "导出", cache: "缓存", app: "OpenFilm 自用" },
-+      ours: "不加班剪辑 占用",
-+      area: {projects: "项目", linked: "链接的项目", saved: "素材库", skills: "我的技能", exports: "导出", cache: "缓存", app: "不加班剪辑 自用" },
++      ours: "不加班工作台 占用",
++      area: {projects: "项目", linked: "链接的项目", saved: "素材库", skills: "我的技能", exports: "导出", cache: "缓存", app: "不加班工作台 自用" },
        areaNote: {projects: "项目位置里的 {count} 个项目", linked: "{count} 个项目，在其他位置的文件夹，原地打开", saved: "你的素材，所有影片共用", skills: "你添加或自己写的技能", exports: "导出的成片", cache: "预览和导出时生成，清理后用到时会重新生成", app: "模型、下载的素材库、日志" },
        parts: "素材 {media} · 版本 {history} · 对话 {talk} · 文件 {files}",
      },
@@ -9090,13 +9090,13 @@ index bfafa9c..1277fb9 100644
    return null;
 diff --git a/packages/shared/src/no996-brand.ts b/packages/shared/src/no996-brand.ts
 new file mode 100644
-index 0000000..bb2b35c
+index 0000000..21dd241
 --- /dev/null
 +++ b/packages/shared/src/no996-brand.ts
 @@ -0,0 +1,7 @@
 +/** No996 product identity, sourced from no996-editor brand/brand.json and logo-symbol-color.svg. */
 +export const PRODUCT_NAME = "No996 Studio";
-+export const PRODUCT_NAME_ZH = "不加班剪辑";
++export const PRODUCT_NAME_ZH = "不加班工作台";
 +export const MARK_VIEWBOX = '0 0 884 836';
 +export const MARK_BODY = "M 201 216 L 201 280 L 202 281 L 372 281 L 373 283 L 352 312 L 336 332 L 282 392 L 280 393 L 261 414 L 259 415 L 226 449 L 185 488 L 147 522 L 249 522 L 276 500 L 303 475 L 336 442 L 376 399 L 377 400 L 377 610 L 378 611 L 448 611 L 448 394 L 449 393 L 477 419 L 535 478 L 583 534 L 586 533 L 621 504 L 645 486 L 584 421 L 528 367 L 527 365 L 501 341 L 496 338 L 439 337 L 438 336 L 430 336 L 429 335 L 469 281 L 635 281 L 635 215 L 202 215 Z M 492 9 L 485 9 L 484 8 L 470 7 L 469 6 L 458 6 L 457 5 L 415 4 L 414 5 L 393 5 L 392 6 L 372 7 L 371 8 L 359 9 L 358 10 L 353 10 L 352 11 L 347 11 L 346 12 L 332 14 L 331 15 L 308 20 L 301 23 L 298 23 L 280 29 L 277 31 L 272 32 L 252 41 L 250 41 L 216 58 L 209 63 L 199 68 L 177 83 L 148 106 L 114 139 L 88 170 L 64 205 L 54 224 L 52 226 L 40 250 L 40 252 L 32 269 L 19 308 L 19 311 L 14 328 L 11 347 L 10 348 L 8 368 L 7 369 L 7 377 L 6 378 L 6 388 L 5 389 L 5 405 L 4 406 L 4 432 L 5 433 L 4 435 L 5 436 L 5 453 L 6 454 L 7 475 L 8 476 L 8 482 L 9 483 L 9 489 L 10 490 L 12 505 L 14 510 L 16 522 L 20 533 L 20 536 L 27 557 L 36 577 L 36 579 L 48 603 L 75 646 L 99 677 L 127 707 L 155 732 L 197 762 L 235 783 L 237 783 L 246 788 L 248 788 L 255 792 L 257 792 L 270 798 L 304 809 L 311 810 L 323 814 L 342 817 L 343 818 L 355 819 L 362 821 L 377 822 L 339 791 L 320 773 L 262 712 L 241 701 L 213 682 L 189 662 L 162 634 L 139 605 L 118 571 L 99 529 L 96 518 L 94 515 L 94 512 L 92 508 L 92 505 L 90 501 L 90 498 L 86 485 L 84 470 L 83 469 L 83 464 L 82 463 L 81 446 L 80 445 L 80 432 L 79 431 L 80 390 L 81 389 L 81 381 L 82 380 L 83 367 L 84 366 L 86 352 L 88 347 L 88 343 L 90 339 L 91 332 L 100 304 L 108 287 L 108 285 L 122 257 L 136 234 L 151 213 L 165 196 L 194 167 L 226 142 L 257 123 L 299 104 L 313 100 L 316 98 L 319 98 L 326 95 L 329 95 L 333 93 L 336 93 L 349 89 L 364 87 L 365 86 L 370 86 L 371 85 L 376 85 L 377 84 L 394 83 L 395 82 L 435 81 L 436 82 L 453 82 L 454 83 L 463 83 L 464 84 L 478 85 L 479 86 L 484 86 L 485 87 L 489 87 L 490 88 L 494 88 L 495 89 L 499 89 L 500 90 L 515 93 L 543 102 L 546 104 L 563 110 L 605 132 L 616 140 L 622 143 L 642 158 L 657 171 L 682 196 L 694 210 L 714 238 L 723 253 L 726 260 L 728 262 L 736 278 L 736 280 L 740 287 L 740 289 L 746 302 L 747 307 L 749 310 L 749 313 L 758 340 L 758 343 L 762 356 L 762 360 L 794 350 L 797 348 L 800 348 L 824 339 L 830 338 L 836 335 L 835 334 L 835 330 L 834 329 L 831 314 L 827 303 L 827 300 L 817 271 L 808 251 L 808 249 L 788 210 L 778 195 L 777 192 L 774 189 L 773 186 L 751 157 L 738 142 L 711 115 L 695 101 L 669 81 L 640 62 L 600 41 L 598 41 L 576 31 L 568 29 L 565 27 L 553 23 L 550 23 L 546 21 L 543 21 L 539 19 L 536 19 L 523 15 L 519 15 L 518 14 L 514 14 L 513 13 L 509 13 L 503 11 L 498 11 Z";
 +export const MARK_ACCENT = "M 879 384 L 877 382 L 873 384 L 869 384 L 856 388 L 843 390 L 839 392 L 835 392 L 822 396 L 818 396 L 814 398 L 809 398 L 805 400 L 792 402 L 788 404 L 784 404 L 772 408 L 767 408 L 763 410 L 750 412 L 746 414 L 733 416 L 729 418 L 725 418 L 724 419 L 693 426 L 692 427 L 693 430 L 706 437 L 711 441 L 716 443 L 721 447 L 726 449 L 731 453 L 736 455 L 741 459 L 735 464 L 732 468 L 715 482 L 708 490 L 693 502 L 688 508 L 681 513 L 671 522 L 668 526 L 662 530 L 661 532 L 651 540 L 648 544 L 611 576 L 606 582 L 591 594 L 586 600 L 569 614 L 566 618 L 547 634 L 544 638 L 505 672 L 502 676 L 494 682 L 483 692 L 478 698 L 470 704 L 450 723 L 445 720 L 442 716 L 423 700 L 422 698 L 401 680 L 396 674 L 377 658 L 376 656 L 358 640 L 353 643 L 345 650 L 342 654 L 327 666 L 324 670 L 309 682 L 309 683 L 303 688 L 304 691 L 378 761 L 395 779 L 442 823 L 449 831 L 451 831 L 458 825 L 459 823 L 476 809 L 479 805 L 514 775 L 517 771 L 532 759 L 535 755 L 570 725 L 573 721 L 580 716 L 609 689 L 626 675 L 629 671 L 644 659 L 644 658 L 656 647 L 664 641 L 667 637 L 674 632 L 684 623 L 685 621 L 693 615 L 703 605 L 738 575 L 741 571 L 774 543 L 779 537 L 785 533 L 804 515 L 823 540 L 825 544 L 829 548 L 831 552 L 835 556 L 837 560 L 840 563 L 842 563 L 844 558 L 844 552 L 846 547 L 846 542 L 848 537 L 848 532 L 850 527 L 850 522 L 852 517 L 852 512 L 854 507 L 856 492 L 858 488 L 858 483 L 860 478 L 862 464 L 864 459 L 864 454 L 866 449 L 866 444 L 868 439 L 868 434 L 870 429 L 870 424 L 872 419 L 872 414 L 874 410 L 874 405 L 876 400 L 876 396 L 877 395 L 877 391 Z";

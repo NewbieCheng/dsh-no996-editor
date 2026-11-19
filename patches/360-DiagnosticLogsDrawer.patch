@@ -1,11 +1,11 @@
 diff --git a/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
 new file mode 100644
-index 0000000..172da11
+index 0000000..c26494d
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx
 @@ -0,0 +1,659 @@
 +/**
-+ * In-app Error & Diagnostic Log Center for 不加班剪辑 / OpenFilm.
++ * In-app Error & Diagnostic Log Center for 不加班工作台 / OpenFilm.
 + *
 + * Unifies Host persistent daily logs (`$DSH_HOME/no996-openfilm/logs/diagnostics-*.jsonl`),
 + * live page buffer (`window.__no996DiagBuffer`), Studio `problems.jsonl`, and active

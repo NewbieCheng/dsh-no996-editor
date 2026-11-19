@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { bake, composeThemeCss } from '../scripts/theme-bake.mjs';
 
 const BRAND = Object.freeze({
-  name: '不加班剪辑',
+  name: '不加班工作台',
   colors: Object.freeze({ accent: '#ff6400', paper: '#f5f0e5', ink: '#18171c' }),
 });
 const sha = (value) => createHash('sha256').update(value).digest('hex');
@@ -63,3 +63,4 @@ test('the baked CSS is exactly what development injects', () => {
   assert.match(css, /--n996-radius/);
   assert.match(css, /::selection/);
 });
+

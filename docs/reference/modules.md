@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。142 个模块、23636 行。
+> 生成命令：`npm run docs:gen`。142 个模块、23639 行。
 > 没有测试直接 import 的模块：18 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -35,7 +35,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/dev/dev-hmr-proxy.mjs` | 256 | createDevHmrHooks, isViteUiPath, parseLoopbackViteOrigin | `dev-browser-portal.test.mjs`、`dev-hmr-proxy.test.mjs` |
 | `src/asr/transcribe-service.mjs` | 255 | CACHE_VERSION, createTranscribeService, fingerprint | **无** |
 | `src/official/official-permission.mjs` | 249 | FULL_ACCESS, PROJECT_PERMISSIONS_DOMAIN, WORKSPACE_WRITE, openProjectPermissions | `official-permission.test.mjs` |
-| `src/studio/studio-controller/routes/diag-logs.mjs` | 242 | createDiagLogsController, formatDiagnosticMarkdown | `diag-logs-route.test.mjs` |
+| `src/studio/studio-controller/routes/diag-logs.mjs` | 243 | createDiagLogsController, formatDiagnosticMarkdown | `diag-logs-route.test.mjs` |
 | `src/studio/studio-entry.js` | 226 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/tools/kit-tool.mjs` | 220 | RUNTIME_KITS, createKitTool | `kit-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/sfx-tool.mjs` | 212 | createSfxTool | `sfx-synth.test.mjs`、`tool-schema.test.mjs` |
@@ -44,7 +44,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/tools/cli-tool.mjs` | 193 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/asr/asr-models.mjs` | 192 | SENSE_VOICE, ensureModels, libraryCacheRoot, modelState, modelsRoot, senseVoiceDir… | `asr-models.test.mjs` |
 | `src/film/script-plan.mjs` | 186 | planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt… | `storyboard.test.mjs` |
-| `src/host/fallback-prompt.mjs` | 185 | buildFallbackPayload, createFallbackPrompt | `fallback-prompt.test.mjs` |
+| `src/host/fallback-prompt.mjs` | 186 | buildFallbackPayload, createFallbackPrompt | `fallback-prompt.test.mjs` |
 | `src/official/official-chat-rpc.mjs` | 185 | createOfficialChatRpc | `diag-logs-route.test.mjs`、`official-chat-rpc.test.mjs` |
 | `src/film/storyboard.mjs` | 180 | KINDS, MOTIONS, STORYBOARD_FILE, VERSION, normalizeStoryboard, planFromStoryboard… | `storyboard.test.mjs` |
 | `src/tools/vision-tool.mjs` | 179 | createVisionTools, extractVisionFrame | `tool-schema.test.mjs`、`vision-tool.test.mjs` |
@@ -155,7 +155,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/official/official-attachment.mjs` | 20 | officialUploadSource | `official-attachment.test.mjs` |
 | `src/native/openfilm-prompt.mjs` | 19 | apply, inject | `pinned-scope-integration.test.mjs` |
 | `src/studio/studio-controller/http-body.mjs` | 15 | readJsonBody | **无** |
-| `src/native/openfilm-persona.mjs` | 12 | PERSONA, ROOT_MARKERS | `agent-overlays.test.mjs` |
+| `src/native/openfilm-persona.mjs` | 13 | PERSONA, ROOT_MARKERS | `agent-overlays.test.mjs` |
 | `src/film/film-source.mjs` | 11 | MAX_SOURCE_BYTES, decodeFilmSource | `film-draft.test.mjs`、`film-source.test.mjs` |
 
 ## 没有测试直接 import 的模块

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { createTheme, THEME_SURFACES, themeSurfaceFor } from '../src/ui/theme.mjs';
 
 const BRAND = Object.freeze({
-  name: '不加班剪辑',
+  name: '不加班工作台',
   colors: Object.freeze({ accent: '#ff6400', paper: '#f5f0e5', ink: '#18171c' }),
 });
 
@@ -90,3 +90,4 @@ test('the shell owns only the root route; the editor owns project routes', () =>
   assert.equal(themeSurfaceFor('/projects/abc123', true), 'studio');
   assert.equal(themeSurfaceFor('/projects/abc123', false), 'studio');
 });
+

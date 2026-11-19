@@ -2,6 +2,12 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.17.11 - 不加班工作台品牌与商业授权
+
+- 更名为「不加班工作台 · No996 Editor」，README 重写产品定位与能力；OpenFilm 仅在末尾致谢处保留一次提名。
+- LICENSE 改为商业授权协议：个人学习与非商业个人影片制作免费；公司/团队内部使用、对外服务、销售或再分发须取得书面商业授权；禁止未经授权的分发与品牌冒用。
+- GitLab Package Registry 弃用，npmjs.org 为唯一包源；发布与更新流程见 docs/playbooks/publish.md。
+
 ## 0.17.1 - 品牌改名与 npmjs 发布通道
 
 - 插件改名为 @newbiecheng/no996-editor（不加班剪辑 / No996 Editor），发布通道改为 npmjs.org，GUI 版本检测可正常识别更新。

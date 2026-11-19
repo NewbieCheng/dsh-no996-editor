@@ -119,7 +119,7 @@ export function createFallbackPrompt(kind = 'tools', diag = {}) {
     lines.push('');
   }
 
-  lines.push('装好后请告诉我如何回到不加班剪辑工作台点「重新检查」确认。');
+  lines.push('装好后请告诉我如何回到不加班工作台工作台点「重新检查」确认。');
   return lines.join('\n').trim() + '\n';
 }
 
@@ -183,3 +183,4 @@ export function buildFallbackPayload(kind, {
     },
   };
 }
+

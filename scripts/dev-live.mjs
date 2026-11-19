@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unified real-time dev loop for No996 Studio / OpenFilm:
+ * Unified real-time dev loop for No996 Editor / OpenFilm:
  *
  *   1. Ensures `.upstream/openfilm` exists (applies `patches/*.patch` ONLY if clean;
  *      never overwrites developer's active edits).
@@ -189,7 +189,7 @@ try {
 
 console.log('');
 console.log('==============================================================');
-console.log(' No996 Studio / OpenFilm 实时开发模式已启动 (Vite HMR + 热样式)');
+console.log(' No996 Editor / OpenFilm 实时开发模式已启动 (Vite HMR + 热样式)');
 console.log('==============================================================');
 console.log(` 外部浏览器 / Agent 开放端口 : ${devPortalUrl} (需开启 DSH 开发模式)`);
 console.log(` Vite Dev Server (内部 HMR)  : ${viteOrigin} (HMR ws: /__dsh_vite_hmr)`);
@@ -214,3 +214,4 @@ async function shutdown() {
 }
 process.on('SIGINT', () => void shutdown());
 process.on('SIGTERM', () => void shutdown());
+

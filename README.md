@@ -1,76 +1,67 @@
-# 不加班剪辑 · No996 Studio
+# 不加班工作台 · No996 Editor
 
-把 **OpenFilm 0.4.0** 视频工作台做成 DSH 插件：官方 Studio 与桌面壳整页常驻在侧边栏，右侧对话在 Host 进程内直连 DSH 原生 `SessionController`（绑定 `openfilm-video-editing` 预设）。
+不加班工作台是一套面向创作者的 AI 影片剪辑工作台：在 DSH 里打开一个完整的剪辑环境，用对话驱动分镜、剪辑、动效与导出。左侧是时间轴与素材库，右侧是原生 DSH 对话；你说话，它按影片项目执行。
 
-版本以 `package.json` 与 [CHANGELOG.md](CHANGELOG.md) 为准；"现在到哪了"看 [docs/STATE.md](docs/STATE.md)。仓库：`NewbieCheng/no996-editor`，分支 `main`。
+当前版本以 [`package.json`](package.json) 与 [CHANGELOG.md](CHANGELOG.md) 为准；进度看 [docs/STATE.md](docs/STATE.md)。源码仓库：`NewbieCheng/no996-editor`（GitHub），GitLab 已弃用，不再发布与维护。
 
-## 安装
+## 能做什么
 
-包名：`@newbiecheng/no996-editor`（npmjs.org）。
+- **对话式剪辑**：一条对话对应一条原生 DSH 会话，同一个项目可开多条互不干扰的会话；模型、审批、取消、流式回答全部走 DSH 原生能力。
+- **完整剪辑环境**：时间轴落盘编辑、抽帧、素材库（免费素材检索与取用）、本地模板、预览放映与画布工作台。
+- **导演与分镜**：`openfilm_storyboard` 读写 `.film/storyboard.json`，支持 `from-script`、`plan`、`subtitles`；把一句需求变成分镜再落到时间轴。
+- **口播与字幕**：`openfilm_transcribe` 本地转写视频/音频为带时间码文稿，字幕 SRT 与画面同步。
+- **本地视觉能力**：`openfilm_cutout` 生成单帧人物抠像预览，`openfilm_face_analysis` 返回人脸框与关键点（不识别身份），只处理项目内素材。
+- **图片与附件**：模型支持看图时内联发送，否则落成临时文件按路径引用；上传兜底上限 256 MiB。
+- **CLI 兜底**：`openfilm_cli` 支持 `doctor` / `version` / `skills` / `skill` 等只读能力。
 
-1. 包发布在 npmjs.org，无需 token；直接用：`
+未接通：余额展示、云端预览/渲染沙箱、macOS/Linux 真机验收。详见 [docs/STATE.md](docs/STATE.md)。
+
+## 安装与更新
+
+包名：`@newbiecheng/no996-editor`，发布在 npmjs.org，公开可装、无需 token。
 
 ```powershell
 dsh plugin --profile desktop add @newbiecheng/no996-editor
 ```
 
-或在 DSH 插件管理器按包名安装。安装 / 更新 / 发版手册：[`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
+或在 DSH 插件管理器按包名安装，之后可在「版本」Tab 检测并一键更新；出现 `restart-required` 时完整重启 DSH。更新前保存未保存的编辑。安装/更新/发版手册见 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
 
-需要：
+**GitLab 已弃用**：旧 GitLab Package Registry 不再发布、不再维护，也不再作为安装源；`npmjs.org` 是唯一包源。
 
-- DSH 内核（含 `session-controller`、`storageDomain`、`webServer`）
-- Node.js 22.2+
-- `ffmpeg` / `ffprobe`（读视频信息、部分处理）；缺了会在界面里提示，不会自动安装
-
-更新：从 registry 安装的包可在 DSH「版本」Tab 检测并一键更新；出现 `restart-required` 时按提示重启 DSH。更新前先保存未保存的编辑。发布包已内置 OpenFilm 运行时、官方界面与模板，不需要另外装 OpenFilm。
+需要：DSH 内核（`session-controller`、`storageDomain`、`webServer`）、Node.js 22.2+、`ffmpeg` / `ffprobe`（视频信息；缺失会在界面提示，不自动安装）。
 
 ## 用起来
 
-- 侧边栏「视频创作」打开工作台；官方界面的对话列由 Host 进程内的 DSH 原生 `sessionController` 驱动。
-- **一条对话 = 一条原生 DSH 会话**：同一个项目里新建对话就是新会话；回到旧对话使用对应会话。工作目录是项目文件夹。
-- 对话里能看到思考、工具调用（真名 + 参数 + 结果摘要）、内联图片；审批走 DSH 自己的界面，不会被静默放行。
-- 图片：当前模型支持看图时内联发送；不支持时落成临时文件并以绝对路径引用。上传兜底单文件上限 256 MiB；更大的视频请先剪辑或转码。
-- 项目首次被面板打开时，Host 会在项目文件夹写一份 `AGENTS.md`（编辑指令，已存在则绝不覆盖）。
-- 本地口播转写：`openfilm_transcribe`，视频/音频 → 带时间码文稿；首次下载 228 MB 权重。
-- **剪辑与动效伙伴**：根据任务选择剪辑、动效、口播或画面制作；影片文件夹是指令链的根，仓库上层的手册不会进入影片对话。
-- **分镜工具**：`openfilm_storyboard` 读写 `.film/storyboard.json`；需要口播转写时再用 `from-script`、`subtitles` 和 `plan`，简单问答或小改动不强制完整流程。
-- **模板可发现**：`openfilm_library kind=template` 列出内置模板，`readTemplate=<id>` 只读说明，`take=<id>` 才启用模板。
-- 常驻上下文有预算（persona + 指令文件 ≤ 6 KB），风格库/镜头卡/模板全文都按需读。
+- 侧栏「视频创作」打开工作台；项目首次打开时 Host 会在项目文件夹写入编辑指令 `AGENTS.md`（已存在则绝不覆盖）。
+- 账号走工作台账号，不是任何上游站点账号；未登录由壳内登录页挡住剪辑。`NO996_OPENFILM_DEV=1` 可跳过账号门做开发。
+- 工具按需加载：风格库、镜头卡、模板全文、手册都按需读，不进系统提示；常驻上下文预算 ≤ 6 KB。
+- 免费素材（CC0）可检索与取用，转场/特效/滤镜/文字由 Host 用库索引检索；生成类服务可能收费，需自行连接并确认。
 
 ## 文档
 
 | 文档 | 给谁 | 内容 |
 |---|---|---|
-| [docs/index.md](docs/index.md) | 所有人 | 文档地图：哪篇属于规格/决策/参考/流程/进度 |
-| [AGENTS.md](AGENTS.md) | 智能体 | 红线、改哪一层、生效矩阵、证据入口 |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发者 | 启动时序、请求路径、模块职责、构建 |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 开发者 | 进程模型与边界（不含进度） |
-| [docs/STATE.md](docs/STATE.md) | 所有人 | 唯一写进度的一篇：当前版本、能用、待真机验、明确不做 |
-| [docs/decisions/](docs/decisions/README.md) | 维护者 | 每条设计决定的理由与代价（ADR） |
-| [docs/decisions/ADR-0009-ui-change-strategy.md](docs/decisions/ADR-0009-ui-change-strategy.md) | 改界面的人 | 界面改动方式的历史决策；当前注入清单见 reference |
+| [docs/index.md](docs/index.md) | 所有人 | 文档地图 |
+| [AGENTS.md](AGENTS.md) | 智能体 | 红线、改哪一层、生效矩阵、npmjs 发布铁律 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 开发者 | 进程模型与边界 |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发者 | 启动时序、请求路径、构建 |
+| [docs/STATE.md](docs/STATE.md) | 所有人 | 唯一写进度的一篇 |
 | [docs/playbooks/publish.md](docs/playbooks/publish.md) | 装/更/发的人与智能体 | 安装、更新、发版、回滚（唯一手册） |
-| [docs/playbooks/upstream-bump.md](docs/playbooks/upstream-bump.md) | 维护者 | 三处 pin、补丁系列、升级与冲突 |
 | [docs/playbooks/incident.md](docs/playbooks/incident.md) | 排障的人 | 症状 → 根因 → 现在靠什么挡住 |
+| [docs/playbooks/incident-history.md](docs/playbooks/incident-history.md) | 追溯历史的人 | 2026-11-19 发布/registry 事故完整复盘 |
 
-专题：[模板](docs/TEMPLATES.md)、[动效（含风格库与镜头卡）](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)。
-通用 skill（独立仓库）：[dsh-harness-remix](https://github.com/NewbieCheng/dsh-harness-remix)（DSH UI 改造 + 后端衔接）。
+专题：[模板](docs/TEMPLATES.md)、[动效](docs/MOTION.md)、[口播转写](docs/TRANSCRIBE.md)、[品牌](docs/BRAND.md)。
 
-## 能力与边界
+## 许可与授权
 
-- 已接通：项目/对话（按对话隔离会话）/模型/审批/取消、思考与工具行、内联图片、归档、模板安装与检索、抽帧、时间轴落盘编辑、导出、CLI 兜底、本地转写、分镜与字幕。
-- 未完成：余额展示、官方输入框在部分场景只读、默认权限不是完全访问、技能卡、预览/渲染沙箱、macOS/Linux 真机验收。
-- 账号：接工作台账号（不是 OpenFilm 站点账号）；未登录由壳内登录页挡住剪辑。`NO996_OPENFILM_DEV=1` 可跳过账号门做开发。
+本产品为**商业授权软件**，不是开源软件。个人可免费用于学习、研究和非商业的个人影片制作；任何商业使用（公司/团队内部使用、对外服务、嵌入商业产品、销售或再分发）必须事先取得授权方的书面商业授权。禁止未经授权的分发、再许可、出售、反向工程或品牌冒用。详见 [LICENSE](LICENSE)。
 
-细节和"为什么"以文档为准；进度只在 [`docs/STATE.md`](docs/STATE.md)，不要把"待做"写成"已完成"。
+其中捆绑的第三方开源组件仍受各自许可证约束，见 [vendor/official-shell](vendor/official-shell) 与 `THIRD_PARTY_NOTICES.md`。
 
-## 许可
-
-本仓库的接入代码为 MIT。官方 OpenFilm 的构建产物、许可证与商标声明见 [vendor/official-shell](vendor/official-shell) 与 `THIRD_PARTY_NOTICES.md`；产品名与标识不代表上游背书。
+基于 OpenFilm 0.4.0 开发。
 
 ---
 
 ## English summary
 
-`no996-editor` packages the official OpenFilm 0.4.0 studio and desktop shell as a DSH plugin. The Host starts the official Studio on a loopback port, reverse-proxies it, and bridges the shell's chat column to a DSH session (models, approvals and cancellation stay DSH's). The official UI is vendored as a pinned build with a reviewable, replayable source patch series.
-
-Install `@newbiecheng/no996-editor` from npmjs.org (see `docs/playbooks/publish.md`). Node 22.2+, DSH with `session-controller`/`storageDomain`/`webServer`, and `ffmpeg`/`ffprobe` for video metadata. Upstream is MIT; its license, notices and trademark terms are preserved under `vendor/official-shell`. Product names and marks here do not imply upstream endorsement.
+No996 Editor is an AI video editing workbench delivered as a DSH plugin: a full editing environment on the left, a native DSH conversation on the right. It supports conversational editing, storyboard planning, timeline editing, transcript and subtitles, free CC0 media, and local person-cutout / face-position tools. Install `@newbiecheng/no996-editor` from npmjs.org. Requires Node 22.2+, a DSH host with native session controller, and ffmpeg/ffprobe. This is commercial-license software, not open source: personal non-commercial learning is free; any commercial use requires a written license from the copyright holder (see LICENSE). Based on OpenFilm 0.4.0.

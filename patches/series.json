@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "c5a893cf1da760b43c33d901ce2cb2b7fe665650b442645e08fb0bd5ec9b5728"
+    "sha256": "345ae3a03c19d4b61a46ca69051c4349b41ba82fbcca63e88ccd1da1b61eeec4"
   },
   "patches": [
     {
@@ -133,8 +133,8 @@
       "file": "160-zh-CN.patch",
       "source": "apps/desktop/chat/src/i18n/locales/zh-CN.ts",
       "group": "i18n",
-      "sha256": "583dc871c5af0c86c76d0c51275ace96fcab2bb63711e3bfb60f7bfe81cc598e",
-      "bytes": 7895
+      "sha256": "e0f4338be3a1694c93b4f9bc3bb04779f90864ed8412a300a137797e45fc8493",
+      "bytes": 7916
     },
     {
       "id": "170-agent-activity-runs",
@@ -293,8 +293,8 @@
       "file": "360-DiagnosticLogsDrawer.patch",
       "source": "packages/openfilm/studio/ui/src/components/DiagnosticLogsDrawer.tsx",
       "group": "chat",
-      "sha256": "e16d787ced6512b380551af4d69c7f3ed35a8042848c445279c311c0d3634ccd",
-      "bytes": 28218
+      "sha256": "fef3d990691eaf57e2eab697d4102227c6237209ca2cd2436a4cd72c52c36655",
+      "bytes": 28221
     },
     {
       "id": "370-ExamplesGallery",
@@ -397,32 +397,32 @@
       "file": "490-es.patch",
       "source": "packages/openfilm/studio/ui/src/i18n/es.ts",
       "group": "chat",
-      "sha256": "87a478d592bdf3d0758d69295716f52f4de38f7fd5922f33ecadd92315cb154a",
-      "bytes": 12311
+      "sha256": "07a25883e92ff777394dced351b3ca76b9fca16ecd76a0dd07b5ce283ee4a667",
+      "bytes": 12314
     },
     {
       "id": "500-ja",
       "file": "500-ja.patch",
       "source": "packages/openfilm/studio/ui/src/i18n/ja.ts",
       "group": "chat",
-      "sha256": "8fa26e70f131e293a26e515beaf2a8cf5db30c701e5aa4a1f014b1e0eb9fcc3f",
-      "bytes": 14432
+      "sha256": "80f570d791cde082c94ac1e931797507d5efd6f3ac2e09b8092f2abc7f769c7f",
+      "bytes": 14435
     },
     {
       "id": "510-ko",
       "file": "510-ko.patch",
       "source": "packages/openfilm/studio/ui/src/i18n/ko.ts",
       "group": "chat",
-      "sha256": "dd63851fe0f72dace9bdd55ec9c1c98783b05e9cb0c912e000cb2ebbf6b39738",
-      "bytes": 13100
+      "sha256": "26bf12c301f92771c3178890677d430bf7105a5caaf728cf78b81e90e4de38b3",
+      "bytes": 13103
     },
     {
       "id": "520-zh-CN",
       "file": "520-zh-CN.patch",
       "source": "packages/openfilm/studio/ui/src/i18n/zh-CN.ts",
       "group": "chat",
-      "sha256": "8b9d457eef11fa7bc04ef1b0f3b351e4cb779b0dd09a392458496d1bf1011f98",
-      "bytes": 11341
+      "sha256": "96a9e23091118f7a478c006ee9e6ce1c78fc3fec92ddd5793da20cb54bee10b9",
+      "bytes": 11392
     },
     {
       "id": "530-plugins-window",
@@ -469,8 +469,8 @@
       "file": "580-no996-brand.patch",
       "source": "packages/shared/src/no996-brand.ts",
       "group": "shared",
-      "sha256": "6d3de14d86a36d46072581914cfd6e53350399fd2ba0e6e1d727233ed5ce876e",
-      "bytes": 4846
+      "sha256": "2315e134dba19cf03438f750f99b7eae4db26831d22495c6e29e6abdb233a1cc",
+      "bytes": 4849
     }
   ]
 }
