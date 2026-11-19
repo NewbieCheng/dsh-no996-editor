@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1080, height=1920">
+  <title>痛点破冰 · 大字砸入</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0c10; }
+    canvas#stage { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1920"></canvas>
+  <script src="../assets/motion.js"></script>
+  <script src="../assets/vibe-canvas.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const SHOT = {"id":"shot-01","title":"痛点破冰 · 大字砸入","chapter":"序幕 · 破题","series":"VIBE 知识大赏","brand":"不加班智能团","duration":5,"filmDuration":42,"start":0,"bpm":112,"palette":{},"copy":{"tag":"为什么越焦虑，越不敢动手？","lead1":"你以为你在害怕失败","lead2":"其实你只是害怕——","slam":"一次输光"},"vars":{}};
+      const canvas = document.getElementById('stage');
+      const stage = window.VibeKit.createStage(canvas, { width: 1080, height: 1920, palette: SHOT.palette });
+      const rhythm = window.VibeKit.readRhythm(SHOT.filmDuration, SHOT.bpm);
+
+      function drawShot({ t, duration, ctx, w, h, safe, pal, copy, kit, motion }) {
+  const shakeX = motion.shake(t, 1.15, { amp: 14, freq: 90, decay: 14 });
+  ctx.save();
+  ctx.translate(shakeX, shakeX * 0.35);
+
+  // Subtle ambient energy rings anchored around the slam point
+  const ringP = kit.P(t, 1.15, 2.3, kit.E.out5);
+  if (ringP > 0 && ringP < 1) {
+    ctx.save();
+    ctx.globalAlpha *= (1 - ringP) * 0.55;
+    kit.circ(ctx, safe.cx, 1020, 60 + ringP * 380, null, pal.BAD, 4);
+    ctx.restore();
+  }
+
+  // Opening tag pill
+  kit.drawTag(ctx, copy.tag || '为什么越焦虑，越不敢动手？', safe.left, 360, t, 0.25, pal.ACC);
+
+  // Staggered kinetic typography
+  kit.drawRiseText(ctx, copy.lead1 || '你以为你在害怕失败', safe.cx, 620, 64, t, 0.45, {
+    al: 'center',
+    w: 700,
+    col: pal.INK,
+  });
+
+  kit.drawRiseText(ctx, copy.lead2 || '其实你只是害怕——', safe.cx, 740, 56, t, 0.78, {
+    al: 'center',
+    w: 600,
+    col: pal.DIM,
+  });
+
+  // Heavy kinetic slam impact aligned to beat hit
+  kit.drawSlamText(ctx, copy.slam || '一次输光', safe.cx, 1060, 128, t, 1.15, {
+    al: 'center',
+    w: 900,
+    col: pal.BAD,
+    sh: 'rgba(255,92,92,0.55)',
+    shb: 38,
+    fromScale: 1.55,
+  });
+
+  kit.drawUnderline(ctx, safe.cx - 260, safe.cx + 260, 1110, t, 1.38, 0.42, pal.BAD, 10);
+
+  // Reframe card rising in second half
+  const cardP = kit.P(t, 2.25, 2.95, kit.E.back);
+  if (cardP > 0) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, cardP * 2);
+    ctx.translate(0, (1 - cardP) * 90);
+    kit.fillRR(ctx, safe.left + 20, 1240, safe.span - 40, 210, 28, pal.CARD, 'rgba(255,194,75,0.45)', 3);
+    kit.drawText(ctx, '高手的底气，从来不是每次都对', safe.cx, 1330, 42, { w: 700, col: pal.INK, al: 'center' });
+    kit.drawText(ctx, '而是把「错的代价」打成白菜价', safe.cx, 1400, 38, { w: 800, col: pal.ACC, al: 'center' });
+    ctx.restore();
+  }
+
+  ctx.restore();
+  kit.drawWipeBand(ctx, t, duration, { width: w, height: h, palette: pal });
+}
+
+      function renderFrame(t) {
+        const local = Math.max(0, Math.min(SHOT.duration, Number(t) || 0));
+        const globalT = SHOT.start + local;
+        const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
+        const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
+        const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
+        window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: 1080, height: 1920, palette: stage.pal, beatPulse });
+        if (typeof drawShot === 'function') {
+          stage.ctx.save();
+          drawShot({
+            t: local,
+            globalT,
+            duration: SHOT.duration,
+            ctx: stage.ctx,
+            w: 1080,
+            h: 1920,
+            safe: stage.safe,
+            pal: stage.pal,
+            copy: SHOT.copy,
+            vars: SHOT.vars,
+            kit: window.VibeKit,
+            motion: window.Motion,
+            rhythm,
+            beatPulse,
+            onsetPulse,
+          });
+          stage.ctx.restore();
+        }
+        window.VibeKit.drawChrome(stage.ctx, globalT, {
+          width: 1080,
+          height: 1920,
+          palette: stage.pal,
+          series: SHOT.series,
+          chapter: SHOT.chapter,
+          brand: SHOT.brand,
+          progress: globalT / Math.max(SHOT.filmDuration, 0.001),
+          beatIndex,
+          beatPulse,
+        });
+      }
+
+      window.film = {
+        width: 1080,
+        height: 1920,
+        duration: SHOT.duration,
+        ready: (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+          renderFrame(0);
+          return true;
+        }),
+        frame: function (t) {
+          renderFrame(t);
+        },
+      };
+
+      if (!window.filmHost) {
+        const t0 = performance.now();
+        const tick = function () {
+          const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
+          renderFrame(elapsed);
+          requestAnimationFrame(tick);
+        };
+        window.film.ready.then(tick);
+      }
+    })();
+  </script>
+</body>
+</html>

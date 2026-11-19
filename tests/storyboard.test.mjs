@@ -179,6 +179,14 @@ test('the template catalog is searchable and carries the per-template prompt', a
 
 test('the motion vocabulary is the one the film runtime knows', () => {
   assert.ok(MOTIONS.includes('push-in'));
+  assert.ok(MOTIONS.includes('slam'));
+  assert.ok(MOTIONS.includes('metaphor-scale'));
   assert.ok(MOTIONS.includes('none'));
   assert.equal(new Set(MOTIONS).size, MOTIONS.length);
+  const rich = normalizeStoryboard({
+    shots: [shot('s1', 0, 4, { motion: 'slam', explain: '天平失衡后反转', carryFrom: 'orb', sfx: 'hit@0.5s' })],
+  });
+  assert.equal(rich.shots[0].explain, '天平失衡后反转');
+  assert.equal(rich.shots[0].carryFrom, 'orb');
+  assert.equal(rich.shots[0].sfx, 'hit@0.5s');
 });

@@ -348,9 +348,111 @@
   /** 把 0..1 映射到两个数值之间，保留给「参数化镜头」。 */
   const between = (p, from, to) => lerp(from, to, clamp01(p));
 
+  /* ------------------------------------------------------------ Vibe 动效原语 */
+
+  /** 冲击瞬态微震：落点 t0 后的指数衰减高频震颤（像素）。 */
+  function shake(t, t0, options) {
+    if (t <= t0) return 0;
+    const opts = options || {};
+    const amp = opts.amp === undefined ? 9 : opts.amp;
+    const freq = opts.freq === undefined ? 95 : opts.freq;
+    const decay = opts.decay === undefined ? 16 : opts.decay;
+    const dt = t - t0;
+    return Math.sin(dt * freq) * amp * Math.exp(-dt * decay);
+  }
+
+  /**
+   * 重击砸入：元素在 t0..t0+dur 内从大尺度砸向落点，带透明度快显与落定微震。
+   * 返回纯数值状态，既可驱动 DOM pose()，也可直接喂给 Canvas 2D transform。
+   */
+  function slam(t, t0, options) {
+    const opts = options || {};
+    const dur = opts.duration === undefined ? 0.34 : opts.duration;
+    const fromScale = opts.fromScale === undefined ? 1.45 : opts.fromScale;
+    const p = seg(t, t0, dur);
+    if (p <= 0) return { active: false, p: 0, scale: fromScale, shakeX: 0, opacity: 0 };
+    const e = cubicOut(p);
+    return {
+      active: true,
+      p,
+      scale: lerp(fromScale, 1, e),
+      shakeX: t > t0 + 0.05 ? shake(t, t0, opts) : 0,
+      opacity: clamp01(p * 3),
+    };
+  }
+
+  /** 多阶段关键帧平滑跃迁：`list = [[t0, v0], [t1, v1], ...]`。 */
+  function steps(t, list, duration, easing) {
+    if (!Array.isArray(list) || list.length === 0) return 0;
+    const dur = duration === undefined ? 0.4 : duration;
+    const ease = easing || cubicOut;
+    let k = 0;
+    for (let i = 1; i < list.length; i += 1) {
+      if (t >= list[i][0]) k = i;
+    }
+    if (k === 0) return list[0][1];
+    return lerp(list[k - 1][1], list[k][1], ease(seg(t, list[k][0], dur)));
+  }
+
+  /** 二分查找 arr 中 <= t 的最后一个索引；未找到返回 -1。 */
+  function lastIndexAt(arr, t) {
+    if (!Array.isArray(arr) || arr.length === 0) return -1;
+    let lo = 0;
+    let hi = arr.length - 1;
+    let res = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (arr[mid] <= t) {
+        res = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return res;
+  }
+
+  /**
+   * 实测拍点/起音衰减脉冲（0..1）：输入时间数组（秒）与当前时刻 t。
+   * 仅由 t 与预计算拍点数组决定，保证乱序抽帧严格一致。
+   */
+  function pulse(times, t, decay, strengths) {
+    const idx = lastIndexAt(times, t);
+    if (idx < 0) return 0;
+    const dec = decay === undefined ? 0.18 : decay;
+    const amp = Array.isArray(strengths) && strengths[idx] !== undefined
+      ? 0.4 + 0.6 * strengths[idx]
+      : 1;
+    return Math.exp(-(t - times[idx]) / Math.max(dec, 0.01)) * amp;
+  }
+
+  /** 光带扫屏转场进度：在切点 t0 前 0.16s 起扫，持续 dur 秒。 */
+  function wipeBand(t, t0, duration) {
+    const dur = duration === undefined ? 0.46 : duration;
+    const start = t0 - 0.16;
+    const u = (t - start) / Math.max(dur, 0.01);
+    if (u < 0 || u > 1) return { active: false, u: clamp01(u), eased: clamp01(u) };
+    return { active: true, u, eased: inOutCubic(u) };
+  }
+
+  /** 跨镜承接元素几何姿态插值（位置 / 尺度 / 旋转 / 透明度）。 */
+  function carryPose(from, to, p, easing) {
+    const a = from || {};
+    const b = to || {};
+    const u = (easing || inOutCubic)(clamp01(p));
+    return {
+      x: lerp(a.x || 0, b.x || 0, u),
+      y: lerp(a.y || 0, b.y || 0, u),
+      scale: lerp(a.scale === undefined ? 1 : a.scale, b.scale === undefined ? 1 : b.scale, u),
+      rotate: lerp(a.rotate || 0, b.rotate || 0, u),
+      opacity: lerp(a.opacity === undefined ? 1 : a.opacity, b.opacity === undefined ? 1 : b.opacity, u),
+    };
+  }
+
   return {
     clamp, clamp01, seg, lerp, between, stagger,
     cubicOut, quintOut, expoOut, inOutCubic, backOut, spring, drop, wallScale,
+    slam, steps, pulse, shake, wipeBand, carryPose,
     hash32, det, detBetween, halton, jitter,
     pose, enter, exit, reveal, camera, inversePose,
     split, unitsIn, count, surface, grain, text,

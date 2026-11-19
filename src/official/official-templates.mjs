@@ -28,9 +28,11 @@ export async function listTemplates(root) {
       mode: manifest.mode === 'film' ? 'film' : 'style',
       entry: manifest.entry,
       prompt: typeof manifest.prompt === 'string' ? manifest.prompt.slice(0, 600) : '',
+      order: typeof manifest.order === 'number' && Number.isFinite(manifest.order) ? manifest.order : 100,
+      featured: manifest.featured === true,
     });
   }
-  return templates.sort((a, b) => a.id.localeCompare(b.id));
+  return templates.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 }
 
 /** Finish bookkeeping after Studio has already registered a new project.

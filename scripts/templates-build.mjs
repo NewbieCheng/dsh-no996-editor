@@ -3,6 +3,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import { readCatalog, shotWall, collectUnitStyles } from '../vendor/templates/_kit/render.mjs';
+import { packCuesToLanes, synthesizeSfxWav } from '../src/audio/sfx-synth.mjs';
 
 /**
  * 模板构建：`shots/*.json` + `_kit/` → `pages/*.html` 与 `film.html`。
@@ -81,6 +82,37 @@ for (const name of readdirSync(templatesRoot).sort()) {
       body: render(shot, catalog, { templateDir }),
     });
   }
+
+  const audioTracks = [];
+  if (Array.isArray(config.sfxCues) && config.sfxCues.length > 0) {
+    const emitted = new Set();
+    const lanes = packCuesToLanes(config.sfxCues, 0.05);
+    for (const lane of lanes) {
+      const clips = [];
+      for (const cue of lane.items) {
+        const pitchKey = cue.pitch !== undefined ? `-p${Math.round(Number(cue.pitch))}` : '';
+        const durKey = cue.duration !== undefined ? `-d${Math.round(Number(cue.duration) * 1000)}` : '';
+        const fileName = `${cue.kind}${pitchKey}${durKey}.wav`;
+        const relSrc = `assets/audio/sfx/${fileName}`;
+        if (!emitted.has(fileName)) {
+          emitted.add(fileName);
+          const { wav } = synthesizeSfxWav(cue.kind, { pitch: cue.pitch, duration: cue.duration });
+          planned.push({ path: join(templateDir, 'assets', 'audio', 'sfx', fileName), body: wav });
+        }
+        clips.push({
+          src: relSrc,
+          at: cue.at,
+          ...(cue.volume !== undefined ? { volume: cue.volume } : {}),
+        });
+      }
+      audioTracks.push({
+        id: `sfx-${lane.lane + 1}`,
+        title: lanes.length > 1 ? `拟音轨 ${lane.lane + 1}` : '拟音轨',
+        clips,
+      });
+    }
+  }
+
   planned.push({
     path: join(templateDir, 'film.html'),
     body: shotWall({
@@ -88,6 +120,7 @@ for (const name of readdirSync(templatesRoot).sort()) {
       size: config.size ?? [1080, 1920],
       backdrop: config.wallBackdrop,
       sectionTitle: config.sectionTitle,
+      audioTracks,
       shots: entries.map(({ shot, start, order }) => ({ id: shot.id, title: shot.title, duration: shot.duration, start, order })),
     }),
   });
@@ -95,18 +128,22 @@ for (const name of readdirSync(templatesRoot).sort()) {
 
 let changed = 0;
 for (const file of planned) {
+  const isBuf = Buffer.isBuffer(file.body);
   if (check) {
-    const current = existsSync(file.path) ? readFileSync(file.path, 'utf8') : null;
-    if (current !== file.body) {
+    const current = existsSync(file.path) ? readFileSync(file.path, isBuf ? undefined : 'utf8') : null;
+    const same = isBuf ? (current !== null && Buffer.compare(current, file.body) === 0) : current === file.body;
+    if (!same) {
       changed += 1;
       console.error(`out of date: ${file.path.replace(root, '')} (run: node scripts/templates-build.mjs)`);
     }
     continue;
   }
   mkdirSync(dirname(file.path), { recursive: true });
-  const current = existsSync(file.path) ? readFileSync(file.path, 'utf8') : null;
-  if (current === file.body) continue;
-  writeFileSync(file.path, file.body, 'utf8');
+  const current = existsSync(file.path) ? readFileSync(file.path, isBuf ? undefined : 'utf8') : null;
+  const same = isBuf ? (current !== null && Buffer.compare(current, file.body) === 0) : current === file.body;
+  if (same) continue;
+  if (isBuf) writeFileSync(file.path, file.body);
+  else writeFileSync(file.path, file.body, 'utf8');
   changed += 1;
   console.log(`wrote ${file.path.replace(root, '')}`);
 }

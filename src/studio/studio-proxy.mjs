@@ -42,7 +42,7 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
 });
 
-export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, log, diagLog, devHooks } = {}) {
+export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, log, diagLog, devHooks } = {}) {
   // A proxy without a logger is valid (tests, embedders); the calls are no-ops.
   const say = typeof log?.write === 'function' ? log : { write() {}, info() {}, warn() {}, error() {} };
   const recordDiag = typeof diagLog?.record === 'function' ? diagLog : null;
@@ -67,6 +67,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   if (openProjectFile !== undefined && typeof openProjectFile !== 'function') throw new TypeError('openProjectFile must be a function');
   if (beforeProjectDelete !== undefined && typeof beforeProjectDelete !== 'function') throw new TypeError('beforeProjectDelete must be a function');
   if (rewriteLibraryVoices !== undefined && typeof rewriteLibraryVoices !== 'function') throw new TypeError('rewriteLibraryVoices must be a function');
+  if (voiceSettings !== undefined && (typeof voiceSettings !== 'object' || typeof voiceSettings.state !== 'function' || typeof voiceSettings.choose !== 'function' || typeof voiceSettings.prepare !== 'function')) throw new TypeError('voiceSettings must expose state/choose/prepare');
   const web = new URL(webOrigin);
   if (desktop ? !['dsh-app://app', 'app://app'].includes(webOrigin) :
       web.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(web.hostname) || !web.port || web.origin !== webOrigin || web.username || web.password) throw new TypeError('Invalid DSH origin');
@@ -819,6 +820,49 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     })();
     return true;
   }
+  function voiceProviders(req, res) {
+    if (!voiceSettings) return false;
+    let url;
+    try { url = new URL(req.url, 'http://proxy.invalid'); } catch { return false; }
+    const isState = url.pathname === '/api/providers' && req.method === 'GET';
+    const isChoice = url.pathname === '/api/providers/no996-voice-choice' && req.method === 'PUT';
+    if (!isState && !isChoice) return false;
+    if (!permitted(req, false) || !authenticated(req)) { fail(res); return true; }
+    if (isState && ![...url.searchParams.keys()].every(key => key === 'no996VoiceRefresh')) { fail(res, 400); return true; }
+    void (async () => {
+      try {
+        if (closed || res.destroyed || res.writableEnded) return;
+        const callStudio = (method, path, body) => studioCall(method, path, body);
+        if (isState) {
+          const force = url.searchParams.get('no996VoiceRefresh') === '1';
+          const reply = await voiceSettings.state(callStudio, { force });
+          if (closed || res.destroyed || res.writableEnded) return;
+          const body = Buffer.from(JSON.stringify(reply.value ?? { error: 'unavailable' }));
+          res.writeHead(reply.status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': body.length });
+          res.end(body);
+          return;
+        }
+        const chunks = [];
+        let length = 0;
+        for await (const chunk of req) {
+          length += chunk.length;
+          if (length > 32 * 1024) { fail(res, 413); req.destroy(); return; }
+          chunks.push(chunk);
+        }
+        let input;
+        try { input = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { fail(res, 400); return; }
+        const reply = await voiceSettings.choose(input, callStudio);
+        if (closed || res.destroyed || res.writableEnded) return;
+        const body = Buffer.from(JSON.stringify(reply.value ?? { error: 'unavailable' }));
+        res.writeHead(reply.status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': body.length });
+        res.end(body);
+      } catch {
+        if (!res.destroyed && !res.headersSent) fail(res, 503);
+        else if (!res.destroyed) res.end();
+      }
+    })();
+    return true;
+  }
   const editor = createServer((req, res) => {
     // A project folder is often also a DSH workspace (the project's own
     // conversation). Its watcher keeps Windows from moving the folder to the
@@ -850,7 +894,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       const handled = activeDevHooks.handleHttp(req, res, devContext);
       if (handled) return;
     }
-    if (!officialEvents(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
+    if (!officialEvents(req, res) && !voiceProviders(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
   });
   const plugin = pluginUpstream && createPluginSurfaceProxy(pluginUpstream, () => ({
     editor: editorOrigin, surface: closed ? null : pluginOrigin, upstreamEditor: editorUpstream.origin,

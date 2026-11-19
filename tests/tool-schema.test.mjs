@@ -10,6 +10,11 @@ import { createExportTool } from '../src/tools/export-tool.mjs';
 import { createCliTool } from '../src/tools/cli-tool.mjs';
 import { createDraftTool } from '../src/tools/draft-tool.mjs';
 import { createGuideTool } from '../src/tools/guide-tool.mjs';
+import { createKitTool } from '../src/tools/kit-tool.mjs';
+import { createRhythmTool } from '../src/tools/rhythm-tool.mjs';
+import { createSfxTool } from '../src/tools/sfx-tool.mjs';
+import { createModeTool } from '../src/tools/mode-tool.mjs';
+import { createVisionTools } from '../src/tools/vision-tool.mjs';
 
 /*
  * DSH validates a plugin's tool schemas when the plugin loads and refuses the
@@ -32,6 +37,11 @@ const tools = [
   createCliTool(link),
   createDraftTool(),
   createGuideTool(() => true),
+  createKitTool(link),
+  createRhythmTool(link),
+  createSfxTool(link),
+  createModeTool(link),
+  ...createVisionTools({ ...link, attachments: () => ({}) }),
 ];
 
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);

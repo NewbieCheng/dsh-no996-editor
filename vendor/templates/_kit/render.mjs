@@ -176,10 +176,18 @@ export function collectUnitStyles(units, catalog) {
  * `#t=` range can never drift from the shot's own duration — that drift is
  * silent (the film plays, just out of sync) and was the reason for this file.
  */
-export function shotWall({ title, size = [1080, 1920], shots, backdrop = '#1d1b18', sectionTitle }) {
+export function shotWall({ title, size = [1080, 1920], shots, audioTracks = [], backdrop = '#1d1b18', sectionTitle }) {
   const frames = shots.map(shot => {
     const wallTitle = `${shot.order ?? ''}${shot.order ? ' · ' : ''}${shot.title}`;
     return `    <iframe id="${shot.id}" title="${escapeHtml(wallTitle)}" src="pages/${shot.id}.html#t=0,${trim(shot.duration)}" at="${fixed(shot.start, 3)}"></iframe>`;
+  });
+  const trackSections = audioTracks.map(track => {
+    const items = (track.clips ?? []).map((clip) => {
+      const vol = Number.isFinite(clip.volume) ? ` volume="${trim(clip.volume)}"` : '';
+      return `    <audio src="${escapeHtml(clip.src)}" at="${fixed(clip.at, 3)}"${vol}></audio>`;
+    });
+    const titleAttr = track.title ? ` title="${escapeHtml(track.title)}"` : '';
+    return `  <section id="${escapeHtml(track.id)}"${titleAttr}>\n${items.join('\n')}\n  </section>`;
   });
   const landscape = size[0] > size[1];
   return `<!doctype html>
@@ -198,7 +206,7 @@ export function shotWall({ title, size = [1080, 1920], shots, backdrop = '#1d1b1
 <body>
   <section id="shots" title="${escapeHtml(sectionTitle ?? `${title} · ${shots.length} 组`)}">
 ${frames.join('\n')}
-  </section>
+  </section>${trackSections.length ? `\n${trackSections.join('\n')}` : ''}
 </body>
 </html>
 `;

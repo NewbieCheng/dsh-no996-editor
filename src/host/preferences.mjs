@@ -10,6 +10,11 @@ import { homedir } from 'node:os';
 const TEMPLATE_ID = /^(?:[a-z0-9][a-z0-9-]{1,40}|custom)$/;
 
 const PRODUCT = Object.freeze({
+  'vibe-explainer': {
+    productTitle: 'Vibe 科普剧场',
+    productBlurb: '首推知识科普模板：隐喻大字+Canvas剧场+物理弹簧动效+合成音效，无口播素材也能做强质感大片。',
+    featured: true,
+  },
   'paper-texture': {
     productTitle: '口播讲堂',
     productBlurb: '适合竖屏口播、课程讲解：一人出镜把一件事讲清楚。',

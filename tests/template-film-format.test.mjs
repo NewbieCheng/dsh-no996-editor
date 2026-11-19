@@ -8,6 +8,7 @@ import { readFilmFile, parseFilm, filmHtml, clipSpan } from 'openfilm/film-doc';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../vendor/templates');
 const cases = [
+  { name: 'vibe-explainer', stage: [1080, 1920], lengths: [5, 5, 6, 5.5, 5.5, 5.5, 5, 4.5], duration: 42, hasAudio: true },
   { name: 'paper-texture', stage: [1080, 1920], lengths: [6, 7], duration: 13 },
   { name: 'replica-film', stage: [1080, 1920], lengths: [5.233, 6.267, 4.333, 6.234, 8.066, 6.7, 9.867, 7.233, 5.334, 4.233, 5.633, 7.067, 5.833, 6, 6, 6, 8.567, 7.333, 6], duration: 121.933 },
   { name: 'sketchnote', stage: [1920, 1080], lengths: [2.756, 2.744, 3.383, 3.679, 3.859, 1.472, 2.051], duration: 19.944 },
@@ -30,7 +31,7 @@ test('paper still pages expose the OpenFilm frame contract', async () => {
   }
 });
 
-for (const { name, stage, lengths, duration } of cases) {
+for (const { name, stage, lengths, duration, hasAudio } of cases) {
   test(`${name}: official film parser, format and referenced clips`, async () => {
     const dir = resolve(root, name);
     const source = await readFile(resolve(dir, 'film.html'), 'utf8');
@@ -40,7 +41,14 @@ for (const { name, stage, lengths, duration } of cases) {
     const doc = parseFilm(result.value);
     assert.deepEqual(doc, result.doc);
     assert.deepEqual([doc.stage.w, doc.stage.h], stage);
-    assert.equal(doc.tracks.length, 1);
+    if (hasAudio) {
+      assert.ok(doc.tracks.length >= 2, `${name} ships non-overlapping SFX tracks`);
+      for (const audioTrack of doc.tracks.slice(1)) {
+        for (const clip of audioTrack.clips) await readFile(resolve(dir, clip.src));
+      }
+    } else {
+      assert.equal(doc.tracks.length, 1);
+    }
     const clips = doc.tracks[0].clips;
     assert.equal(clips.length, lengths.length);
     let endMs = 0;

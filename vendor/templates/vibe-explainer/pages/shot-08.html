@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1080, height=1920">
+  <title>金句收束 · 余韵定格</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0c10; }
+    canvas#stage { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1920"></canvas>
+  <script src="../assets/motion.js"></script>
+  <script src="../assets/vibe-canvas.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const SHOT = {"id":"shot-08","title":"金句收束 · 余韵定格","chapter":"尾声 · 收束","series":"VIBE 知识大赏","brand":"不加班智能团","duration":4.5,"filmDuration":42,"start":37.5,"bpm":112,"palette":{},"copy":{"line1":"容错率，从来不是等来的","line2":"而是你亲手造出来的","note":"把每一次未知，都变成可负担的小实验"},"vars":{}};
+      const canvas = document.getElementById('stage');
+      const stage = window.VibeKit.createStage(canvas, { width: 1080, height: 1920, palette: SHOT.palette });
+      const rhythm = window.VibeKit.readRhythm(SHOT.filmDuration, SHOT.bpm);
+
+      function drawShot({ t, ctx, safe, pal, copy, kit, beatPulse }) {
+  // Quiet orbital aura expanding around hero thesis
+  const orbitP = kit.P(t, 0.1, 1.4, kit.E.out);
+  if (orbitP > 0) {
+    ctx.save();
+    ctx.globalAlpha *= orbitP * 0.45;
+    kit.circ(ctx, safe.cx, 880, 280 + beatPulse * 14, null, 'rgba(255,194,75,0.28)', 3);
+    kit.circ(ctx, safe.cx, 880, 390 + beatPulse * 20, null, 'rgba(79,240,176,0.2)', 2);
+    const angle = t * 0.75;
+    kit.circ(ctx, safe.cx + Math.cos(angle) * 280, 880 + Math.sin(angle) * 280, 12, pal.ACC);
+    kit.circ(ctx, safe.cx + Math.cos(angle + Math.PI) * 390, 880 + Math.sin(angle + Math.PI) * 390, 10, pal.GOOD);
+    ctx.restore();
+  }
+
+  kit.drawRiseText(ctx, copy.line1 || '容错率，从来不是等来的', safe.cx, 760, 56, t, 0.25, {
+    al: 'center',
+    w: 700,
+    col: pal.DIM,
+  });
+
+  kit.drawSlamText(ctx, copy.line2 || '而是你亲手造出来的', safe.cx, 940, 84, t, 0.95, {
+    al: 'center',
+    w: 900,
+    col: pal.ACC,
+    sh: 'rgba(255,194,75,0.5)',
+    shb: 34,
+    fromScale: 1.32,
+  });
+
+  kit.drawUnderline(ctx, safe.cx - 320, safe.cx + 320, 990, t, 1.3, 0.5, pal.GOOD, 8);
+
+  const noteP = kit.P(t, 1.85, 2.55, kit.E.out);
+  if (noteP > 0) {
+    kit.drawText(ctx, copy.note || '把每一次未知，都变成可负担的小实验', safe.cx, 1140, 36, {
+      w: 600,
+      col: pal.INK,
+      al: 'center',
+      a: noteP,
+    });
+  }
+}
+
+      function renderFrame(t) {
+        const local = Math.max(0, Math.min(SHOT.duration, Number(t) || 0));
+        const globalT = SHOT.start + local;
+        const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
+        const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
+        const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
+        window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: 1080, height: 1920, palette: stage.pal, beatPulse });
+        if (typeof drawShot === 'function') {
+          stage.ctx.save();
+          drawShot({
+            t: local,
+            globalT,
+            duration: SHOT.duration,
+            ctx: stage.ctx,
+            w: 1080,
+            h: 1920,
+            safe: stage.safe,
+            pal: stage.pal,
+            copy: SHOT.copy,
+            vars: SHOT.vars,
+            kit: window.VibeKit,
+            motion: window.Motion,
+            rhythm,
+            beatPulse,
+            onsetPulse,
+          });
+          stage.ctx.restore();
+        }
+        window.VibeKit.drawChrome(stage.ctx, globalT, {
+          width: 1080,
+          height: 1920,
+          palette: stage.pal,
+          series: SHOT.series,
+          chapter: SHOT.chapter,
+          brand: SHOT.brand,
+          progress: globalT / Math.max(SHOT.filmDuration, 0.001),
+          beatIndex,
+          beatPulse,
+        });
+      }
+
+      window.film = {
+        width: 1080,
+        height: 1920,
+        duration: SHOT.duration,
+        ready: (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+          renderFrame(0);
+          return true;
+        }),
+        frame: function (t) {
+          renderFrame(t);
+        },
+      };
+
+      if (!window.filmHost) {
+        const t0 = performance.now();
+        const tick = function () {
+          const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
+          renderFrame(elapsed);
+          requestAnimationFrame(tick);
+        };
+        window.film.ready.then(tick);
+      }
+    })();
+  </script>
+</body>
+</html>

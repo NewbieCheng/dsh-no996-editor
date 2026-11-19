@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..0a515f8 100644
+index 26575ee..18fa54a 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -11,15 +11,17 @@ index 26575ee..0a515f8 100644
  import { buildPromptDisplay, type Turn } from '@openfilm/shared';
  import { useT, useUiLocale } from '@/i18n';
  import { ConversationBar } from '@/components/ConversationSessionBar';
-@@ -14,6 +14,7 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
+@@ -14,7 +14,9 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
  import { AttachmentPreview, type AttachmentPreviewItem } from '@/components/AttachmentPreview';
 +import { ContextUsage } from '@/components/ContextUsage';
  import { ModelPopover } from '@/components/ModelPopover';
++import { WorkModePill } from '@/components/WorkModePill';
  import { Popover } from '@/components/Popover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
-@@ -33,6 +34,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+ import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
+@@ -33,6 +35,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -27,7 +29,7 @@ index 26575ee..0a515f8 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -43,6 +45,7 @@ import {
+@@ -43,6 +46,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -35,7 +37,7 @@ index 26575ee..0a515f8 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -70,6 +73,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
+@@ -70,6 +74,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
  import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
@@ -44,7 +46,7 @@ index 26575ee..0a515f8 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -157,6 +162,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -157,6 +163,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -52,7 +54,7 @@ index 26575ee..0a515f8 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +190,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -184,11 +191,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
    const [sessionId, setSessionId] = React.useState<string>(() => {
@@ -125,7 +127,7 @@ index 26575ee..0a515f8 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +452,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +453,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -134,7 +136,7 @@ index 26575ee..0a515f8 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +480,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +481,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -198,7 +200,7 @@ index 26575ee..0a515f8 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,6 +562,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +563,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -246,7 +248,7 @@ index 26575ee..0a515f8 100644
    /* how full the agent's context is in this conversation: said only once it is nearly full */
    const agentContext = useAgentContext(projectKey, sessionId, agent);
    const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
-@@ -1011,6 +1173,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1011,6 +1174,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -260,7 +262,7 @@ index 26575ee..0a515f8 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1043,6 +1212,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1043,6 +1213,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -272,7 +274,7 @@ index 26575ee..0a515f8 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1249,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1250,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -285,16 +287,18 @@ index 26575ee..0a515f8 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1147,6 +1322,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1322,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+           onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
++        <WorkModePill projectId={projectKey} conversation={sessionId} agent={agent} disabled={stopping} />
          <div className="min-w-0 flex-1" />
 +        {/* Always on: 0% until ACP usage_update; then used/size. Native shell, not injection. */}
 +        <ContextUsage used={agentContext?.used ?? 0} size={agentContext?.size ?? 0} />
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1331,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1333,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -309,7 +313,7 @@ index 26575ee..0a515f8 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1352,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1183,6 +1354,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -326,7 +330,7 @@ index 26575ee..0a515f8 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1379,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1381,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -1689,8 +1693,131 @@ index 0000000..f487575
 +    </>
 +  );
 +}
+diff --git a/apps/desktop/chat/src/components/WorkModePill.tsx b/apps/desktop/chat/src/components/WorkModePill.tsx
+new file mode 100644
+index 0000000..bb75e0d
+--- /dev/null
++++ b/apps/desktop/chat/src/components/WorkModePill.tsx
+@@ -0,0 +1,117 @@
++'use client';
++
++import React from 'react';
++import { Check, Clapperboard, Compass, MessageSquare, Sparkles } from 'lucide-react';
++import { Popover, keepFocus } from '@/components/Popover';
++import { POPOVER_CHROME } from '@/components/ComposerCard';
++import { Tooltip } from '@/components/Tooltip';
++import { useT } from '@/i18n';
++import type { LocalAgentId } from '@/lib/desktop-bridge';
++import { setAgentWorkMode, useAgentWorkMode, type WorkMode } from '@/lib/local-agent-run';
++
++const CARD_W = 248;
++
++const MODES: ReadonlyArray<{ id: WorkMode; icon: typeof Sparkles }> = [
++  { id: 'auto', icon: Sparkles },
++  { id: 'chat', icon: MessageSquare },
++  { id: 'design', icon: Compass },
++  { id: 'produce', icon: Clapperboard },
++];
++
++export function WorkModePill({
++  projectId,
++  conversation,
++  agent,
++  disabled = false,
++}: {
++  projectId: string;
++  conversation: string;
++  agent: LocalAgentId;
++  disabled?: boolean;
++}) {
++  const t = useT();
++  const state = useAgentWorkMode(projectId, conversation, agent);
++  const [open, setOpen] = React.useState(false);
++
++  const activeMode = state.mode;
++  const effective = state.effective;
++  const Icon = activeMode === 'auto'
++    ? (effective === 'design' ? Compass : effective === 'produce' ? Clapperboard : Sparkles)
++    : (MODES.find((m) => m.id === activeMode)?.icon ?? Sparkles);
++
++  const shortText = activeMode === 'auto' && effective !== 'chat'
++    ? `${t('workMode.shortAuto')}·${t(effective === 'design' ? 'workMode.shortDesign' : 'workMode.shortProduce')}`
++    : t(`workMode.short_${activeMode}` as Parameters<typeof t>[0]);
++
++  const accentClass = activeMode === 'design' || (activeMode === 'auto' && effective === 'design')
++    ? 'text-[#f0b44b]'
++    : activeMode === 'produce' || (activeMode === 'auto' && effective === 'produce')
++      ? 'text-[#4fd1a5]'
++      : 'text-[var(--text-muted)]';
++
++  const pick = (mode: WorkMode) => {
++    setOpen(false);
++    void setAgentWorkMode(projectId, conversation, agent, mode);
++  };
++
++  return (
++    <Popover
++      open={open}
++      onOpenChange={setOpen}
++      placement="top"
++      align="start"
++      bare
++      trigger={
++        <Tooltip label={state.reason ? `${t('workMode.tooltip')} — ${state.reason}` : t('workMode.tooltip')}>
++          <button
++            type="button"
++            disabled={disabled}
++            onMouseDown={keepFocus}
++            data-chat-work-mode={activeMode}
++            data-chat-work-phase={effective}
++            className="group inline-flex h-8 max-w-[126px] items-center gap-1 rounded-full px-2 text-[12px] font-medium transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
++          >
++            <Icon size={12.5} strokeWidth={1.9} className={`shrink-0 transition ${accentClass}`} />
++            <span className="truncate text-[var(--text-muted)] transition group-hover:text-[var(--text)]">
++              {shortText}
++            </span>
++          </button>
++        </Tooltip>
++      }
++    >
++      <div style={{ ...POPOVER_CHROME, width: Math.min(CARD_W, Math.max(210, Math.floor(window.innerWidth * 0.7))), padding: 4 }}>
++        <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium text-[var(--text-faint)]">
++          {t('workMode.heading')}
++        </div>
++        {MODES.map(({ id, icon: ItemIcon }) => {
++          const selected = activeMode === id;
++          return (
++            <button
++              key={id}
++              type="button"
++              onMouseDown={keepFocus}
++              onClick={() => pick(id)}
++              className="flex w-full items-start gap-2 rounded-[6px] px-2.5 py-1.5 text-left outline-none transition hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]"
++            >
++              <ItemIcon size={14} className="mt-0.5 shrink-0 text-[var(--text-muted)]" />
++              <div className="min-w-0 flex-1">
++                <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text)]">
++                  <span className="truncate">{t(`workMode.label_${id}` as Parameters<typeof t>[0])}</span>
++                  {selected && id === 'auto' && effective !== 'chat' ? (
++                    <span className="rounded bg-[var(--bg-hover)] px-1 py-0.5 text-[10px] font-normal text-[var(--text-muted)]">
++                      {t(effective === 'design' ? 'workMode.shortDesign' : 'workMode.shortProduce')}
++                    </span>
++                  ) : null}
++                </div>
++                <div className="mt-0.5 text-[11px] leading-snug text-[var(--text-faint)]">
++                  {t(`workMode.desc_${id}` as Parameters<typeof t>[0])}
++                </div>
++              </div>
++              {selected ? <Check size={13} className="mt-0.5 shrink-0 text-[var(--text)]" /> : null}
++            </button>
++          );
++        })}
++      </div>
++    </Popover>
++  );
++}
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..109172e 100644
+index b41b3f8..bf5c048 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -13,12 +13,38 @@ export const enUS = {
@@ -1808,7 +1935,7 @@ index b41b3f8..109172e 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +452,7 @@ export const enUS = {
+@@ -418,7 +452,26 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -1816,9 +1943,28 @@ index b41b3f8..109172e 100644
 +    gone: 'This turn can no longer be undone: the files from before it are only kept while No996 Studio is open.',
      missed: 'Undone, except {names}: they could not be put back as they were.',
    },
++  workMode: {
++    tooltip: 'Switch AI work mode',
++    heading: 'Work Mode',
++    shortAuto: 'Auto',
++    shortDesign: 'Design',
++    shortProduce: 'Produce',
++    short_auto: 'Auto',
++    short_chat: 'Chat',
++    short_design: 'Design',
++    short_produce: 'Produce',
++    label_auto: 'Smart Auto',
++    label_chat: 'Quick Chat',
++    label_design: 'Director Design',
++    label_produce: 'Full Production',
++    desc_auto: 'Automatically switches between design and production by task complexity',
++    desc_chat: 'Light Q&A or small edits without triggering full storyboards',
++    desc_design: 'Audit assets and draft visual & motion storyboard first, then confirm',
++    desc_produce: 'Execute full storyboard with kinetic physics, SFX, 100-pt self-check & export',
++  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..63784dd 100644
+index cef5071..f030a36 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
 @@ -13,9 +13,9 @@ export const es: Words = {
@@ -1898,7 +2044,7 @@ index cef5071..63784dd 100644
      skillsHidden: 'Tus skills, desactivadas',
      skillsUnfiltered: 'Este agente usa todas tus skills, como en su propia app',
      mcpHidden: 'Tus servidores MCP, desactivados',
-@@ -417,7 +425,7 @@ export const es: Words = {
+@@ -417,7 +425,26 @@ export const es: Words = {
      description: 'Los archivos del proyecto vuelven a como estaban antes de él, también lo cambiado después en Studio. El turno sale del chat y su mensaje vuelve al cuadro de abajo, para enviarlo de nuevo.',
      confirm: 'Deshacer',
      cancel: 'Cancelar',
@@ -1906,9 +2052,28 @@ index cef5071..63784dd 100644
 +    gone: 'Este turno ya no se puede deshacer: los archivos de antes solo se guardan mientras No996 Studio está abierto.',
      missed: 'Deshecho, salvo {names}: no se pudieron dejar como estaban.',
    },
++  workMode: {
++    tooltip: 'Cambiar modo de trabajo',
++    heading: 'Modo de trabajo',
++    shortAuto: 'Auto',
++    shortDesign: 'Diseño',
++    shortProduce: 'Prod',
++    short_auto: 'Auto',
++    short_chat: 'Chat',
++    short_design: 'Diseño',
++    short_produce: 'Prod',
++    label_auto: 'Automático',
++    label_chat: 'Chat rápido',
++    label_design: 'Diseño de director',
++    label_produce: 'Producción completa',
++    desc_auto: 'Alterna automáticamente entre diseño y producción según la complejidad',
++    desc_chat: 'Consultas breves y ajustes pequeños sin flujo completo',
++    desc_design: 'Revisa recursos y diseña el guion visual antes de producir',
++    desc_produce: 'Ejecuta el guion con físicas, SFX, revisión de calidad y exportación',
++  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..a88cc85 100644
+index 09e13c3..4435cfe 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
 @@ -13,9 +13,9 @@ export const ja: Words = {
@@ -1988,7 +2153,7 @@ index 09e13c3..a88cc85 100644
      skillsHidden: '自分のスキル（オフ）',
      skillsUnfiltered: 'このエージェントは本来のアプリと同じく、自分のスキルをすべて使います',
      mcpHidden: '自分の MCP サーバー（オフ）',
-@@ -417,7 +425,7 @@ export const ja: Words = {
+@@ -417,7 +425,26 @@ export const ja: Words = {
      description: 'プロジェクトのファイルはこのターンの前の状態に戻ります。その後 Studio で変えたところも戻ります。このターンはチャットから消え、メッセージは下の入力欄に戻るので、もう一度送れます。',
      confirm: '元に戻す',
      cancel: 'キャンセル',
@@ -1996,9 +2161,28 @@ index 09e13c3..a88cc85 100644
 +    gone: 'このターンはもう元に戻せません。前のファイルは No996 Studio を開いている間だけ保持されます。',
      missed: '元に戻しましたが、{names} は元の状態に戻せませんでした。',
    },
++  workMode: {
++    tooltip: 'AI ワークモードを切り替え',
++    heading: 'ワークモード',
++    shortAuto: '自動',
++    shortDesign: '設計',
++    shortProduce: '制作',
++    short_auto: '自動',
++    short_chat: '会話',
++    short_design: '設計',
++    short_produce: '制作',
++    label_auto: 'スマート自動',
++    label_chat: 'クイック会話',
++    label_design: 'ディレクター設計',
++    label_produce: 'フル制作',
++    desc_auto: 'タスクの複雑さに応じて設計・制作フェーズを自動切替',
++    desc_chat: '簡単な質問や微調整のみ（絵コンテ工程は開かない）',
++    desc_design: '素材確認と演出設計カード・絵コンテ作成後に確認して実行',
++    desc_produce: '絵コンテ通りに物理モーション・効果音・100点検査・書き出しを実行',
++  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index 07ac398..de9efeb 100644
+index 07ac398..8b58aa4 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
 @@ -9,9 +9,9 @@ export const ko: Words = {
@@ -2078,7 +2262,7 @@ index 07ac398..de9efeb 100644
      skillsHidden: '내 스킬(꺼짐)',
      skillsUnfiltered: '이 에이전트는 자체 앱에서처럼 내 스킬을 모두 사용합니다',
      mcpHidden: '내 MCP 서버(꺼짐)',
-@@ -413,7 +421,7 @@ export const ko: Words = {
+@@ -413,7 +421,26 @@ export const ko: Words = {
      description: '프로젝트 파일이 이번 턴 이전 상태로 돌아가고, 그 뒤 Studio에서 바꾼 내용도 함께 되돌아갑니다. 이번 턴은 대화에서 빠지고 메시지는 아래 입력창으로 돌아와 다시 보낼 수 있습니다.',
      confirm: '실행 취소',
      cancel: '취소',
@@ -2086,9 +2270,28 @@ index 07ac398..de9efeb 100644
 +    gone: '이 턴은 더 이상 실행 취소할 수 없습니다. 이전 파일은 No996 Studio이 열려 있는 동안만 보관됩니다.',
      missed: '실행 취소했지만 {names}은(는) 원래대로 되돌리지 못했습니다.',
    },
++  workMode: {
++    tooltip: 'AI 작업 모드 전환',
++    heading: '작업 모드',
++    shortAuto: '자동',
++    shortDesign: '설계',
++    shortProduce: '제작',
++    short_auto: '자동',
++    short_chat: '대화',
++    short_design: '설계',
++    short_produce: '제작',
++    label_auto: '스마트 자동',
++    label_chat: '빠른 대화',
++    label_design: '디렉터 설계',
++    label_produce: '전체 제작',
++    desc_auto: '작업 복잡도에 따라 설계 또는 제작 단계를 자동 전환합니다',
++    desc_chat: '간단한 질문이나 부분 수정만 처리합니다',
++    desc_design: '소재 점검 후 비주얼·모션 스토리보드를 설계하고 확인을 받습니다',
++    desc_produce: '스토리보드에 맞춰 모션, 효과음, 100점 자체 점검 및 내보내기를 실행합니다',
++  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..175ac61 100644
+index 92e929a..1abde2d 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,12 +13,38 @@ export const zhCN: Words = {
@@ -2206,7 +2409,7 @@ index 92e929a..175ac61 100644
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
-@@ -417,7 +451,7 @@ export const zhCN: Words = {
+@@ -417,7 +451,26 @@ export const zhCN: Words = {
      description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
      confirm: '撤销',
      cancel: '取消',
@@ -2214,6 +2417,25 @@ index 92e929a..175ac61 100644
 +    gone: '这一轮已无法撤销：之前的文件只在 不加班剪辑 打开期间保留。',
      missed: '已撤销，但 {names} 没能恢复成原来的样子。',
    },
++  workMode: {
++    tooltip: '切换 AI 工作模式',
++    heading: '工作模式',
++    shortAuto: '自动',
++    shortDesign: '设计',
++    shortProduce: '制片',
++    short_auto: '自动',
++    short_chat: '对话',
++    short_design: '设计',
++    short_produce: '制片',
++    label_auto: '智能自动',
++    label_chat: '快速对话',
++    label_design: '导演设计',
++    label_produce: '制片执行',
++    desc_auto: '按需求复杂度与素材状态自动切换设计或直接执行',
++    desc_chat: '轻量问答、改单句字幕或微调，不开重分镜流程',
++    desc_design: '先盘点素材出视觉设计卡与分镜，确认后再执行',
++    desc_produce: '按分镜全速出片，自动过 100 分动效转场自检与导出',
++  },
  };
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
 index a5ba7ea..357ca7a 100644
@@ -2508,7 +2730,7 @@ index eb12f7b..31c9869 100644
    }, [project, thumbnail]);
  
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..394bb55 100644
+index 0ef8753..4db9c1f 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -2520,7 +2742,7 @@ index 0ef8753..394bb55 100644
    publicActivity,
    publicActivityResult,
    publicAsk,
-@@ -130,12 +132,55 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
+@@ -130,12 +132,61 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
   * The name of our own MCP tool in this call (`mcp__openfilm__look`); undefined for anyone else's tools.
   * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
   * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
@@ -2556,16 +2778,22 @@ index 0ef8753..394bb55 100644
 +    case 'openfilm_transcribe':
 +      return { act: 'audio.transcribe' };
 +    case 'openfilm_frame':
++    case 'openfilm_face_analysis':
++    case 'openfilm_cutout':
 +      return { act: 'film.frames' };
 +    case 'openfilm_film':
 +    case 'openfilm_storyboard':
++    case 'openfilm_mode':
 +      return { act: 'film.review' };
 +    case 'openfilm_clip':
++    case 'openfilm_sfx':
 +      return { act: 'film.arrange' };
 +    case 'openfilm_export':
 +      return { act: 'film.check' };
 +    case 'openfilm_guide':
 +    case 'openfilm_library':
++    case 'openfilm_kit':
++    case 'openfilm_rhythm':
 +      return { act: 'research.read' };
 +    case 'openfilm_assets':
 +    case 'openfilm_get':
@@ -2579,7 +2807,7 @@ index 0ef8753..394bb55 100644
  }
  
  /**
-@@ -161,7 +206,20 @@ export function localToolActivity(
+@@ -161,7 +212,20 @@ export function localToolActivity(
       rawInput.arguments (next to server / tool). Recognize that first. */
    const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown> & { server?: unknown; tool?: unknown; arguments?: unknown };
    const tool = ourToolName(name, rawInput);
@@ -2601,7 +2829,7 @@ index 0ef8753..394bb55 100644
    /* Other MCP tools (Codex's own browser, computer use…): not film work, not drawn */
    if (typeof input.server === 'string' || /^mcp[._]/.test(name)) return null;
    const files = touchedFiles(extra, input);
-@@ -230,11 +288,25 @@ export function acpUpdateToEvent(
+@@ -230,11 +294,25 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -2630,7 +2858,7 @@ index 0ef8753..394bb55 100644
          update.kind as string | undefined,
          update.rawInput,
          { locations: (update as { locations?: unknown }).locations, content: (update as { content?: unknown }).content },
-@@ -246,6 +318,9 @@ export function acpUpdateToEvent(
+@@ -246,6 +324,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
@@ -2640,7 +2868,7 @@ index 0ef8753..394bb55 100644
        };
      }
      case 'tool_call_update': {
-@@ -295,6 +370,17 @@ export class LocalAgentTurn {
+@@ -295,6 +376,17 @@ export class LocalAgentTurn {
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
@@ -2658,7 +2886,7 @@ index 0ef8753..394bb55 100644
  
    constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
  
-@@ -304,7 +390,14 @@ export class LocalAgentTurn {
+@@ -304,7 +396,14 @@ export class LocalAgentTurn {
    };
  
    private emit(): void {
@@ -2674,7 +2902,7 @@ index 0ef8753..394bb55 100644
    }
  
    patch(next: Partial<LocalRunState>): void {
-@@ -363,6 +456,9 @@ export class LocalAgentTurn {
+@@ -363,6 +462,9 @@ export class LocalAgentTurn {
      if (event.type === 'agent-text') {
        const full = (this.partText.get(this.part) ?? '') + event.text;
        this.partText.set(this.part, full);
@@ -2684,7 +2912,7 @@ index 0ef8753..394bb55 100644
        event = { ...event, text: full };
      }
      this.items = reduceTranscript(this.items, event);
-@@ -389,7 +485,6 @@ export class LocalAgentTurn {
+@@ -389,7 +491,6 @@ export class LocalAgentTurn {
    private pendingAsk: TranscriptItem['ask'];
    /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
    private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
@@ -2692,7 +2920,7 @@ index 0ef8753..394bb55 100644
    private openThought: string | null = null;
  
    private patchItem(id: string, patch: Partial<TranscriptItem>): void {
-@@ -400,18 +495,38 @@ export class LocalAgentTurn {
+@@ -400,18 +501,38 @@ export class LocalAgentTurn {
      this.items = next;
    }
  
@@ -2739,7 +2967,7 @@ index 0ef8753..394bb55 100644
      if (!this.state.thinking) this.state = { ...this.state, thinking: true };
      this.emit();
    }
-@@ -423,6 +538,91 @@ export class LocalAgentTurn {
+@@ -423,6 +544,91 @@ export class LocalAgentTurn {
      return true;
    }
  
@@ -2831,7 +3059,7 @@ index 0ef8753..394bb55 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -543,9 +743,13 @@ interface LiveSession {
+@@ -543,9 +749,13 @@ interface LiveSession {
    /** the project and the conversation it is the session of */
    projectId: string;
    conversation: string;
@@ -2845,7 +3073,7 @@ index 0ef8753..394bb55 100644
  
  /**
   * Forget this agent's sessions here (the shell closes its side): the next turn starts a new one, signed
-@@ -553,6 +757,100 @@ const sessions = new Map<string, LiveSession>();
+@@ -553,6 +763,104 @@ const sessions = new Map<string, LiveSession>();
   */
  export function forgetLocalAgentSessions(agent: LocalAgentId): void {
    for (const [k, s] of sessions) if (s.agent === agent) sessions.delete(k);
@@ -2904,6 +3132,10 @@ index 0ef8753..394bb55 100644
 +      if (initialUsage && typeof initialUsage.used === 'number' && typeof initialUsage.size === 'number' && initialUsage.size > 0) {
 +        contextByKey.set(started.key, { used: initialUsage.used, size: initialUsage.size });
 +      }
++      const initialMode = (started.info as LocalAgentSessionInfo & { workMode?: unknown }).workMode;
++      if (initialMode && typeof initialMode === 'object') {
++        recordWorkMode(started.key, initialMode as Partial<WorkModeState>);
++      }
 +      tellContext();
 +      return session;
 +    })().finally(() => {
@@ -2946,7 +3178,79 @@ index 0ef8753..394bb55 100644
  }
  /* ── how full the agent's context is (ACP usage_update): tokens in the conversation now, of its context window, as
     the agent's own chat shows it. By session: each conversation has its own. ── */
-@@ -649,6 +947,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -575,6 +883,71 @@ export function useAgentContext(projectId: string, conversation: string, agent:
+   );
+ }
+ 
++export type WorkMode = 'auto' | 'chat' | 'design' | 'produce';
++export type WorkPhase = 'chat' | 'design' | 'produce';
++export interface WorkModeState { mode: WorkMode; effective: WorkPhase; reason: string; updatedAt: number }
++
++const DEFAULT_WORK_MODE: WorkModeState = { mode: 'auto', effective: 'chat', reason: '', updatedAt: 0 };
++const workModeByKey = new Map<string, WorkModeState>();
++const modeListeners = new Set<() => void>();
++const tellMode = () => { for (const listener of modeListeners) listener(); };
++
++function normalizeWorkMode(raw: Partial<WorkModeState> | undefined): WorkModeState {
++  const mode: WorkMode = raw?.mode === 'chat' || raw?.mode === 'design' || raw?.mode === 'produce' ? raw.mode : 'auto';
++  const effective: WorkPhase = raw?.effective === 'design' || raw?.effective === 'produce' || raw?.effective === 'chat'
++    ? (mode === 'auto' ? raw.effective : mode)
++    : (mode === 'auto' ? 'chat' : mode);
++  const reason = typeof raw?.reason === 'string' ? raw.reason : '';
++  const updatedAt = typeof raw?.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0;
++  return { mode, effective, reason, updatedAt };
++}
++
++function recordWorkMode(key: string, raw: Partial<WorkModeState> | undefined): void {
++  if (!key || !raw) return;
++  workModeByKey.set(key, normalizeWorkMode(raw));
++  tellMode();
++}
++
++export function useAgentWorkMode(projectId: string, conversation: string, agent: LocalAgentId): WorkModeState {
++  return React.useSyncExternalStore(
++    (listener) => { modeListeners.add(listener); return () => { modeListeners.delete(listener); }; },
++    () => {
++      const session = sessions.get(`${projectId}:${conversation}:${agent}`);
++      return (session ? workModeByKey.get(session.key) : undefined) ?? DEFAULT_WORK_MODE;
++    },
++    () => DEFAULT_WORK_MODE,
++  );
++}
++
++export async function setAgentWorkMode(
++  projectId: string,
++  conversation: string,
++  agent: LocalAgentId,
++  mode: WorkMode,
++): Promise<WorkModeState | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge?.setOption) return null;
++  const sessionKey = `${projectId}:${conversation}:${agent}`;
++  const inflight = attaching.get(sessionKey);
++  if (inflight) await inflight.catch(() => null);
++  const target = sessions.get(sessionKey) ?? [...sessions.values()].reverse().find((s) => s.agent === agent);
++  if (!target) {
++    return null;
++  }
++  const optimistic = normalizeWorkMode({ mode, effective: mode === 'auto' ? (workModeByKey.get(target.key)?.effective ?? 'chat') : mode, updatedAt: Date.now() });
++  workModeByKey.set(target.key, optimistic);
++  tellMode();
++  const res = await bridge.setOption(target.key, 'work_mode', mode).catch(() => null);
++  const settled = (res?.result as { workMode?: Partial<WorkModeState> } | undefined)?.workMode;
++  if (res?.ok && settled) {
++    const normalized = normalizeWorkMode(settled);
++    workModeByKey.set(target.key, normalized);
++    tellMode();
++    return normalized;
++  }
++  return optimistic;
++}
++
+ /* ── the agent working with nobody having written: a background task of its own that ended after its turn (a
+    command it ran in the background, a subagent), which it takes up by itself, as in its own chat. Its work is shown
+    as a turn of its own in its conversation (`onUnpromptedTurn`, from the page showing the project), which ends with
+@@ -649,6 +1022,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -2954,7 +3258,18 @@ index 0ef8753..394bb55 100644
    else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
    else if (event.kind === 'permission') {
      const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
-@@ -807,6 +1106,9 @@ export async function runLocalAgentTurn({
+@@ -681,6 +1055,10 @@ function listen(): void {
+       }
+       return;
+     }
++    if (event.kind === 'update' && event.update.sessionUpdate === 'mode_update') {
++      recordWorkMode(event.key, event.update as unknown as Partial<WorkModeState>);
++      return;
++    }
+     if (event.kind === 'update' && event.update.sessionUpdate === 'usage_update') {
+       const { used, size, _meta } = event.update as { used?: unknown; size?: unknown; _meta?: Record<string, unknown> };
+       if (typeof used === 'number' && typeof size === 'number' && size > 0) { contextByKey.set(event.key, { used, size }); tellContext(); }
+@@ -807,6 +1185,9 @@ export async function runLocalAgentTurn({
    if (onStarted) startedHooks.set(turn, onStarted);
  
    const sessionKey = `${projectId}:${conversation}:${agent}`;
@@ -2964,7 +3279,7 @@ index 0ef8753..394bb55 100644
    let session = sessions.get(sessionKey);
    if (!session || session.cwd !== cwd) {
      const started = await bridge.start(agent, cwd, resume, meta);
-@@ -815,6 +1117,10 @@ export async function runLocalAgentTurn({
+@@ -815,6 +1196,14 @@ export async function runLocalAgentTurn({
      }
      session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
      sessions.set(sessionKey, session);
@@ -2972,10 +3287,14 @@ index 0ef8753..394bb55 100644
 +    if (initialUsage && typeof initialUsage.used === 'number' && typeof initialUsage.size === 'number' && initialUsage.size > 0) {
 +      contextByKey.set(started.key, { used: initialUsage.used, size: initialUsage.size });
 +    }
++    const initialMode = (started.info as LocalAgentSessionInfo & { workMode?: unknown }).workMode;
++    if (initialMode && typeof initialMode === 'object') {
++      recordWorkMode(started.key, initialMode as Partial<WorkModeState>);
++    }
      tellContext();
      onSessionInfo?.(started.info);
      /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
-@@ -822,6 +1128,13 @@ export async function runLocalAgentTurn({
+@@ -822,6 +1211,13 @@ export async function runLocalAgentTurn({
        text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
        turn.notice('agent.sessionNotResumed');
      }
@@ -3288,10 +3607,10 @@ index 0000000..1f0b36a
 +const BUTTON = { padding: '6px 10px', border: '1px solid #777', borderRadius: 6, background: '#34312d', color: '#fff', cursor: 'pointer', font: 'inherit' } as const;
 diff --git a/apps/desktop/shell/LoginGate.tsx b/apps/desktop/shell/LoginGate.tsx
 new file mode 100644
-index 0000000..af0f353
+index 0000000..d8fff2e
 --- /dev/null
 +++ b/apps/desktop/shell/LoginGate.tsx
-@@ -0,0 +1,648 @@
+@@ -0,0 +1,657 @@
 +'use client';
 +
 +/**
@@ -3413,6 +3732,7 @@ index 0000000..af0f353
 +
 +export function LoginGate() {
 +  const [visible, setVisible] = React.useState(false);
++  const [accountPrompt, setAccountPrompt] = React.useState(false);
 +  const [mode, setMode] = React.useState<Mode>('login');
 +  const [account, setAccount] = React.useState('');
 +  const [password, setPassword] = React.useState('');
@@ -3556,15 +3876,20 @@ index 0000000..af0f353
 +    const syncGate = () => {
 +      void rpc('auth:status').then((data: { loggedIn?: boolean }) => setVisible(data?.loggedIn !== true)).catch(() => setVisible(true));
 +    };
++    const openAccountLogin = () => { setMode('login'); setAccountPrompt(true); setVisible(true); };
 +    syncGate();
 +    window.addEventListener('no996-auth-changed', syncGate);
++    window.addEventListener('no996-open-account-login', openAccountLogin);
 +    void rpc('auth:remember-get').then((data: { enabled?: boolean; account?: string; password?: string }) => {
 +      if (!data?.enabled || !data.account) return;
 +      setAccount(String(data.account).slice(0, 160));
 +      if (data.password) setPassword(String(data.password).slice(0, 128));
 +      setRemember(true);
 +    }).catch(() => {});
-+    return () => window.removeEventListener('no996-auth-changed', syncGate);
++    return () => {
++      window.removeEventListener('no996-auth-changed', syncGate);
++      window.removeEventListener('no996-open-account-login', openAccountLogin);
++    };
 +  }, []);
 +
 +  React.useEffect(() => {
@@ -3574,6 +3899,7 @@ index 0000000..af0f353
 +  if (!visible) return null;
 +
 +  const afterLogin = () => {
++    setAccountPrompt(false);
 +    setPlaying(false);
 +    setProgressEnd();
 +    setVisible(false);
@@ -3879,7 +4205,9 @@ index 0000000..af0f353
 +          </div>
 +
 +          <button type="submit" className="lg-go" disabled={busy}>{goLabel}</button>
-+          {mode === 'login' ? (
++          {accountPrompt ? (
++            <button type="button" className="lg-go-guest" disabled={busy} onClick={() => { setAccountPrompt(false); setVisible(false); }}>返回工作台</button>
++          ) : mode === 'login' ? (
 +            <button type="button" className="lg-go-guest" disabled={busy} onClick={() => void enterGuest()}>
 +              游客进入
 +            </button>
@@ -5902,14 +6230,14 @@ index bd3b623..7919a9c 100644
        )}>
        <PluginsPane line={line} query={query} projectId={projectId} opened={page} onOpen={showPluginsPage}
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
-index 7b8de03..9af9a55 100644
+index 7b8de03..492e730 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
 +++ b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
-@@ -240,6 +240,44 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
+@@ -240,6 +240,47 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
  const COVER_WAIT_MS = 4000;
  
  
-+type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string };
++type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string; featured?: boolean };
 +
 +/** NO996-UPSTREAM: keep product templates inside the upstream examples gallery. */
 +function No996Templates({ onCopy, onBlank, busy }: { onCopy: (id: string) => void; onBlank: () => void; busy: boolean }) {
@@ -5938,7 +6266,10 @@ index 7b8de03..9af9a55 100644
 +      {failed ? <p role="status" className="text-sm text-[var(--text-muted)]">{zh ? '模板暂不可用，仍可浏览示例或新建空白项目。' : 'Templates are unavailable; browse examples or start blank.'}</p> : null}
 +      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
 +        {cards.map((card) => <article key={card.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
-+          <h3 className="text-sm font-semibold text-[var(--text)]">{card.productTitle || card.title}</h3>
++          <div className="flex items-center justify-between gap-2">
++            <h3 className="text-sm font-semibold text-[var(--text)]">{card.productTitle || card.title}</h3>
++            {card.featured ? <span className="shrink-0 rounded-full bg-[rgba(255,194,75,0.16)] px-2 py-0.5 text-[10px] font-medium text-[#e2a32e]">{zh ? '首推' : 'Featured'}</span> : null}
++          </div>
 +          <p className="flex-1 text-xs leading-relaxed text-[var(--text-muted)]">{card.productBlurb || card.description}</p>
 +          <button type="button" disabled={busy} onClick={() => onCopy(card.id)} className="self-start rounded-md px-2 py-1 text-sm text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '复制开工' : 'Copy and start'}</button>
 +        </article>)}
@@ -5950,7 +6281,7 @@ index 7b8de03..9af9a55 100644
  export function ProjectsPopover({
    open,
    currentProjectId,
-@@ -374,6 +412,36 @@ export function ProjectsPopover({
+@@ -374,6 +415,36 @@ export function ProjectsPopover({
      }
    }
  
@@ -5987,7 +6318,7 @@ index 7b8de03..9af9a55 100644
    async function duplicateProject(project: LibraryProject) {
      if (busy) return;
      setBusy('duplicating');
-@@ -481,6 +549,7 @@ export function ProjectsPopover({
+@@ -481,6 +552,7 @@ export function ProjectsPopover({
        key={examples?.example ?? ''}
        heading={null}
        embedded
@@ -7143,10 +7474,27 @@ index 666b798..53ba676 100644
          title={t('settings.report.title')}
          description={copying.state === 'failed' ? t('settings.report.failed') : copying.shown ? t('settings.report.select') : t('settings.report.hint')}
 diff --git a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
-index 4c99bb2..37d3cda 100644
+index 4c99bb2..3ba7a4f 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
-@@ -44,6 +44,14 @@ export function ModelsSection() {
+@@ -13,7 +13,7 @@
+ import React from 'react';
+ import { Check, ChevronDown, FolderSearch } from 'lucide-react';
+ import { useT } from '@/i18n';
+-import { SERVICE_VERBS, offered, providerOrder, useProviders, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
++import { SERVICE_VERBS, no996VoiceStatus, offered, providerOrder, useProviders, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
+ import { Popover } from '@/components/Popover';
+ import { ProviderMark } from './ProviderMark';
+ import { AddProviderDialog, KIND_ICON, ProviderDialog, ServicesBar } from './ProvidersSection';
+@@ -28,6 +28,7 @@ interface Choice {
+   provider: string;
+   name: string;
+   model: string;
++  auto?: true;
+ }
+ 
+ export function ModelsSection() {
+@@ -44,6 +45,14 @@ export function ModelsSection() {
    const [card, setCard] = React.useState<string | null>(null);
    /* asks the custom services to open their form (counted, so asking again opens it again) */
    const [addCustom, setAddCustom] = React.useState(0);
@@ -7161,11 +7509,103 @@ index 4c99bb2..37d3cda 100644
    /* Local services opens its own card (LocalModelsDialog), not a service's */
    const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
    const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;
+@@ -105,14 +114,18 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+   const state = hook.state!;
+   const label = t(`settings.providers.verbs.${verb}`);
+   const chosen = state.use[verb] ?? '';
+-  const order = providerOrder(state.providers.filter((p) => p.verbs.includes(verb) || p.id === chosen));
++  const no996 = verb === 'tts' ? state.providers.find(p => p.id === 'no996') : undefined;
++  const rows = state.providers.filter((p) => p.verbs.includes(verb) || p.id === chosen);
++  const order = providerOrder(rows.map(p => p === no996 ? { ...p, source: no996VoiceStatus(p) === 'ready' ? 'file' as const : null } : p));
++  const auto: Choice | null = no996 ? { value: 'no996-voice-auto', provider: 'no996', model: '', name: t('settings.providers.no996Voice.auto'), auto: true } : null;
+   /* the model chosen, or the provider's first when it has none or no longer makes it (as a run does) */
+   const models = state.providers.find((p) => p.id === chosen)?.models[verb] ?? [];
+   const model = models.find((m) => m.id === state.model[verb]) ?? models[0];
+   const value = chosen ? `${chosen}:${model?.id ?? ''}` : '';
+   const choicesOf = (p: OwnProvider): Choice[] => (p.models[verb] ?? [])
+     .map((m) => ({ value: `${p.id}:${m.id}`, provider: p.id, name: m.name, model: m.id }));
+-  const current = order.connected.flatMap(choicesOf).find((c) => c.value === value) ?? null;
++  const manual = order.connected.flatMap(choicesOf).find((c) => c.value === value) ?? null;
++  const current = no996?.no996VoiceDefault && chosen === 'no996' && manual ? { ...manual, value: auto!.value, name: t('settings.providers.no996Voice.defaultModel') } : manual;
+   const Icon = KIND_ICON[verb];
+ 
+   return (
+@@ -127,8 +140,9 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+           waiting={[...order.recommended, ...order.more]}
+           choicesOf={choicesOf}
+           current={current}
++          auto={auto}
+           busy={hook.busy === verb}
+-          onPick={(choice) => void hook.choose(verb, choice?.provider ?? '', choice ? { model: choice.model } : undefined)}
++          onPick={(choice) => void (choice?.auto ? hook.choose('tts', '', { no996VoiceAuto: true }) : hook.choose(verb, choice?.provider ?? '', choice ? { model: choice.model } : undefined))}
+           onConnect={onConnect}
+         />
+       )}
+@@ -141,7 +155,7 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+  * The connected ones first, to choose from (and None); then the others, their models shown as what connecting brings,
+  * each opening its card to connect it.
+  */
+-function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empty, onPick, onConnect }: {
++function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empty, auto, onPick, onConnect }: {
+   label: string;
+   connected: OwnProvider[];
+   waiting: OwnProvider[];
+@@ -150,6 +164,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+   busy: boolean;
+   /** what the button says when nothing is chosen (else "Choose a model") */
+   empty?: string;
++  auto?: Choice | null;
+   onPick: (choice: Choice | null) => void;
+   onConnect: (provider: string) => void;
+ }) {
+@@ -171,7 +186,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+     const at = options.indexOf(document.activeElement as HTMLElement);
+     options[(at + (e.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus();
+   };
+-  const pick = (choice: Choice | null) => { setOpen(false); if (choice?.value !== current?.value) onPick(choice); };
++  const pick = (choice: Choice | null) => { setOpen(false); if (!choice || choice.value !== current?.value) onPick(choice); };
+   const connect = (id: string) => { setOpen(false); onConnect(id); };
+ 
+   const rowClass = 'flex w-full items-center gap-2.5 rounded-[7px] px-2.5 text-left outline-none hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]';
+@@ -191,7 +206,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+       <>
+         <span className="flex w-4 justify-center"><ProviderMark id={p.id} size={15} /></span>
+         <span className="min-w-0 flex-1 truncate">{p.name}</span>
+-        {connectable ? <span className="shrink-0 text-[12.5px] font-normal text-[var(--text-faint)] group-hover:text-[var(--text)]">{t('settings.providers.connect')}</span> : null}
++        {connectable ? <span className="shrink-0 text-[12.5px] font-normal text-[var(--text-faint)] group-hover:text-[var(--text)]">{p.id === 'no996' ? t('settings.providers.no996Voice.details') : t('settings.providers.connect')}</span> : null}
+       </>
+     );
+     return connectable ? (
+@@ -216,13 +231,14 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+       <Popover open={open} onOpenChange={setOpen} placement="auto" align="end" layer={10060} trigger={trigger}>
+         <div ref={list} role="listbox" aria-label={label} onKeyDown={onKeyDown}
+           className="max-h-[min(480px,var(--popover-max-h))] w-[340px] overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-raised)] p-1.5 shadow-[var(--shadow-lg)]">
++          {auto ? option(auto, auto.name) : null}
+           {connected.map((p) => (
+             <div key={p.id} role="group" aria-label={p.name} className="pb-1">
+               {heading(p, false)}
+               {choicesOf(p).map((c) => option(c, c.name))}
+             </div>
+           ))}
+-          {connected.length ? option(null, t('settings.models.none')) : null}
++          {connected.length || auto ? option(null, t('settings.models.none')) : null}
+           {waiting.length ? (
+             <div className={connected.length ? 'mt-1.5 border-t border-[var(--border)] pt-1.5' : ''}>
+               <div className="px-2.5 pb-1 pt-1.5 text-[12px] text-[var(--text-faint)]">{t('settings.models.notConnected')}</div>
 diff --git a/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
-index 2bc2346..7e4b7cd 100644
+index 2bc2346..58bbeb1 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/ProvidersSection.tsx
-@@ -47,12 +47,12 @@ const chipClass = 'inline-flex h-9 items-center gap-2 rounded-full border px-3.5
+@@ -16,7 +16,7 @@ import React from 'react';
+ import { createPortal } from 'react-dom';
+ import { AudioWaveform, Captions, ChevronRight, Clapperboard, createLucideIcon, ExternalLink, Globe, Image, Mic, Music, Plus, ScanSearch, Scissors } from 'lucide-react';
+ import { useT } from '@/i18n';
+-import { AZURE_SERVICES, PROVIDER_SITES, SERVICE_VERBS, azureKey, providerOrder, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
++import { AZURE_SERVICES, PROVIDER_SITES, SERVICE_VERBS, azureKey, no996VoiceStatus, providerOrder, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
+ import { customProblem } from './CustomServices';
+ import { ProviderMark } from './ProviderMark';
+ import { DialogClose, DialogIdentity } from './DialogIdentity';
+@@ -47,39 +47,37 @@ const chipClass = 'inline-flex h-9 items-center gap-2 rounded-full border px-3.5
   */
  export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOpen: (id: string) => void; local?: React.ReactNode }) {
    const t = useT();
@@ -7175,16 +7615,28 @@ index 2bc2346..7e4b7cd 100644
 -  /* Local services has its own chip (`local`) */
 -  const order = providerOrder(rows.filter((p) => p !== own && p.id !== 'local'));
 -  const [all, setAll] = React.useState(false);
+-  const chip = (p: OwnProvider) => (
 +  // The embedded product uses the No996 account. Keep previously configured provider
 +  // credentials and APIs intact; do not present upstream sign-in as product sign-in.
 +  const rows = (hook.state?.providers ?? []).filter((p) => /^(no996|local)$/i.test(p.id));
 +  const order = providerOrder(rows.filter((p) => p.id !== 'local'));
 +  // NO996-UPSTREAM: the expandable third-party provider list is hidden, not disabled.
 +  const all = false;
-   const chip = (p: OwnProvider) => (
++  const chip = (p: OwnProvider) => {
++    const ready = p.id === 'no996' ? no996VoiceStatus(p) === 'ready' : Boolean(p.source);
++    return (
      <button key={p.id} type="button" onClick={() => onOpen(p.id)}
-       className={`${chipClass} ${p.source ? 'border-[var(--border-strong)] text-[var(--text)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
-@@ -65,21 +65,16 @@ export function ServicesBar({ hook, onOpen, local }: { hook: ProvidersHook; onOp
+-      className={`${chipClass} ${p.source ? 'border-[var(--border-strong)] text-[var(--text)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
++      className={`${chipClass} ${ready ? 'border-[var(--border-strong)] text-[var(--text)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
+       <ProviderMark id={p.id} size={15} />
+       {p.name}
+-      {p.source ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--ok)]" aria-label={t('settings.providers.connected')} /> : null}
++      {ready ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--ok)]" aria-label={t('settings.providers.connected')} /> : null}
+     </button>
+-  );
++    );
++  };
+   if (!hook.state) return null;
    return (
      <div className="mb-10">
        <div className="flex flex-wrap gap-2">
@@ -7208,6 +7660,59 @@ index 2bc2346..7e4b7cd 100644
        </div>
        {/* a key that was refused says why in its card; a custom service's under its form */}
        {hook.problem && !rows.some((p) => p.id === hook.problemFor) && !customProblem(hook) ? <p className={settingsError}>{hook.problem}</p> : null}
+@@ -133,6 +131,22 @@ function PricingLink({ provider }: { provider: OwnProvider }) {
+  */
+ export function ProviderDialog({ provider, hook, onClose }: { provider: OwnProvider; hook: ProvidersHook; onClose: () => void }) {
+   const t = useT();
++  const workbench = provider.id === 'no996';
++  const voice = no996VoiceStatus(provider);
++  const [retrying, setRetrying] = React.useState(false);
++  const [retryFailed, setRetryFailed] = React.useState(false);
++  const voiceState = retrying ? 'checking' : retryFailed ? 'unavailable' : voice;
++  const retry = async () => {
++    setRetrying(true);
++    setRetryFailed(false);
++    try { await hook.reload({ no996VoiceRefresh: true }); }
++    catch { setRetryFailed(true); }
++    finally { setRetrying(false); }
++  };
++  const login = () => {
++    onClose();
++    window.dispatchEvent(new Event('no996-open-account-login'));
++  };
+   const site = PROVIDER_SITES[provider.id];
+   const kinds = SERVICE_VERBS;
+   const paid = provider.signIn ? t('settings.providers.balanceNote').replaceAll('{name}', provider.name)
+@@ -140,12 +154,17 @@ export function ProviderDialog({ provider, hook, onClose }: { provider: OwnProvi
+       : t('settings.providers.keyNote');
+   return (
+     <Card label={provider.name} onClose={onClose}>
+-      <Connection provider={provider} hook={hook} header={(status, action) => (
++      {workbench ? (
++        <DialogIdentity name={provider.name} mark={<ProviderMark id={provider.id} size={24} />}
++          status={<span role="status" data-no996-voice-status={voiceState}>{t(`settings.providers.no996Voice.${voiceState}`)}</span>}
++          actions={voiceState === 'signed-out' ? <SettingsButton variant="primary" onClick={login}>{t('settings.providers.no996Voice.login')}</SettingsButton>
++            : voiceState === 'unavailable' ? <SettingsButton variant="quiet" onClick={() => void retry()}>{t('settings.providers.no996Voice.retry')}</SettingsButton> : null} />
++      ) : <Connection provider={provider} hook={hook} header={(status, action) => (
+         /* the status line runs on under the buttons, which are no taller than the name and website */
+         <DialogIdentity name={provider.name} mark={<ProviderMark id={provider.id} size={24} />}
+           website={site ? { href: `https://${site}`, label: site } : undefined} actions={action} status={status} />
+-      )} />
+-      <p className="mt-5 text-[14.5px] leading-relaxed text-[var(--text-muted)]">{provider.added ? t('settings.providers.aboutAdded') : t(`settings.providers.about.${provider.id}`)}</p>
++      )} />}
++      <p className="mt-5 text-[14.5px] leading-relaxed text-[var(--text-muted)]">{workbench ? t('settings.providers.no996Voice.about') : provider.added ? t('settings.providers.aboutAdded') : t(`settings.providers.about.${provider.id}`)}</p>
+       <h3 className="mb-1 mt-7 text-[13px] font-medium text-[var(--text-faint)]">{t('settings.providers.makes')}</h3>
+       <div className="flex flex-col divide-y divide-[var(--border)] border-y border-[var(--border)]">
+         {kinds.map((verb) => {
+@@ -165,7 +184,7 @@ export function ProviderDialog({ provider, hook, onClose }: { provider: OwnProvi
+           );
+         })}
+       </div>
+-      <p className="mt-5 inline-flex flex-wrap items-center gap-x-1.5 text-[13px] leading-relaxed text-[var(--text-faint)]">{paid}{provider.pricingUrl ? <PricingLink provider={provider} /> : null}</p>
++      {!workbench ? <p className="mt-5 inline-flex flex-wrap items-center gap-x-1.5 text-[13px] leading-relaxed text-[var(--text-faint)]">{paid}{provider.pricingUrl ? <PricingLink provider={provider} /> : null}</p> : null}
+     </Card>
+   );
+ }
 diff --git a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
 index 1e72831..356b504 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
@@ -7460,7 +7965,7 @@ index 1e72831..356b504 100644
   * Diagnostics (DiagnosticsGroup), for when something does not work; how playing goes, in the viewer's corner
   * (lib/preview-prefs `stats`); in the app, what its chat shows of each turn: what it changed in the files, and its
 diff --git a/packages/openfilm/studio/ui/src/i18n/en.ts b/packages/openfilm/studio/ui/src/i18n/en.ts
-index 4be139f..9493c94 100644
+index 4be139f..bab0bda 100644
 --- a/packages/openfilm/studio/ui/src/i18n/en.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/en.ts
 @@ -133,7 +133,7 @@ export const en = {
@@ -7622,8 +8127,27 @@ index 4be139f..9493c94 100644
        check: 'Check for updates',
        checking: 'Checking…',
        failed: 'Couldn’t reach npm. Try again later.',
+@@ -3962,6 +3964,18 @@ export const en = {
+       about: { 'whisper-small': 'OpenAI\'s speech recognition model, small size: good accuracy in about 100 languages, each word timed for subtitles.', 'whisper-large-v3-turbo': 'The most accurate Whisper: fewer mistakes in names and mixed languages, and steadier in Chinese, but larger and about as slow as real time.', 'birefnet-lite': 'Finds what a picture is of — people, objects, animals — and cuts it out with clean edges, hair included.' },
+     },
+     providers: {
++      no996Voice: {
++        "signed-out": "Not signed in",
++        "checking": "Checking voice service…",
++        "ready": "Voice ready",
++        "unavailable": "Could not confirm that the voice service is available",
++        "login": "Sign in to No996",
++        "retry": "Retry",
++        "about": "Voice uses your No996 account. No separate connection or API key is needed.",
++        "details": "View status",
++        "auto": "Automatic (No996 Voice)",
++        "defaultModel": "No996 Voice (default)",
++      },
+       included: 'Available',
+       about: {
+         openfilm: 'OpenFilm\'s own service. Connect your OpenFilm account once and make voice-over, music, sound, transcripts, pictures and video with leading models, paid from your OpenFilm balance: no other accounts or keys.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/es.ts b/packages/openfilm/studio/ui/src/i18n/es.ts
-index cd10a7b..f18d82b 100644
+index cd10a7b..1039baf 100644
 --- a/packages/openfilm/studio/ui/src/i18n/es.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/es.ts
 @@ -126,7 +126,7 @@ export const es: Words = {
@@ -7785,8 +8309,27 @@ index cd10a7b..f18d82b 100644
        check: 'Buscar actualizaciones',
        checking: 'Comprobando…',
        failed: 'No se pudo contactar con npm. Inténtalo más tarde.',
+@@ -3927,6 +3929,18 @@ export const es: Words = {
+       about: { 'whisper-small': 'El modelo de reconocimiento de voz de OpenAI, tamaño pequeño: buena precisión en unos 100 idiomas, cada palabra con su tiempo para subtítulos.', 'whisper-large-v3-turbo': 'El Whisper más preciso: menos errores en nombres y en idiomas mezclados, y más estable en chino, pero más grande y casi tan lento como el tiempo real.', 'birefnet-lite': 'Encuentra el sujeto de una imagen (personas, objetos, animales) y lo recorta con bordes limpios, cabello incluido.' },
+     },
+     providers: {
++      no996Voice: {
++        "signed-out": "Sesión no iniciada",
++        "checking": "Comprobando el servicio de voz…",
++        "ready": "Voz lista",
++        "unavailable": "No se pudo confirmar la disponibilidad del servicio de voz",
++        "login": "Iniciar sesión en No996",
++        "retry": "Reintentar",
++        "about": "La voz usa tu cuenta de No996. No necesitas una conexión aparte ni una clave API.",
++        "details": "Ver estado",
++        "auto": "Automático (Voz No996)",
++        "defaultModel": "Voz No996 (predeterminada)",
++      },
+       included: 'Disponible',
+       about: {
+         openfilm: 'El servicio propio de OpenFilm. Conecta tu cuenta de OpenFilm una vez y crea voz en off, música, sonido, transcripciones, imágenes y vídeo con modelos de primera, pagando con tu saldo de OpenFilm: sin otras cuentas ni claves.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ja.ts b/packages/openfilm/studio/ui/src/i18n/ja.ts
-index bebc8ac..9c91a1e 100644
+index bebc8ac..ca870a6 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ja.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ja.ts
 @@ -126,7 +126,7 @@ export const ja: Words = {
@@ -7948,8 +8491,27 @@ index bebc8ac..9c91a1e 100644
        check: 'アップデートを確認',
        checking: '確認中…',
        failed: 'npm に接続できません。しばらくしてからもう一度お試しください。',
+@@ -3927,6 +3929,18 @@ export const ja: Words = {
+       about: { 'whisper-small': 'OpenAI の音声認識モデル（小サイズ）：約 100 言語で十分な精度、各単語に時刻が付くので字幕にそのまま使えます。', 'whisper-large-v3-turbo': '最も正確な Whisper：人名や言語の混在に強く、中国語も安定しますが、サイズが大きく速度はほぼ実時間です。', 'birefnet-lite': '画像の被写体（人・物・動物）を見つけ、髪の毛まできれいな輪郭で切り抜きます。' },
+     },
+     providers: {
++      no996Voice: {
++        "signed-out": "未ログイン",
++        "checking": "音声サービスを確認中…",
++        "ready": "音声サービスを利用できます",
++        "unavailable": "音声サービスの利用可否を確認できません",
++        "login": "No996 にログイン",
++        "retry": "再試行",
++        "about": "音声サービスには No996 アカウントを使います。別途接続したり API キーを入力したりする必要はありません。",
++        "details": "状態を確認",
++        "auto": "自動（No996 音声）",
++        "defaultModel": "No996 音声（既定）",
++      },
+       included: '対応',
+       about: {
+         openfilm: 'OpenFilm 自身のサービス。OpenFilm アカウントを一度接続するだけで、ナレーション、音楽、効果音、書き起こし、画像、ビデオを主要なモデルで作れます。支払いは OpenFilm の残高から。ほかのアカウントやキーは不要です。',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ko.ts b/packages/openfilm/studio/ui/src/i18n/ko.ts
-index f5955a6..12fec96 100644
+index f5955a6..ee9142c 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ko.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ko.ts
 @@ -124,7 +124,7 @@ export const ko: Words = {
@@ -8111,8 +8673,27 @@ index f5955a6..12fec96 100644
        check: '업데이트 확인',
        checking: '확인 중…',
        failed: 'npm에 연결할 수 없습니다. 잠시 후 다시 시도하세요.',
+@@ -3924,6 +3926,18 @@ export const ko: Words = {
+       about: { 'whisper-small': 'OpenAI의 음성 인식 모델(작은 크기): 약 100개 언어에서 정확도가 좋고, 단어마다 시간이 있어 바로 자막에 씁니다.', 'whisper-large-v3-turbo': '가장 정확한 Whisper: 이름과 여러 언어가 섞인 말에 덜 틀리고 중국어도 안정적이지만, 크고 속도는 실시간과 비슷합니다.', 'birefnet-lite': '이미지의 주체(사람, 물건, 동물)를 찾아 머리카락까지 깔끔한 경계로 오려 냅니다.' },
+     },
+     providers: {
++      no996Voice: {
++        "signed-out": "로그인하지 않음",
++        "checking": "음성 서비스 확인 중…",
++        "ready": "음성 서비스 사용 가능",
++        "unavailable": "음성 서비스 사용 가능 여부를 확인하지 못했습니다",
++        "login": "No996에 로그인",
++        "retry": "다시 시도",
++        "about": "음성 서비스에는 No996 계정을 사용합니다. 별도 연결이나 API 키가 필요하지 않습니다.",
++        "details": "상태 보기",
++        "auto": "자동(No996 음성)",
++        "defaultModel": "No996 음성(기본값)",
++      },
+       included: '지원',
+       about: {
+         openfilm: 'OpenFilm 자체 서비스입니다. OpenFilm 계정을 한 번 연결하면 선도적인 모델로 내레이션, 음악, 효과음, 대본, 이미지, 비디오를 만들고 OpenFilm 잔액에서 결제합니다. 다른 계정이나 키가 필요 없습니다.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
-index debd95b..eeb2a5e 100644
+index debd95b..223a1de 100644
 --- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 @@ -132,7 +132,7 @@ export const zhCN: Words = {
@@ -8274,6 +8855,25 @@ index debd95b..eeb2a5e 100644
        check: '检查更新',
        checking: '正在检查…',
        failed: '连不上 npm，请稍后再试。',
+@@ -3961,6 +3963,18 @@ export const zhCN: Words = {
+       about: { 'whisper-small': 'OpenAI 的语音识别模型（小号）：约 100 种语言准确率都不错，每个词都有时间，可直接做字幕。', 'whisper-large-v3-turbo': '最准的 Whisper：人名、中英混说更少出错，中文也更稳定；但体积更大，速度约等于实时。', 'birefnet-lite': '找出图片的主体（人、物、动物），干净地抠出来，头发边缘也能保留。' },
+     },
+     providers: {
++      no996Voice: {
++        "signed-out": "尚未登录",
++        "checking": "正在检查配音服务…",
++        "ready": "配音已就绪",
++        "unavailable": "暂时无法确认配音服务可用",
++        "login": "登录不加班",
++        "retry": "重试",
++        "about": "配音使用你已登录的不加班账号，无需单独连接或填写密钥。",
++        "details": "查看状态",
++        "auto": "自动（不加班配音）",
++        "defaultModel": "不加班配音（默认）",
++      },
+       included: '支持',
+       about: {
+         openfilm: 'OpenFilm 自己的服务。连接一次 OpenFilm 账号，就能用领先的模型生成配音、音乐、音效、文字稿、图片和视频，从 OpenFilm 余额扣费，不需要别的账号或 key。',
 diff --git a/packages/openfilm/studio/ui/src/lib/plugins-window.ts b/packages/openfilm/studio/ui/src/lib/plugins-window.ts
 index df44764..c78139d 100644
 --- a/packages/openfilm/studio/ui/src/lib/plugins-window.ts
@@ -8287,6 +8887,94 @@ index df44764..c78139d 100644
  }
  export function closePlugins(): void { set({ ...state, open: false, page: null }); }
  export function showPluginsLine(line: PluginsLine | string): void { set({ ...state, line: named(line), page: null }); }
+diff --git a/packages/openfilm/studio/ui/src/lib/providers.ts b/packages/openfilm/studio/ui/src/lib/providers.ts
+index 385cdb2..c2eef87 100644
+--- a/packages/openfilm/studio/ui/src/lib/providers.ts
++++ b/packages/openfilm/studio/ui/src/lib/providers.ts
+@@ -11,7 +11,12 @@ import { lookup, useLanguage, type Language } from '../i18n/index.ts';
+ export type ProviderVerb = 'voice' | 'tts' | 'sfx' | 'music' | 'asr' | 'cutout' | 'image-search' | 'video-search' | 'image' | 'video' | 'translate' | 'web-search' | 'web-fetch';
+ 
+ 
++export type No996VoiceStatus = 'signed-out' | 'checking' | 'ready' | 'unavailable';
++export const no996VoiceStatus = (provider: OwnProvider): No996VoiceStatus => provider.no996VoiceStatus ?? 'unavailable';
++
+ export interface OwnProvider {
++  no996VoiceStatus?: No996VoiceStatus;
++  no996VoiceDefault?: boolean;
+   id: string;
+   name: string;
+   verbs: ProviderVerb[];
+@@ -153,7 +158,7 @@ const invalidate = () => { revision++; refresh(); };
+ const refreshVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+ 
+ function followSignIn() {
+-  if (subscribers.size && snapshot?.signingIn?.provider) {
++  if (subscribers.size && (snapshot?.signingIn?.provider || snapshot?.providers.some(p => p.id === 'no996' && p.no996VoiceStatus === 'checking'))) {
+     poll ??= window.setInterval(refresh, 2000);
+   } else if (poll !== undefined) {
+     window.clearInterval(poll);
+@@ -169,10 +174,10 @@ function publish(next: ProvidersState) {
+   if (finished) announce();
+ }
+ 
+-function readProviders() {
++function readProviders(forceVoice = false) {
+   if (reading?.revision === revision) return reading.result;
+   const started = revision;
+-  const result = call('').then((next) => {
++  const result = call(forceVoice ? '?no996VoiceRefresh=1' : '').then((next) => {
+     // A read started before a successful change must not put its older state back.
+     if (started === revision) publish(next);
+   }).finally(() => { if (reading?.result === result) reading = null; });
+@@ -184,6 +189,7 @@ function subscribe(notify: () => void) {
+   subscribers.add(notify);
+   if (subscribers.size === 1) {
+     window.addEventListener('focus', refresh);
++    window.addEventListener('no996-auth-changed', invalidate);
+     document.addEventListener('visibilitychange', refreshVisible);
+     try {
+       channel = new BroadcastChannel('openfilm.providers');
+@@ -205,6 +211,7 @@ function subscribe(notify: () => void) {
+     if (subscribers.size) return;
+     followSignIn();
+     window.removeEventListener('focus', refresh);
++    window.removeEventListener('no996-auth-changed', invalidate);
+     document.removeEventListener('visibilitychange', refreshVisible);
+     channel?.close();
+     channel = undefined;
+@@ -228,11 +235,11 @@ export interface ProvidersHook {
+   signIn: (id: string) => Promise<void>;
+   cancelSignIn: (id: string) => Promise<void>;
+   /** who makes that kind of media: a provider id with its model, or '' (none) */
+-  choose: (verb: ProviderVerb, provider: string, pick?: { model?: string }) => Promise<void>;
++  choose: (verb: ProviderVerb, provider: string, pick?: { model?: string; no996VoiceAuto?: true }) => Promise<void>;
+   /** the library searched by meaning at OpenFilm's service, or by its words alone */
+   setLibrarySearch: (on: boolean) => Promise<void>;
+   /** the state asked again (what Local services makes changed) */
+-  reload: () => Promise<void>;
++  reload: (options?: { no996VoiceRefresh?: boolean }) => Promise<void>;
+   /** one of the person's own services added (id null) or changed; resolves whether it was kept */
+   saveService: (id: string | null, fields: OwnServiceFields) => Promise<boolean>;
+   removeService: (id: string) => Promise<void>;
+@@ -293,14 +300,15 @@ export function useProviders(): ProvidersHook {
+     useEnvKey: (id) => change(id, `/${encodeURIComponent(id)}/key`, { method: 'PUT', json: { env: true } }),
+     signIn: async (id) => { await change(id, `/${encodeURIComponent(id)}/sign-in`, { method: 'POST' }); },
+     cancelSignIn: async (id) => { await change(id, `/${encodeURIComponent(id)}/sign-in/cancel`, { method: 'POST' }); },
+-    choose: async (verb, provider, pick) => { await change(verb, '/use', { method: 'PUT', json: { verb, provider: provider || null, ...pick } }); },
++    choose: async (verb, provider, pick) => { await change(verb, verb === 'tts' ? '/no996-voice-choice' : '/use', { method: 'PUT', json: { verb, provider: verb === 'tts' ? provider : provider || null, ...pick } }); },
+     setLibrarySearch: async (on) => { await change('library-search', '/library-search', { method: 'PUT', json: { on } }); },
+     saveService: (id, fields) => change(id ?? 'custom', id ? `/custom/${encodeURIComponent(id)}` : '/custom', { method: id ? 'PUT' : 'POST', json: fields }),
+     removeService: async (id) => { await change(id, `/custom/${encodeURIComponent(id)}`, { method: 'DELETE' }); },
+     /* asked again: what Local services makes changed (a model came, went, or was turned on or off) */
+-    reload: async () => {
++    reload: async (options) => {
+       revision++;
+-      await readProviders().then(announce, () => {});
++      if (options?.no996VoiceRefresh) await readProviders(true).then(announce);
++      else await readProviders().then(announce, () => {});
+     },
+   };
+ }
 diff --git a/packages/openfilm/studio/ui/src/shell/top-bar.tsx b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
 index 0a51b5f..04e8fcd 100644
 --- a/packages/openfilm/studio/ui/src/shell/top-bar.tsx

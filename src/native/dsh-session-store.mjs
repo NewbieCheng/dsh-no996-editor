@@ -142,6 +142,20 @@ export function createDshSessionStore({ file, fs } = {}) {
       if (!record) return undefined;
       return selectionOf(record, keyOf(conversation));
     },
+    getWorkMode(projectId, conversation) {
+      const record = recordOf(projectId);
+      if (!record || !record.workModes || typeof record.workModes !== 'object') return undefined;
+      const mode = record.workModes[keyOf(conversation)];
+      return mode && typeof mode === 'object' ? { ...mode } : undefined;
+    },
+    setWorkMode(projectId, conversation, workMode) {
+      if (typeof projectId !== 'string' || !PROJECT_ID.test(projectId)) return;
+      if (!workMode || typeof workMode !== 'object') return;
+      const record = data.projects[projectId] ?? (data.projects[projectId] = { sessions: {} });
+      record.workModes ??= {};
+      record.workModes[keyOf(conversation)] = { ...workMode };
+      flush();
+    },
     remove(projectId) {
       if (data.projects[projectId] === undefined) return;
       delete data.projects[projectId];

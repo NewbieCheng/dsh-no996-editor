@@ -1,0 +1,53 @@
+{
+  "kit": "vibe",
+  "size": [
+    1080,
+    1920
+  ],
+  "wallTitle": "Vibe 科普剧场 · 容错率是造出来的",
+  "wallBackdrop": "#0a0c10",
+  "sectionTitle": "Vibe 科普剧场 · 8 组物理隐喻镜头",
+  "sharedScripts": [
+    "_kit/motion/motion.js",
+    "_kit/vibe/vibe-canvas.js",
+    "_kit/vibe/vibe-overlay.js"
+  ],
+  "sfxCues": [
+    { "at": 0.40, "kind": "pop", "volume": 0.72 },
+    { "at": 1.15, "kind": "hit", "volume": 0.90 },
+    { "at": 2.40, "kind": "thud", "volume": 0.75 },
+    { "at": 4.82, "kind": "whoosh", "volume": 0.65 },
+    { "at": 5.20, "kind": "hit", "volume": 0.85 },
+    { "at": 6.60, "kind": "down", "volume": 0.68 },
+    { "at": 8.00, "kind": "up", "volume": 0.74 },
+    { "at": 9.82, "kind": "whoosh", "volume": 0.65 },
+    { "at": 10.20, "kind": "hit", "volume": 0.84 },
+    { "at": 11.40, "kind": "thud", "volume": 0.80 },
+    { "at": 13.10, "kind": "pop", "volume": 0.72 },
+    { "at": 15.82, "kind": "whoosh", "volume": 0.65 },
+    { "at": 16.20, "kind": "hit", "volume": 0.85 },
+    { "at": 17.55, "kind": "crack", "volume": 0.88 },
+    { "at": 19.10, "kind": "down", "volume": 0.62 },
+    { "at": 20.10, "kind": "pop", "volume": 0.75 },
+    { "at": 21.32, "kind": "whoosh", "volume": 0.65 },
+    { "at": 21.70, "kind": "hit", "volume": 0.85 },
+    { "at": 22.90, "kind": "tick", "volume": 0.60 },
+    { "at": 23.40, "kind": "tick", "volume": 0.60 },
+    { "at": 24.40, "kind": "up", "volume": 0.80 },
+    { "at": 26.82, "kind": "whoosh", "volume": 0.65 },
+    { "at": 27.20, "kind": "hit", "volume": 0.82 },
+    { "at": 28.00, "kind": "click", "volume": 0.45 },
+    { "at": 28.35, "kind": "click", "volume": 0.45 },
+    { "at": 28.70, "kind": "click", "volume": 0.45 },
+    { "at": 29.05, "kind": "click", "volume": 0.45 },
+    { "at": 30.20, "kind": "bell", "pitch": 784, "volume": 0.82 },
+    { "at": 32.32, "kind": "whoosh", "volume": 0.65 },
+    { "at": 32.70, "kind": "hit", "volume": 0.80 },
+    { "at": 33.80, "kind": "bell", "pitch": 660, "volume": 0.72 },
+    { "at": 34.70, "kind": "bell", "pitch": 784, "volume": 0.72 },
+    { "at": 35.60, "kind": "bell", "pitch": 988, "volume": 0.78 },
+    { "at": 37.32, "kind": "whoosh", "volume": 0.65 },
+    { "at": 37.70, "kind": "hit", "volume": 0.90 },
+    { "at": 39.20, "kind": "bell", "pitch": 523.25, "volume": 0.76 }
+  ]
+}

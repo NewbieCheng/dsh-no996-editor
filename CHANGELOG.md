@@ -2,6 +2,20 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.17.0 —— Vibe 科普创作能力全面产品化与 4 档智能工作模式
+
+- **首推模板与创意升级（`vibe-explainer`）**：新增并置顶首推 `vibe-explainer`（Vibe 科普剧场，1080×1920 竖屏 8 镜 42 秒全物理动效样片与双轨无重叠拟音轨），示例画廊卡片新增「首推」徽章；同步升级 `paper-texture`、`replica-film`、`sketchnote`、`motion-styles` 4 个既有模板的提示词引导与运行时工具链（`paper-texture` 内置 `vibe-overlay.js` 支持人脸避让高亮贴片），鼓励 AI 基于主题原创物理隐喻而非死板套壳。
+- **跨项目可复用 AI 创作工具矩阵（纯 Node.js + FFmpeg，零 Python 依赖）**：
+  - `openfilm_rhythm`：内置 Radix-2 FFT + 多频带 spectral flux + DP 节拍追踪 + RMS 能量高潮/Drop/静音谷识别，写入 `.film/rhythm.json` 缓存与静态 `assets/rhythm-data.js`。
+  - `openfilm_sfx`：确定性 48kHz 立体声 12 类拟音合成器（`hit`/`thud`/`click`/`tick`/`pop`/`whoosh`/`down`/`up`/`bell`/`crack`/`typing`/`wood`），自动分轨零重叠或 `-1.2 dBFS` 混音母带输出。
+  - `openfilm_kit`：将 `motion.js`（新增 `shake`/`slam`/`steps`/`pulse`/`wipeBand`/`carryPose`）、`vibe-canvas.js`（6 大物理隐喻组件 + 拍点呼吸）、`vibe-overlay.js`（口播/实拍避脸浮层）以及 14 套风格/124 张镜头卡灵感向任意项目开放一键检索与装配。
+  - 随 `openfilm-vibe-craft` 技能提供「6 步创意编导法」与「100 分动效与转场自检标准」（≥80 分过闸）。
+- **左侧对话 4 档工作模式联动切换（`WorkModePill` + `openfilm_mode`）**：
+  - 在对话输入栏底部状态行（模型选择旁）新增可见工作模式药丸：`智能自动` / `快速对话` / `导演设计` / `制片执行`。
+  - AI 可按任务复杂度与素材盘点情况自动切换执行阶段并实时推送 `mode_update` 同步到前端；选择「导演设计」时先全盘盘点素材、输出「导演视觉与动效设计卡」并保存 `.film/storyboard.json`，等待用户确认后再进入制作。
+- **分镜契约拓展**：`.film/storyboard.json` 新增 `slam`/`kinetic-type`/`metaphor-*`/`wipe-band`/`carry-pose` 动作词汇与可选 `explain`、`carryFrom`、`sfx` 字段。
+- **兼容性**：不迁移或修改用户既有项目与会话数据；所有新增能力均位于插件 Host 与共享 `_kit` 层，保持 OpenFilm 0.4.0 内核零改动。
+
 ## 0.16.3 —— 修复工作台切换，新增本地视觉工具
 
 - 修复 DSH 内的剪辑、放映和画布模块跨源加载，切换保持当前影片和原生对话。

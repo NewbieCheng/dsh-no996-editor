@@ -20,6 +20,7 @@ export const VERSION = 1;
 export const MOTIONS = [
   'none', 'fade', 'push-in', 'pull-out', 'pan-left', 'pan-right', 'tilt-up', 'tilt-down',
   'zoom-in', 'zoom-out', 'slide-up', 'slide-down', 'reveal-left', 'reveal-right', 'parallax',
+  'slam', 'kinetic-type', 'metaphor-scale', 'metaphor-split', 'metaphor-grid', 'wipe-band', 'carry-pose',
 ];
 
 export const KINDS = ['talking-head', 'broll', 'title', 'cutaway', 'screen', 'end-card'];
@@ -91,6 +92,9 @@ export function normalizeStoryboard(input) {
     motion: MOTIONS.includes(shot?.motion) ? shot.motion : 'none',
     ...(typeof shot?.caption === 'string' && shot.caption.trim() ? { caption: shot.caption.trim() } : {}),
     ...(typeof shot?.transition === 'string' && shot.transition ? { transition: shot.transition } : {}),
+    ...(typeof shot?.explain === 'string' && shot.explain.trim() ? { explain: shot.explain.trim().slice(0, 120) } : {}),
+    ...(typeof shot?.carryFrom === 'string' && shot.carryFrom.trim() ? { carryFrom: shot.carryFrom.trim().slice(0, 80) } : {}),
+    ...(typeof shot?.sfx === 'string' && shot.sfx.trim() ? { sfx: shot.sfx.trim().slice(0, 80) } : {}),
     ...(typeof shot?.notes === 'string' && shot.notes ? { notes: shot.notes.slice(0, 200) } : {}),
   }));
   return {

@@ -37,9 +37,10 @@ description: How to cut an OpenFilm film well — shot grammar, pacing, subtitle
 
 ## 声音
 
-- 配音优先于音乐：音乐在配音区间降到 -18 LUFS 左右（或音量包络降到 30%）。
-- 音效只在动作点用，一个动作一个音效，不叠。
+- 配音优先于音乐：音乐在配音区间降到 -18 LUFS 左右（或音量包络降到 30%）；有配乐需卡点时用 `openfilm_rhythm` 找实测拍点与高潮。
+- 音效只在动作/重音点用（可通过 `openfilm_sfx` 合成 12 类确定性音效并自动分轨），一个动作一个音效，**同轨 `<audio>` 严禁重叠**；轻柔叙事或纯微调时保持克制。
 - 全片响度对齐到 -14 LUFS（短视频）/ -16 LUFS（长片），导出前用 `openfilm_export` 的检查看一眼。
+- 人像口播加解释浮层时，先用 `openfilm_face_analysis` 取脸框，再用 `VibeOverlay.safeAnchor` 贴合空白区，严禁压脸或压字幕。
 
 ## 导出档位
 

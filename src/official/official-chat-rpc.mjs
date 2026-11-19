@@ -125,6 +125,19 @@ export function createOfficialChatRpc(store, agent, options = {}) {
           typeof agent?.attach === 'function') {
         return await agent.attach(payload.projectId, conversationOf(payload), { key: payload.key });
       }
+      if (channel === 'agent:mode' && exact(payload, ['projectId'], ['conversation']) &&
+          typeof agent?.getWorkMode === 'function') {
+        return await agent.getWorkMode(payload.projectId, conversationOf(payload));
+      }
+      if (channel === 'agent:mode-set' && exact(payload, ['projectId', 'mode'], ['conversation', 'effective', 'reason']) &&
+          typeof payload.mode === 'string' && ['auto', 'chat', 'design', 'produce'].includes(payload.mode) &&
+          typeof agent?.setWorkMode === 'function') {
+        return await agent.setWorkMode(payload.projectId, conversationOf(payload), {
+          mode: payload.mode,
+          ...(typeof payload.effective === 'string' && ['chat', 'design', 'produce'].includes(payload.effective) ? { effective: payload.effective } : {}),
+          ...(typeof payload.reason === 'string' ? { reason: payload.reason.slice(0, 160) } : {}),
+        });
+      }
       // One-shot permission answer from the panel. The Host resolves the owning
       // DSH agent from its own pending record; the page only names the question.
       if (channel === 'agent:answer-permission' && exact(payload, ['projectId', 'key', 'requestId', 'optionId']) &&

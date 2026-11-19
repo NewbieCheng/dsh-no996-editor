@@ -99,3 +99,10 @@ test('rejects project parents inside a template', async t => {
   args.parentDir = source;
   await assert.rejects(installTemplate(args), { code: 'TEMPLATE_INPUT' });
 });
+
+test('listTemplates honors explicit order and featured flag across real templates', async () => {
+  const listed = await listTemplates(new URL('../vendor/templates', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+  assert.ok(listed.length >= 5);
+  assert.equal(listed[0].id, 'vibe-explainer');
+  assert.equal(listed[0].featured, true);
+});

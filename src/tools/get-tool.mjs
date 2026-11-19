@@ -16,7 +16,7 @@ const MAX_TEXT = 4000;
 
 const text = value => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 
-export function createGetTool({ isProjectAgent, projectOf, http }) {
+export function createGetTool({ isProjectAgent, projectOf, http, prepareVoice }) {
   return {
     name: 'openfilm_get',
     description: 'Make media for this film with a service the person connected in Studio: voice-over, music, sound effects, transcripts, images, video, subtitle translation. Check `list: true` first to see what is connected here. If nothing is connected it says so — tell the person where to connect it instead of retrying. Video clips cost money: only pass yes when the person told you to spend.',
@@ -41,6 +41,7 @@ export function createGetTool({ isProjectAgent, projectOf, http }) {
       if (!project?.projectId || !project.path) throw new Error('This conversation is not bound to an OpenFilm project.');
 
       if (args?.list === true) {
+        await prepareVoice?.();
         const catalog = await http().get('/api/get');
         const verbs = Array.isArray(catalog?.verbs) ? catalog.verbs : [];
         const listing = verbs.slice(0, MAX_VERBS).map(entry => {
@@ -59,6 +60,7 @@ export function createGetTool({ isProjectAgent, projectOf, http }) {
 
       const verb = text(args?.verb);
       if (!verb) throw new Error('A verb is required (or list: true to see what is possible).');
+      if (verb === 'tts' || verb === 'voice') await prepareVoice?.();
       const result = await http().post('/api/get', {
         body: {
           folder: project.path,

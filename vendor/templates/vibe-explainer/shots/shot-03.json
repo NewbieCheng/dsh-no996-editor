@@ -1,0 +1,14 @@
+{
+  "id": "shot-03",
+  "title": "物理碰撞 · 单双向门",
+  "chapter": "02 · 区分门型",
+  "duration": 6,
+  "start": 10,
+  "filmDuration": 42,
+  "bpm": 112,
+  "copy": {
+    "headline": "先分清：这是哪一扇门？",
+    "leftTitle": "单向门 · 不可逆",
+    "rightTitle": "双向门 · 随时撤退"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "shot-02",
+  "title": "核心公式 · 杠杆天平",
+  "chapter": "01 · 天平隐喻",
+  "duration": 5,
+  "start": 5,
+  "filmDuration": 42,
+  "bpm": 112,
+  "copy": {
+    "num": "01",
+    "headline": "试错成本越低，容错率越暴涨",
+    "formula": "容错率 = 1 / 单次试错成本"
+  }
+}

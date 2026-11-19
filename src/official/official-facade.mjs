@@ -60,7 +60,7 @@ function officialFacadeFactory(bridge) {
       options,
     };
   };
-  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -281,11 +281,16 @@ function officialFacadeFactory(bridge) {
       // Bind the page key and push context usage before the menus are read.
       // Failures used to be swallowed — then usage stayed at 0% with no log line.
       let attachedUsage = null;
+      let attachedWorkMode = null;
       try {
         const attachResult = await rpc('agent:attach', { projectId: id, conversation: conversationId, key });
         if (attachResult?.usage && typeof attachResult.usage.used === 'number' && typeof attachResult.usage.size === 'number' && attachResult.usage.size > 0) {
           attachedUsage = { used: attachResult.usage.used, size: attachResult.usage.size };
           emitAgent({ key, kind: 'update', update: { sessionUpdate: 'usage_update', used: attachedUsage.used, size: attachedUsage.size } });
+        }
+        if (attachResult?.workMode && typeof attachResult.workMode === 'object') {
+          attachedWorkMode = attachResult.workMode;
+          emitAgent({ key, kind: 'update', update: { sessionUpdate: 'mode_update', ...attachedWorkMode } });
         }
       } catch (error) {
         try {
@@ -338,6 +343,7 @@ function officialFacadeFactory(bridge) {
           sessionId: conversationId,
           resumed,
           ...(attachedUsage ? { usage: attachedUsage } : {}),
+          ...(attachedWorkMode ? { workMode: attachedWorkMode } : {}),
           ...(appliedModel ? { appliedModel } : {}),
           ...(modelFallback ? { modelFallback } : {}),
           agentInfo: { name: 'DeepSeek Harness' },
@@ -400,6 +406,18 @@ function officialFacadeFactory(bridge) {
         const result = await rpc('agent:permission-set', { projectId: scope.projectId, preset: value });
         if (!result || result.ok !== true) throw new Error('没有应用成功，可重试或在 DSH 里改权限');
         return { ok: true, result: { configOptions: await refreshMenu() } };
+      }
+      if (optionId === 'work_mode') {
+        const nextMode = value && typeof value === 'object' ? value : { mode: value };
+        const workMode = await rpc('agent:mode-set', {
+          projectId: scope.projectId,
+          conversation: scope.conversation,
+          ...nextMode,
+        });
+        if (workMode && typeof workMode === 'object') {
+          emitAgent({ key, kind: 'update', update: { sessionUpdate: 'mode_update', ...workMode } });
+        }
+        return { ok: true, result: { workMode } };
       }
       throw unavailable('localAgents.setOption');
     },

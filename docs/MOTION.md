@@ -2,14 +2,14 @@
 id: motion
 reader: 做动效的人
 fact-source: vendor/motion/**、动效目录
-checked: 0.16.1
+checked: 0.17.0
 rot-if: 动效目录或生产协议变化
 -->
 
 # 动效生产规范（AI 剪辑员工）
 
 > 这份文档是**权威规范**：什么时候该开工、按什么顺序做、做到什么算完、做砸了怎么办。
-> 给模型的入口是同名技能 `openfilm-motion`（`skills/openfilm-motion/SKILL.md`），
+> 给模型的入口是同名技能 `openfilm-motion`（`skills/openfilm-motion/SKILL.md`）与 `openfilm-vibe-craft`（`skills/openfilm-vibe-craft/SKILL.md`），
 > 命令与文件格式仍以 `openfilm_guide` 为准。剪辑手法（节奏、字幕、导出档位）见 `openfilm-editing`。
 
 ## 0. 它解决的是哪一种失败

@@ -22,7 +22,7 @@ test('openfilm-skills plugin registers only this package skills and disposes the
   const dispose = applySkills(ctx);
   assert.deepEqual(
     registered.map(item => item.name).sort(),
-    ['openfilm-director', 'openfilm-editing', 'openfilm-motion'],
+    ['openfilm-director', 'openfilm-editing', 'openfilm-motion', 'openfilm-vibe-craft'],
   );
   for (const item of registered) {
     assert.ok(item.description.length > 0);
@@ -30,7 +30,7 @@ test('openfilm-skills plugin registers only this package skills and disposes the
     assert.equal(item.resourceBase?.kind, 'directory');
   }
   dispose();
-  assert.equal(disposed.length, 3);
+  assert.equal(disposed.length, 4);
 });
 
 test('cordis.patch.yml links preset-openfilm-video-editing with persona, root markers, and isolated skills', () => {

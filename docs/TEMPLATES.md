@@ -2,22 +2,24 @@
 id: templates
 reader: 做模板的人
 fact-source: vendor/templates/**、scripts/templates-build.mjs
-checked: 0.16.1
+checked: 0.17.0
 rot-if: 模板结构、_kit、构建流程或提示词注入链路变化
 -->
 
 # 模板与素材库
 
-四个随插件发布的模板：`paper-texture`（纸纹讲堂）、`replica-film`（复刻影片）、
-`sketchnote`（手绘笔记）、`motion-styles`（动效风格样片）。前三个是**数据 + 素材单元**
-经 `scripts/templates-build.mjs` 生成的产物；`motion-styles` 是**整片样片**的直接封装
+五个随插件发布的模板：首推 **`vibe-explainer`**（Vibe 科普剧场，含 Canvas 2D 物理隐喻与确定性拟音轨），以及 `paper-texture`（纸纹讲堂）、`replica-film`（复刻影片）、
+`sketchnote`（手绘笔记）、`motion-styles`（动效风格样片）。前四个是**数据 + 素材单元/场景**
+经 `scripts/templates-build.mjs` 生成的产物（支持 `sfxCues` 合成 `.wav` 与双轨无重叠 `<audio>`）；`motion-styles` 是**整片样片**的直接封装
 （见文末「动效风格样片」）。
 
 ```
 vendor/templates/
 ├── _kit/                     ← 素材库（源）
 │   ├── catalog.json          ← 机器可读目录：每个单元的槽位、说明、样式文件
-│   ├── render.mjs            ← 组装器：槽位填充、重复块、单元样式合并
+│   ├── render.mjs            ← 组装器：槽位填充、重复块、单元样式与音轨合并
+│   ├── motion/motion.js      ← 闭式物理缓动与摇晃/砸入/扫光/接力原语
+│   ├── vibe/{vibe-canvas.js,vibe-overlay.js,page.mjs} ← Vibe 原创隐喻画布 + 口播避脸浮层
 │   ├── paper/{tokens.css,units/*,page.mjs}
 │   ├── replica/units/*
 │   └── sketch/page.mjs
@@ -40,11 +42,12 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 代价是改了源必须重新生成（`npm run templates:build`）。这一点有测试兜底：
 `npm run templates:check` 在页面与源不一致时退出码为 1，CI/提交前跑一次即可。
 
-## 四个模板的模型不同，不要套用同一套思路
+## 五个模板的模型不同，不要套用同一套思路
 
 | 模板 | 模型 | 可编辑的东西 |
 |---|---|---|
-| `paper-texture` | **静态页**：同一画面在整个镜头里不动 | `shots/*.json` 的 `copy`（文案）与 `vars`（字号/位置） |
+| `vibe-explainer` | **物理剧场（首推标杆）**：每镜 JSON 数据 + 纯函数 `drawShot(api)` + 拟音轨 | `shots/*.json`（文案/色板/时长）+ `shots/*.scene.js` + `template.json` 的 `sfxCues` |
+| `paper-texture` | **静态页 + 避脸浮层**：主页面按需叠加 `VibeOverlay` 透明高亮卡片 | `shots/*.json` 的 `copy`（文案）与 `vars`（字号/位置） |
 | `replica-film` | **内容 + 动画**：每个镜头有自己的画面块和 `draw(t)` | `shots/<id>.json` 的 `copy`；`shots/<id>.content.html`（画面块）；`shots/<id>.anim.js`（动效） |
 | `sketchnote` | **一场戏多窗口**：七个镜头是同一张纸面的七个时间窗 | `vendor/templates/sketchnote/assets/notebook-config.js`（内容）+ `shots/*.json`（窗口） |
 | `motion-styles` | **整片样片直封**：一个镜头 = 一支上游 10 秒样片 | `shots/*.json` 的 `style`（样片 slug）与 `duration`；画面改 `vendor/motion/styles/demos/<slug>/index.html` |

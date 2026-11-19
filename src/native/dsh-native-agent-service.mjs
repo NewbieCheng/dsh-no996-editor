@@ -6,6 +6,7 @@
 // `openfilm-video-editing` preset (`cwd = project.path`).
 import { randomUUID } from 'node:crypto';
 import { parseToolArgs, mapToolCallForUi, convertToolContent } from './dsh-event-map.mjs';
+import { normalizeWorkModeState, promptPrefixForWorkMode } from './work-mode.mjs';
 
 const PROJECT_ID = /^[A-Za-z0-9_-]{6,40}$/;
 const CONVERSATION = /^[A-Za-z0-9_-]{1,64}$/;
@@ -199,6 +200,24 @@ export function createDshNativeAgentService({
       update: { sessionUpdate: 'usage_update', used: session.lastUsage.used, size: session.lastUsage.size },
     })).catch(() => {});
     return true;
+  }
+
+  function readWorkMode(projectId, session) {
+    if (!session.workMode) {
+      const stored = typeof store.getWorkMode === 'function' ? store.getWorkMode(projectId, session.conversation) : undefined;
+      session.workMode = normalizeWorkModeState(stored);
+    }
+    return session.workMode;
+  }
+
+  function emitWorkMode(projectId, session) {
+    const modeState = readWorkMode(projectId, session);
+    void Promise.resolve(emit(projectId, {
+      key: session.key ?? 'dsh-native',
+      kind: 'update',
+      update: { sessionUpdate: 'mode_update', ...modeState },
+    })).catch(() => {});
+    return modeState;
   }
 
   function breakdownTokens(values) {
@@ -965,7 +984,13 @@ export function createDshNativeAgentService({
           content.push({ type: 'image', mediaType: image.mediaType, data: image.data, ...(text(image.name) ? { name: image.name } : {}) });
         }
       }
-      if (promptText.trim()) content.push({ type: 'text', text: promptText });
+      const modeState = readWorkMode(projectId, session);
+      const directive = promptPrefixForWorkMode(modeState);
+      if (promptText.trim()) {
+        content.push({ type: 'text', text: `${directive}${promptText}` });
+      } else if (content.length > 0 && directive) {
+        content.push({ type: 'text', text: directive.trim() });
+      }
       if (content.length === 0) throw failure('OFFICIAL_AGENT_INPUT', 'empty prompt');
 
       ensureFollow(projectState, session);
@@ -1218,6 +1243,7 @@ export function createDshNativeAgentService({
       // Always re-emit under the page key: an earlier follow snapshot may have
       // published usage under the placeholder `dsh-native` key.
       if (session.lastUsage) replayUsage(projectId, session);
+      const workMode = emitWorkMode(projectId, session);
       // EventSource can finish "ready" a tick after the first write; one delayed
       // replay covers that race without waiting on the first user prompt.
       const replayKey = session.key;
@@ -1225,7 +1251,10 @@ export function createDshNativeAgentService({
       setTimeout(() => {
         const currentProject = projects.get(replayProjectId);
         const current = currentProject ? sessionStateOf(currentProject, session.conversation) : undefined;
-        if (current?.lastUsage && current.key === replayKey) replayUsage(replayProjectId, current);
+        if (current && current.key === replayKey) {
+          if (current.lastUsage) replayUsage(replayProjectId, current);
+          emitWorkMode(replayProjectId, current);
+        }
       }, 120).unref?.();
       void log?.('native-attach', {
         projectId,
@@ -1236,6 +1265,7 @@ export function createDshNativeAgentService({
         effort: session.reasoningEffort ?? null,
         modelSource: session.modelSource ?? null,
         usage: session.lastUsage ? { used: session.lastUsage.used, size: session.lastUsage.size } : null,
+        workMode,
       });
       return {
         ok: true,
@@ -1246,7 +1276,33 @@ export function createDshNativeAgentService({
         effort: session.reasoningEffort ?? null,
         modelSource: session.modelSource ?? null,
         usage: session.lastUsage ? { used: session.lastUsage.used, size: session.lastUsage.size } : null,
+        workMode,
       };
+    },
+
+    getWorkMode(projectId, conversation) {
+      if (closed) throw failure('OFFICIAL_AGENT_CLOSED');
+      const projectState = projectStateOf(projectId);
+      const session = sessionStateOf(projectState, conversation);
+      return readWorkMode(projectId, session);
+    },
+
+    setWorkMode(projectId, conversation, next = {}) {
+      if (closed) throw failure('OFFICIAL_AGENT_CLOSED');
+      const projectState = projectStateOf(projectId);
+      const session = sessionStateOf(projectState, conversation);
+      const current = readWorkMode(projectId, session);
+      const updated = normalizeWorkModeState({
+        ...current,
+        ...next,
+        updatedAt: Date.now(),
+      });
+      session.workMode = updated;
+      if (typeof store.setWorkMode === 'function') {
+        store.setWorkMode(projectId, session.conversation, updated);
+      }
+      emitWorkMode(projectId, session);
+      return updated;
     },
 
     answerPermission() {

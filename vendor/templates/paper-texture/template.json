@@ -7,5 +7,9 @@
   "wallTitle": "纸纹讲堂",
   "sharedStyles": [
     "_kit/paper/tokens.css"
+  ],
+  "sharedScripts": [
+    "_kit/motion/motion.js",
+    "_kit/vibe/vibe-overlay.js"
   ]
 }

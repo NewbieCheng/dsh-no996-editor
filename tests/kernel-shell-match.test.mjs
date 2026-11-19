@@ -38,8 +38,8 @@ test('the shell snapshot declares its one upstream patch, or none at all', () =>
     return;
   }
   assert.ok(Array.isArray(manifest.patch.files) && manifest.patch.files.length > 0, 'the patch must name the files it changes');
-  // The two code edits are the fork; the locale files only carry the search strings.
-  for (const required of ['apps/desktop/chat/src/components/ModelPopover.tsx', 'apps/desktop/chat/src/lib/agent-menu-rows.ts']) {
+  // Both edits and WorkModePill carry the native chat UI extensions.
+  for (const required of ['apps/desktop/chat/src/components/ModelPopover.tsx', 'apps/desktop/chat/src/components/WorkModePill.tsx', 'apps/desktop/chat/src/lib/agent-menu-rows.ts']) {
     assert.ok(manifest.patch.files.includes(required), 'the patch must include ' + required);
   }
   assert.equal(existsSync(patchFile), true, 'manifest.patch must ship as patch.diff');

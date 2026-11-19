@@ -97,3 +97,10 @@ test('both components are mounted by the shell entry', () => {
   assert.match(noticePatch, /environment:fallback-prompt/);
   assert.match(noticePatch, /no996-fallback-prompt/);
 });
+
+test('work mode selector and featured badge ship in the compiled shell bundle', () => {
+  assert.match(bundle, /data-chat-work-mode/);
+  assert.match(bundle, /work_mode/);
+  assert.match(bundle, /智能自动/);
+  assert.match(bundle, /导演设计/);
+});

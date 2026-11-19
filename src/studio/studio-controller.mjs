@@ -53,6 +53,10 @@ import { createAssetsTool } from '../tools/assets-tool.mjs';
 import { createExportTool } from '../tools/export-tool.mjs';
 import { createCliTool } from '../tools/cli-tool.mjs';
 import { createTranscribeTool } from '../tools/transcribe-tool.mjs';
+import { createKitTool } from '../tools/kit-tool.mjs';
+import { createRhythmTool } from '../tools/rhythm-tool.mjs';
+import { createSfxTool } from '../tools/sfx-tool.mjs';
+import { createModeTool } from '../tools/mode-tool.mjs';
 import { createTranscribeService } from '../asr/transcribe-service.mjs';
 import { refineTranscript } from '../asr/asr-refine.mjs';
 import { resolveOfficialShell } from '../official/official-shell.mjs';
@@ -77,6 +81,7 @@ import { createWorkbenchAuth, parseAuthActionBody } from '../auth/workbench-auth
 import { createLoginRememberStore } from '../auth/login-remember.mjs';
 import { installVoiceBridgeGlobal } from '../voice/voice-bridge.mjs';
 import { createNo996StudioBridge } from '../media/no996-studio-bridge.mjs';
+import { createNo996VoiceSettings } from '../voice/no996-voice-settings.mjs';
 import { installNo996Provider, preferNo996Defaults } from '../voice/install-no996-provider.mjs';
 import { createArchiveWatcher } from '../project/workspace-archive.mjs';
 import { createPluginLog } from '../host/plugin-log.mjs';
@@ -136,12 +141,16 @@ export function createStudioController(ctx, createProxy, {
   registerWalletDirtyListener?.(markWalletDirty);
   const voiceBridge = createNo996StudioBridge({ auth: workbenchAuth, onWalletDirty: markWalletDirty });
   const disposeVoiceBridge = installVoiceBridgeGlobal(voiceBridge);
-  void voiceBridge.refreshReady().then((ready) => {
-    log.info('no996-voice-ready', { ready });
-  }).catch((error) => {
-    log.warn('no996-voice-ready', { message: String(error?.message || error).slice(0, 200) });
-  });
-  void installNo996Provider().then(async (info) => {
+  const voiceSettings = createNo996VoiceSettings({ auth: workbenchAuth, bridge: voiceBridge });
+  const refreshVoiceChoice = () => {
+    voiceSettings.invalidate();
+    return voiceSettings.prepare().then(
+      choice => { log.info('no996-voice-ready', { status: choice.status, automatic: choice.automatic }); },
+      error => { log.warn('no996-voice-ready', { message: String(error?.message || error).slice(0, 200) }); },
+    );
+  };
+  void refreshVoiceChoice();
+  const installVoiceProvider = installNo996Provider().then(async (info) => {
     if (info.written) log.info('no996-provider-installed', { file: info.providerFile });
     // Official added.mjs drops providers with empty id/name/env — catch that here.
     try {
@@ -155,12 +164,13 @@ export function createStudioController(ctx, createProxy, {
     } catch (error) {
       log.warn('no996-provider-invalid', { message: String(error?.message || error).slice(0, 200) });
     }
-    return preferNo996Defaults({ force: false });
+    return preferNo996Defaults({ force: false, verbs: ['image', 'web-search'] });
   }).then((pref) => {
     if (pref?.changed) log.info('no996-media-preferred', pref);
   }).catch((error) => {
     log.warn('no996-provider-install', { message: String(error?.message || error).slice(0, 200) });
   });
+  void installVoiceProvider.then(refreshVoiceChoice, () => {});
   const loginRemember = createLoginRememberStore();
   let permissionsPromise;
   let httpClient;
@@ -233,7 +243,7 @@ export function createStudioController(ctx, createProxy, {
         try {
           const value = parseAuthActionBody(raw);
           const result = await dispatchAuthAction(workbenchAuth, value);
-          void voiceBridge.refreshReady().catch(() => {});
+          void refreshVoiceChoice();
           onAuthChanged?.();
           return { status: 200, body: result };
         } catch (error) {
@@ -669,7 +679,7 @@ export function createStudioController(ctx, createProxy, {
         if (workbenchAuth.dev) return { loggedIn: true, dev: true };
         await workbenchAuth.logout();
         await preferences.set(clearBalanceCachePatch());
-        void voiceBridge.refreshReady().catch(() => {});
+        void refreshVoiceChoice();
         onAuthChanged?.();
         return { loggedIn: false };
       }
@@ -677,7 +687,7 @@ export function createStudioController(ctx, createProxy, {
       const action = payload && typeof payload === 'object' ? payload : {};
       try {
         const result = await dispatchAuthAction(workbenchAuth, action);
-        void voiceBridge.refreshReady().catch(() => {});
+        void refreshVoiceChoice();
         onAuthChanged?.();
         void nativeAgentService?.refreshDefaultModels?.().catch(() => {});
         return result;
@@ -949,12 +959,21 @@ export function createStudioController(ctx, createProxy, {
   // a renderer-supplied id.
   const projectOfAgent = agent => {
     const native = nativeAgentService?.projectOfAgent?.(agent);
-    return native ? { projectId: native.projectId, path: native.path, available: true } : undefined;
+    return native ? { projectId: native.projectId, path: native.path, conversation: native.conversation ?? '', available: true } : undefined;
   };
   const filmTools = [
     createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: () => ctx.llm }),
     ...createVisionTools({ isProjectAgent, projectOf: projectOfAgent, attachments: () => ctx.get('attachments') }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createKitTool({ isProjectAgent, projectOf: projectOfAgent }),
+    createRhythmTool({ isProjectAgent, projectOf: projectOfAgent }),
+    createSfxTool({ isProjectAgent, projectOf: projectOfAgent }),
+    createModeTool({
+      isProjectAgent,
+      projectOf: projectOfAgent,
+      getMode: (projectId, conversation) => nativeAgentService?.getWorkMode?.(projectId, conversation),
+      setMode: (projectId, conversation, next) => nativeAgentService?.setWorkMode?.(projectId, conversation, next),
+    }),
     createLibraryTool({
       isProjectAgent,
       projectOf: projectOfAgent,
@@ -976,7 +995,7 @@ export function createStudioController(ctx, createProxy, {
     // Plan before cutting: the storyboard is the contract the timeline follows, and
     // "from-script" turns a transcript into shots on sentence boundaries.
     createStoryboardTool({ isProjectAgent, projectOf: projectOfAgent }),
-    createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, prepareVoice: voiceSettings.prepare }),
     createImageGenTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, studioBridge: voiceBridge }),
     createClipTool({ isProjectAgent, projectOf: projectOfAgent }),
     createAssetsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
@@ -1071,9 +1090,11 @@ export function createStudioController(ctx, createProxy, {
       diagLog,
       devHooks: ext?.devHooks ?? null,
       beforeProjectDelete,
+      voiceSettings,
       rewriteLibraryVoices: async () => {
         try {
-          await voiceBridge.refreshReady();
+          const choice = await voiceSettings.prepare();
+          if (choice.selected !== 'no996') return null;
           return await voiceBridge.libraryVoicesPayload();
         } catch {
           return { version: 1, providers: [{ id: 'no996', name: '不加班', models: [{ id: 'workbench-tts', name: '不加班配音' }] }], voices: [] };
@@ -1290,9 +1311,11 @@ export function createStudioController(ctx, createProxy, {
         diagLog,
         devHooks: ext?.portalHooks ?? ext?.devHooks ?? { relaxedEmbed: true },
         beforeProjectDelete,
+        voiceSettings,
         rewriteLibraryVoices: async () => {
           try {
-            await voiceBridge.refreshReady();
+            const choice = await voiceSettings.prepare();
+            if (choice.selected !== 'no996') return null;
             return await voiceBridge.libraryVoicesPayload();
           } catch {
             return { version: 1, providers: [{ id: 'no996', name: '不加班', models: [{ id: 'workbench-tts', name: '不加班配音' }] }], voices: [] };

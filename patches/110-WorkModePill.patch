@@ -1,0 +1,123 @@
+diff --git a/apps/desktop/chat/src/components/WorkModePill.tsx b/apps/desktop/chat/src/components/WorkModePill.tsx
+new file mode 100644
+index 0000000..bb75e0d
+--- /dev/null
++++ b/apps/desktop/chat/src/components/WorkModePill.tsx
+@@ -0,0 +1,117 @@
++'use client';
++
++import React from 'react';
++import { Check, Clapperboard, Compass, MessageSquare, Sparkles } from 'lucide-react';
++import { Popover, keepFocus } from '@/components/Popover';
++import { POPOVER_CHROME } from '@/components/ComposerCard';
++import { Tooltip } from '@/components/Tooltip';
++import { useT } from '@/i18n';
++import type { LocalAgentId } from '@/lib/desktop-bridge';
++import { setAgentWorkMode, useAgentWorkMode, type WorkMode } from '@/lib/local-agent-run';
++
++const CARD_W = 248;
++
++const MODES: ReadonlyArray<{ id: WorkMode; icon: typeof Sparkles }> = [
++  { id: 'auto', icon: Sparkles },
++  { id: 'chat', icon: MessageSquare },
++  { id: 'design', icon: Compass },
++  { id: 'produce', icon: Clapperboard },
++];
++
++export function WorkModePill({
++  projectId,
++  conversation,
++  agent,
++  disabled = false,
++}: {
++  projectId: string;
++  conversation: string;
++  agent: LocalAgentId;
++  disabled?: boolean;
++}) {
++  const t = useT();
++  const state = useAgentWorkMode(projectId, conversation, agent);
++  const [open, setOpen] = React.useState(false);
++
++  const activeMode = state.mode;
++  const effective = state.effective;
++  const Icon = activeMode === 'auto'
++    ? (effective === 'design' ? Compass : effective === 'produce' ? Clapperboard : Sparkles)
++    : (MODES.find((m) => m.id === activeMode)?.icon ?? Sparkles);
++
++  const shortText = activeMode === 'auto' && effective !== 'chat'
++    ? `${t('workMode.shortAuto')}·${t(effective === 'design' ? 'workMode.shortDesign' : 'workMode.shortProduce')}`
++    : t(`workMode.short_${activeMode}` as Parameters<typeof t>[0]);
++
++  const accentClass = activeMode === 'design' || (activeMode === 'auto' && effective === 'design')
++    ? 'text-[#f0b44b]'
++    : activeMode === 'produce' || (activeMode === 'auto' && effective === 'produce')
++      ? 'text-[#4fd1a5]'
++      : 'text-[var(--text-muted)]';
++
++  const pick = (mode: WorkMode) => {
++    setOpen(false);
++    void setAgentWorkMode(projectId, conversation, agent, mode);
++  };
++
++  return (
++    <Popover
++      open={open}
++      onOpenChange={setOpen}
++      placement="top"
++      align="start"
++      bare
++      trigger={
++        <Tooltip label={state.reason ? `${t('workMode.tooltip')} — ${state.reason}` : t('workMode.tooltip')}>
++          <button
++            type="button"
++            disabled={disabled}
++            onMouseDown={keepFocus}
++            data-chat-work-mode={activeMode}
++            data-chat-work-phase={effective}
++            className="group inline-flex h-8 max-w-[126px] items-center gap-1 rounded-full px-2 text-[12px] font-medium transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
++          >
++            <Icon size={12.5} strokeWidth={1.9} className={`shrink-0 transition ${accentClass}`} />
++            <span className="truncate text-[var(--text-muted)] transition group-hover:text-[var(--text)]">
++              {shortText}
++            </span>
++          </button>
++        </Tooltip>
++      }
++    >
++      <div style={{ ...POPOVER_CHROME, width: Math.min(CARD_W, Math.max(210, Math.floor(window.innerWidth * 0.7))), padding: 4 }}>
++        <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium text-[var(--text-faint)]">
++          {t('workMode.heading')}
++        </div>
++        {MODES.map(({ id, icon: ItemIcon }) => {
++          const selected = activeMode === id;
++          return (
++            <button
++              key={id}
++              type="button"
++              onMouseDown={keepFocus}
++              onClick={() => pick(id)}
++              className="flex w-full items-start gap-2 rounded-[6px] px-2.5 py-1.5 text-left outline-none transition hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]"
++            >
++              <ItemIcon size={14} className="mt-0.5 shrink-0 text-[var(--text-muted)]" />
++              <div className="min-w-0 flex-1">
++                <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text)]">
++                  <span className="truncate">{t(`workMode.label_${id}` as Parameters<typeof t>[0])}</span>
++                  {selected && id === 'auto' && effective !== 'chat' ? (
++                    <span className="rounded bg-[var(--bg-hover)] px-1 py-0.5 text-[10px] font-normal text-[var(--text-muted)]">
++                      {t(effective === 'design' ? 'workMode.shortDesign' : 'workMode.shortProduce')}
++                    </span>
++                  ) : null}
++                </div>
++                <div className="mt-0.5 text-[11px] leading-snug text-[var(--text-faint)]">
++                  {t(`workMode.desc_${id}` as Parameters<typeof t>[0])}
++                </div>
++              </div>
++              {selected ? <Check size={13} className="mt-0.5 shrink-0 text-[var(--text)]" /> : null}
++            </button>
++          );
++        })}
++      </div>
++    </Popover>
++  );
++}

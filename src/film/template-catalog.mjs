@@ -24,18 +24,21 @@ async function readTemplate(root, id) {
     prompt = (await readFile(join(root, id, 'prompt.md'), 'utf8')).slice(0, MAX_PROMPT).trim();
   } catch { prompt = typeof manifest.prompt === 'string' ? manifest.prompt.slice(0, MAX_PROMPT) : ''; }
   const tags = Array.isArray(manifest.tags) ? manifest.tags.filter(tag => typeof tag === 'string').slice(0, 8) : [];
+  const order = typeof manifest.order === 'number' && Number.isFinite(manifest.order) ? manifest.order : 100;
   return {
     id,
     title: manifest.title.slice(0, 60),
     description: typeof manifest.description === 'string' ? manifest.description.slice(0, 240) : '',
     mode: manifest.mode === 'film' ? 'film' : 'style',
+    order,
+    ...(manifest.featured === true ? { featured: true } : {}),
     ...(tags.length ? { tags } : {}),
     ...(prompt ? { prompt } : {}),
   };
 }
 
 /**
- * The templates under `root`, sorted by id.
+ * The templates under `root`, sorted by explicit order then id.
  *
  * @param {string} root - the templates directory
  */
@@ -49,7 +52,7 @@ export async function templateCatalog(root) {
     const template = await readTemplate(root, entry.name);
     if (template) found.push(template);
   }
-  return found.sort((left, right) => left.id.localeCompare(right.id));
+  return found.sort((left, right) => (left.order ?? 100) - (right.order ?? 100) || left.id.localeCompare(right.id));
 }
 
 /** Score a template against a free-text query; 0 means "not a match". */

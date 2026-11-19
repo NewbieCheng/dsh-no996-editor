@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1080, height=1920">
+  <title>物理碰撞 · 单双向门</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0c10; }
+    canvas#stage { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="1080" height="1920"></canvas>
+  <script src="../assets/motion.js"></script>
+  <script src="../assets/vibe-canvas.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const SHOT = {"id":"shot-03","title":"物理碰撞 · 单双向门","chapter":"02 · 区分门型","series":"VIBE 知识大赏","brand":"不加班智能团","duration":6,"filmDuration":42,"start":10,"bpm":112,"palette":{},"copy":{"headline":"先分清：这是哪一扇门？","leftTitle":"单向门 · 不可逆","rightTitle":"双向门 · 随时撤退"},"vars":{}};
+      const canvas = document.getElementById('stage');
+      const stage = window.VibeKit.createStage(canvas, { width: 1080, height: 1920, palette: SHOT.palette });
+      const rhythm = window.VibeKit.readRhythm(SHOT.filmDuration, SHOT.bpm);
+
+      function drawShot({ t, duration, ctx, w, h, safe, pal, copy, kit }) {
+  kit.drawRiseText(ctx, copy.headline || '先分清：这是哪一扇门？', safe.cx, 410, 62, t, 0.15, {
+    al: 'center',
+    w: 800,
+    col: pal.INK,
+  });
+
+  // Labels above doors
+  const lblP = kit.P(t, 0.35, 0.85, kit.E.out);
+  kit.drawText(ctx, copy.leftTitle || '单向门 · 不可逆', 300, 560, 34, { w: 700, col: pal.BAD, al: 'center', a: lblP });
+  kit.drawText(ctx, copy.rightTitle || '双向门 · 随时撤退', 780, 560, 34, { w: 700, col: pal.GOOD, al: 'center', a: lblP });
+
+  // Left door locks shut at t=1.35 while actor ball hits and bounces back
+  const leftClosed = kit.P(t, 1.0, 1.45, kit.E.out);
+  const leftHit = kit.P(t, 0.6, 1.4, kit.E.out);
+  const leftRebound = kit.P(t, 1.4, 2.3, kit.E.out);
+  const actorLeftX = leftHit < 1 ? kit.lerp(130, 260, leftHit) : kit.lerp(260, 155, leftRebound);
+
+  // Right door stays responsive: opens and actor glides cleanly through & returns
+  const rightPass = kit.P(t, 2.4, 3.8, kit.E.inout);
+  const rightBack = kit.P(t, 4.0, 5.1, kit.E.inout);
+  const rightClosed = Math.max(0, 0.5 - kit.P(t, 2.1, 2.8, kit.E.out) * 0.5);
+  const actorRightX = t < 3.9 ? kit.lerp(620, 910, rightPass) : kit.lerp(910, 660, rightBack);
+
+  kit.drawDoors(ctx, {
+    palette: pal,
+    cy: 900,
+    leftX: 300,
+    rightX: 780,
+    leftClosed,
+    rightClosed,
+    actorLeftX,
+    actorRightX,
+    alpha: kit.P(t, 0.15, 0.65),
+  });
+
+  // Rule banner in second half
+  const tipP = kit.P(t, 3.0, 3.65, kit.E.back);
+  if (tipP > 0) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, tipP * 2);
+    ctx.translate(0, (1 - tipP) * 60);
+    kit.fillRR(ctx, safe.left + 20, 1300, safe.span - 40, 190, 28, pal.CARD, 'rgba(79,240,176,0.45)', 3);
+    kit.drawText(ctx, '90% 的焦虑，都在把「双向门」当成「单向门」', safe.cx, 1385, 36, { w: 700, col: pal.INK, al: 'center' });
+    kit.drawText(ctx, '可逆的决定，先跨半步再说', safe.cx, 1448, 34, { w: 700, col: pal.GOOD, al: 'center' });
+    ctx.restore();
+  }
+
+  kit.drawWipeBand(ctx, t, duration, { width: w, height: h, palette: pal });
+}
+
+      function renderFrame(t) {
+        const local = Math.max(0, Math.min(SHOT.duration, Number(t) || 0));
+        const globalT = SHOT.start + local;
+        const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
+        const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
+        const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
+        window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: 1080, height: 1920, palette: stage.pal, beatPulse });
+        if (typeof drawShot === 'function') {
+          stage.ctx.save();
+          drawShot({
+            t: local,
+            globalT,
+            duration: SHOT.duration,
+            ctx: stage.ctx,
+            w: 1080,
+            h: 1920,
+            safe: stage.safe,
+            pal: stage.pal,
+            copy: SHOT.copy,
+            vars: SHOT.vars,
+            kit: window.VibeKit,
+            motion: window.Motion,
+            rhythm,
+            beatPulse,
+            onsetPulse,
+          });
+          stage.ctx.restore();
+        }
+        window.VibeKit.drawChrome(stage.ctx, globalT, {
+          width: 1080,
+          height: 1920,
+          palette: stage.pal,
+          series: SHOT.series,
+          chapter: SHOT.chapter,
+          brand: SHOT.brand,
+          progress: globalT / Math.max(SHOT.filmDuration, 0.001),
+          beatIndex,
+          beatPulse,
+        });
+      }
+
+      window.film = {
+        width: 1080,
+        height: 1920,
+        duration: SHOT.duration,
+        ready: (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+          renderFrame(0);
+          return true;
+        }),
+        frame: function (t) {
+          renderFrame(t);
+        },
+      };
+
+      if (!window.filmHost) {
+        const t0 = performance.now();
+        const tick = function () {
+          const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
+          renderFrame(elapsed);
+          requestAnimationFrame(tick);
+        };
+        window.film.ready.then(tick);
+      }
+    })();
+  </script>
+</body>
+</html>

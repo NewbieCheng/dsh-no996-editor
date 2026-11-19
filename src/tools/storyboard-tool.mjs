@@ -18,6 +18,9 @@ const shotSchema = {
     motion: { type: 'string', enum: MOTIONS, description: '动作（词汇表见 openfilm-motion）。' },
     caption: { type: 'string', description: '屏上字，≤ 40 字。' },
     transition: { type: 'string', description: '与下一镜的转场。' },
+    explain: { type: 'string', description: '本镜核心视觉隐喻或物理解释意图（≤120字）。' },
+    carryFrom: { type: 'string', description: '从上一镜接力延续的视觉元素或坐标锚点。' },
+    sfx: { type: 'string', description: '本镜建议配套拟音关键词或时机（如 hit@0.4s, whoosh）。' },
     notes: { type: 'string', description: '给下一轮看的备注。' },
   },
 };
