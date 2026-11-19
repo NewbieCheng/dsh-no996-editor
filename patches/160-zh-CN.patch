@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..8029c16 100644
+index 92e929a..2bd4a9a 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,12 +13,38 @@ export const zhCN: Words = {
@@ -117,7 +117,7 @@ index 92e929a..8029c16 100644
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
-@@ -417,7 +451,26 @@ export const zhCN: Words = {
+@@ -417,7 +451,29 @@ export const zhCN: Words = {
      description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
      confirm: '撤销',
      cancel: '取消',
@@ -142,6 +142,9 @@ index 92e929a..8029c16 100644
 +    desc_auto: '按需求复杂度与素材状态自动切换设计或直接执行',
 +    desc_chat: '轻量问答、改单句字幕或微调，不开重分镜流程',
 +    desc_design: '先盘点素材出视觉设计卡与分镜，确认后再执行',
-+    desc_produce: '按分镜全速出片，自动过 100 分动效转场自检与导出',
++    desc_produce: '按分镜全速出片，过连续生长与 100 分自检后交付预览',
++    shortExport: '导出',
++    autoExportLabel: '完成后自动导出',
++    autoExportDesc: '默认关闭：停在预览态，满意后在左侧手动导出成片',
 +  },
  };

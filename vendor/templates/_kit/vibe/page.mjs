@@ -17,10 +17,11 @@ import { escapeHtml } from '../render.mjs';
 export function render(shot, _catalog, options = {}) {
   const templateDir = options.templateDir;
   if (!templateDir) throw new Error('vibe page renderer requires templateDir');
-  const sceneFile = join(templateDir, 'shots', shot.scene || `${shot.id}.scene.js`);
-  const sceneCode = readFileSync(sceneFile, 'utf8').trim();
+  const stageScript = options.continuousStage || shot.continuousStage || '';
+  const sceneFile = stageScript ? null : join(templateDir, 'shots', shot.scene || `${shot.id}.scene.js`);
+  const sceneCode = sceneFile ? readFileSync(sceneFile, 'utf8').trim() : '';
   const [w, h] = Array.isArray(shot.size) && shot.size.length === 2 ? shot.size : [1080, 1920];
-  const hasRhythm = existsSync(join(templateDir, 'assets', 'rhythm-data.js'));
+  const hasRhythm = options.hasRhythm === true || existsSync(join(templateDir, 'assets', 'rhythm-data.js'));
   const shotData = JSON.stringify({
     id: shot.id,
     title: shot.title,
@@ -30,7 +31,7 @@ export function render(shot, _catalog, options = {}) {
     duration: shot.duration,
     filmDuration: shot.filmDuration || shot.duration,
     start: shot.start || 0,
-    bpm: shot.bpm || 112,
+    bpm: shot.bpm || 112.3,
     palette: shot.palette || {},
     copy: shot.copy || {},
     vars: shot.vars || {},
@@ -51,7 +52,7 @@ export function render(shot, _catalog, options = {}) {
   <canvas id="stage" width="${w}" height="${h}"></canvas>
   <script src="../assets/motion.js"></script>
   <script src="../assets/vibe-canvas.js"></script>
-  ${hasRhythm ? '<script src="../assets/rhythm-data.js"></script>\n  ' : ''}<script>
+  ${hasRhythm ? '<script src="../assets/rhythm-data.js"></script>\n  ' : ''}${stageScript ? `<script src="../assets/${escapeHtml(stageScript)}"></script>\n  ` : ''}<script>
     (function () {
       'use strict';
       const SHOT = ${shotData};
@@ -66,27 +67,36 @@ export function render(shot, _catalog, options = {}) {
         const globalT = SHOT.start + local;
         const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
         const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
+        const tonalPulse = window.VibeKit.hitPulse(rhythm.tonal || [], globalT, 0.26);
         const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
         window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: ${w}, height: ${h}, palette: stage.pal, beatPulse });
-        if (typeof drawShot === 'function') {
+        const frameCtx = {
+          t: local,
+          globalT,
+          duration: SHOT.duration,
+          filmDuration: SHOT.filmDuration,
+          shot: SHOT,
+          ctx: stage.ctx,
+          w: ${w},
+          h: ${h},
+          safe: stage.safe,
+          pal: stage.pal,
+          copy: SHOT.copy,
+          vars: SHOT.vars,
+          kit: window.VibeKit,
+          motion: window.Motion,
+          rhythm,
+          beatPulse,
+          onsetPulse,
+          tonalPulse,
+        };
+        if (typeof window.drawContinuousStage === 'function') {
           stage.ctx.save();
-          drawShot({
-            t: local,
-            globalT,
-            duration: SHOT.duration,
-            ctx: stage.ctx,
-            w: ${w},
-            h: ${h},
-            safe: stage.safe,
-            pal: stage.pal,
-            copy: SHOT.copy,
-            vars: SHOT.vars,
-            kit: window.VibeKit,
-            motion: window.Motion,
-            rhythm,
-            beatPulse,
-            onsetPulse,
-          });
+          window.drawContinuousStage(frameCtx);
+          stage.ctx.restore();
+        } else if (typeof drawShot === 'function') {
+          stage.ctx.save();
+          drawShot(frameCtx);
           stage.ctx.restore();
         }
         window.VibeKit.drawChrome(stage.ctx, globalT, {
@@ -102,6 +112,9 @@ export function render(shot, _catalog, options = {}) {
         });
       }
 
+      let manualControl = false;
+      let previewRaf = 0;
+
       window.film = {
         width: ${w},
         height: ${h},
@@ -111,6 +124,11 @@ export function render(shot, _catalog, options = {}) {
           return true;
         }),
         frame: function (t) {
+          manualControl = true;
+          if (previewRaf) {
+            cancelAnimationFrame(previewRaf);
+            previewRaf = 0;
+          }
           renderFrame(t);
         },
       };
@@ -118,11 +136,14 @@ export function render(shot, _catalog, options = {}) {
       if (!window.filmHost) {
         const t0 = performance.now();
         const tick = function () {
+          if (manualControl) return;
           const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
           renderFrame(elapsed);
-          requestAnimationFrame(tick);
+          previewRaf = requestAnimationFrame(tick);
         };
-        window.film.ready.then(tick);
+        window.film.ready.then(function () {
+          if (!manualControl) previewRaf = requestAnimationFrame(tick);
+        });
       }
     })();
   </script>

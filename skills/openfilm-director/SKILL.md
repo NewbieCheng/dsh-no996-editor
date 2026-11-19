@@ -1,39 +1,54 @@
 ---
 name: openfilm-director
-description: 用户要给一支片"定方案"——说了一句需求、丢来一段口播视频、或者问"这该怎么剪"时加载：结合工作模式(`auto`/`chat`/`design`/`produce`)完成素材盘点、导演视觉与动效设计卡、分镜定稿后再驱动制作。只问简单问题不要加载。
+description: 用户要给一支片"定方案"——说了一句需求、丢来一段视频/对话音频、贴来网页链接/图片、或问"这该怎么剪"时加载：结合工作模式(`auto`/`chat`/`design`/`produce`)与四大动效核心原则完成五类素材分诊、导演视觉与动效设计卡、分镜定稿后再驱动制作。只问简单问题不要加载。
 ---
 
 # 剪辑导演（OpenFilm）
 
-这份技能管的是**先想清楚并对齐审美方案**，`openfilm-motion` 与 `openfilm-vibe-craft` 管的是**把高质感画面做出来**。顺序不能反：先有设计判断与分镜，再有动效量产。
+这份技能管的是**把需求先盘透并锁死动效与运镜设计方案**，`openfilm-motion` 与 `openfilm-vibe-craft` 管的是**按唯一动效准绳把高质感画面做出来**。顺序不能反：先有设计判断与分镜，再有动效量产。
 
-## 一条铁律
+## 两条不可违背的铁律
 
-**先有 `.film/storyboard.json`，再动时间轴。** 没有分镜就改片段，等于边拍边改剧本：每一轮都不一样，人也没法过目。
+1. **先有 `.film/storyboard.json`，再动时间轴。** 每镜必须写明 `camera`（景别运镜）、`trigger`（动作因果）、`growth`（从上一镜如何自然生长）与 `explain`（视觉隐喻）。
+2. **动效设计四大核心原则是唯一准绳**：
+   - **镜头连贯性**：拒绝 PPT 式清屏割裂，下一画面必须从上一画面的元素、线条、洞口、卡面或空间滑轨中「自然生长」出来；
+   - **动作因果性**：每个变化必须有触发因（光标点击、物理碰撞、激光切割、仪表阈值、粒子汇聚），禁止无因蹦出；
+   - **节奏与景别变化**：快慢交替，重点信息配合推镜特写与拉远收束，杜绝全程固定全景；
+   - **运镜即质感**：在设计卡和分镜里精准写出每镜虚拟相机推拉摇移与 3 层景深视差。
 
 ## 结合工作模式的导演流
 
 - **`design` 模式 / 复杂新片（`auto` 自动先入 `design`）**：
-  1. **全盘盘点素材**（不先干问）：调 `openfilm_assets` + 识图/`openfilm_frame`；口播先 `openfilm_transcribe`；人像叠加用 `openfilm_face_analysis` / `openfilm_cutout`；有音乐调 `openfilm_rhythm` 拿高潮与 BPM。
-  2. **输出「导演视觉与动效设计卡」**：给出整体视觉气质、配色字重、分镜列表（含每镜隐喻 `explain` 与音画配合 `sfx`）、是“纯 Vibe 物理剧场”还是“实拍叠加 `VibeOverlay`”。
-  3. **保存分镜并等确认**：写好 `.film/storyboard.json` 后停下请用户确认或微调；用户确认后调 `openfilm_mode(mode="produce")` 进入制作。
-- **`produce` 模式 / 明确要求直接出片**：走 `openfilm_storyboard` → `openfilm-motion` G2 定调帧 → G3–G6 一气呵成。
+  1. **全盘盘点与五类素材分诊**（先查 `no996_film`、`no996_assets`、`no996_fonts` 确认可用字体，再用 `no996_library` 盘点可用花字/滤镜/模板）。
+  2. **输出「导演视觉与动效设计卡」**：给出整体视觉气质、实装字体与花字配色方案、情绪与景别起伏曲线、分镜列表（含 `camera` / `trigger` / `growth` / `explain` / `sfx`）、以及 BGM/闪避方案（Vibe 科普默认配 `vibe-we-never`《We Never · 若如初见》）。
+  3. **保存分镜并等确认**：写好 `.film/storyboard.json` 后停下请用户确认或微调；用户确认后调 `no996_mode(mode="produce")` 进入制作。
+- **`produce` 模式 / 明确要求直接出片**：走 `no996_storyboard` → `openfilm-motion` G2 定调帧 → G3–G5 帧检；**默认停在预览态交付**，仅当 `autoExport` 开启或用户明确要求时才执行 G6 导出。
 - **`chat` 模式 / 小改**：只改局部文案/参数，不强推全套流程。
 
-## 三条素材起点
+## 剪辑师六阶段工具与素材库调用时机表（何时查什么、用库还是自绘）
 
-### A. 有口播视频（用户丢来一个 mp4）
-1. `openfilm_transcribe` 拿句级时间码；2. `openfilm_face_analysis` 记录人脸安全框；3. `openfilm_storyboard(op="from-script")` 与 `op="subtitles"`；4. 实拍之上按停顿/重点加透明 `VibeOverlay` 浮点强调与克制拟音（不遮脸与字幕）。
+| 整编阶段 | 剪辑师要解决的问题 | 必调工具与动作 | 用库 vs 参考 vs 自绘取舍 |
+|---|---|---|---|
+| **① 开工摸底** | 现有轨道/媒体有哪些？本机与项目装了什么中英文字体？ | `no996_film` + `no996_assets` + `no996_fonts` | **严禁未查 `no996_fonts` 硬写未知字体**；自带 OFL 显示字体可用 `Smiley Sans` / `ZCOOL KuaiLe` |
+| **② 模板与分镜定调** | 用连续剧场自主创作，还是参照多轨节奏模板？ | `no996_library(kind="template")` + `inspect` / `take` → `no996_storyboard` | 科普/纯概念动效首推不加班 `vibe-explainer`（读其连续生长规范）；实拍剪辑可 `inspect` 官方 14 套多轨模板学分轨与 `overrides` 节奏 |
+| **③ 花字/调色/包装** | 标题金句质感怎么来？实拍色调怎么统一？ | `no996_library(kind="wordart" / "textmotion" / "filter" / "effect" / "sticker", inspect=...)` + `no996_clip(insert/preset)` | • **Canvas/HTML 舞台内大字**：`inspect` 读花字 CSS（`--fill`/`--stroke`/`--glow`）与滤镜色彩矩阵**作设计参考**融入舞台<br>• **实拍视频/图轨加花字贴纸滤镜**：直接用 `no996_clip(insert/preset)` 挂到上层轨（100% 本地免联网） |
+| **④ 切点转场连贯** | 相邻两镜头如何生长衔接？ | 舞台内 `VibeKit.grow`；多段实拍剪辑用 `no996_library(kind="transition" / "motion")` | **同一动效舞台内**禁连续擦除，必须代码级自然生长；**多段实拍片**才在切点放 `take+cut` 页面转场或 `motion` 关键帧 |
+| **⑤ 声画与节拍混音** | 配音节奏在哪、音乐何时降音、音效放哪？ | `no996_transcribe` → `no996_audio(extract / bgm-install / duck)` → `no996_rhythm` → `no996_sfx` | 知识科普默认装 `vibe-we-never`；有口播必须 `duck` -12 dB；重点转场/交互节点配 `no996_sfx`（注：云端 `audio`/`emoji` 首用需联网，断网走本地库） |
+| **⑥ 帧检与预览交付** | 字体加载成功没？花字/字幕压脸了吗？ | `no996_face_analysis` + `no996_frame` + `no996_mode` | 抽定调帧与切点前/中/后三联帧，确认无折行/无遮挡；**默认停在预览态，仅 `autoExport` 开启或明确指令才 `no996_export`** |
 
-### B. 只有一句话需求（无素材或仅概念）
-1. `openfilm_film` 读现有结构；2. `openfilm_library(kind="template")` 首推质量标杆 `vibe-explainer`（按需 `openfilm_kit(action="inspire")` 找新隐喻，**禁止机械抄袭样片旧主题**）；3. 写分镜 `op="write"` 后转 `openfilm-motion` G2。
+## 五类素材起点（从零到全模态）
 
-### C. 改已经剪好的片
-1. `openfilm_storyboard op="read"`；2. 局部修改后 `op="plan"` 检查影响；3. 小改直达源码与验证帧。
+1. **视频 / 口播 / 参考片**：`no996_transcribe` 拿句级时间码 + `no996_audio(action="extract")` 拿停顿与音量 + `no996_face_analysis` 取脸框 → `no996_storyboard(op="from-script")` 与 `subtitles` → 配乐用 `no996_audio(action="duck")` 人声闪避，实拍之上用 `no996_clip` 叠花字/滤镜或 `VibeOverlay.safeAnchor` 透明浮层。
+2. **对话 / 访谈音频或文本**：`no996_audio(action="extract")` 分析说话分段与静音切点，用 `VibeKit.drawDialogueTheater` 做双角色交锋气泡、反驳退暗压迫与声纹联动推镜。
+3. **起/中/终关键帧图片或网页链接**：
+   - 若用户贴了网页链接（官网/Steam/文章）：用 `web_fetch` 读文案 + `no996_assets(inspectUrl=...)` 提取页面图片并 `fromUrl` 安全入库；
+   - 若有起/中/终关键帧（或用 `no996_generate_image` 生成）：用 `VibeKit.drawImageAnchorStage` + 遮罩过渡/放大镜特写/粒子光效串联。
+4. **用户附带已有动效规范 / Skill 文档**：先完整读取文档规则并在分镜与代码实现中严格复用。
+5. **从零开始（仅一句话需求）**：`no996_film` + `no996_fonts` 读结构与字体 → `no996_library(kind="template")` 首推连续生长标杆 `vibe-explainer`（按需 `no996_kit(action="inspire")` 找新隐喻，并用 `no996_library(kind="wordart", inspect=...)` 参考花字质感，**禁止机械抄袭旧主题**）→ `no996_audio(action="bgm-install", id="vibe-we-never")` 装入实测拍点 → 写分镜后进 G2。
 
 ## 什么算"可以交给人看"
 
-- 分镜文件存在，`op="plan"` 的 `missing` 为空；
-- 至少抽查过定调帧 + 转场/高潮关键帧（`openfilm_frame`）；
-- 字幕不折行、不压脸、不溢框；同轨音频不重叠；
-- 导出回读过路径、分辨率、帧率、时长。
+- 分镜文件存在且无连续同类擦除/零生长承接告警，`op="plan"` 的 `missing` 为空；
+- 至少抽查过定调帧 + 相邻切点前/中/后三联帧（`no996_frame`），肉眼确认生长衔接不断裂；
+- 字幕不折行、不压脸、不溢框；字体已确认本机可用；同轨音频不重叠；人声期 BGM 已闪避；
+- 若用户开启自动导出或要求导出，须回读 `no996_export` 的真实路径、分辨率、帧率与时长；未开启时交付清晰可播放预览。

@@ -11,6 +11,9 @@
  */
 function officialFacadeFactory(bridge) {
   bridge = bridge && typeof bridge === 'object' ? bridge : {};
+  /* How long a running turn may wait for its stream to return before the page gives
+     up visibly. A brief loopback hiccup or a laptop lid must not lose the turn. */
+  const RECOVERY_MS = Number.isFinite(bridge.recoveryMs) && bridge.recoveryMs > 0 ? Math.min(600000, bridge.recoveryMs) : 60000;
   const unavailable = (operation) => {
     const error = new Error('OpenFilm capability unavailable: ' + operation);
     error.code = 'OPENFILM_UNAVAILABLE';
@@ -60,7 +63,7 @@ function officialFacadeFactory(bridge) {
       options,
     };
   };
-  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -165,55 +168,126 @@ function officialFacadeFactory(bridge) {
     const current = agentSources.get(id);
     if (current) return current.ready;
     if (typeof EventSource !== 'function') return Promise.reject(unavailable('agent.events'));
-    let source;
-    try { source = new EventSource('/__dsh/official-events?projectId=' + encodeURIComponent(id)); }
-    catch { return Promise.reject(unavailable('agent.events')); }
     let resolveReady, rejectReady;
-    const entry = { source, ready: new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; }) };
+    const entry = {
+      source: null,
+      lastSeq: -1,
+      ready: new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; }),
+      waiting: true,
+      closed: false,
+      attempts: 0,
+      deadline: 0,
+      timer: 0,
+      readyTimer: 0,
+    };
     agentSources.set(id, entry);
-    let waiting = true;
     const fail = () => {
-      if (agentSources.get(id) !== entry) return;
+      if (entry.closed || agentSources.get(id) !== entry) return;
+      entry.closed = true;
       agentSources.delete(id);
-      clearTimeout(timer);
-      source.close();
-      if (waiting) { waiting = false; rejectReady(unavailable('agent.events')); }
+      clearTimeout(entry.timer);
+      clearTimeout(entry.readyTimer);
+      try { entry.source?.close(); } catch { /* already gone */ }
+      if (entry.waiting) { entry.waiting = false; rejectReady(unavailable('agent.events')); }
       for (const pending of pendingAgentPrompts.values()) {
         if (pending.source === entry && pending.dispatched) pending.rejectTerminal(unavailable('agent.events: stream disconnected; output may be incomplete'));
       }
     };
-    const timer = setTimeout(fail, 10000);
-    source.addEventListener('ready', () => {
-      if (!waiting || agentSources.get(id) !== entry || source.readyState !== 1) return;
-      waiting = false;
-      clearTimeout(timer);
-      resolveReady(entry);
-    });
-    source.onerror = fail;
-    source.onmessage = (message) => {
-      if (agentSources.get(id) !== entry) return;
-      let value;
-      try { value = JSON.parse(message.data); } catch { fail(); return; }
-      if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.key !== 'string' || typeof value.kind !== 'string') { fail(); return; }
-      if (value.kind === 'done') {
-        const pending = pendingAgentPrompts.get(value.key);
-        if (!pending || pending.source !== entry || !pending.dispatched || value.turnId !== pending.turnId || pending.terminalSeen) return;
-        if (typeof value.ok !== 'boolean' || (value.ok && !['end_turn', 'cancelled'].includes(value.stopReason)) || (!value.ok && typeof value.error !== 'string')) { fail(); return; }
+    /** Is some dispatched turn of this project still waiting for its terminal frame? */
+    const awaiting = () => {
+      for (const pending of pendingAgentPrompts.values()) {
+        if (pending.source === entry && pending.dispatched && !pending.terminalSeen) return true;
+      }
+      return false;
+    };
+    /**
+     * The stream is back. A turn that ended while it was down may have no terminal
+     * left to replay, so ask the Host what actually happened rather than leaving the
+     * answer looking unfinished (or claiming a success nobody saw).
+     */
+    const reconcile = async () => {
+      for (const [key, pending] of [...pendingAgentPrompts]) {
+        if (pending.source !== entry || !pending.dispatched || pending.terminalSeen) continue;
+        let state;
+        try {
+          const scope = scopeOf(key);
+          state = await rpc('agent:turn-state', { projectId: id, conversation: scope ? scope.conversation : '', turnId: pending.turnId });
+        } catch { continue; }
+        if (entry.closed || agentSources.get(id) !== entry) return;
+        if (!state || state.active === true) continue;
+        const settled = state.lastSettled;
+        if (!settled || settled.turnId !== pending.turnId || pending.terminalSeen) continue;
+        const stopReason = settled.stopReason === 'cancelled' ? 'cancelled' : 'end_turn';
+        const outcome = settled.ok
+          ? { ok: true, stopReason }
+          : { ok: false, error: String(settled.error || 'turn failed') };
         pending.terminalSeen = true;
-        emitAgent(value);
-        pending.resolveTerminal(value.ok ? { ok: true, stopReason: value.stopReason } : { ok: false, error: value.error });
-      } else {
-        const counts = traceFor(id);
-        counts.seen += 1;
-        // Live frames are not `session/update`s, so they would otherwise be invisible in the
-        // trace: a turn that streamed shows stream=N beside the committed update kinds.
-        const name = value.kind === 'stream'
-          ? 'stream'
-          : value.update && typeof value.update.sessionUpdate === 'string' ? value.update.sessionUpdate : '';
-        if (/^[a-z_]{1,40}$/.test(name)) counts.kinds[name] = (counts.kinds[name] || 0) + 1;
-        emitAgent(value);
+        emitAgent({ key, kind: 'done', turnId: pending.turnId, ...outcome });
+        pending.resolveTerminal(outcome);
       }
     };
+    const connect = () => {
+      if (entry.closed) return;
+      let source;
+      try {
+        // Resume from the last sequence this page applied: the Host replays only what
+        // came after it, so a turn continues instead of repeating its middle.
+        const suffix = entry.lastSeq >= 0 ? `&afterSeq=${entry.lastSeq}` : '';
+        source = new EventSource('/__dsh/official-events?projectId=' + encodeURIComponent(id) + suffix);
+      } catch { fail(); return; }
+      entry.source = source;
+      clearTimeout(entry.readyTimer);
+      // A stream that never becomes ready is not a recovery candidate.
+      entry.readyTimer = setTimeout(() => { if (entry.waiting) fail(); }, 10000);
+      source.addEventListener('ready', () => {
+        if (entry.closed || agentSources.get(id) !== entry) return;
+        clearTimeout(entry.readyTimer);
+        if (entry.waiting) { entry.waiting = false; resolveReady(entry); }
+        entry.attempts = 0;
+        entry.deadline = 0;
+        void reconcile();
+      });
+      source.onerror = () => {
+        if (entry.closed || agentSources.get(id) !== entry) return;
+        // Nothing is running: drop the stream, as before, and let the next prompt open
+        // a fresh one. Reconnecting an idle page would only hold a socket open.
+        if (!awaiting()) { fail(); return; }
+        try { source.close(); } catch { /* already gone */ }
+        const now = Date.now();
+        if (entry.deadline === 0) entry.deadline = now + RECOVERY_MS;
+        if (now >= entry.deadline) { fail(); return; }
+        entry.attempts += 1;
+        const delay = Math.min(15000, 500 * 2 ** Math.min(entry.attempts - 1, 5));
+        clearTimeout(entry.timer);
+        entry.timer = setTimeout(connect, delay);
+      };
+      source.onmessage = (message) => {
+        if (entry.closed || agentSources.get(id) !== entry) return;
+        let value;
+        try { value = JSON.parse(message.data); } catch { fail(); return; }
+        if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.key !== 'string' || typeof value.kind !== 'string') { fail(); return; }
+        if (typeof value.seq === 'number' && Number.isFinite(value.seq)) entry.lastSeq = Math.max(entry.lastSeq, value.seq);
+        if (value.kind === 'done') {
+          const pending = pendingAgentPrompts.get(value.key);
+          if (!pending || pending.source !== entry || !pending.dispatched || value.turnId !== pending.turnId || pending.terminalSeen) return;
+          if (typeof value.ok !== 'boolean' || (value.ok && !['end_turn', 'cancelled'].includes(value.stopReason)) || (!value.ok && typeof value.error !== 'string')) { fail(); return; }
+          pending.terminalSeen = true;
+          emitAgent(value);
+          pending.resolveTerminal(value.ok ? { ok: true, stopReason: value.stopReason } : { ok: false, error: value.error });
+        } else {
+          const counts = traceFor(id);
+          counts.seen += 1;
+          // Live frames are not `session/update`s, so they would otherwise be invisible in the
+          // trace: a turn that streamed shows stream=N beside the committed update kinds.
+          const name = value.kind === 'stream'
+            ? 'stream'
+            : value.update && typeof value.update.sessionUpdate === 'string' ? value.update.sessionUpdate : '';
+          if (/^[a-z_]{1,40}$/.test(name)) counts.kinds[name] = (counts.kinds[name] || 0) + 1;
+          emitAgent(value);
+        }
+      };
+    };
+    connect();
     return entry.ready;
   };
   const localAgents = {

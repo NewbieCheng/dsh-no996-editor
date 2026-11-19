@@ -1695,10 +1695,10 @@ index 0000000..f487575
 +}
 diff --git a/apps/desktop/chat/src/components/WorkModePill.tsx b/apps/desktop/chat/src/components/WorkModePill.tsx
 new file mode 100644
-index 0000000..bb75e0d
+index 0000000..aaa1f6f
 --- /dev/null
 +++ b/apps/desktop/chat/src/components/WorkModePill.tsx
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,157 @@
 +'use client';
 +
 +import React from 'react';
@@ -1708,9 +1708,9 @@ index 0000000..bb75e0d
 +import { Tooltip } from '@/components/Tooltip';
 +import { useT } from '@/i18n';
 +import type { LocalAgentId } from '@/lib/desktop-bridge';
-+import { setAgentWorkMode, useAgentWorkMode, type WorkMode } from '@/lib/local-agent-run';
++import { setAgentAutoExport, setAgentWorkMode, useAgentWorkMode, type WorkMode } from '@/lib/local-agent-run';
 +
-+const CARD_W = 248;
++const CARD_W = 264;
 +
 +const MODES: ReadonlyArray<{ id: WorkMode; icon: typeof Sparkles }> = [
 +  { id: 'auto', icon: Sparkles },
@@ -1736,13 +1736,17 @@ index 0000000..bb75e0d
 +
 +  const activeMode = state.mode;
 +  const effective = state.effective;
++  const autoExport = state.autoExport === true;
 +  const Icon = activeMode === 'auto'
 +    ? (effective === 'design' ? Compass : effective === 'produce' ? Clapperboard : Sparkles)
 +    : (MODES.find((m) => m.id === activeMode)?.icon ?? Sparkles);
 +
-+  const shortText = activeMode === 'auto' && effective !== 'chat'
++  const baseShort = activeMode === 'auto' && effective !== 'chat'
 +    ? `${t('workMode.shortAuto')}·${t(effective === 'design' ? 'workMode.shortDesign' : 'workMode.shortProduce')}`
 +    : t(`workMode.short_${activeMode}` as Parameters<typeof t>[0]);
++  const shortText = autoExport && activeMode !== 'chat'
++    ? `${baseShort}·${t('workMode.shortExport')}`
++    : baseShort;
 +
 +  const accentClass = activeMode === 'design' || (activeMode === 'auto' && effective === 'design')
 +    ? 'text-[#f0b44b]'
@@ -1753,6 +1757,10 @@ index 0000000..bb75e0d
 +  const pick = (mode: WorkMode) => {
 +    setOpen(false);
 +    void setAgentWorkMode(projectId, conversation, agent, mode);
++  };
++
++  const toggleAutoExport = () => {
++    void setAgentAutoExport(projectId, conversation, agent, !autoExport);
 +  };
 +
 +  return (
@@ -1770,7 +1778,8 @@ index 0000000..bb75e0d
 +            onMouseDown={keepFocus}
 +            data-chat-work-mode={activeMode}
 +            data-chat-work-phase={effective}
-+            className="group inline-flex h-8 max-w-[126px] items-center gap-1 rounded-full px-2 text-[12px] font-medium transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
++            data-chat-auto-export={autoExport ? 'true' : 'false'}
++            className="group inline-flex h-8 max-w-[152px] items-center gap-1 rounded-full px-2 text-[12px] font-medium transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
 +          >
 +            <Icon size={12.5} strokeWidth={1.9} className={`shrink-0 transition ${accentClass}`} />
 +            <span className="truncate text-[var(--text-muted)] transition group-hover:text-[var(--text)]">
@@ -1780,7 +1789,7 @@ index 0000000..bb75e0d
 +        </Tooltip>
 +      }
 +    >
-+      <div style={{ ...POPOVER_CHROME, width: Math.min(CARD_W, Math.max(210, Math.floor(window.innerWidth * 0.7))), padding: 4 }}>
++      <div style={{ ...POPOVER_CHROME, width: Math.min(CARD_W, Math.max(220, Math.floor(window.innerWidth * 0.72))), padding: 4 }}>
 +        <div className="px-2.5 pb-1 pt-1 text-[11px] font-medium text-[var(--text-faint)]">
 +          {t('workMode.heading')}
 +        </div>
@@ -1812,12 +1821,43 @@ index 0000000..bb75e0d
 +            </button>
 +          );
 +        })}
++        <div className="my-1 border-t border-[var(--border)]" />
++        <button
++          type="button"
++          role="switch"
++          aria-checked={autoExport}
++          onMouseDown={keepFocus}
++          onClick={toggleAutoExport}
++          data-chat-auto-export-toggle={autoExport ? 'true' : 'false'}
++          className="flex w-full items-start gap-2 rounded-[6px] px-2.5 py-1.5 text-left outline-none transition hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]"
++        >
++          <div className="min-w-0 flex-1">
++            <div className="text-[12.5px] font-medium text-[var(--text)]">
++              {t('workMode.autoExportLabel')}
++            </div>
++            <div className="mt-0.5 text-[11px] leading-snug text-[var(--text-faint)]">
++              {t('workMode.autoExportDesc')}
++            </div>
++          </div>
++          <span
++            aria-hidden="true"
++            className={`mt-0.5 inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition ${
++              autoExport ? 'bg-[#4fd1a5]' : 'bg-[var(--border)]'
++            }`}
++          >
++            <span
++              className={`h-3 w-3 rounded-full bg-white shadow transition-transform ${
++                autoExport ? 'translate-x-3' : 'translate-x-0'
++              }`}
++            />
++          </span>
++        </button>
 +      </div>
 +    </Popover>
 +  );
 +}
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..bf5c048 100644
+index b41b3f8..b3a675c 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -13,12 +13,38 @@ export const enUS = {
@@ -1935,7 +1975,7 @@ index b41b3f8..bf5c048 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +452,26 @@ export const enUS = {
+@@ -418,7 +452,29 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -1960,11 +2000,14 @@ index b41b3f8..bf5c048 100644
 +    desc_auto: 'Automatically switches between design and production by task complexity',
 +    desc_chat: 'Light Q&A or small edits without triggering full storyboards',
 +    desc_design: 'Audit assets and draft visual & motion storyboard first, then confirm',
-+    desc_produce: 'Execute full storyboard with kinetic physics, SFX, 100-pt self-check & export',
++    desc_produce: 'Execute storyboard with continuous-growth motion & 100-pt check to preview',
++    shortExport: 'Export',
++    autoExportLabel: 'Auto-export when done',
++    autoExportDesc: 'Off by default: stop at verified preview so you can export manually',
 +  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..f030a36 100644
+index cef5071..fea59c7 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
 @@ -13,9 +13,9 @@ export const es: Words = {
@@ -2044,7 +2087,7 @@ index cef5071..f030a36 100644
      skillsHidden: 'Tus skills, desactivadas',
      skillsUnfiltered: 'Este agente usa todas tus skills, como en su propia app',
      mcpHidden: 'Tus servidores MCP, desactivados',
-@@ -417,7 +425,26 @@ export const es: Words = {
+@@ -417,7 +425,29 @@ export const es: Words = {
      description: 'Los archivos del proyecto vuelven a como estaban antes de él, también lo cambiado después en Studio. El turno sale del chat y su mensaje vuelve al cuadro de abajo, para enviarlo de nuevo.',
      confirm: 'Deshacer',
      cancel: 'Cancelar',
@@ -2069,11 +2112,14 @@ index cef5071..f030a36 100644
 +    desc_auto: 'Alterna automáticamente entre diseño y producción según la complejidad',
 +    desc_chat: 'Consultas breves y ajustes pequeños sin flujo completo',
 +    desc_design: 'Revisa recursos y diseña el guion visual antes de producir',
-+    desc_produce: 'Ejecuta el guion con físicas, SFX, revisión de calidad y exportación',
++    desc_produce: 'Ejecuta el guion con crecimiento continuo y control de calidad hasta vista previa',
++    shortExport: 'Exp',
++    autoExportLabel: 'Autoexportar al terminar',
++    autoExportDesc: 'Desactivado por defecto: entrega en vista previa para exportar manualmente',
 +  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..4435cfe 100644
+index 09e13c3..2b2f921 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
 @@ -13,9 +13,9 @@ export const ja: Words = {
@@ -2153,7 +2199,7 @@ index 09e13c3..4435cfe 100644
      skillsHidden: '自分のスキル（オフ）',
      skillsUnfiltered: 'このエージェントは本来のアプリと同じく、自分のスキルをすべて使います',
      mcpHidden: '自分の MCP サーバー（オフ）',
-@@ -417,7 +425,26 @@ export const ja: Words = {
+@@ -417,7 +425,29 @@ export const ja: Words = {
      description: 'プロジェクトのファイルはこのターンの前の状態に戻ります。その後 Studio で変えたところも戻ります。このターンはチャットから消え、メッセージは下の入力欄に戻るので、もう一度送れます。',
      confirm: '元に戻す',
      cancel: 'キャンセル',
@@ -2178,11 +2224,14 @@ index 09e13c3..4435cfe 100644
 +    desc_auto: 'タスクの複雑さに応じて設計・制作フェーズを自動切替',
 +    desc_chat: '簡単な質問や微調整のみ（絵コンテ工程は開かない）',
 +    desc_design: '素材確認と演出設計カード・絵コンテ作成後に確認して実行',
-+    desc_produce: '絵コンテ通りに物理モーション・効果音・100点検査・書き出しを実行',
++    desc_produce: '連続成長モーションと100点検査でプレビューまで仕上げます',
++    shortExport: '書出',
++    autoExportLabel: '完了後に自動書き出し',
++    autoExportDesc: '初期値オフ：プレビューで止め、確認後に手動で書き出せます',
 +  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index 07ac398..8b58aa4 100644
+index 07ac398..0b4dceb 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
 @@ -9,9 +9,9 @@ export const ko: Words = {
@@ -2262,7 +2311,7 @@ index 07ac398..8b58aa4 100644
      skillsHidden: '내 스킬(꺼짐)',
      skillsUnfiltered: '이 에이전트는 자체 앱에서처럼 내 스킬을 모두 사용합니다',
      mcpHidden: '내 MCP 서버(꺼짐)',
-@@ -413,7 +421,26 @@ export const ko: Words = {
+@@ -413,7 +421,29 @@ export const ko: Words = {
      description: '프로젝트 파일이 이번 턴 이전 상태로 돌아가고, 그 뒤 Studio에서 바꾼 내용도 함께 되돌아갑니다. 이번 턴은 대화에서 빠지고 메시지는 아래 입력창으로 돌아와 다시 보낼 수 있습니다.',
      confirm: '실행 취소',
      cancel: '취소',
@@ -2287,11 +2336,14 @@ index 07ac398..8b58aa4 100644
 +    desc_auto: '작업 복잡도에 따라 설계 또는 제작 단계를 자동 전환합니다',
 +    desc_chat: '간단한 질문이나 부분 수정만 처리합니다',
 +    desc_design: '소재 점검 후 비주얼·모션 스토리보드를 설계하고 확인을 받습니다',
-+    desc_produce: '스토리보드에 맞춰 모션, 효과음, 100점 자체 점검 및 내보내기를 실행합니다',
++    desc_produce: '연속 성장 모션과 100점 자체 점검을 거쳐 미리보기로 전달합니다',
++    shortExport: '내보내기',
++    autoExportLabel: '완료 후 자동 내보내기',
++    autoExportDesc: '기본 꺼짐: 미리보기 상태에서 멈추며 확인 후 직접 내보낼 수 있습니다',
 +  },
  };
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..8029c16 100644
+index 92e929a..2bd4a9a 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,12 +13,38 @@ export const zhCN: Words = {
@@ -2409,7 +2461,7 @@ index 92e929a..8029c16 100644
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
-@@ -417,7 +451,26 @@ export const zhCN: Words = {
+@@ -417,7 +451,29 @@ export const zhCN: Words = {
      description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
      confirm: '撤销',
      cancel: '取消',
@@ -2434,7 +2486,10 @@ index 92e929a..8029c16 100644
 +    desc_auto: '按需求复杂度与素材状态自动切换设计或直接执行',
 +    desc_chat: '轻量问答、改单句字幕或微调，不开重分镜流程',
 +    desc_design: '先盘点素材出视觉设计卡与分镜，确认后再执行',
-+    desc_produce: '按分镜全速出片，自动过 100 分动效转场自检与导出',
++    desc_produce: '按分镜全速出片，过连续生长与 100 分自检后交付预览',
++    shortExport: '导出',
++    autoExportLabel: '完成后自动导出',
++    autoExportDesc: '默认关闭：停在预览态，满意后在左侧手动导出成片',
 +  },
  };
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
@@ -2730,7 +2785,7 @@ index eb12f7b..b24ab24 100644
    }, [project, thumbnail]);
  
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..8307ce0 100644
+index 0ef8753..79693c7 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -2742,7 +2797,7 @@ index 0ef8753..8307ce0 100644
    publicActivity,
    publicActivityResult,
    publicAsk,
-@@ -130,12 +132,61 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
+@@ -130,12 +132,66 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
   * The name of our own MCP tool in this call (`mcp__openfilm__look`); undefined for anyone else's tools.
   * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
   * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
@@ -2762,52 +2817,57 @@ index 0ef8753..8307ce0 100644
 +  const trimmed = (title ?? '').trim();
 +  const ours = /^(?:mcp__|mcp\.)?(?:no996[-_.])?openfilm(?:__|\.|:|\/)(.+)$/i.exec(trimmed);
 +  if (ours) return `mcp__openfilm__${ours[1]!.trim()}`;
-+  if (/^openfilm_[A-Za-z0-9_]+$/.test(trimmed)) return `mcp__openfilm__${trimmed}`;
++  if (/^(?:no996|openfilm)_[A-Za-z0-9_]+$/.test(trimmed)) return `mcp__openfilm__${trimmed}`;
 +  return undefined;
 +}
 +
 +/**
-+ * Host MCP tools (`openfilm_transcribe` …) are not in upstream's publicActivity catalog, so they
++ * Host MCP tools (`no996_*` and legacy `openfilm_*`) are not in upstream's publicActivity catalog, so they
 + * collapse to `act.working`. That act is ephemeral: only the live status line ("正在处理"), never a
 + * tool row — so a turn with dozens of Host tools looks like endless thinking with no work. Map them
 + * onto closed acts that stay in the transcript (2026-11-16).
 + */
 +export function hostOpenfilmActivity(mcpName: string): LocalActivity {
-+  const short = mcpName.replace(/^mcp__openfilm__/i, '');
++  const raw = mcpName.replace(/^mcp__openfilm__/i, '');
++  const short = raw.replace(/^(?:no996|openfilm)_/i, '');
 +  switch (short) {
-+    case 'openfilm_transcribe':
++    case 'transcribe':
 +      return { act: 'audio.transcribe' };
-+    case 'openfilm_frame':
-+    case 'openfilm_face_analysis':
-+    case 'openfilm_cutout':
++    case 'frame':
++    case 'face_analysis':
++    case 'cutout':
 +      return { act: 'film.frames' };
-+    case 'openfilm_film':
-+    case 'openfilm_storyboard':
-+    case 'openfilm_mode':
++    case 'film':
++    case 'storyboard':
++    case 'mode':
 +      return { act: 'film.review' };
-+    case 'openfilm_clip':
-+    case 'openfilm_sfx':
++    case 'clip':
++    case 'sfx':
++    case 'audio':
 +      return { act: 'film.arrange' };
-+    case 'openfilm_export':
++    case 'export':
 +      return { act: 'film.check' };
-+    case 'openfilm_guide':
-+    case 'openfilm_library':
-+    case 'openfilm_kit':
-+    case 'openfilm_rhythm':
++    case 'guide':
++    case 'library':
++    case 'kit':
++    case 'rhythm':
++    case 'fonts':
 +      return { act: 'research.read' };
-+    case 'openfilm_assets':
-+    case 'openfilm_get':
-+      return { act: 'files.read', detail: clipDetail(short) };
-+    case 'openfilm_draft':
++    case 'assets':
++    case 'get':
++      return { act: 'files.read', detail: clipDetail(raw) };
++    case 'generate_image':
++      return { act: 'asset.genImage' };
++    case 'draft':
 +      return { act: 'scene.write' };
-+    case 'openfilm_cli':
++    case 'cli':
 +    default:
-+      return { act: 'command.run', detail: clipDetail(short || 'openfilm') };
++      return { act: 'command.run', detail: clipDetail(raw || 'no996') };
 +  }
  }
  
  /**
-@@ -161,7 +212,20 @@ export function localToolActivity(
+@@ -161,7 +217,20 @@ export function localToolActivity(
       rawInput.arguments (next to server / tool). Recognize that first. */
    const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown> & { server?: unknown; tool?: unknown; arguments?: unknown };
    const tool = ourToolName(name, rawInput);
@@ -2829,7 +2889,7 @@ index 0ef8753..8307ce0 100644
    /* Other MCP tools (Codex's own browser, computer use…): not film work, not drawn */
    if (typeof input.server === 'string' || /^mcp[._]/.test(name)) return null;
    const files = touchedFiles(extra, input);
-@@ -230,11 +294,25 @@ export function acpUpdateToEvent(
+@@ -230,11 +299,25 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -2858,7 +2918,7 @@ index 0ef8753..8307ce0 100644
          update.kind as string | undefined,
          update.rawInput,
          { locations: (update as { locations?: unknown }).locations, content: (update as { content?: unknown }).content },
-@@ -246,6 +324,9 @@ export function acpUpdateToEvent(
+@@ -246,6 +329,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
@@ -2868,7 +2928,7 @@ index 0ef8753..8307ce0 100644
        };
      }
      case 'tool_call_update': {
-@@ -295,6 +376,17 @@ export class LocalAgentTurn {
+@@ -295,6 +381,17 @@ export class LocalAgentTurn {
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
@@ -2886,7 +2946,7 @@ index 0ef8753..8307ce0 100644
  
    constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
  
-@@ -304,7 +396,14 @@ export class LocalAgentTurn {
+@@ -304,7 +401,14 @@ export class LocalAgentTurn {
    };
  
    private emit(): void {
@@ -2902,7 +2962,7 @@ index 0ef8753..8307ce0 100644
    }
  
    patch(next: Partial<LocalRunState>): void {
-@@ -363,6 +462,9 @@ export class LocalAgentTurn {
+@@ -363,6 +467,9 @@ export class LocalAgentTurn {
      if (event.type === 'agent-text') {
        const full = (this.partText.get(this.part) ?? '') + event.text;
        this.partText.set(this.part, full);
@@ -2912,7 +2972,7 @@ index 0ef8753..8307ce0 100644
        event = { ...event, text: full };
      }
      this.items = reduceTranscript(this.items, event);
-@@ -389,7 +491,6 @@ export class LocalAgentTurn {
+@@ -389,7 +496,6 @@ export class LocalAgentTurn {
    private pendingAsk: TranscriptItem['ask'];
    /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
    private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
@@ -2920,7 +2980,7 @@ index 0ef8753..8307ce0 100644
    private openThought: string | null = null;
  
    private patchItem(id: string, patch: Partial<TranscriptItem>): void {
-@@ -400,18 +501,38 @@ export class LocalAgentTurn {
+@@ -400,18 +506,38 @@ export class LocalAgentTurn {
      this.items = next;
    }
  
@@ -2967,7 +3027,7 @@ index 0ef8753..8307ce0 100644
      if (!this.state.thinking) this.state = { ...this.state, thinking: true };
      this.emit();
    }
-@@ -423,6 +544,91 @@ export class LocalAgentTurn {
+@@ -423,6 +549,91 @@ export class LocalAgentTurn {
      return true;
    }
  
@@ -3059,7 +3119,7 @@ index 0ef8753..8307ce0 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -543,9 +749,13 @@ interface LiveSession {
+@@ -543,9 +754,13 @@ interface LiveSession {
    /** the project and the conversation it is the session of */
    projectId: string;
    conversation: string;
@@ -3073,7 +3133,7 @@ index 0ef8753..8307ce0 100644
  
  /**
   * Forget this agent's sessions here (the shell closes its side): the next turn starts a new one, signed
-@@ -553,6 +763,104 @@ const sessions = new Map<string, LiveSession>();
+@@ -553,6 +768,104 @@ const sessions = new Map<string, LiveSession>();
   */
  export function forgetLocalAgentSessions(agent: LocalAgentId): void {
    for (const [k, s] of sessions) if (s.agent === agent) sessions.delete(k);
@@ -3178,15 +3238,15 @@ index 0ef8753..8307ce0 100644
  }
  /* ── how full the agent's context is (ACP usage_update): tokens in the conversation now, of its context window, as
     the agent's own chat shows it. By session: each conversation has its own. ── */
-@@ -575,6 +883,71 @@ export function useAgentContext(projectId: string, conversation: string, agent:
+@@ -575,6 +888,106 @@ export function useAgentContext(projectId: string, conversation: string, agent:
    );
  }
  
 +export type WorkMode = 'auto' | 'chat' | 'design' | 'produce';
 +export type WorkPhase = 'chat' | 'design' | 'produce';
-+export interface WorkModeState { mode: WorkMode; effective: WorkPhase; reason: string; updatedAt: number }
++export interface WorkModeState { mode: WorkMode; effective: WorkPhase; autoExport: boolean; reason: string; updatedAt: number }
 +
-+const DEFAULT_WORK_MODE: WorkModeState = { mode: 'auto', effective: 'chat', reason: '', updatedAt: 0 };
++const DEFAULT_WORK_MODE: WorkModeState = { mode: 'auto', effective: 'chat', autoExport: false, reason: '', updatedAt: 0 };
 +const workModeByKey = new Map<string, WorkModeState>();
 +const modeListeners = new Set<() => void>();
 +const tellMode = () => { for (const listener of modeListeners) listener(); };
@@ -3196,9 +3256,10 @@ index 0ef8753..8307ce0 100644
 +  const effective: WorkPhase = raw?.effective === 'design' || raw?.effective === 'produce' || raw?.effective === 'chat'
 +    ? (mode === 'auto' ? raw.effective : mode)
 +    : (mode === 'auto' ? 'chat' : mode);
++  const autoExport = raw?.autoExport === true;
 +  const reason = typeof raw?.reason === 'string' ? raw.reason : '';
 +  const updatedAt = typeof raw?.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0;
-+  return { mode, effective, reason, updatedAt };
++  return { mode, effective, autoExport, reason, updatedAt };
 +}
 +
 +function recordWorkMode(key: string, raw: Partial<WorkModeState> | undefined): void {
@@ -3233,7 +3294,13 @@ index 0ef8753..8307ce0 100644
 +  if (!target) {
 +    return null;
 +  }
-+  const optimistic = normalizeWorkMode({ mode, effective: mode === 'auto' ? (workModeByKey.get(target.key)?.effective ?? 'chat') : mode, updatedAt: Date.now() });
++  const prev = workModeByKey.get(target.key);
++  const optimistic = normalizeWorkMode({
++    mode,
++    effective: mode === 'auto' ? (prev?.effective ?? 'chat') : mode,
++    autoExport: prev?.autoExport ?? false,
++    updatedAt: Date.now(),
++  });
 +  workModeByKey.set(target.key, optimistic);
 +  tellMode();
 +  const res = await bridge.setOption(target.key, 'work_mode', mode).catch(() => null);
@@ -3247,10 +3314,38 @@ index 0ef8753..8307ce0 100644
 +  return optimistic;
 +}
 +
++export async function setAgentAutoExport(
++  projectId: string,
++  conversation: string,
++  agent: LocalAgentId,
++  autoExport: boolean,
++): Promise<WorkModeState | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge?.setOption) return null;
++  const sessionKey = `${projectId}:${conversation}:${agent}`;
++  const inflight = attaching.get(sessionKey);
++  if (inflight) await inflight.catch(() => null);
++  const target = sessions.get(sessionKey) ?? [...sessions.values()].reverse().find((s) => s.agent === agent);
++  if (!target) return null;
++  const prev = workModeByKey.get(target.key) ?? DEFAULT_WORK_MODE;
++  const optimistic = normalizeWorkMode({ ...prev, autoExport, updatedAt: Date.now() });
++  workModeByKey.set(target.key, optimistic);
++  tellMode();
++  const res = await bridge.setOption(target.key, 'work_mode', { autoExport }).catch(() => null);
++  const settled = (res?.result as { workMode?: Partial<WorkModeState> } | undefined)?.workMode;
++  if (res?.ok && settled) {
++    const normalized = normalizeWorkMode(settled);
++    workModeByKey.set(target.key, normalized);
++    tellMode();
++    return normalized;
++  }
++  return optimistic;
++}
++
  /* ── the agent working with nobody having written: a background task of its own that ended after its turn (a
     command it ran in the background, a subagent), which it takes up by itself, as in its own chat. Its work is shown
     as a turn of its own in its conversation (`onUnpromptedTurn`, from the page showing the project), which ends with
-@@ -649,6 +1022,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -649,6 +1062,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -3258,7 +3353,7 @@ index 0ef8753..8307ce0 100644
    else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
    else if (event.kind === 'permission') {
      const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
-@@ -681,6 +1055,10 @@ function listen(): void {
+@@ -681,6 +1095,10 @@ function listen(): void {
        }
        return;
      }
@@ -3269,7 +3364,7 @@ index 0ef8753..8307ce0 100644
      if (event.kind === 'update' && event.update.sessionUpdate === 'usage_update') {
        const { used, size, _meta } = event.update as { used?: unknown; size?: unknown; _meta?: Record<string, unknown> };
        if (typeof used === 'number' && typeof size === 'number' && size > 0) { contextByKey.set(event.key, { used, size }); tellContext(); }
-@@ -807,6 +1185,9 @@ export async function runLocalAgentTurn({
+@@ -807,6 +1225,9 @@ export async function runLocalAgentTurn({
    if (onStarted) startedHooks.set(turn, onStarted);
  
    const sessionKey = `${projectId}:${conversation}:${agent}`;
@@ -3279,7 +3374,7 @@ index 0ef8753..8307ce0 100644
    let session = sessions.get(sessionKey);
    if (!session || session.cwd !== cwd) {
      const started = await bridge.start(agent, cwd, resume, meta);
-@@ -815,6 +1196,14 @@ export async function runLocalAgentTurn({
+@@ -815,6 +1236,14 @@ export async function runLocalAgentTurn({
      }
      session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
      sessions.set(sessionKey, session);
@@ -3294,7 +3389,7 @@ index 0ef8753..8307ce0 100644
      tellContext();
      onSessionInfo?.(started.info);
      /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
-@@ -822,6 +1211,13 @@ export async function runLocalAgentTurn({
+@@ -822,6 +1251,13 @@ export async function runLocalAgentTurn({
        text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
        turn.notice('agent.sessionNotResumed');
      }

@@ -12,7 +12,7 @@ rot-if: 新增/删除环境变量（重新生成即可）
 
 | 变量 | 读取次数 | 位置 |
 |---|---|---|
-| `DSH_HOME` | 11 | `src/auth/login-remember.mjs`、`src/auth/workbench-auth.mjs`、`src/host/diagnostic-log.mjs`、`src/host/preferences.mjs`、`src/studio/studio-controller.mjs`、`src/studio/studio-controller/routes/assets.mjs`、`src/tools/tool-installer.mjs` |
+| `DSH_HOME` | 13 | `src/audio/builtin-bgm.mjs`、`src/auth/login-remember.mjs`、`src/auth/workbench-auth.mjs`、`src/host/diagnostic-log.mjs`、`src/host/preferences.mjs`、`src/studio/studio-controller.mjs`、`src/studio/studio-controller/routes/assets.mjs`、`src/tools/tool-installer.mjs` |
 | `NO996_OPENFILM_CLI` | 1 | `src/tools/cli-tool.mjs` |
 | `NO996_OPENFILM_DEBUG_EDITOR` | 2 | `src/studio/studio-controller.mjs` |
 | `NO996_OPENFILM_DEBUG_PORT` | 5 | `src/dev/dev-browser-portal.mjs`、`src/studio/desktop-loopback.mjs`、`src/studio/studio-controller.mjs`、`src/studio/studio-debug-redirect.mjs`、`src/studio/studio-debug.mjs` |

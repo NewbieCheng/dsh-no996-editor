@@ -1,4 +1,4 @@
-import { readStoryboard, normalizeStoryboard, planFromStoryboard, storyboardSummary, validateStoryboard, writeStoryboard, MOTIONS, KINDS } from '../film/storyboard.mjs';
+import { readStoryboard, normalizeStoryboard, planFromStoryboard, storyboardSummary, validateStoryboard, writeStoryboard, MOTIONS, GROWTH_TYPES, KINDS } from '../film/storyboard.mjs';
 import { planFromTranscript, storyboardFromPlan, subtitlesFromScript, toSrt, sentencesFromSegments } from '../film/script-plan.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -18,6 +18,9 @@ const shotSchema = {
     motion: { type: 'string', enum: MOTIONS, description: '动作（词汇表见 openfilm-motion）。' },
     caption: { type: 'string', description: '屏上字，≤ 40 字。' },
     transition: { type: 'string', description: '与下一镜的转场。' },
+    growth: { type: 'string', enum: GROWTH_TYPES, description: '下一画面如何从上一画面自然生长出来（morph-expand/portal-zoom/line-grow/causal-trigger/spatial-pan/card-flip/mask-bloom/hard-cut）。' },
+    camera: { type: 'string', description: '本镜景别与虚拟运镜轨迹（例：全景建立→1.2s急推特写→缓拉；杜绝全程固定全景）。' },
+    trigger: { type: 'string', description: '动作因果触发逻辑（例：光标点击胶囊→窗口从点击坐标弹开；拒绝无因蹦出）。' },
     explain: { type: 'string', description: '本镜核心视觉隐喻或物理解释意图（≤120字）。' },
     carryFrom: { type: 'string', description: '从上一镜接力延续的视觉元素或坐标锚点。' },
     sfx: { type: 'string', description: '本镜建议配套拟音关键词或时机（如 hit@0.4s, whoosh）。' },
@@ -28,14 +31,14 @@ const shotSchema = {
 /**
  * The storyboard as a tool: plan before cutting, and let the plan be reviewed.
  *
- * `plan` is the honest half of "apply": openfilm_clip can move, trim and split, but it
- * cannot add a clip, so a shot with no clip comes back as `missing` with what it needs,
+ * `plan` is the honest half of "apply": no996_clip supports move, trim, split, and Studio insert/preset, while
+ * structural missing shots come back as `missing` with what they need,
  * and the existing clips come back as the operations that make them match the plan.
  */
 export function createStoryboardTool({ isProjectAgent, projectOf }) {
   return {
-    name: 'openfilm_storyboard',
-    description: 'Read or write the project\'s storyboard (.film/storyboard.json): the shot list with film seconds, source ranges, motion names and on-screen text. Use it to plan before cutting, and again to keep the timeline matching the plan. "from-script" builds shots from a transcript produced by openfilm_transcribe (sentence boundaries, no cuts mid-sentence); "subtitles" returns SRT text for those sentences. "plan" turns the storyboard into openfilm_clip operations for clips that already exist and names the shots that still need one.',
+    name: 'no996_storyboard',
+    description: 'Read or write the project\'s storyboard (.film/storyboard.json): the shot list with film seconds, source ranges, motion names and on-screen text. Use it to plan before cutting, and again to keep the timeline matching the plan. "from-script" builds shots from a transcript produced by no996_transcribe (sentence boundaries, no cuts mid-sentence); "subtitles" returns SRT text for those sentences. "plan" turns the storyboard into no996_clip operations for clips that already exist and names the shots that still need one.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['op'],
       properties: {
@@ -51,10 +54,10 @@ export function createStoryboardTool({ isProjectAgent, projectOf }) {
             shots: { type: 'array', maxItems: MAX_SHOTS, items: shotSchema },
           },
         },
-        transcriptPath: { type: 'string', description: 'op=from-script: the JSON file openfilm_transcribe wrote (its transcriptPath).' },
+        transcriptPath: { type: 'string', description: 'op=from-script: the JSON file no996_transcribe wrote (its transcriptPath).' },
         clips: {
           type: 'array', maxItems: 200,
-          description: 'op=plan: the clips that exist now (id/from/to/start/end/track), e.g. from openfilm_film.',
+          description: 'op=plan: the clips that exist now (id/from/to/start/end/track), e.g. from no996_film.',
           items: {
             type: 'object', additionalProperties: true,
             properties: { id: { type: 'string' }, from: { type: 'number' }, to: { type: 'number' }, start: { type: 'number' }, end: { type: 'number' }, track: { type: 'integer' } },
@@ -99,11 +102,11 @@ export function createStoryboardTool({ isProjectAgent, projectOf }) {
         const { operations, missing, conflicts } = planFromStoryboard(storyboard, args?.clips ?? []);
         const lines = [];
         if (operations.length) {
-          lines.push(`时间轴操作（交给 openfilm_clip）：${operations.length} 步`);
+          lines.push(`时间轴操作（交给 no996_clip）：${operations.length} 步`);
           for (const operation of operations.slice(0, 60)) lines.push(`· ${JSON.stringify(operation)}`);
         } else lines.push('现有片段已经与分镜一致，没有要改的。');
         if (missing.length) {
-          lines.push('', `还缺 ${missing.length} 个镜头，openfilm_clip 加不了片段：先在 Studio 里放上素材，或对已导入的片段补 clip id。`);
+          lines.push('', `还缺 ${missing.length} 个镜头：用 no996_clip(op="insert") 或在 Studio 里放上素材后补 clip id。`);
           for (const shot of missing.slice(0, 40)) lines.push(`· ${shot.id} ${shot.from}–${shot.to}s ${shot.kind}${shot.clip ? `（clip ${shot.clip} 不存在）` : ''}`);
         }
         if (conflicts.length) lines.push('', `冲突：\n· ${conflicts.join('\n· ')}`);
@@ -112,7 +115,7 @@ export function createStoryboardTool({ isProjectAgent, projectOf }) {
 
       if (op === 'from-script') {
         const file = typeof args?.transcriptPath === 'string' ? args.transcriptPath : '';
-        if (!file) throw new Error('op=from-script 需要 transcriptPath（openfilm_transcribe 返回的路径）。');
+        if (!file) throw new Error('op=from-script 需要 transcriptPath（no996_transcribe 返回的路径）。');
         let record;
         try { record = JSON.parse(readFileSync(file, 'utf8')); } catch { throw new Error(`读不到转写文件：${file}`); }
         const plan = planFromTranscript(record, { maxChars: args?.maxChars });
@@ -140,7 +143,7 @@ export function createStoryboardTool({ isProjectAgent, projectOf }) {
         // per shot, which is what a title-driven film has anyway.
         sentences = storyboard.shots.filter(shot => shot.caption).map(shot => ({ start: shot.from, end: shot.to, text: shot.caption }));
       } else {
-        throw new Error('没有转写也没有分镜：先 openfilm_transcribe，或 op=write 写分镜。');
+        throw new Error('没有转写也没有分镜：先 no996_transcribe，或 op=write 写分镜。');
       }
       const cues = subtitlesFromScript(sentences, { maxChars: Number.isSafeInteger(args?.maxChars) ? args.maxChars : 16 });
       if (cues.length === 0) throw new Error('没有可用的字幕文本。');

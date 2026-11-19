@@ -17,8 +17,9 @@ test('a project without instructions gets them, once', () => {
   assert.equal(first.file, join(root, 'AGENTS.md'));
   const text = readFileSync(first.file, 'utf8');
   assert.match(text, /film\.html/);
-  assert.match(text, /openfilm_clip/);
-  assert.match(text, /只有真的画出一帧/);
+  assert.match(text, /no996_clip/);
+  assert.match(text, /no996_fonts/);
+  assert.match(text, /抽帧校验|no996_frame/);
   const second = ensureProjectInstructions({ root });
   assert.equal(second.created, false);
   assert.equal(readFileSync(first.file, 'utf8'), text, 'a second call changes nothing');

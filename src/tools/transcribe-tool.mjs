@@ -1,5 +1,5 @@
 /**
- * `openfilm_transcribe`: the tool that turns a file on this computer into a script.
+ * `no996_transcribe`: the tool that turns a file on this computer into a script.
  *
  * Why a tool and not a shell recipe: the person hands over "this video" and expects
  * a script, not a two-hour tour of ffmpeg flags. The tool owns four things the model
@@ -72,7 +72,7 @@ const absolute = value => typeof value === 'string' && (/^[A-Za-z]:[\\/]/.test(v
 
 export function createTranscribeTool({ isProjectAgent, projectOf, service, refine = null }) {
   return {
-    name: 'openfilm_transcribe',
+    name: 'no996_transcribe',
     description: 'Transcribe speech in a local video or audio file with timecodes. Recognition runs locally; optional refinement sends transcript text to the session model, and returned text enters the conversation. Use when speech matters, not for every video. The first use downloads a local speech model (~228 MB); status shows readiness and setup starts the download.',
     parameters: {
       type: 'object', additionalProperties: false,
@@ -139,7 +139,7 @@ export function createTranscribeTool({ isProjectAgent, projectOf, service, refin
         if (error?.code === 'EXTRACT_FAILED' || error?.code === 'NO_AUDIO' || error?.code === 'UNREADABLE_MEDIA' || error?.code === 'NO_SPACE') {
           return {
             text: String(error.message || error)
-              + '\n不要对同一文件立刻重试 openfilm_transcribe：先换有音轨的文件、检查 ffmpeg（NO996_OPENFILM_FFMPEG），或改用已有字幕/口播稿。',
+              + '\n不要对同一文件立刻重试 no996_transcribe：先换有音轨的文件、检查 ffmpeg（NO996_OPENFILM_FFMPEG），或改用已有字幕/口播稿。',
           };
         }
         throw error;

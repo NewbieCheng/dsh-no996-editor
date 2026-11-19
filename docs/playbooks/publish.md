@@ -125,7 +125,13 @@ npm run release:check   # 完整检查、registry、临时构建/打包；不发
 pwsh -ExecutionPolicy Bypass -File .\scripts\npmjs-publish.ps1
 ```
 
-**token 要求**：npmjs granular token，权限 `Read and write (publish and stage)`，并勾选 **Bypass two-factor authentication (2FA)**；否则 publish 被 401/403 拒绝。**token 只用于发布**：它不能 unpublish，删包必须真人到网页过 2FA。token 只能放环境变量或系统临时文件，**绝不写进仓库**（GitHub Push Protection 会拦，且一旦推送就泄露）。
+#### 后续由 AI 代发（本地，不启用 CI）
+
+1. 首发暂存包先由维护者在 npm 网页批准。后续如仍允许 token 直发，在 npm 网页 **Access Tokens** 创建短有效期的 granular token，仅授权 `@newbiecheng/dsh-no996-editor`，选允许直接发布的 **Read and write (publish and stage)** 而不是 stage-only，并按 npm 要求启用 **Bypass 2FA**。已经暴露的旧 token 不得复用。
+2. 通过本机受控的凭据配置把 token 注入实际执行发布的进程为 `NPM_TOKEN`。不贴聊天、不写仓库、不把明文放到命令参数或日志。普通终端里设置的进程变量不会传给已经运行的 DSH；未注入时由 AI 停止，不猜凭据也不重复上传。
+3. 每次由维护者明确指定要发布的版本。AI 先跑 `npm run release:check` 并确认包名、版本、预定发布产物和官方源；对同一版本只发布一次。再按下一节验收公开 `latest`、tarball 和 DSH 安装。`401`/`403` 停下查权限；已暂存或 `409` 按下文处理。
+
+[GitHub 的 npm 公告](https://github.blog/changelog/2026-07-31-restricting-npm-bypass-2fa-granular-access-tokens/)称，目标是在 2027 年 1 月限制使用 Bypass 2FA token 直接发布；以 npm 实时规则为准。若直发被禁，AI 仍可负责构建和 `npm stage publish`，但批准需维护者做 2FA。长期若要免逐版人工批准，可另行配置 [Trusted Publishing（OIDC）](https://docs.npmjs.com/trusted-publishers/)；这需要受支持的发布平台，当前不擅自启用 GitHub Actions。
 
 脚本流程：`build` → `pack-tgz.mjs` → 在**系统临时目录**解压 tgz、改写 `publishConfig.registry` 为 npmjs → `npm publish` → finally 删除临时文件与临时 `.npmrc`。不要手改仓库里的 `package.json` 来切 registry。
 

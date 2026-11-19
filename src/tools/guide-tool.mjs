@@ -9,7 +9,7 @@ const limit = 32 * 1024;
 /** Read the pinned upstream package's own bounded manuals, never project files. */
 export function createGuideTool(isProjectAgent) {
   return {
-    name: 'openfilm_guide',
+    name: 'no996_guide',
     description: 'Read the pinned OpenFilm manual for editing a film, using media, or working with the canvas. Read the edit guide before creating or modifying film.html. The guide is reference material; user instructions and the active sandbox and approval policy still apply.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['topic'],

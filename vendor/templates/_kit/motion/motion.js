@@ -449,10 +449,166 @@
     };
   }
 
+  /**
+   * 预备回撤曲线（动画十二法则之 Anticipation）：
+   * 前 28% 先向反方向蓄力微退 (-backAmp)，后 72% 爆发冲到 1.0，再带轻微过冲回落。
+   */
+  function anticipate(t, t0, duration = 0.42, backAmp = 0.22) {
+    const p = seg(t, t0, duration);
+    if (p <= 0) return 0;
+    if (p >= 1) return 1;
+    if (p < 0.28) {
+      const k = p / 0.28;
+      return -backAmp * Math.sin(k * Math.PI * 0.5);
+    }
+    const q = (p - 0.28) / 0.72;
+    return lerp(-backAmp, 1, backOut(q, 1.35));
+  }
+
+  /** 物理弹簧插值：从 from 到 to 沿阻尼弹簧曲线推进。 */
+  function overshootLerp(from, to, t, duration = 0.55, zeta = 0.58) {
+    return lerp(from, to, spring(Math.max(0, t), duration, zeta));
+  }
+
+  /** 三次贝塞尔曲线采样：用于因果光标弧线轨迹与粒子流引导线。 */
+  function bezierPoint(p0, p1, p2, p3, u) {
+    const t = clamp01(u);
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const t2 = t * t;
+    const a = mt2 * mt;
+    const b = 3 * mt2 * t;
+    const c = 3 * mt * t2;
+    const d = t2 * t;
+    return {
+      x: a * p0.x + b * p1.x + c * p2.x + d * p3.x,
+      y: a * p0.y + b * p1.y + c * p2.y + d * p3.y,
+    };
+  }
+
+  /** 折线路径按进度 u (0..1) 采样位置与切线角（弧度），用于线条接力生长转场。 */
+  function pathProgress(points, u) {
+    if (!Array.isArray(points) || points.length === 0) return { x: 0, y: 0, angle: 0, partial: [] };
+    if (points.length === 1) return { x: points[0].x, y: points[0].y, angle: 0, partial: [points[0]] };
+    const p = clamp01(u);
+    const segLens = [];
+    let total = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      const len = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+      segLens.push(len);
+      total += len;
+    }
+    if (total <= 0.0001) return { x: points[0].x, y: points[0].y, angle: 0, partial: [points[0]] };
+    const targetDist = p * total;
+    let acc = 0;
+    const partial = [points[0]];
+    for (let i = 0; i < segLens.length; i += 1) {
+      const a = points[i];
+      const b = points[i + 1];
+      const len = segLens[i];
+      if (acc + len >= targetDist || i === segLens.length - 1) {
+        const local = len > 0 ? clamp01((targetDist - acc) / len) : 1;
+        const x = lerp(a.x, b.x, local);
+        const y = lerp(a.y, b.y, local);
+        partial.push({ x, y });
+        return { x, y, angle: Math.atan2(b.y - a.y, b.x - a.x), partial };
+      }
+      partial.push(b);
+      acc += len;
+    }
+    return { x: points[points.length - 1].x, y: points[points.length - 1].y, angle: 0, partial };
+  }
+
+  /**
+   * 虚拟 2.5D 相机关键帧插值器：
+   * keys = [{ t, x?, y?, zoom?, rotate? }, ...]，自动按 inOutCubic 平滑插值并叠微呼吸。
+   */
+  function cameraKeyframe(t, keys, options) {
+    const opts = options || {};
+    const breath = opts.breath === undefined ? 0.008 : opts.breath;
+    if (!Array.isArray(keys) || keys.length === 0) {
+      return { x: 0, y: 0, zoom: 1 + breath * Math.sin(t * 1.4), rotate: 0 };
+    }
+    const sorted = [...keys].sort((a, b) => a.t - b.t);
+    let cur = {
+      x: sorted[0].x || 0,
+      y: sorted[0].y || 0,
+      zoom: sorted[0].zoom === undefined ? 1 : sorted[0].zoom,
+      rotate: sorted[0].rotate || 0,
+    };
+    if (t > sorted[0].t) {
+      let idx = 0;
+      for (let i = 1; i < sorted.length; i += 1) {
+        if (t >= sorted[i].t) idx = i;
+      }
+      if (idx >= sorted.length - 1) {
+        const last = sorted[sorted.length - 1];
+        cur = {
+          x: last.x || 0,
+          y: last.y || 0,
+          zoom: last.zoom === undefined ? 1 : last.zoom,
+          rotate: last.rotate || 0,
+        };
+      } else {
+        const a = sorted[idx];
+        const b = sorted[idx + 1];
+        const ease = typeof b.ease === 'function' ? b.ease : inOutCubic;
+        const u = ease(seg(t, a.t, Math.max(0.001, b.t - a.t)));
+        cur = {
+          x: lerp(a.x || 0, b.x || 0, u),
+          y: lerp(a.y || 0, b.y || 0, u),
+          zoom: lerp(a.zoom === undefined ? 1 : a.zoom, b.zoom === undefined ? 1 : b.zoom, u),
+          rotate: lerp(a.rotate || 0, b.rotate || 0, u),
+        };
+      }
+    }
+    if (breath > 0) {
+      cur.zoom += breath * Math.sin(t * 1.35);
+      cur.x += breath * 140 * Math.sin(t * 0.9);
+      cur.y += breath * 110 * Math.cos(t * 0.75);
+    }
+    return cur;
+  }
+
+  /** 几何容器连续形变插值（坐标 / 尺寸 / 圆角 / 旋转 / 透明），用于“从上一幕长出来”。 */
+  function morphBox(fromRect, toRect, p, easing) {
+    const a = fromRect || {};
+    const b = toRect || {};
+    const u = (easing || inOutCubic)(clamp01(p));
+    return {
+      x: lerp(a.x || 0, b.x || 0, u),
+      y: lerp(a.y || 0, b.y || 0, u),
+      w: lerp(a.w || 0, b.w || 0, u),
+      h: lerp(a.h || 0, b.h || 0, u),
+      r: lerp(a.r || 0, b.r || 0, u),
+      rotate: lerp(a.rotate || 0, b.rotate || 0, u),
+      opacity: lerp(a.opacity === undefined ? 1 : a.opacity, b.opacity === undefined ? 1 : b.opacity, u),
+    };
+  }
+
+  /** 十六进制颜色平滑插值（#rrggbb）。 */
+  function colorLerp(hexA, hexB, p) {
+    const parse = (hex) => {
+      const clean = String(hex || '#000000').replace('#', '');
+      const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean.padEnd(6, '0');
+      return [
+        parseInt(full.slice(0, 2), 16) || 0,
+        parseInt(full.slice(2, 4), 16) || 0,
+        parseInt(full.slice(4, 6), 16) || 0,
+      ];
+    };
+    const [r1, g1, b1] = parse(hexA);
+    const [r2, g2, b2] = parse(hexB);
+    const u = clamp01(p);
+    const toHex = (n) => Math.round(clamp(n, 0, 255)).toString(16).padStart(2, '0');
+    return '#' + toHex(lerp(r1, r2, u)) + toHex(lerp(g1, g2, u)) + toHex(lerp(b1, b2, u));
+  }
+
   return {
     clamp, clamp01, seg, lerp, between, stagger,
     cubicOut, quintOut, expoOut, inOutCubic, backOut, spring, drop, wallScale,
     slam, steps, pulse, shake, wipeBand, carryPose,
+    anticipate, overshootLerp, bezierPoint, pathProgress, cameraKeyframe, morphBox, colorLerp,
     hash32, det, detBetween, halton, jitter,
     pose, enter, exit, reveal, camera, inversePose,
     split, unitsIn, count, surface, grain, text,

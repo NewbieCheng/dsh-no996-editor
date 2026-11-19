@@ -29,16 +29,20 @@ function makeMockCtx(w = 1080, h = 1920) {
     setTransform() {},
     translate() {},
     scale() {},
+    rotate() {},
+    clip() {},
     beginPath() {},
     closePath() {},
     moveTo() {},
     lineTo() {},
+    bezierCurveTo() {},
     arc() {},
     roundRect() {},
     rect() {},
     fill() {},
     stroke() {},
     fillRect() {},
+    drawImage() {},
     strokeText() {},
     fillText() {},
     setLineDash() {},
@@ -126,4 +130,62 @@ test('VibeKit metaphor primitives and VibeOverlay face avoidance work in both or
   // VibeOverlay safeAnchor avoids a centered talking head face box
   const pos = VibeOverlay.safeAnchor(1080, 1920, { bottom: 0.42, right: 0.65 });
   assert.ok(pos.y >= 1920 * 0.42 + 20, `overlay anchor (${JSON.stringify(pos)}) should sit cleanly below avoidRect bottom`);
+});
+
+test('Motion v2 & VibeKit v2 camera, parallax, 6 growth transitions and continuous vibe-explainer stage are deterministic', () => {
+  const { Motion, VibeKit, sandbox } = loadVibeSuite();
+  const stageCode = readFileSync(join(ROOT, 'vendor', 'templates', 'vibe-explainer', 'stage.js'), 'utf8');
+  assert.equal(/drawWipeBand\s*\(/.test(stageCode), false, 'vibe-explainer stage must not call drawWipeBand');
+  assert.equal(stageCode.includes('Math.random('), false);
+  assert.equal(stageCode.includes('Date.now('), false);
+
+  const cam = Motion.cameraKeyframe(2.5, [{ t: 0, zoom: 1 }, { t: 5, zoom: 1.2, x: -40 }]);
+  assert.ok(cam.zoom > 1.0 && cam.zoom < 1.25);
+  assert.equal(Motion.anticipate(0.05, 0, 0.4) < 0, true, 'anticipate pulls back before advancing');
+  const box = Motion.morphBox({ x: 0, y: 0, w: 100, h: 50, r: 8 }, { x: 100, y: 200, w: 300, h: 150, r: 24 }, 0.5);
+  assert.equal(box.w, 200);
+  assert.match(Motion.colorLerp('#000000', '#ffffff', 0.5), /^#[0-9a-f]{6}$/);
+
+  const ctx = makeMockCtx(1080, 1920);
+  VibeKit.withParallax(ctx, 1080, 1920, cam, 0.3, () => VibeKit.drawAuroraMesh(ctx, 1.5, { width: 1080, height: 1920 }));
+  VibeKit.drawPerspectiveGrid(ctx, 1.5, { width: 1080, height: 1920 });
+  VibeKit.drawGlassCard(ctx, 94, 400, 892, 200, 28, { sweep: 0.5, accentBar: true });
+  VibeKit.drawCursorClick(ctx, 300, 420, 0.45);
+  VibeKit.drawDialogueTheater(ctx, 2.5, [{ at: 0.5, speaker: 'A', line1: 'Hi' }, { at: 2.0, side: 'right', tone: 'bad', line1: 'No' }]);
+  VibeKit.drawAudioSpectrum(ctx, 2.5, VibeKit.readRhythm(42, 112.3));
+  VibeKit.drawImageAnchorStage(ctx, 2.0, [{ at: 0, label: 'Start' }, { at: 1.5, label: 'End' }]);
+  VibeKit.drawFlowNodes(ctx, 1.2, [{ x: 200, y: 500, label: 'S1' }], { x: 800, y: 900, label: 'Out' });
+  VibeKit.drawCompareSlider(ctx, 1.2, { beforeValue: '10s', afterValue: '1s' });
+  VibeKit.drawRadialGauge(ctx, 1.2, { value: 0.85, displayValue: '85%' });
+  VibeKit.grow.morphExpand(ctx, { x: 0, y: 0, w: 100, h: 100, r: 8 }, { x: 50, y: 50, w: 300, h: 300, r: 20 }, 0.5);
+  VibeKit.grow.portalZoom(ctx, 540, 960, 40, 1200, 0.5, () => {});
+  VibeKit.grow.lineCarry(ctx, [{ x: 10, y: 10 }, { x: 200, y: 10 }, { x: 200, y: 200 }], 0.6);
+  VibeKit.grow.causalRipple(ctx, 540, 960, 1000, 0.5, () => {});
+  VibeKit.grow.spatialSlide(ctx, 1080, 1920, 0.5, 'up', () => {}, () => {});
+  VibeKit.grow.cardFlip3D(ctx, 540, 960, 800, 400, 0.6, () => {}, () => {});
+
+  vm.runInContext(stageCode, sandbox, { filename: 'stage.js' });
+  assert.equal(typeof sandbox.window.drawContinuousStage, 'function');
+  const rhythm = VibeKit.readRhythm(42, 112.3);
+  for (const globalT of [0, 4.9, 5.0, 10.0, 16.0, 21.5, 27.0, 32.5, 37.5, 41.9]) {
+    assert.doesNotThrow(() => sandbox.window.drawContinuousStage({
+      globalT,
+      t: globalT,
+      duration: 5,
+      filmDuration: 42,
+      ctx,
+      w: 1080,
+      h: 1920,
+      safe: VibeKit.safeArea(1080, 1920),
+      pal: VibeKit.DEFAULT_PALETTE,
+      copy: {},
+      vars: {},
+      kit: VibeKit,
+      motion: Motion,
+      rhythm,
+      beatPulse: 0.5,
+      onsetPulse: 0.4,
+      tonalPulse: 0.3,
+    }));
+  }
 });

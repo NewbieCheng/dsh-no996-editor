@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFrameTool } from '../src/tools/frame-tool.mjs';
 import { createFilmTool } from '../src/tools/film-tool.mjs';
+import { createFontsTool } from '../src/tools/fonts-tool.mjs';
 import { createLibraryTool } from '../src/tools/library-tool.mjs';
 import { createGetTool } from '../src/tools/get-tool.mjs';
 import { createClipTool } from '../src/tools/clip-tool.mjs';
@@ -29,6 +30,7 @@ const http = () => ({ get: async () => ({}), post: async () => ({}), put: async 
 const tools = [
   createFrameTool({ ...link, http, attachments: () => ({}), llm: () => undefined }),
   createFilmTool({ ...link, http }),
+  createFontsTool({ ...link, http }),
   createLibraryTool({ ...link, http }),
   createGetTool({ ...link, http }),
   createClipTool(link),

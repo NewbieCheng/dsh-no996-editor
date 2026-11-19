@@ -21,6 +21,11 @@ export const MOTIONS = [
   'none', 'fade', 'push-in', 'pull-out', 'pan-left', 'pan-right', 'tilt-up', 'tilt-down',
   'zoom-in', 'zoom-out', 'slide-up', 'slide-down', 'reveal-left', 'reveal-right', 'parallax',
   'slam', 'kinetic-type', 'metaphor-scale', 'metaphor-split', 'metaphor-grid', 'wipe-band', 'carry-pose',
+  'portal-zoom', 'morph-expand', 'line-grow', 'causal-trigger', 'spatial-pan', 'card-flip', 'dialogue-clash', 'image-anchor',
+];
+
+export const GROWTH_TYPES = [
+  'morph-expand', 'portal-zoom', 'line-grow', 'causal-trigger', 'spatial-pan', 'card-flip', 'mask-bloom', 'hard-cut',
 ];
 
 export const KINDS = ['talking-head', 'broll', 'title', 'cutaway', 'screen', 'end-card'];
@@ -64,11 +69,33 @@ export function validateStoryboard(input) {
     if (to - from > 12) warnings.push(`${at} 长 ${round(to - from)} 秒，超过 12 秒的镜头通常该拆`);
     if (shot.kind !== undefined && !KINDS.includes(shot.kind)) errors.push(`${at} 的 kind 必须是 ${KINDS.join('/')}`);
     if (shot.motion !== undefined && !MOTIONS.includes(shot.motion)) errors.push(`${at} 的 motion "${shot.motion}" 不在动作词汇表里`);
+    if (shot.growth !== undefined && !GROWTH_TYPES.includes(shot.growth)) errors.push(`${at} 的 growth "${shot.growth}" 必须是 ${GROWTH_TYPES.join('/')}`);
     if (shot.caption !== undefined && typeof shot.caption !== 'string') errors.push(`${at} 的 caption 必须是字符串`);
     if (typeof shot.caption === 'string' && shot.caption.length > 40) warnings.push(`${at} 的屏上字超过 40 字，会折行`);
     if (typeof shot.source === 'string' && shot.source && /^[A-Za-z]:[\\/]/.test(shot.source)) {
-      warnings.push(`${at} 的 source 是绝对路径；项目外的素材先 openfilm_assets 导入再引用`);
+      warnings.push(`${at} 的 source 是绝对路径；项目外的素材先 no996_assets 导入再引用`);
     }
+  }
+  if (shots.length >= 4) {
+    let flatWipeRun = 0;
+    let maxWipeRun = 0;
+    let growthCount = 0;
+    let cameraCount = 0;
+    for (const shot of shots) {
+      if (!shot || typeof shot !== 'object') continue;
+      if (shot.growth || shot.carryFrom) growthCount += 1;
+      if (shot.camera) cameraCount += 1;
+      const tr = String(shot.transition || shot.motion || '').toLowerCase();
+      if (tr === 'wipe-band' || tr === 'wipe' || tr === 'fade' || tr === 'dissolve') {
+        flatWipeRun += 1;
+        if (flatWipeRun > maxWipeRun) maxWipeRun = flatWipeRun;
+      } else {
+        flatWipeRun = 0;
+      }
+    }
+    if (maxWipeRun >= 3) warnings.push('连续 3 镜以上使用同类擦除/淡入转场，易显 PPT 感；请改用 morph-expand/portal-zoom/line-grow/card-flip 等生长转场');
+    if (growthCount === 0) warnings.push('全片未标注 growth/carryFrom 生长承接：违反镜头连贯性原则，建议明确下一镜如何从上一镜长出来');
+    if (cameraCount === 0) warnings.push('全片未标注 camera 景别与运镜描述：建议补充推镜特写/跟拍/拉远全景起伏');
   }
   if (input.duration !== undefined) {
     const duration = Number(input.duration);
@@ -92,6 +119,9 @@ export function normalizeStoryboard(input) {
     motion: MOTIONS.includes(shot?.motion) ? shot.motion : 'none',
     ...(typeof shot?.caption === 'string' && shot.caption.trim() ? { caption: shot.caption.trim() } : {}),
     ...(typeof shot?.transition === 'string' && shot.transition ? { transition: shot.transition } : {}),
+    ...(typeof shot?.growth === 'string' && GROWTH_TYPES.includes(shot.growth) ? { growth: shot.growth } : {}),
+    ...(typeof shot?.camera === 'string' && shot.camera.trim() ? { camera: shot.camera.trim().slice(0, 120) } : {}),
+    ...(typeof shot?.trigger === 'string' && shot.trigger.trim() ? { trigger: shot.trigger.trim().slice(0, 120) } : {}),
     ...(typeof shot?.explain === 'string' && shot.explain.trim() ? { explain: shot.explain.trim().slice(0, 120) } : {}),
     ...(typeof shot?.carryFrom === 'string' && shot.carryFrom.trim() ? { carryFrom: shot.carryFrom.trim().slice(0, 80) } : {}),
     ...(typeof shot?.sfx === 'string' && shot.sfx.trim() ? { sfx: shot.sfx.trim().slice(0, 80) } : {}),
@@ -122,7 +152,7 @@ export function storyboardSummary(storyboard) {
 /**
  * The timeline operations a storyboard implies for clips that already exist.
  *
- * `openfilm_clip` can move, trim and split; it cannot add. So a shot whose `clip`
+ * `no996_clip` supports move, trim, split, and Studio insert/preset; a shot whose `clip`
  * names an existing clip becomes a trim + move, and a shot with no clip is reported
  * as "add this one" instead of being silently skipped.
  *

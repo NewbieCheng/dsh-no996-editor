@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
-  MOTIONS, normalizeStoryboard, planFromStoryboard, readStoryboard, storyboardSummary, validateStoryboard, writeStoryboard,
+  GROWTH_TYPES, MOTIONS, normalizeStoryboard, planFromStoryboard, readStoryboard, storyboardSummary, validateStoryboard, writeStoryboard,
 } from '../src/film/storyboard.mjs';
 import {
   planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt, wrapCjk,
@@ -177,16 +177,36 @@ test('the template catalog is searchable and carries the per-template prompt', a
   assert.deepEqual(await templateCatalog(join(root, 'nope')), []);
 });
 
-test('the motion vocabulary is the one the film runtime knows', () => {
+test('the motion vocabulary and growth fields enforce core motion rules', () => {
   assert.ok(MOTIONS.includes('push-in'));
-  assert.ok(MOTIONS.includes('slam'));
-  assert.ok(MOTIONS.includes('metaphor-scale'));
-  assert.ok(MOTIONS.includes('none'));
+  assert.ok(MOTIONS.includes('portal-zoom'));
+  assert.ok(MOTIONS.includes('morph-expand'));
+  assert.ok(GROWTH_TYPES.includes('line-grow'));
   assert.equal(new Set(MOTIONS).size, MOTIONS.length);
   const rich = normalizeStoryboard({
-    shots: [shot('s1', 0, 4, { motion: 'slam', explain: '天平失衡后反转', carryFrom: 'orb', sfx: 'hit@0.5s' })],
+    shots: [shot('s1', 0, 4, {
+      motion: 'portal-zoom',
+      growth: 'morph-expand',
+      camera: '全景建立→1.2s推镜特写',
+      trigger: '光标点击胶囊触发弹出',
+      explain: '天平失衡后反转',
+      carryFrom: 'orb',
+      sfx: 'hit@0.5s',
+    })],
   });
-  assert.equal(rich.shots[0].explain, '天平失衡后反转');
-  assert.equal(rich.shots[0].carryFrom, 'orb');
-  assert.equal(rich.shots[0].sfx, 'hit@0.5s');
+  assert.equal(rich.shots[0].growth, 'morph-expand');
+  assert.equal(rich.shots[0].camera, '全景建立→1.2s推镜特写');
+  assert.equal(rich.shots[0].trigger, '光标点击胶囊触发弹出');
+
+  const pptWarnings = validateStoryboard({
+    shots: [
+      shot('s1', 0, 2, { transition: 'wipe-band' }),
+      shot('s2', 2, 4, { transition: 'wipe-band' }),
+      shot('s3', 4, 6, { transition: 'wipe-band' }),
+      shot('s4', 6, 8, { transition: 'wipe-band' }),
+    ],
+  }).warnings;
+  assert.ok(pptWarnings.some(w => w.includes('PPT')));
+  assert.ok(pptWarnings.some(w => w.includes('growth')));
+  assert.ok(pptWarnings.some(w => w.includes('camera')));
 });

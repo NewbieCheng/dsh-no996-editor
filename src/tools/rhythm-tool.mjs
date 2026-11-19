@@ -1,5 +1,5 @@
 /**
- * `openfilm_rhythm`: measure real beats, percussive/tonal onsets, energy curves,
+ * `no996_rhythm`: measure real beats, percussive/tonal onsets, energy curves,
  * climaxes, drops and quiet valleys from any audio or video inside the project.
  *
  * Pure Node.js + bundled FFmpeg (zero Python). Results are cached by SHA-256 in
@@ -32,7 +32,7 @@ async function resolveProjectFile(projectRoot, relPath) {
   const full = await realpath(join(canonicalRoot, ...clean.split('/'))).catch(() => null);
   const rel = full ? relative(canonicalRoot, full) : '';
   if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-    throw new Error(`找不到项目内文件：${clean}（外部文件请先用 openfilm_assets 导入）。`);
+    throw new Error(`找不到项目内文件：${clean}（外部文件请先用 no996_assets 导入）。`);
   }
   const info = await stat(full);
   if (!info.isFile()) throw new Error(`路径不是文件：${clean}`);
@@ -73,7 +73,7 @@ export function formatRhythmSummary({ rel, analysis, plan, cached, dataJsRel }) 
 
 export function createRhythmTool({ isProjectAgent, projectOf, extract = extractMonoFloat32 } = {}) {
   return {
-    name: 'openfilm_rhythm',
+    name: 'no996_rhythm',
     description: 'Analyze an audio or video file inside the OpenFilm project in pure Node.js + FFmpeg to extract measured beats, percussive/tonal onsets, BPM, energy curve, climaxes, drops and quiet valleys. Caches `.film/rhythm.json` and optionally writes `assets/rhythm-data.js` (`window.RHYTHM`).',
     parameters: {
       type: 'object',

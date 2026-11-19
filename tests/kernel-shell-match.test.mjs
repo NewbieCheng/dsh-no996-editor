@@ -76,10 +76,12 @@ test('the shell snapshot declares its one upstream patch, or none at all', () =>
   assert.match(diff, /toolName/, 'and the bridge must be able to pass it in');
   // Host MCP is named no996-openfilm; without this, tool rows are dropped as "foreign MCP".
   assert.match(diff, /no996-openfilm/, 'ourToolName must recognize the Host MCP server name');
-  // Host openfilm_* tools aren't in upstream's act catalog; mapping them to lasting acts
+  // Host no996_* (and legacy openfilm_*) tools aren't in upstream's act catalog; mapping them to lasting acts
   // (not ephemeral working) is what makes "转写/分镜" show as tool rows instead of "正在处理".
   assert.match(diff, /hostOpenfilmActivity/, 'Host MCP tools must map to lasting act rows');
-  assert.match(diff, /openfilm_transcribe/, 'transcribe must be in the Host act map');
+  assert.match(diff, /case 'transcribe':/, 'transcribe must be in the Host act map');
+  assert.match(diff, /case 'fonts':/, 'fonts must be in the Host act map');
+  assert.match(diff, /no996\|openfilm/, 'ourToolName and hostOpenfilmActivity must accept both no996_* and legacy openfilm_*');
   assert.match(diff, /ContextUsage/, 'composer footer must include the context usage control');
   assert.match(diff, /composer\.contextUsed/, 'context usage must have i18n');
   assert.match(diff, /kind: 'image'/, 'an empty-label markdown link is a picture');

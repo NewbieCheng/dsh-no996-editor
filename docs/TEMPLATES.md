@@ -2,7 +2,7 @@
 id: templates
 reader: 做模板的人
 fact-source: vendor/templates/**、scripts/templates-build.mjs
-checked: 0.17.0
+checked: 0.18.0
 rot-if: 模板结构、_kit、构建流程或提示词注入链路变化
 -->
 
@@ -46,7 +46,7 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 
 | 模板 | 模型 | 可编辑的东西 |
 |---|---|---|
-| `vibe-explainer` | **物理剧场（首推标杆）**：每镜 JSON 数据 + 纯函数 `drawShot(api)` + 拟音轨 | `shots/*.json`（文案/色板/时长）+ `shots/*.scene.js` + `template.json` 的 `sfxCues` |
+| `vibe-explainer` | **单镜头连续生长剧场（首推标杆）**：共享 `globalT` 世界舞台 + 2.5D 景别运镜 + 6 大生长转场 + 内置《We Never》实测拍点与拟音轨 | `shots/*.json`（文案/色板/时长）+ `stage.js` + `template.json`（`builtinRhythm` / `sfxCues`） |
 | `paper-texture` | **静态页 + 避脸浮层**：主页面按需叠加 `VibeOverlay` 透明高亮卡片 | `shots/*.json` 的 `copy`（文案）与 `vars`（字号/位置） |
 | `replica-film` | **内容 + 动画**：每个镜头有自己的画面块和 `draw(t)` | `shots/<id>.json` 的 `copy`；`shots/<id>.content.html`（画面块）；`shots/<id>.anim.js`（动效） |
 | `sketchnote` | **一场戏多窗口**：七个镜头是同一张纸面的七个时间窗 | `vendor/templates/sketchnote/assets/notebook-config.js`（内容）+ `shots/*.json`（窗口） |
@@ -139,7 +139,7 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 ### 注入链路（一共三步，都是自动的）
 
 ```
-1. 选中        openfilm_library(kind=template, take=<id>)
+1. 选中        no996_library(kind=template, take=<id>)
                  ↓
 2. 记住        <项目>/.film/templates.json   { "version": 1, "active": ["sketchnote"] }
                  ↓
@@ -164,7 +164,7 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 | 5 | 跑 `npm run check` | 模板清单、提示词长度、链接都有测试 |
 
 不需要注册表：`src/film/template-catalog.mjs` 扫目录读 `manifest.json` 与 `prompt.md`。
-`openfilm_library(kind=template, query="…")` 按 `id/title/description/tags` 搜。
+`no996_library(kind=template, query="…")` 按 `id/title/description/tags` 搜（含不加班模板与官方 14 个多轨模板）。
 
 ### 多个模板可以叠加
 

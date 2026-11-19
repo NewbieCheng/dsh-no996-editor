@@ -89,6 +89,7 @@
       const watchNavigationRef = React.useRef(null);
       const readyRef = React.useRef(false);
       const urlRef = React.useRef(null);
+      const renewAckRef = React.useRef(null);
       const reportPanelDiag = (payload) => {
         if (!HOST_HTTP) return;
         try {
@@ -165,7 +166,14 @@
           }
           if (desktop && (typeof result.ticket !== "string" || !/^[A-Za-z0-9_-]{32,128}$/.test(result.ticket))) throw new Error("Invalid Studio desktop ticket");
           const url = desktop ? `${target.origin}/__dsh/open#${result.ticket}` : `${target.origin}/`;
-          setState({ status: "ready", url, webOrigin: typeof result.webOrigin === "string" ? result.webOrigin : "" });
+          setState({
+            status: "ready",
+            url,
+            webOrigin: typeof result.webOrigin === "string" ? result.webOrigin : "",
+            // How long the frame's own credential lasts. Zero means this surface
+            // authenticates with DSH's cookie and there is nothing to renew.
+            sessionExpiresIn: desktop && Number.isFinite(result.sessionExpiresIn) && result.sessionExpiresIn > 0 ? Math.round(result.sessionExpiresIn) : 0
+          });
         }).catch((error) => {
           if (!controller.signal.aborted) {
             const message = String(error?.message || error);
@@ -214,6 +222,11 @@
             setSilent(false);
             setAttempt((value) => value + 1);
           }
+          if (data && typeof data === "object" && data.type === "no996-openfilm:renewed" && data.version === 1) {
+            const acknowledge = renewAckRef.current;
+            renewAckRef.current = null;
+            if (acknowledge) acknowledge(data.ok === true);
+          }
           if (data && typeof data === "object" && data.type === "no996-openfilm:archive" && data.version === 1 && typeof data.projectId === "string") {
             setArchive({ available: data.available !== false, archived: data.archived === true });
           }
@@ -259,6 +272,94 @@
         setSilent(false);
         setAttempt((value) => value + 1);
       };
+      React.useEffect(() => {
+        if (state.status !== "ready" || !(state.sessionExpiresIn > 0)) return void 0;
+        let frameOrigin;
+        try {
+          frameOrigin = new URL(state.url).origin;
+        } catch {
+          return void 0;
+        }
+        const lifetimeMs = state.sessionExpiresIn * 1e3;
+        const leadFor = (lifetime) => Math.min(3e5, Math.max(1e3, Math.round(lifetime * 0.2)), Math.floor(lifetime / 2));
+        let live = true;
+        let timer = 0;
+        let failures = 0;
+        let due = Date.now() + lifetimeMs - leadFor(lifetimeMs);
+        const schedule = (delay) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            void cycle();
+          }, Math.max(0, delay));
+        };
+        const cycle = async () => {
+          if (!live) return;
+          const frame = iframeRef.current;
+          if (!frame || !frame.contentWindow) {
+            schedule(15e3);
+            return;
+          }
+          let grant;
+          try {
+            const response = await fetch("/api/no996-openfilm/renew-session", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "content-type": "application/json", "x-no996-surface": `${window.location.protocol}//${window.location.host}` },
+              body: "{}"
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            grant = await response.json();
+            if (!grant || typeof grant.ticket !== "string") throw new Error("Invalid renewal grant");
+          } catch {
+            failures += 1;
+            if (live && failures <= 5) schedule(Math.min(3e4, 2e3 * failures));
+            return;
+          }
+          if (!live) return;
+          const acknowledged = new Promise((resolve) => {
+            renewAckRef.current = resolve;
+            setTimeout(() => {
+              if (renewAckRef.current !== resolve) return;
+              renewAckRef.current = null;
+              resolve(false);
+            }, 1e4);
+          });
+          try {
+            frame.contentWindow.postMessage({ type: "no996-openfilm:renew-session", version: 1, ticket: grant.ticket }, frameOrigin);
+          } catch {
+          }
+          const ok = await acknowledged;
+          if (!live) return;
+          if (!ok) {
+            failures += 1;
+            if (failures <= 5) schedule(Math.min(3e4, 2e3 * failures));
+            return;
+          }
+          failures = 0;
+          const next = Number.isFinite(grant.sessionExpiresIn) && grant.sessionExpiresIn > 0 ? grant.sessionExpiresIn * 1e3 : lifetimeMs;
+          due = Date.now() + next - leadFor(next);
+          schedule(due - Date.now());
+        };
+        const wake = () => {
+          if (live && Date.now() >= due) {
+            clearTimeout(timer);
+            void cycle();
+          }
+        };
+        const doc = typeof document !== "undefined" ? document : null;
+        if (doc && typeof doc.addEventListener === "function") doc.addEventListener("visibilitychange", wake);
+        if (typeof window !== "undefined" && typeof window.addEventListener === "function") window.addEventListener("focus", wake);
+        schedule(due - Date.now());
+        return () => {
+          live = false;
+          clearTimeout(timer);
+          if (doc && typeof doc.removeEventListener === "function") doc.removeEventListener("visibilitychange", wake);
+          if (typeof window !== "undefined" && typeof window.removeEventListener === "function") window.removeEventListener("focus", wake);
+          const acknowledge = renewAckRef.current;
+          renewAckRef.current = null;
+          if (acknowledge) acknowledge(false);
+        };
+      }, [state.status, state.url, state.sessionExpiresIn]);
       React.useEffect(() => {
         if (!HOST_HTTP || state.status !== "ready") return void 0;
         let live = true;
@@ -379,7 +480,12 @@
           // shell page is our own vendored UI on a validated loopback origin, not
           // untrusted content — the check that matters is the URL guard below, and
           // it still runs on every navigation.
-          allow: "clipboard-read; clipboard-write",
+          // Fullscreen is delegated on purpose: the preview's fullscreen button is
+          // inside this frame, and a cross-origin frame without the delegation is
+          // refused by permissions policy (the button did nothing and the refusal
+          // surfaced as an unhandled rejection). Only this validated frame is granted.
+          allow: "clipboard-read; clipboard-write; fullscreen",
+          allowFullScreen: true,
           referrerPolicy: "no-referrer",
           style: { display: "block", width: "100%", height: "100%", border: 0, background: "var(--dsw-alias-bg-base)" }
         });

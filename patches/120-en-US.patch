@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..bf5c048 100644
+index b41b3f8..b3a675c 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -13,12 +13,38 @@ export const enUS = {
@@ -117,7 +117,7 @@ index b41b3f8..bf5c048 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +452,26 @@ export const enUS = {
+@@ -418,7 +452,29 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -142,6 +142,9 @@ index b41b3f8..bf5c048 100644
 +    desc_auto: 'Automatically switches between design and production by task complexity',
 +    desc_chat: 'Light Q&A or small edits without triggering full storyboards',
 +    desc_design: 'Audit assets and draft visual & motion storyboard first, then confirm',
-+    desc_produce: 'Execute full storyboard with kinetic physics, SFX, 100-pt self-check & export',
++    desc_produce: 'Execute storyboard with continuous-growth motion & 100-pt check to preview',
++    shortExport: 'Export',
++    autoExportLabel: 'Auto-export when done',
++    autoExportDesc: 'Off by default: stop at verified preview so you can export manually',
 +  },
  };

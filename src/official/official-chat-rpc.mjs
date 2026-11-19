@@ -125,16 +125,31 @@ export function createOfficialChatRpc(store, agent, options = {}) {
           typeof agent?.attach === 'function') {
         return await agent.attach(payload.projectId, conversationOf(payload), { key: payload.key });
       }
+      // Read-only reconciliation after a dropped stream: it never creates a Session
+      // and never prompts, so a reconnect cannot start work.
+      if (channel === 'agent:turn-state' && exact(payload, ['projectId'], ['conversation', 'key', 'turnId']) &&
+          (payload.conversation === undefined || typeof payload.conversation === 'string') &&
+          (payload.turnId === undefined || typeof payload.turnId === 'string') &&
+          typeof agent?.turnState === 'function') {
+        return await agent.turnState(payload.projectId, {
+          conversation: typeof payload.conversation === 'string' ? payload.conversation : '',
+          ...(typeof payload.turnId === 'string' ? { turnId: payload.turnId } : {}),
+        });
+      }
       if (channel === 'agent:mode' && exact(payload, ['projectId'], ['conversation']) &&
           typeof agent?.getWorkMode === 'function') {
         return await agent.getWorkMode(payload.projectId, conversationOf(payload));
       }
-      if (channel === 'agent:mode-set' && exact(payload, ['projectId', 'mode'], ['conversation', 'effective', 'reason']) &&
-          typeof payload.mode === 'string' && ['auto', 'chat', 'design', 'produce'].includes(payload.mode) &&
+      if (channel === 'agent:mode-set' && exact(payload, ['projectId'], ['conversation', 'mode', 'effective', 'autoExport', 'reason']) &&
+          (payload.mode === undefined || (typeof payload.mode === 'string' && ['auto', 'chat', 'design', 'produce'].includes(payload.mode))) &&
+          (payload.effective === undefined || (typeof payload.effective === 'string' && ['chat', 'design', 'produce'].includes(payload.effective))) &&
+          (payload.autoExport === undefined || typeof payload.autoExport === 'boolean') &&
+          (payload.mode !== undefined || payload.effective !== undefined || payload.autoExport !== undefined) &&
           typeof agent?.setWorkMode === 'function') {
         return await agent.setWorkMode(payload.projectId, conversationOf(payload), {
-          mode: payload.mode,
-          ...(typeof payload.effective === 'string' && ['chat', 'design', 'produce'].includes(payload.effective) ? { effective: payload.effective } : {}),
+          ...(typeof payload.mode === 'string' ? { mode: payload.mode } : {}),
+          ...(typeof payload.effective === 'string' ? { effective: payload.effective } : {}),
+          ...(typeof payload.autoExport === 'boolean' ? { autoExport: payload.autoExport } : {}),
           ...(typeof payload.reason === 'string' ? { reason: payload.reason.slice(0, 160) } : {}),
         });
       }

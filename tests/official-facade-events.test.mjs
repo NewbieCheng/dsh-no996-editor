@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { transform } from 'esbuild';
 import { officialFacadeSource } from '../src/official/official-facade.mjs';
 
-function setup({ promptResult = { ok: true }, EventSourceAvailable = true } = {}) {
+function setup({ promptResult = { ok: true }, EventSourceAvailable = true, recoveryMs, invoke } = {}) {
   const sources = [], calls = [], events = [], timers = new Map();
   // A rejected mocked RPC may be supplied before start's async setup completes.
   if (promptResult && typeof promptResult.catch === 'function') promptResult.catch(() => {});
@@ -21,15 +21,30 @@ function setup({ promptResult = { ok: true }, EventSourceAvailable = true } = {}
     close() { this.readyState = 2; }
   }
   const factory = runInNewContext(officialFacadeSource, { EventSource: EventSourceAvailable ? MockEventSource : undefined,
-    setTimeout: fn => { const id = ++nextTimer; timers.set(id, fn); return id; }, clearTimeout: id => timers.delete(id) });
-  const facade = factory({ invoke: async (channel, payload) => {
-    calls.push({ channel, payload });
-    if (channel === 'agent:prompt') return await promptResult;
-    if (channel === 'agent:cancel') return { ok: true };
-    return null;
-  } });
+    // Kept with their delay so a test can fire only the ones that are due: the
+    // recovery retry is short, the "terminal missing" guard is fifteen seconds.
+    setTimeout: (fn, ms) => { const id = ++nextTimer; timers.set(id, { fn, ms: Number(ms) || 0 }); return id; },
+    clearTimeout: id => timers.delete(id) });
+  const facade = factory({
+    ...(recoveryMs === undefined ? {} : { recoveryMs }),
+    invoke: invoke ?? (async (channel, payload) => {
+      calls.push({ channel, payload });
+      if (channel === 'agent:prompt') return await promptResult;
+      if (channel === 'agent:cancel') return { ok: true };
+      return null;
+    }),
+  });
   facade.localAgents.onEvent(event => events.push(event));
-  return { facade, sources, calls, events, fireTimers: () => { for (const fn of [...timers.values()]) fn(); } };
+  return {
+    facade, sources, calls, events,
+    fireTimers: (upToMs = Infinity) => {
+      for (const [id, timer] of [...timers]) {
+        if (timer.ms > upToMs) continue;
+        timers.delete(id);
+        timer.fn();
+      }
+    },
+  };
 }
 async function start(env) {
   const pending = env.facade.localAgents.start('deepseek', '', null, { projectId: 'project1' });
@@ -106,12 +121,56 @@ test('missing terminal after RPC completion fails visibly instead of hanging', a
   assert.equal(env.events.length, 0);
 });
 
-test('disconnect while active fails visibly instead of inventing done', async () => {
+test('a brief drop resumes the same turn from the last applied sequence', async () => {
   const env = setup(), key = await start(env);
   const pending = env.facade.localAgents.prompt(key, 'hello', { turnId: 't1' });
-  const source = env.sources[0]; source.open(); source.ready(); await tick(); source.error();
+  const source = env.sources[0];
+  source.open(); source.ready(); await tick();
+  source.message({ key, kind: 'update', seq: 5, update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'half' } } });
+  source.error();
+  // The page did not give up: it scheduled a reconnect that names the cursor.
+  env.fireTimers(1000);
+  const resumed = env.sources[1];
+  assert.ok(resumed, 'a reconnect was attempted');
+  assert.match(resumed.url, /afterSeq=5/);
+  resumed.open(); resumed.ready(); await tick();
+  resumed.message(done(key, 't1'));
+  assert.equal((await pending).stopReason, 'end_turn');
+  assert.equal(env.calls.filter(x => x.channel === 'agent:prompt').length, 1, 'the prompt is never sent twice');
+  assert.equal(env.events.filter(x => x.kind === 'done').length, 1);
+});
+
+test('a drop that never recovers fails visibly instead of inventing done', async () => {
+  const env = setup({ recoveryMs: 40 }), key = await start(env);
+  const pending = env.facade.localAgents.prompt(key, 'hello', { turnId: 't1' });
+  const source = env.sources[0]; source.open(); source.ready(); await tick();
+  source.error();
+  env.fireTimers(1000);
+  await new Promise(resolve => setTimeout(resolve, 60)); // past the recovery budget
+  const retry = env.sources[1];
+  assert.ok(retry, 'it retried once before giving up');
+  retry.error();
   await assert.rejects(pending, /stream disconnected/);
-  assert.equal(env.events.length, 0);
+  assert.equal(env.events.filter(x => x.kind === 'done').length, 0);
+});
+
+test('a turn that ended while the stream was down is reconciled with the Host', async () => {
+  const env = setup({
+    invoke: async (channel) => {
+      if (channel === 'agent:prompt') return { ok: true };
+      if (channel === 'agent:turn-state') return { known: true, active: false, turnId: null, lastSettled: { turnId: 't1', ok: true, stopReason: 'end_turn' } };
+      return null;
+    },
+  });
+  const key = await start(env);
+  const pending = env.facade.localAgents.prompt(key, 'hello', { turnId: 't1' });
+  const source = env.sources[0]; source.open(); source.ready(); await tick();
+  source.error();
+  env.fireTimers(1000);
+  const resumed = env.sources[1];
+  resumed.open(); resumed.ready(); await tick(); await tick();
+  assert.equal((await pending).stopReason, 'end_turn', 'the answer that finished is not left running');
+  assert.equal(env.events.filter(x => x.kind === 'done').length, 1);
 });
 
 test('RPC rejection is visible without a terminal', async () => {

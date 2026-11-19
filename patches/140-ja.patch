@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..4435cfe 100644
+index 09e13c3..2b2f921 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
 @@ -13,9 +13,9 @@ export const ja: Words = {
@@ -79,7 +79,7 @@ index 09e13c3..4435cfe 100644
      skillsHidden: '自分のスキル（オフ）',
      skillsUnfiltered: 'このエージェントは本来のアプリと同じく、自分のスキルをすべて使います',
      mcpHidden: '自分の MCP サーバー（オフ）',
-@@ -417,7 +425,26 @@ export const ja: Words = {
+@@ -417,7 +425,29 @@ export const ja: Words = {
      description: 'プロジェクトのファイルはこのターンの前の状態に戻ります。その後 Studio で変えたところも戻ります。このターンはチャットから消え、メッセージは下の入力欄に戻るので、もう一度送れます。',
      confirm: '元に戻す',
      cancel: 'キャンセル',
@@ -104,6 +104,9 @@ index 09e13c3..4435cfe 100644
 +    desc_auto: 'タスクの複雑さに応じて設計・制作フェーズを自動切替',
 +    desc_chat: '簡単な質問や微調整のみ（絵コンテ工程は開かない）',
 +    desc_design: '素材確認と演出設計カード・絵コンテ作成後に確認して実行',
-+    desc_produce: '絵コンテ通りに物理モーション・効果音・100点検査・書き出しを実行',
++    desc_produce: '連続成長モーションと100点検査でプレビューまで仕上げます',
++    shortExport: '書出',
++    autoExportLabel: '完了後に自動書き出し',
++    autoExportDesc: '初期値オフ：プレビューで止め、確認後に手動で書き出せます',
 +  },
  };

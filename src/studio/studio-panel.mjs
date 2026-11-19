@@ -43,6 +43,9 @@ export function createStudioPanel(React) {
     const watchNavigationRef = React.useRef(null);
     const readyRef = React.useRef(false);
     const urlRef = React.useRef(null);
+    // One renewal is in flight at a time; the frame answers with whether the
+    // cookie was extended.
+    const renewAckRef = React.useRef(null);
 
     const reportPanelDiag = (payload) => {
       if (!HOST_HTTP) return;
@@ -128,7 +131,14 @@ export function createStudioPanel(React) {
         }
         if (desktop && (typeof result.ticket !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(result.ticket))) throw new Error('Invalid Studio desktop ticket');
         const url = desktop ? `${target.origin}/__dsh/open#${result.ticket}` : `${target.origin}/`;
-        setState({ status: 'ready', url, webOrigin: typeof result.webOrigin === 'string' ? result.webOrigin : '' });
+        setState({
+          status: 'ready', url,
+          webOrigin: typeof result.webOrigin === 'string' ? result.webOrigin : '',
+          // How long the frame's own credential lasts. Zero means this surface
+          // authenticates with DSH's cookie and there is nothing to renew.
+          sessionExpiresIn: desktop && Number.isFinite(result.sessionExpiresIn) && result.sessionExpiresIn > 0
+            ? Math.round(result.sessionExpiresIn) : 0,
+        });
       }).catch(error => {
         if (!controller.signal.aborted) {
           const message = String(error?.message || error);
@@ -180,6 +190,11 @@ export function createStudioPanel(React) {
           setSilent(false);
           setAttempt(value => value + 1);
         }
+        if (data && typeof data === 'object' && data.type === 'no996-openfilm:renewed' && data.version === 1) {
+          const acknowledge = renewAckRef.current;
+          renewAckRef.current = null;
+          if (acknowledge) acknowledge(data.ok === true);
+        }
         // Login/logout are handled inside the official shell overlay. Keep the
         // iframe up so logout only reopens the compact gate, never tears Studio down.
         if (data && typeof data === 'object' && data.type === 'no996-openfilm:archive' && data.version === 1 && typeof data.projectId === 'string') {
@@ -229,6 +244,88 @@ export function createStudioPanel(React) {
     }, [silent, state.status, attempt, projectId]);
 
     const retry = () => { setSilent(false); setAttempt(value => value + 1); };
+    // A desktop frame authenticates with the proxy's own session cookie, and that
+    // cookie lapses. Reloading the frame to refresh it (what this panel used to do
+    // after the credential expired) throws away unsaved edits and every live
+    // connection, and reads to the person as "the editor keeps disconnecting".
+    // Instead, ask the Host for a fresh one-use grant before the deadline and hand
+    // it to the frame that is already open, which redeems it in place.
+    React.useEffect(() => {
+      if (state.status !== 'ready' || !(state.sessionExpiresIn > 0)) return undefined;
+      let frameOrigin;
+      try { frameOrigin = new URL(state.url).origin; } catch { return undefined; }
+      const lifetimeMs = state.sessionExpiresIn * 1000;
+      // Keep a fifth of the lifetime (at most five minutes, never more than half)
+      // as the safety margin; a long-lived editor renews well before it can be
+      // refused, and a short-lived one never schedules itself in the past.
+      const leadFor = lifetime => Math.min(300000, Math.max(1000, Math.round(lifetime * 0.2)), Math.floor(lifetime / 2));
+      let live = true;
+      let timer = 0;
+      let failures = 0;
+      let due = Date.now() + lifetimeMs - leadFor(lifetimeMs);
+      const schedule = delay => { clearTimeout(timer); timer = setTimeout(() => { void cycle(); }, Math.max(0, delay)); };
+      const cycle = async () => {
+        if (!live) return;
+        const frame = iframeRef.current;
+        if (!frame || !frame.contentWindow) { schedule(15000); return; }
+        let grant;
+        try {
+          const response = await fetch('/api/no996-openfilm/renew-session', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'content-type': 'application/json', 'x-no996-surface': `${window.location.protocol}//${window.location.host}` },
+            body: '{}',
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          grant = await response.json();
+          if (!grant || typeof grant.ticket !== 'string') throw new Error('Invalid renewal grant');
+        } catch {
+          failures += 1;
+          if (live && failures <= 5) schedule(Math.min(30000, 2000 * failures));
+          return;
+        }
+        if (!live) return;
+        const acknowledged = new Promise(resolve => {
+          renewAckRef.current = resolve;
+          // A frame that never answers is not renewed; try again instead of
+          // waiting for the credential to lapse.
+          setTimeout(() => {
+            if (renewAckRef.current !== resolve) return;
+            renewAckRef.current = null;
+            resolve(false);
+          }, 10000);
+        });
+        try {
+          frame.contentWindow.postMessage({ type: 'no996-openfilm:renew-session', version: 1, ticket: grant.ticket }, frameOrigin);
+        } catch { /* frame went away; the retry below covers it */ }
+        const ok = await acknowledged;
+        if (!live) return;
+        if (!ok) {
+          failures += 1;
+          if (failures <= 5) schedule(Math.min(30000, 2000 * failures));
+          return;
+        }
+        failures = 0;
+        const next = Number.isFinite(grant.sessionExpiresIn) && grant.sessionExpiresIn > 0 ? grant.sessionExpiresIn * 1000 : lifetimeMs;
+        due = Date.now() + next - leadFor(next);
+        schedule(due - Date.now());
+      };
+      // A suspended laptop can wake up past the deadline; renew then instead of
+      // waiting for another whole period.
+      const wake = () => { if (live && Date.now() >= due) { clearTimeout(timer); void cycle(); } };
+      const doc = typeof document !== 'undefined' ? document : null;
+      if (doc && typeof doc.addEventListener === 'function') doc.addEventListener('visibilitychange', wake);
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('focus', wake);
+      schedule(due - Date.now());
+      return () => {
+        live = false;
+        clearTimeout(timer);
+        if (doc && typeof doc.removeEventListener === 'function') doc.removeEventListener('visibilitychange', wake);
+        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') window.removeEventListener('focus', wake);
+        const acknowledge = renewAckRef.current;
+        renewAckRef.current = null;
+        if (acknowledge) acknowledge(false);
+      };
+    }, [state.status, state.url, state.sessionExpiresIn]);
     // Poll the Host's Studio state while the panel is up. On outage: silent
     // re-bootstrap with backoff — no "stopped" card, no copy asking anyone to
     // quit OpenFilm. Keep retrying until health recovers or the panel unmounts.
@@ -329,7 +426,12 @@ export function createStudioPanel(React) {
         // shell page is our own vendored UI on a validated loopback origin, not
         // untrusted content — the check that matters is the URL guard below, and
         // it still runs on every navigation.
-        allow: 'clipboard-read; clipboard-write',
+        // Fullscreen is delegated on purpose: the preview's fullscreen button is
+        // inside this frame, and a cross-origin frame without the delegation is
+        // refused by permissions policy (the button did nothing and the refusal
+        // surfaced as an unhandled rejection). Only this validated frame is granted.
+        allow: 'clipboard-read; clipboard-write; fullscreen',
+        allowFullScreen: true,
         referrerPolicy: 'no-referrer',
         style: { display: 'block', width: '100%', height: '100%', border: 0, background: 'var(--dsw-alias-bg-base)' },
       });

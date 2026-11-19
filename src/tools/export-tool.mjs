@@ -1,5 +1,5 @@
 /**
- * `openfilm_export`: the film as a file.
+ * `no996_export`: the film as a file.
  *
  * Order matters here, because an export is the one promise a person will check:
  * capabilities are read *before* a job is queued, so a machine without ffmpeg
@@ -8,6 +8,7 @@
  * proof an export worked — never "started successfully".
  */
 const KINDS = ['video', 'gif', 'audio', 'stills', 'poster', 'subtitles', 'slides', 'nle'];
+const RENDER_DELIVERY_KINDS = new Set(['video', 'gif', 'audio', 'slides', 'nle']);
 
 const scalarKeys = [
   'frame', 'fill', 'shortEdge', 'fps', 'quality', 'codec', 'format', 'clip', 'preset', 'sidecar', 'loudness',
@@ -40,16 +41,17 @@ export function blockedBy(can, kind) {
 
 
 
-export function createExportTool({ isProjectAgent, projectOf, http }) {
+export function createExportTool({ isProjectAgent, projectOf, http, getWorkMode = null }) {
   return {
-    name: 'openfilm_export',
-    description: 'Export the film with Studio, or check and cancel exports. Reads encoder support first: if this machine cannot encode the format, it says so instead of queueing a doomed job. Files land in the exports folder (or beside the film). Always report the real output paths from status, never that an export "started".',
+    name: 'no996_export',
+    description: 'Export the film with Studio, or check and cancel exports. Reads encoder support first: if this machine cannot encode the format, it says so instead of queueing a doomed job. By default, final render kinds (video/gif/audio/slides/nle) are gated unless the conversation\'s autoExport toggle is enabled or the user explicitly asked to export in this turn (explicitUserRequest=true). Always report the real output paths from status, never that an export "started".',
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
         action: { type: 'string', enum: ['start', 'status', 'cancel'], description: 'start (default): queue an export; status: what happened; cancel: stop one by id.' },
         kind: { type: 'string', enum: KINDS, description: 'What to export (start).' },
         job: { type: 'string', description: 'The export id (cancel).' },
+        explicitUserRequest: { type: 'boolean', description: 'Set true ONLY when the user explicitly asked to export/render the final file in this turn while autoExport is off.' },
         codec: { type: 'string', description: 'video: h264 (default) | hevc | vp9 | prores422hq | prores4444 | hevc_alpha | png.' },
         frame: { type: 'string', description: 'A delivery frame such as 16:9, 9:16, 4:5, 2.39:1.' },
         fill: { type: 'string', enum: ['contain', 'cover'], description: 'How the film fits that frame.' },
@@ -95,6 +97,17 @@ export function createExportTool({ isProjectAgent, projectOf, http }) {
       }
 
       if (!KINDS.includes(args?.kind)) throw new Error(`kind must be one of: ${KINDS.join(', ')}`);
+      if (RENDER_DELIVERY_KINDS.has(args.kind) && typeof getWorkMode === 'function' && args?.explicitUserRequest !== true) {
+        const modeState = await getWorkMode(project.projectId, project.conversation ?? '');
+        if (modeState && modeState.autoExport !== true) {
+          return {
+            text: [
+              `已跳过自动导出（${args.kind}）：当前会话「完成后自动导出」处于关闭状态。`,
+              '请直接以预览态交付并告知用户在左侧 Studio 预览后可自行点击导出；若用户本轮已明确要求导出成片，请传 explicitUserRequest=true 再调用 no996_export。',
+            ].join('\n'),
+          };
+        }
+      }
       const before = await http().get(base);
       const blocked = blockedBy(before?.can, args.kind);
       if (blocked) throw new Error(`没有导出：${blocked}。先让它在 Studio 里跑通预览，或装 ffmpeg 后再试。`);

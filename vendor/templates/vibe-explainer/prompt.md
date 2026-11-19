@@ -1,14 +1,14 @@
-# Vibe 科普剧场 · 创意编导指南
+# Vibe 科普剧场 · 连续生长编导指南
 
-把 `vibe-explainer` 当作**视觉与物理质量标杆**，不要当填空模板！
+把 `vibe-explainer` 当作**动效质感与单镜头连贯性的标杆**，不要当填空模板！
 
-## 1. 它好在哪里（必须保留）
-- **物理隐喻替代空洞字幕**：每句核心观点必须对应一个可运动的几何/物理意象（天平权衡、双向门碰撞、裂解止损、跑道扩容、沙盘收敛、清单打勾，或你原创的齿轮/漏斗/雷达/波纹等），每 1–1.5s 必须有视觉状态推进。
-- **声音先行、动作落点踩拍**：有 BGM 时先调 `openfilm_rhythm` 拿实测拍点与高潮；无 BGM 时按语速/节拍定切点，并用 `openfilm_sfx` 为大字砸入(`hit`)、扫屏转场(`whoosh` 提前 0.18s)、打勾(`bell`)、大量微步(`click` + stem) 配齐拟音。
-- **全片连续性与呼吸感**：底层 `VibeKit.drawBackdrop` + `VibeKit.drawChrome` 统一片头章名、四拍脉冲点、进度条；转场用 `drawWipeBand` 提前 0.16s 起扫；`Motion` + `VibeKit` 全程纯函数只依赖 `t`，严格兼容 OpenFilm 乱序抽帧。
+## 1. 动效设计四大核心原则（唯一准绳）
+- **镜头连贯性（从上一幕自然生长）**：严禁 PPT 式清屏与连续 `drawWipeBand` 擦除！用 `VibeKit.grow`（`morphExpand` / `portalZoom` / `lineCarry` / `causalRipple` / `spatialSlide` / `cardFlip3D`）或 `continuousStage` 让上一镜元素直接生长成下一镜主舞台。
+- **动作因果性**：禁止元素无因蹦出！用 `VibeKit.drawCursorClick`（光标点击→窗体弹出）、球体碰撞、激光切割、粒子汇聚来触发每一次画面变化。
+- **节奏与景别变化**：每镜至少 1 次景别切换（推镜特写 / 跟拍 / 拉远结论），禁止全程固定全景。
+- **运镜即质感**：用 `Motion.cameraKeyframe` + `VibeKit.withCamera` / `withParallax` 配合 `drawAuroraMesh` / `drawGlassCard` / `drawAudioSpectrum` 建立纵深材质。
 
-## 2. 如何原创（禁止机械套壳）
-1. **读完主题先抽核心冲突**：不要硬套样片的"容错率/96格"，先问用户主题的矛盾是什么（如：注意力碎片 vs 深度构建、复利增长 vs 短期波动），调用 `openfilm_kit(action="inspire", query="...")` 搜索合适镜头卡与隐喻原语。
-2. **自定义配色与字体比例**：按主题改写 `shot-XX.json` 的 `palette`（BG/ACC/GOOD/BAD/BLUE）和比例（竖屏 1080×1920 或横屏 1920×1080 皆可）。
-3. **口播/实拍优先叠加策略**：若用户已有口播视频或图片素材，可采用透明 `VibeOverlay` 贴合 `<video>` 安全区（先用 `openfilm_face_analysis` 拿人脸框避免遮脸），不必重画全屏遮罩！
-4. **收尾 100 分自检**：分镜节奏无死帧？文案不贴边/不溢框？音频轨绝对不重叠？抽查首中尾帧视觉均衡？全部达标再交片。
+## 2. 内置配乐与多模态协同
+1. **默认音乐**：调用 `openfilm_audio(action="bgm-install", id="vibe-we-never", duration=<片长>)` 自动装入《We Never · 若如初见》与实测拍点 `assets/rhythm-data.js`。
+2. **有口播/对话视频**：先 `openfilm_transcribe` + `openfilm_audio(action="extract" / "duck")` 防止配乐压人声，对话交锋用 `drawDialogueTheater`；实拍叠层用 `VibeOverlay` 避开人脸。
+3. **首尾帧图文协同**：对复杂视觉变化，用用户上传图或 `openfilm_generate_image`（起/中/终关键帧）搭配 `drawImageAnchorStage` 渲染。

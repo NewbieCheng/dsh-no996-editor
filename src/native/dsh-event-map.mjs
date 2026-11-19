@@ -17,7 +17,7 @@ export function parseToolArgs(value) {
 export function mapToolCallForUi(name, rawInput) {
   const input = rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) ? rawInput : {};
   const lower = String(name || '').toLowerCase();
-  if (lower.startsWith('openfilm_')) {
+  if (lower.startsWith('no996_') || lower.startsWith('openfilm_')) {
     return { title: name, toolName: name, kind: 'other', rawInput: input };
   }
   if (lower === 'pwsh' || lower === 'bash' || lower === 'shell' || lower === 'terminal') {

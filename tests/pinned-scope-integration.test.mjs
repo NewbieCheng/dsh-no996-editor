@@ -45,11 +45,11 @@ test('pinned Cordis scope confines the real OpenFilm prompt and disposes it', { 
   }, { inject: ['systemPrompt'] }));
   applyPrompt(video.ctx);
   const render = async scope => runtime.renderPrompt(await ctx.systemPrompt.assemble(scope ? { scope: runtime.scopeOf(scope.ctx) } : {}));
-  assert.match(await render(video), /openfilm_draft/);
-  assert.doesNotMatch(await render(), /openfilm_draft/);
-  assert.doesNotMatch(await render(other), /openfilm_draft/);
+  assert.match(await render(video), /no996_draft/);
+  assert.doesNotMatch(await render(), /no996_draft/);
+  assert.doesNotMatch(await render(other), /no996_draft/);
   const key = runtime.scopeOf(video.ctx);
   await video.dispose();
-  assert.doesNotMatch(runtime.renderPrompt(await ctx.systemPrompt.assemble({ scope: key })), /openfilm_draft/);
+  assert.doesNotMatch(runtime.renderPrompt(await ctx.systemPrompt.assemble({ scope: key })), /no996_draft/);
   await other.dispose();
 });

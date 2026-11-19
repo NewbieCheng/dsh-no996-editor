@@ -1,13 +1,15 @@
 /**
- * `openfilm_assets`: what is in the project, and bringing a file into it.
+ * `no996_assets`: what is in the project, and bringing a file into it.
  *
  * Why this is the Host's job and not the panel's: the agent produces files —
- * a TTS mp3 from `openfilm_get`, a picture written by code, something the person
+ * a TTS mp3 from `no996_get`, a picture written by code, something the person
  * dragged onto the chat — and a film can only use what is inside the project
  * folder. Uploading through Studio's own route (rather than copying bytes behind
  * its back) is what makes the file appear in the panel, get its poster and its
  * probe, and be safe to reference from film.html.
  */
+import { fetchWebImageBytes, inspectWebImages } from '../host/url-assets.mjs';
+
 const MAX_IMPORT_BYTES = 256 * 1024 * 1024;
 const MAX_LISTED = 200;
 
@@ -46,16 +48,26 @@ export function flattenFiles(tree, prefix = '', out = []) {
   return out;
 }
 
-export function createAssetsTool({ isProjectAgent, projectOf, http, readLocal = null }) {
+export function createAssetsTool({
+  isProjectAgent,
+  projectOf,
+  http,
+  readLocal = null,
+  inspectUrl = inspectWebImages,
+  fetchUrlImage = fetchWebImageBytes,
+}) {
   return {
-    name: 'openfilm_assets',
-    description: 'List the files a film can use, or bring a file into the project (through Studio, so the panel sees it and it gets a poster/probe). Importing is the only way to make a file outside the project usable by film.html.',
+    name: 'no996_assets',
+    description: 'List project files, import a local file (`from`), inspect a public webpage for usable images (`inspectUrl`), or safely download a remote image URL into the project (`fromUrl` -> Studio `/files`). Importing is the only way to make external assets usable by film.html.',
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
         list: { type: 'boolean', description: 'List the project\'s files (bounded).' },
         from: { type: 'string', description: 'Absolute path of a file on this computer to import.' },
-        into: { type: 'string', description: 'Where it goes inside the project (default assets/<name>). No .. and no absolute paths.' },
+        inspectUrl: { type: 'string', description: 'Public http(s) webpage URL to extract title, description and candidate image URLs.' },
+        fromUrl: { type: 'string', description: 'Public http(s) image URL (PNG/JPG/WebP/GIF, <=15MB) to safely download into the project.' },
+        into: { type: 'string', description: 'Relative destination inside the project (default assets/<name> or assets/web/<name>). No .. and no absolute paths.' },
+        limit: { type: 'integer', minimum: 1, maximum: 20, description: 'Max candidate images for inspectUrl (default 12).' },
       },
     },
     output: { schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } }, render: (_args, value) => [{ type: 'text', text: value?.text ?? '' }] },
@@ -67,6 +79,39 @@ export function createAssetsTool({ isProjectAgent, projectOf, http, readLocal = 
       const project = projectOf?.(exec.agent);
       if (!project?.projectId) throw new Error('This conversation is not bound to an OpenFilm project.');
       const files = `/api/projects/${encodeURIComponent(project.projectId)}/files`;
+
+      if (typeof args?.inspectUrl === 'string' && args.inspectUrl.trim()) {
+        const result = await inspectUrl(args.inspectUrl.trim(), {
+          limit: Number.isSafeInteger(args?.limit) ? args.limit : 12,
+          signal: exec?.signal,
+        });
+        const imgLines = result.images.length
+          ? result.images.map((img, i) => `${i + 1}. [${img.kind}] ${img.url}${img.alt ? `（${img.alt}）` : ''}`).join('\n')
+          : '（未发现可用的高清图片；可用 web_fetch 或让用户上传关键帧。）';
+        return {
+          text: [
+            `网页资产分析（${result.finalUrl}）：`,
+            result.title ? `· 标题：${result.title}` : '',
+            result.description ? `· 简介：${result.description}` : '',
+            `· 候选图片（${result.images.length} 张）：\n${imgLines}`,
+            '传 fromUrl="<图片URL>" 即可安全入库到项目 assets/web/，用于 HTML 动效与首尾帧舞台。',
+          ].filter(Boolean).join('\n'),
+        };
+      }
+
+      if (typeof args?.fromUrl === 'string' && args.fromUrl.trim()) {
+        const downloaded = await fetchUrlImage(args.fromUrl.trim(), { signal: exec?.signal });
+        const raw = args?.into === undefined ? `assets/web/${downloaded.suggestedName}` : String(args.into).replaceAll('\\', '/');
+        const target = raw.replace(/^\.?\//, '');
+        if (/^[A-Za-z]:/.test(target) || target.startsWith('/') || target.split('/').some(part => part === '..' || part === '' || part === '.')) {
+          throw new Error('into must be a relative path inside the project, without ..');
+        }
+        const landed = await http().put(files, { query: { path: target }, raw: downloaded.bytes, type: downloaded.mediaType });
+        const where = typeof landed?.path === 'string' ? landed.path : target;
+        return {
+          text: `已从网页安全入库图片：${where}（${downloaded.bytes.byteLength} 字节，${downloaded.mediaType}）。在 film.html / 首尾帧舞台中按此相对路径引用。`,
+        };
+      }
 
       if (typeof args?.from === 'string') {
         const source = args.from.trim();

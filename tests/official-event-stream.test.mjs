@@ -66,3 +66,36 @@ test('a backlog over the hard cap closes instead of growing forever', () => {
   assert.equal(response.writableEnded, true);
   close();
 });
+
+test('a reconnecting page resumes after the last sequence it applied', () => {
+  const hub = createOfficialEventHub();
+  const first = new Response();
+  const closeFirst = attachOfficialEventStream({ hub, projectId: 'project1', response: first });
+  for (const index of [1, 2, 3, 4]) hub.publish('project1', { key: 'key', kind: 'update', update: { index } });
+  assert.deepEqual(dataEvents(first).map(event => event.seq), [1, 2, 3, 4]);
+  closeFirst();
+
+  // The socket died after sequence 2 was applied: only 3 and 4 are replayed, and
+  // the live frames continue from there without repeating them.
+  const resumed = new Response();
+  const closeResumed = attachOfficialEventStream({ hub, projectId: 'project1', response: resumed, afterSeq: 2 });
+  hub.publish('project1', { key: 'key', kind: 'done', turnId: 't1', ok: true, stopReason: 'end_turn' });
+  assert.deepEqual(dataEvents(resumed).map(event => event.seq), [3, 4, 5]);
+  assert.deepEqual(dataEvents(resumed).map(event => event.kind), ['update', 'update', 'done']);
+  closeResumed();
+});
+
+test('the tail is bounded so a long turn cannot grow without limit', () => {
+  const hub = createOfficialEventHub();
+  const first = new Response();
+  const closeFirst = attachOfficialEventStream({ hub, projectId: 'project1', response: first });
+  for (let index = 1; index <= 500; index += 1) hub.publish('project1', { key: 'key', kind: 'update', update: { index } });
+  closeFirst();
+  const resumed = new Response();
+  const closeResumed = attachOfficialEventStream({ hub, projectId: 'project1', response: resumed, afterSeq: 0 });
+  const replayed = dataEvents(resumed);
+  assert.ok(replayed.length > 0 && replayed.length <= 400, `replayed ${replayed.length}`);
+  assert.equal(replayed.at(-1).seq, 500);
+  assert.deepEqual(replayed.map(event => event.seq), replayed.map((_, index) => replayed[0].seq + index));
+  closeResumed();
+});

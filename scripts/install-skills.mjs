@@ -20,11 +20,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = join(here, '..', 'skills');
+const rawArgs = process.argv.slice(2);
+const sourceFlag = rawArgs.indexOf('--source');
+const source = sourceFlag >= 0 && rawArgs[sourceFlag + 1] ? rawArgs[sourceFlag + 1] : join(here, '..', 'skills');
 const home = process.env.DSH_HOME || join(homedir(), '.dsh');
 const target = join(home, 'skills');
 
-const args = new Set(process.argv.slice(2));
+const args = new Set(rawArgs);
 const force = args.has('--force');
 const print = args.has('--print');
 

@@ -100,6 +100,8 @@ test('both components are mounted by the shell entry', () => {
 
 test('work mode selector and featured badge ship in the compiled shell bundle', () => {
   assert.match(bundle, /data-chat-work-mode/);
+  assert.match(bundle, /data-chat-auto-export-toggle/);
+  assert.match(bundle, /完成后自动导出/);
   assert.match(bundle, /work_mode/);
   assert.match(bundle, /智能自动/);
   assert.match(bundle, /导演设计/);

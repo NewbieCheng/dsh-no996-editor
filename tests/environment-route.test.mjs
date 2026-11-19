@@ -26,8 +26,8 @@ function mount(overrides = {}) {
     track: dispose => dispose,
     skillsDir: 'skills',
     filmTools: () => [
-      { name: 'openfilm_guide', description: 'Read the manual' },
-      { name: 'openfilm_clip', description: 'Change the timeline' },
+      { name: 'no996_guide', description: 'Read the manual' },
+      { name: 'no996_clip', description: 'Change the timeline' },
     ],
     instructions: null,
     projectPathOf: null,
@@ -54,7 +54,7 @@ test('environment answers preset, isolated skills and film tools', async () => {
   assert.equal(body.preset.detail, 'not registered');
   assert.ok(Array.isArray(body.skills.isolated), 'skills always lists, even on error');
   assert.ok(body.skills.isolated.some(skill => skill.id === 'openfilm-motion'), 'the motion skill is visible');
-  assert.ok(body.tools.some(tool => tool.name === 'openfilm_clip'), 'film tools are listed');
+  assert.ok(body.tools.some(tool => tool.name === 'no996_clip'), 'film tools are listed');
   assert.equal(body.child.skills.includeDefaultRoots, false, 'the global catalog stays out');
   assert.equal(body.project, null, 'no projectId means global evidence only');
 });

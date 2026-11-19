@@ -13,7 +13,7 @@ const operation = {
 /** Pure draft operation: callers must explicitly persist the returned text separately. */
 export function createDraftTool() {
   return {
-    name: 'openfilm_draft',
+    name: 'no996_draft',
     description: 'Prepare an in-memory OpenFilm film.html edit; returns the complete edited source without saving or executing it. Supports move, trim, and split for compatible clips; locked tracks and unsupported dependent metadata are refused. Read the existing file first, review the result, and use an authorized file tool to save it.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['source', 'operations'],

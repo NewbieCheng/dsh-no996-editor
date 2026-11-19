@@ -44,12 +44,14 @@ import { instructionChain } from '../native/instruction-inventory.mjs';
 import { createStudioHttp } from './studio-http.mjs';
 import { createFrameTool } from '../tools/frame-tool.mjs';
 import { createFilmTool } from '../tools/film-tool.mjs';
+import { createFontsTool } from '../tools/fonts-tool.mjs';
 import { createLibraryTool } from '../tools/library-tool.mjs';
 import { createVisionTools } from '../tools/vision-tool.mjs';
 import { createGetTool } from '../tools/get-tool.mjs';
 import { createImageGenTool } from '../tools/image-gen-tool.mjs';
 import { createClipTool } from '../tools/clip-tool.mjs';
 import { createAssetsTool } from '../tools/assets-tool.mjs';
+import { createAudioTool } from '../tools/audio-tool.mjs';
 import { createExportTool } from '../tools/export-tool.mjs';
 import { createCliTool } from '../tools/cli-tool.mjs';
 import { createTranscribeTool } from '../tools/transcribe-tool.mjs';
@@ -965,7 +967,9 @@ export function createStudioController(ctx, createProxy, {
     createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: () => ctx.llm }),
     ...createVisionTools({ isProjectAgent, projectOf: projectOfAgent, attachments: () => ctx.get('attachments') }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createFontsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createKitTool({ isProjectAgent, projectOf: projectOfAgent }),
+    createAudioTool({ isProjectAgent, projectOf: projectOfAgent }),
     createRhythmTool({ isProjectAgent, projectOf: projectOfAgent }),
     createSfxTool({ isProjectAgent, projectOf: projectOfAgent }),
     createModeTool({
@@ -997,9 +1001,14 @@ export function createStudioController(ctx, createProxy, {
     createStoryboardTool({ isProjectAgent, projectOf: projectOfAgent }),
     createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, prepareVoice: voiceSettings.prepare }),
     createImageGenTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, studioBridge: voiceBridge }),
-    createClipTool({ isProjectAgent, projectOf: projectOfAgent }),
+    createClipTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createAssetsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
-    createExportTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createExportTool({
+      isProjectAgent,
+      projectOf: projectOfAgent,
+      http: studioHttp,
+      getWorkMode: (projectId, conversation) => nativeAgentService?.getWorkMode?.(projectId, conversation),
+    }),
     createCliTool({ isProjectAgent, projectOf: projectOfAgent }),
   ];
   const unregisterFilmTools = filmTools.map(tool => ctx.tools.register(tool, { when: ({ agent }) => isProjectAgent(agent) }));
@@ -1061,9 +1070,16 @@ export function createStudioController(ctx, createProxy, {
     };
   } });
   ensureStudioForPortal = () => runtime.ensureStarted();
-  const attachOfficialEvents = ({ projectId, res }) => {
+  const attachOfficialEvents = ({ projectId, res, req }) => {
     if (disposed) { res.destroy(); return; }
-    attachOfficialEventStream({ hub: eventHub, projectId, response: res });
+    // A reconnecting page names the last sequence it applied; the hub replays only
+    // what came after it, so the turn resumes instead of restarting or losing its middle.
+    let afterSeq;
+    try {
+      const value = new URL(req?.url ?? '', 'http://proxy.invalid').searchParams.get('afterSeq');
+      if (value !== null && /^\d{1,12}$/.test(value)) afterSeq = Number(value);
+    } catch { /* no cursor: a fresh stream */ }
+    attachOfficialEventStream({ hub: eventHub, projectId, response: res, ...(afterSeq === undefined ? {} : { afterSeq }) });
   };
   const devAnyFlag = !releaseBuild && devEnvRequested;
   let devExtension = null;

@@ -1,5 +1,5 @@
 /**
- * `openfilm_sfx`: synthesize deterministic 48 kHz stereo action SFX directly into
+ * `no996_sfx`: synthesize deterministic 48 kHz stereo action SFX directly into
  * the OpenFilm project (pure Node.js, zero Python).
  *
  * Strictly complies with OpenFilm's timeline rules (`SPEC.md` §Sound):
@@ -92,7 +92,7 @@ function validateCues(rawCues) {
 
 export function createSfxTool({ isProjectAgent, projectOf } = {}) {
   return {
-    name: 'openfilm_sfx',
+    name: 'no996_sfx',
     description: 'Synthesize deterministic 48kHz stereo action SFX `.wav` files into the project (pure Node.js, zero Python). Use `mode="list"` to inspect the 12 built-in SFX kinds; `mode="clips"` to write individual `.wav` clips and get zero-overlap `<section>` tracks for `film.html`; or `mode="stem"` to render a single sample-accurate mixed `sfx-stem.wav` for dense cues.',
     parameters: {
       type: 'object',

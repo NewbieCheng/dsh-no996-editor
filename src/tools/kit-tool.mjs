@@ -1,5 +1,5 @@
 /**
- * `openfilm_kit`: decouples the reusable motion runtime (`motion.js`, `vibe-canvas.js`,
+ * `no996_kit`: decouples the reusable motion runtime (`motion.js`, `vibe-canvas.js`,
  * `vibe-overlay.js`) and the 14 motion styles + 124 shot-card recipes from any single
  * template so an AI agent can install runtimes and draw inspiration in ANY project
  * (blank, talking-head, multi-modal, or legacy template).
@@ -111,7 +111,7 @@ export function createKitTool({ isProjectAgent, projectOf, kitRoot, motionRoot }
   const customMotionRoot = motionRoot || MOTION_ROOT;
 
   return {
-    name: 'openfilm_kit',
+    name: 'no996_kit',
     description: 'Install deterministic motion/Vibe runtime kits (`motion`, `vibe-canvas`, `vibe-overlay`) into ANY OpenFilm project (`assets/kit/`) or search the 14 motion styles and 124 shot-card recipes for original visual choreography without being locked into a rigid template.',
     parameters: {
       type: 'object',

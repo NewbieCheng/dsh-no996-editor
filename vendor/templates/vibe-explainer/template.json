@@ -6,7 +6,9 @@
   ],
   "wallTitle": "Vibe 科普剧场 · 容错率是造出来的",
   "wallBackdrop": "#0a0c10",
-  "sectionTitle": "Vibe 科普剧场 · 8 组物理隐喻镜头",
+  "sectionTitle": "Vibe 科普剧场 · 单镜头连续生长 8 幕",
+  "builtinRhythm": "vibe-we-never",
+  "continuousStage": "stage.js",
   "sharedScripts": [
     "_kit/motion/motion.js",
     "_kit/vibe/vibe-canvas.js",

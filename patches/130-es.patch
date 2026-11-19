@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..f030a36 100644
+index cef5071..fea59c7 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
 @@ -13,9 +13,9 @@ export const es: Words = {
@@ -79,7 +79,7 @@ index cef5071..f030a36 100644
      skillsHidden: 'Tus skills, desactivadas',
      skillsUnfiltered: 'Este agente usa todas tus skills, como en su propia app',
      mcpHidden: 'Tus servidores MCP, desactivados',
-@@ -417,7 +425,26 @@ export const es: Words = {
+@@ -417,7 +425,29 @@ export const es: Words = {
      description: 'Los archivos del proyecto vuelven a como estaban antes de él, también lo cambiado después en Studio. El turno sale del chat y su mensaje vuelve al cuadro de abajo, para enviarlo de nuevo.',
      confirm: 'Deshacer',
      cancel: 'Cancelar',
@@ -104,6 +104,9 @@ index cef5071..f030a36 100644
 +    desc_auto: 'Alterna automáticamente entre diseño y producción según la complejidad',
 +    desc_chat: 'Consultas breves y ajustes pequeños sin flujo completo',
 +    desc_design: 'Revisa recursos y diseña el guion visual antes de producir',
-+    desc_produce: 'Ejecuta el guion con físicas, SFX, revisión de calidad y exportación',
++    desc_produce: 'Ejecuta el guion con crecimiento continuo y control de calidad hasta vista previa',
++    shortExport: 'Exp',
++    autoExportLabel: 'Autoexportar al terminar',
++    autoExportDesc: 'Desactivado por defecto: entrega en vista previa para exportar manualmente',
 +  },
  };

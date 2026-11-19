@@ -31,9 +31,14 @@ test('规范：七道闸门与完成契约都在', () => {
   assert.match(text, /允许停下来问的三种情况/);
 });
 
-test('预设提示：明确指向 openfilm-motion 与「回读输出」', () => {
+test('预设提示：明确指向 openfilm-motion、四大核心原则与「回读输出」', () => {
   const text = read('src/native/openfilm-prompt.mjs');
   assert.ok(text.includes('openfilm-motion'), 'prompt names the skill');
+  assert.ok(text.includes('MANDATORY MOTION STANDARD'), 'prompt enforces mandatory motion standard');
+  assert.ok(text.includes('VibeKit.grow'), 'prompt names continuous growth transitions');
+  assert.ok(text.includes('no996_audio'), 'prompt names no996_audio');
+  assert.ok(text.includes('no996_fonts'), 'prompt names no996_fonts');
+  assert.ok(text.includes('no996_library'), 'prompt names no996_library');
   assert.ok(text.includes('check completed export outputs'), 'prompt requires export verification');
   assert.ok(text.includes('A preview request does not require export'), 'preview does not force export');
 });

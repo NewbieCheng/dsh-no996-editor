@@ -1,7 +1,7 @@
 // From a spoken video to a cut: the timed script, the cut points, the subtitles.
 //
 // The first thing a person does with a talking-head video is not "arrange clips" —
-// it is "listen to it and write down what was said, with times". `openfilm_transcribe`
+// it is "listen to it and write down what was said, with times". `no996_transcribe`
 // already produces those segments on this CPU. What was missing is the step that turns
 // segments into something a timeline can use:
 //

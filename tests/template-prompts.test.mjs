@@ -76,7 +76,7 @@ test('syncTemplateBlock writes the project AGENTS.md and is idempotent', () => {
   assert.equal(first.changed, true);
   const text = readFileSync(join(root, 'AGENTS.md'), 'utf8');
   assert.ok(text.includes('纸张质感。'));
-  assert.ok(text.includes('# OpenFilm 项目工作说明'));
+  assert.ok(text.includes('# 不加班剪辑项目工作说明'));
   assert.equal(syncTemplateBlock(root, templates).changed, false, 'nothing changed the second time');
   const gone = syncTemplateBlock(root, []);
   assert.equal(gone.changed, true);

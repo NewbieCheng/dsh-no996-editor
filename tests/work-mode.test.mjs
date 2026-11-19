@@ -9,11 +9,17 @@ import { createDshSessionStore } from '../src/native/dsh-session-store.mjs';
 import { normalizeWorkModeState, promptPrefixForWorkMode } from '../src/native/work-mode.mjs';
 import { createModeTool } from '../src/tools/mode-tool.mjs';
 
-test('normalizeWorkModeState and promptPrefixForWorkMode enforce phase contracts', () => {
+test('normalizeWorkModeState and promptPrefixForWorkMode enforce phase and autoExport contracts', () => {
   const auto = normalizeWorkModeState({ mode: 'auto', effective: 'design', reason: '需先出设计卡' });
   assert.equal(auto.mode, 'auto');
   assert.equal(auto.effective, 'design');
+  assert.equal(auto.autoExport, false, 'autoExport defaults to false');
   assert.match(promptPrefixForWorkMode(auto), /智能自动（auto，当前阶段 design）/);
+  assert.match(promptPrefixForWorkMode(auto), /未开启自动导出/);
+
+  const autoWithExport = normalizeWorkModeState({ mode: 'produce', autoExport: true });
+  assert.equal(autoWithExport.autoExport, true);
+  assert.match(promptPrefixForWorkMode(autoWithExport), /已开启「完成后自动导出」/);
 
   const explicitChat = normalizeWorkModeState({ mode: 'chat', effective: 'produce' });
   assert.equal(explicitChat.effective, 'chat', 'explicit non-auto mode locks its effective phase');
@@ -65,9 +71,15 @@ test('dshSessionStore and nativeAgentService persist workMode, emit mode_update,
     const updated = service.setWorkMode(project.projectId, 'tab-a', { mode: 'design', reason: '复杂新片' });
     assert.equal(updated.mode, 'design');
     assert.equal(updated.effective, 'design');
+    assert.equal(updated.autoExport, false);
+
+    const exportEnabled = service.setWorkMode(project.projectId, 'tab-a', { autoExport: true });
+    assert.equal(exportEnabled.mode, 'design');
+    assert.equal(exportEnabled.autoExport, true);
 
     const persistedStore = createDshSessionStore({ file: storeFile });
     assert.equal(persistedStore.getWorkMode(project.projectId, 'tab-a')?.mode, 'design');
+    assert.equal(persistedStore.getWorkMode(project.projectId, 'tab-a')?.autoExport, true);
 
     await service.send(project.projectId, { conversation: 'tab-a', key: 'k-tab-a', turnId: 't1', text: '做个知识大赏' });
     assert.equal(prompts.length, 1);

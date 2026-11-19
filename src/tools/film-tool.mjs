@@ -1,5 +1,5 @@
 /**
- * `openfilm_film`: the film as Studio parses it, plus what this machine can
+ * `no996_film`: the film as Studio parses it, plus what this machine can
  * export.
  *
  * The agent needs two things it cannot get from reading film.html: what the film
@@ -75,7 +75,7 @@ export function exportReadiness(can) {
 
 export function createFilmTool({ isProjectAgent, projectOf, http }) {
   return {
-    name: 'openfilm_film',
+    name: 'no996_film',
     description: 'Read the film as Studio parses it: tracks, clip ids, durations, locked flags — plus what this machine can export. Use it before promising an edit or an export, and after a change to confirm what the film now is. Reading it costs nothing and changes nothing.',
     parameters: {
       type: 'object', additionalProperties: false,

@@ -161,7 +161,7 @@ test('the tool runs only read-only verbs: look and render would start Studio and
   for (const verb of ['look', 'render']) {
     await assert.rejects(
       () => tool.execute({ verb }, { agent: {} }),
-      error => /openfilm_cli 只保留 doctor \/ version \/ skills \/ skill/.test(error.message) && /openfilm_frame/.test(error.message),
+      error => /no996_cli 只保留 doctor \/ version \/ skills \/ skill/.test(error.message) && /no996_frame/.test(error.message),
       verb + ' must be refused by name, pointing at the tool that does the job',
     );
   }

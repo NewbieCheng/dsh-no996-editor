@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
  * Studio 级抽帧验证：不是无头浏览器直开页面，而是让**同一个 Studio 渲染器**
- * 去画模板装成的项目。它复刻 openfilm_frame 的请求（/api/projects/:id/media），
+ * 去画模板装成的项目。它复刻 no996_frame 的请求（/api/projects/:id/media），
  * 所以比"页面能打开"更接近用户看到的成片。
  *
  *   node scripts/studio-frame-check.mjs [templateId] [at]

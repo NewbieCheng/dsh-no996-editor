@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..8307ce0 100644
+index 0ef8753..79693c7 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -11,7 +11,7 @@ index 0ef8753..8307ce0 100644
    publicActivity,
    publicActivityResult,
    publicAsk,
-@@ -130,12 +132,61 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
+@@ -130,12 +132,66 @@ function searchedFor(title: string, rawInput: Record<string, unknown>): string |
   * The name of our own MCP tool in this call (`mcp__openfilm__look`); undefined for anyone else's tools.
   * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
   * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
@@ -31,52 +31,57 @@ index 0ef8753..8307ce0 100644
 +  const trimmed = (title ?? '').trim();
 +  const ours = /^(?:mcp__|mcp\.)?(?:no996[-_.])?openfilm(?:__|\.|:|\/)(.+)$/i.exec(trimmed);
 +  if (ours) return `mcp__openfilm__${ours[1]!.trim()}`;
-+  if (/^openfilm_[A-Za-z0-9_]+$/.test(trimmed)) return `mcp__openfilm__${trimmed}`;
++  if (/^(?:no996|openfilm)_[A-Za-z0-9_]+$/.test(trimmed)) return `mcp__openfilm__${trimmed}`;
 +  return undefined;
 +}
 +
 +/**
-+ * Host MCP tools (`openfilm_transcribe` …) are not in upstream's publicActivity catalog, so they
++ * Host MCP tools (`no996_*` and legacy `openfilm_*`) are not in upstream's publicActivity catalog, so they
 + * collapse to `act.working`. That act is ephemeral: only the live status line ("正在处理"), never a
 + * tool row — so a turn with dozens of Host tools looks like endless thinking with no work. Map them
 + * onto closed acts that stay in the transcript (2026-11-16).
 + */
 +export function hostOpenfilmActivity(mcpName: string): LocalActivity {
-+  const short = mcpName.replace(/^mcp__openfilm__/i, '');
++  const raw = mcpName.replace(/^mcp__openfilm__/i, '');
++  const short = raw.replace(/^(?:no996|openfilm)_/i, '');
 +  switch (short) {
-+    case 'openfilm_transcribe':
++    case 'transcribe':
 +      return { act: 'audio.transcribe' };
-+    case 'openfilm_frame':
-+    case 'openfilm_face_analysis':
-+    case 'openfilm_cutout':
++    case 'frame':
++    case 'face_analysis':
++    case 'cutout':
 +      return { act: 'film.frames' };
-+    case 'openfilm_film':
-+    case 'openfilm_storyboard':
-+    case 'openfilm_mode':
++    case 'film':
++    case 'storyboard':
++    case 'mode':
 +      return { act: 'film.review' };
-+    case 'openfilm_clip':
-+    case 'openfilm_sfx':
++    case 'clip':
++    case 'sfx':
++    case 'audio':
 +      return { act: 'film.arrange' };
-+    case 'openfilm_export':
++    case 'export':
 +      return { act: 'film.check' };
-+    case 'openfilm_guide':
-+    case 'openfilm_library':
-+    case 'openfilm_kit':
-+    case 'openfilm_rhythm':
++    case 'guide':
++    case 'library':
++    case 'kit':
++    case 'rhythm':
++    case 'fonts':
 +      return { act: 'research.read' };
-+    case 'openfilm_assets':
-+    case 'openfilm_get':
-+      return { act: 'files.read', detail: clipDetail(short) };
-+    case 'openfilm_draft':
++    case 'assets':
++    case 'get':
++      return { act: 'files.read', detail: clipDetail(raw) };
++    case 'generate_image':
++      return { act: 'asset.genImage' };
++    case 'draft':
 +      return { act: 'scene.write' };
-+    case 'openfilm_cli':
++    case 'cli':
 +    default:
-+      return { act: 'command.run', detail: clipDetail(short || 'openfilm') };
++      return { act: 'command.run', detail: clipDetail(raw || 'no996') };
 +  }
  }
  
  /**
-@@ -161,7 +212,20 @@ export function localToolActivity(
+@@ -161,7 +217,20 @@ export function localToolActivity(
       rawInput.arguments (next to server / tool). Recognize that first. */
    const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown> & { server?: unknown; tool?: unknown; arguments?: unknown };
    const tool = ourToolName(name, rawInput);
@@ -98,7 +103,7 @@ index 0ef8753..8307ce0 100644
    /* Other MCP tools (Codex's own browser, computer use…): not film work, not drawn */
    if (typeof input.server === 'string' || /^mcp[._]/.test(name)) return null;
    const files = touchedFiles(extra, input);
-@@ -230,11 +294,25 @@ export function acpUpdateToEvent(
+@@ -230,11 +299,25 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -127,7 +132,7 @@ index 0ef8753..8307ce0 100644
          update.kind as string | undefined,
          update.rawInput,
          { locations: (update as { locations?: unknown }).locations, content: (update as { content?: unknown }).content },
-@@ -246,6 +324,9 @@ export function acpUpdateToEvent(
+@@ -246,6 +329,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
@@ -137,7 +142,7 @@ index 0ef8753..8307ce0 100644
        };
      }
      case 'tool_call_update': {
-@@ -295,6 +376,17 @@ export class LocalAgentTurn {
+@@ -295,6 +381,17 @@ export class LocalAgentTurn {
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
@@ -155,7 +160,7 @@ index 0ef8753..8307ce0 100644
  
    constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
  
-@@ -304,7 +396,14 @@ export class LocalAgentTurn {
+@@ -304,7 +401,14 @@ export class LocalAgentTurn {
    };
  
    private emit(): void {
@@ -171,7 +176,7 @@ index 0ef8753..8307ce0 100644
    }
  
    patch(next: Partial<LocalRunState>): void {
-@@ -363,6 +462,9 @@ export class LocalAgentTurn {
+@@ -363,6 +467,9 @@ export class LocalAgentTurn {
      if (event.type === 'agent-text') {
        const full = (this.partText.get(this.part) ?? '') + event.text;
        this.partText.set(this.part, full);
@@ -181,7 +186,7 @@ index 0ef8753..8307ce0 100644
        event = { ...event, text: full };
      }
      this.items = reduceTranscript(this.items, event);
-@@ -389,7 +491,6 @@ export class LocalAgentTurn {
+@@ -389,7 +496,6 @@ export class LocalAgentTurn {
    private pendingAsk: TranscriptItem['ask'];
    /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
    private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
@@ -189,7 +194,7 @@ index 0ef8753..8307ce0 100644
    private openThought: string | null = null;
  
    private patchItem(id: string, patch: Partial<TranscriptItem>): void {
-@@ -400,18 +501,38 @@ export class LocalAgentTurn {
+@@ -400,18 +506,38 @@ export class LocalAgentTurn {
      this.items = next;
    }
  
@@ -236,7 +241,7 @@ index 0ef8753..8307ce0 100644
      if (!this.state.thinking) this.state = { ...this.state, thinking: true };
      this.emit();
    }
-@@ -423,6 +544,91 @@ export class LocalAgentTurn {
+@@ -423,6 +549,91 @@ export class LocalAgentTurn {
      return true;
    }
  
@@ -328,7 +333,7 @@ index 0ef8753..8307ce0 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -543,9 +749,13 @@ interface LiveSession {
+@@ -543,9 +754,13 @@ interface LiveSession {
    /** the project and the conversation it is the session of */
    projectId: string;
    conversation: string;
@@ -342,7 +347,7 @@ index 0ef8753..8307ce0 100644
  
  /**
   * Forget this agent's sessions here (the shell closes its side): the next turn starts a new one, signed
-@@ -553,6 +763,104 @@ const sessions = new Map<string, LiveSession>();
+@@ -553,6 +768,104 @@ const sessions = new Map<string, LiveSession>();
   */
  export function forgetLocalAgentSessions(agent: LocalAgentId): void {
    for (const [k, s] of sessions) if (s.agent === agent) sessions.delete(k);
@@ -447,15 +452,15 @@ index 0ef8753..8307ce0 100644
  }
  /* ── how full the agent's context is (ACP usage_update): tokens in the conversation now, of its context window, as
     the agent's own chat shows it. By session: each conversation has its own. ── */
-@@ -575,6 +883,71 @@ export function useAgentContext(projectId: string, conversation: string, agent:
+@@ -575,6 +888,106 @@ export function useAgentContext(projectId: string, conversation: string, agent:
    );
  }
  
 +export type WorkMode = 'auto' | 'chat' | 'design' | 'produce';
 +export type WorkPhase = 'chat' | 'design' | 'produce';
-+export interface WorkModeState { mode: WorkMode; effective: WorkPhase; reason: string; updatedAt: number }
++export interface WorkModeState { mode: WorkMode; effective: WorkPhase; autoExport: boolean; reason: string; updatedAt: number }
 +
-+const DEFAULT_WORK_MODE: WorkModeState = { mode: 'auto', effective: 'chat', reason: '', updatedAt: 0 };
++const DEFAULT_WORK_MODE: WorkModeState = { mode: 'auto', effective: 'chat', autoExport: false, reason: '', updatedAt: 0 };
 +const workModeByKey = new Map<string, WorkModeState>();
 +const modeListeners = new Set<() => void>();
 +const tellMode = () => { for (const listener of modeListeners) listener(); };
@@ -465,9 +470,10 @@ index 0ef8753..8307ce0 100644
 +  const effective: WorkPhase = raw?.effective === 'design' || raw?.effective === 'produce' || raw?.effective === 'chat'
 +    ? (mode === 'auto' ? raw.effective : mode)
 +    : (mode === 'auto' ? 'chat' : mode);
++  const autoExport = raw?.autoExport === true;
 +  const reason = typeof raw?.reason === 'string' ? raw.reason : '';
 +  const updatedAt = typeof raw?.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0;
-+  return { mode, effective, reason, updatedAt };
++  return { mode, effective, autoExport, reason, updatedAt };
 +}
 +
 +function recordWorkMode(key: string, raw: Partial<WorkModeState> | undefined): void {
@@ -502,7 +508,13 @@ index 0ef8753..8307ce0 100644
 +  if (!target) {
 +    return null;
 +  }
-+  const optimistic = normalizeWorkMode({ mode, effective: mode === 'auto' ? (workModeByKey.get(target.key)?.effective ?? 'chat') : mode, updatedAt: Date.now() });
++  const prev = workModeByKey.get(target.key);
++  const optimistic = normalizeWorkMode({
++    mode,
++    effective: mode === 'auto' ? (prev?.effective ?? 'chat') : mode,
++    autoExport: prev?.autoExport ?? false,
++    updatedAt: Date.now(),
++  });
 +  workModeByKey.set(target.key, optimistic);
 +  tellMode();
 +  const res = await bridge.setOption(target.key, 'work_mode', mode).catch(() => null);
@@ -516,10 +528,38 @@ index 0ef8753..8307ce0 100644
 +  return optimistic;
 +}
 +
++export async function setAgentAutoExport(
++  projectId: string,
++  conversation: string,
++  agent: LocalAgentId,
++  autoExport: boolean,
++): Promise<WorkModeState | null> {
++  const bridge = desktopBridge()?.localAgents;
++  if (!bridge?.setOption) return null;
++  const sessionKey = `${projectId}:${conversation}:${agent}`;
++  const inflight = attaching.get(sessionKey);
++  if (inflight) await inflight.catch(() => null);
++  const target = sessions.get(sessionKey) ?? [...sessions.values()].reverse().find((s) => s.agent === agent);
++  if (!target) return null;
++  const prev = workModeByKey.get(target.key) ?? DEFAULT_WORK_MODE;
++  const optimistic = normalizeWorkMode({ ...prev, autoExport, updatedAt: Date.now() });
++  workModeByKey.set(target.key, optimistic);
++  tellMode();
++  const res = await bridge.setOption(target.key, 'work_mode', { autoExport }).catch(() => null);
++  const settled = (res?.result as { workMode?: Partial<WorkModeState> } | undefined)?.workMode;
++  if (res?.ok && settled) {
++    const normalized = normalizeWorkMode(settled);
++    workModeByKey.set(target.key, normalized);
++    tellMode();
++    return normalized;
++  }
++  return optimistic;
++}
++
  /* ── the agent working with nobody having written: a background task of its own that ended after its turn (a
     command it ran in the background, a subagent), which it takes up by itself, as in its own chat. Its work is shown
     as a turn of its own in its conversation (`onUnpromptedTurn`, from the page showing the project), which ends with
-@@ -649,6 +1022,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -649,6 +1062,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -527,7 +567,7 @@ index 0ef8753..8307ce0 100644
    else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
    else if (event.kind === 'permission') {
      const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
-@@ -681,6 +1055,10 @@ function listen(): void {
+@@ -681,6 +1095,10 @@ function listen(): void {
        }
        return;
      }
@@ -538,7 +578,7 @@ index 0ef8753..8307ce0 100644
      if (event.kind === 'update' && event.update.sessionUpdate === 'usage_update') {
        const { used, size, _meta } = event.update as { used?: unknown; size?: unknown; _meta?: Record<string, unknown> };
        if (typeof used === 'number' && typeof size === 'number' && size > 0) { contextByKey.set(event.key, { used, size }); tellContext(); }
-@@ -807,6 +1185,9 @@ export async function runLocalAgentTurn({
+@@ -807,6 +1225,9 @@ export async function runLocalAgentTurn({
    if (onStarted) startedHooks.set(turn, onStarted);
  
    const sessionKey = `${projectId}:${conversation}:${agent}`;
@@ -548,7 +588,7 @@ index 0ef8753..8307ce0 100644
    let session = sessions.get(sessionKey);
    if (!session || session.cwd !== cwd) {
      const started = await bridge.start(agent, cwd, resume, meta);
-@@ -815,6 +1196,14 @@ export async function runLocalAgentTurn({
+@@ -815,6 +1236,14 @@ export async function runLocalAgentTurn({
      }
      session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
      sessions.set(sessionKey, session);
@@ -563,7 +603,7 @@ index 0ef8753..8307ce0 100644
      tellContext();
      onSessionInfo?.(started.info);
      /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
-@@ -822,6 +1211,13 @@ export async function runLocalAgentTurn({
+@@ -822,6 +1251,13 @@ export async function runLocalAgentTurn({
        text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
        turn.notice('agent.sessionNotResumed');
      }

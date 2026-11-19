@@ -57,6 +57,33 @@ export function modelBases(env) {
   return MODEL_BASES;
 }
 
+export const BGM_SOURCES = Object.freeze({
+  'vibe-we-never': Object.freeze({
+    fileName: 'we-never.mp3',
+    sha256: '9d27ffec5594d66f15057e762363cba46783203875483bbecca8729d7b1441c1',
+    urls: Object.freeze([
+      Object.freeze({
+        id: 'github-release',
+        url: 'https://github.com/xiaominggpT7890/vibe-bgm-skill/releases/download/v1.0.1/we-never-bgm-full.mp3',
+      }),
+    ]),
+  }),
+});
+
+/** Ordered download URLs for a built-in BGM track (honoring NO996_OPENFILM_BGM_BASE_URL). */
+export function bgmSourceUrls(id, env = process.env) {
+  const spec = BGM_SOURCES[id];
+  if (!spec) return [];
+  const urls = [];
+  const override = typeof env?.NO996_OPENFILM_BGM_BASE_URL === 'string' ? env.NO996_OPENFILM_BGM_BASE_URL.trim() : '';
+  if (override) {
+    const base = override.endsWith('/') ? override : `${override}/`;
+    urls.push({ id: 'custom', url: `${base}${spec.fileName}` });
+  }
+  for (const source of spec.urls) urls.push(source);
+  return urls;
+}
+
 /**
  * Where a package manager may have put ffmpeg: a GUI launched from Finder or
  * the Start menu does not inherit the shell's PATH, so "已安装但没检测到" is

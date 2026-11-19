@@ -31,22 +31,26 @@ const WRITTEN = new Set([
   // 0.15.21–0.15.22 (full workflow duplicated from the preset; superseded by
   // the prompt overlay + skill gate, see agent-overlays.mjs)
   '4d3f97eccfd0646d1894aef301a85d0a4a77fd44cf26517af90199cb5bbcbb1d',
+  // 0.16.x–0.17.15 (before adding the 4 core motion principles & preview-first default)
+  '63ff4679c95e8b87eba865224db3740f511e3f41b0024cbaa4c66e6fd28a1799',
+  // 0.17.15 (openfilm_* prefix before no996_* rebrand + no996_fonts/library inspect)
+  'ab352cf783945e6cb668c77761ebac2b36d33c59631936f8743d3ab5d142184d',
 ]);
 
 const digestOf = value => createHash('sha256').update(Buffer.isBuffer(value) ? value : Buffer.from(String(value), 'utf8')).digest('hex');
 
-export const INSTRUCTIONS = `# OpenFilm 项目工作说明
+export const INSTRUCTIONS = `# 不加班剪辑项目工作说明
 
 这个目录是一支片：\`film.html\` 就是成片，分镜在 \`.film/storyboard.json\`。
-影片工具前缀 \`mcp__no996-openfilm__\`（下文只写后半段，如 \`openfilm_clip\`）。
+影片工具前缀 \`mcp__no996-openfilm__\`（下文只写后半段，如 \`no996_clip\`）。
 
 ## 怎么做事
 
-1. **先读再改。** 改 \`film.html\` 前先读当前内容；时间轴用 \`openfilm_clip\`（拒锁轨、原子保存）。
-2. **按素材与任务处理。** 需要按人声剪辑时用 \`openfilm_transcribe\` 出时间码，再按句切镜；无声素材不必转写，缺片段如实说。
-3. **看不见就不算完成。** 只有真的画出一帧（\`openfilm_frame\`）、或读回 \`openfilm_export\` 结果，才算验证；不要声称保存/预览成功而未经核对。
-4. **素材先进项目再用**（\`openfilm_assets\`）；不要删除原始素材。
-5. 细则读 \`openfilm_guide\`；做片时按需加载 openfilm-motion 技能（完整流程在会话的系统提示里，不在这里复述）。
+1. **先查后改。** 改前先看 \`no996_film\`、\`no996_fonts\`（严禁盲猜未装字体）与 \`no996_library\`（可 \`inspect\` 读花字/滤镜/模板配方作参考）；时间轴编辑用 \`no996_clip\`。
+2. **动效唯一准绳（四大核心原则）。** 拒绝 PPT 式清屏：下一幕须从上一幕**自然生长**出来；每个动效须有**明确因果触发**；全片有**景别起伏与推拉运镜**（禁固定全景），Vibe 科普优先用 \`no996_audio\` 装入内置配乐与实测拍点。
+3. **按素材与任务处理。** 口播先 \`no996_transcribe\`，抽音/闪避用 \`no996_audio\`，网页贴图用 \`no996_assets(inspectUrl/fromUrl)\`。
+4. **看不见就不算完成。** 抽帧校验（\`no996_frame\` 含切点三联帧）或读回 \`no996_export\` 才算完成；默认交付预览，用户开启自动导出或明确要求时再导出。
+5. **素材先进项目再用**（\`no996_assets\`）；不要删除原始素材。细则读 \`no996_guide\` 与对应动效 Skill。
 
 ## 边界
 

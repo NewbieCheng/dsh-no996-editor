@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.17.15
+checked: 0.18.0
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.17.15**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.18.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -62,6 +62,13 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - 分镜 → 时间轴自动落地：需要 OpenFilm 的片段创建接口；在那之前 `plan` 只报 `missing`。
 - 检查模板提示词在新建与只读场景中的实际注入；分镜可视化另行设计。
 - 不加班工作台统一 API Key（`is_default` 不可删除可轮换）+ `no996/auto` 智能路由（支持图片理解）+ DSH Web Search/Fetch + Studio 生图/配音/搜网/预留视频桥接 + 右侧工作台首页抽屉（扣费明细/可调模型费率表/默认密钥卡片）。**待真机**：登录后首句对话自动选用 `no996/auto` 并签发默认 Key；发送图片可正常识图与扣费；右侧抽屉实时展示积分明细与模型费率。
+- **连续生长动效 v2、内置 Vibe BGM、「完成后自动导出」二级开关与品牌化全量素材工具层**（当前工作区 `0.18.0`）：
+  1. `WorkModePill` 弹层底部新增「完成后自动导出」开关（`autoExport` 默认关，按 `(projectId, conversation)` 持久化并广播 `mode_update`）；`no996_export` 对 `video/gif/audio/slides/nle` 强制要求 `autoExport === true` 或 `explicitUserRequest === true`（`stills/poster/subtitles` 放行）。
+  2. 内置 Vibe 知识大赏曲目 `We Never · 若如初见`（26 KB 实测拍点 `vendor/media/bgm/vibe-we-never.rhythm.json` 随包分发；音频实体按需多源校验 SHA-256 缓存在 `$DSH_HOME/no996-openfilm/media/bgm/we-never.mp3`），`no996_audio` 支持 `bgm-list` / `bgm-install` / `extract` / `duck`（-12 dB 人声闪避）；`no996_assets` 新增 `inspectUrl` / `fromUrl` 网页图片安全抓取（SSRF 防护）。
+  3. `_kit` 连续舞台引擎（`motion.js`、`vibe-canvas.js`、`page.mjs`、`templates-build.mjs`）支持 `continuousStage`、2.5D 相机视差、6 类生长转场、因果交互与对话/声纹/首尾帧组件；`vibe-explainer` 已重构为 8 镜单镜头连续生长 `stage.js`（零 `drawWipeBand`），无头 Chromium 6 切点帧抽检通过。
+  4. **动效设计四大核心原则**与**剪辑师六阶段工具/素材库调用时机表**已锁定至提示词、`storyboard.mjs`、`openfilm-director/vibe-craft/motion/editing` 与 `docs/MOTION.md`。
+  5. **工具前缀品牌化与全量花字/字体/滤镜/双源模板打通**：Host 21 个工具统一暴露 `no996_*`（UI 活动行同时兼容识别历史 `openfilm_*`）；新增 `no996_fonts` 扫描系统/项目/内置 OFL 字体；`no996_library` 补齐 `wordart`（41 款花字）/`textmotion`（31 款）/`motion`（64 款）/`layer`（5 款）/双源 `template`（不加班模板 + 官方 14 套）检索与 `inspect` 配方透视；`no996_clip` 支持通过 Studio `/edit` 直接 `insert` / `preset` / `remove` 花字、字体、LUT 滤镜与关键帧。
+  **待真机**：DSH 桌面端重启后核验 `WorkModePill` 二级开关、`no996_*` 活动行、`no996_fonts` / `no996_library` / `no996_clip` 联动、以及 `no996_audio` 首用安装 `we-never.mp3`。
 
 ## 明确不做
 

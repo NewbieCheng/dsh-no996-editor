@@ -1,5 +1,5 @@
 /**
- * `openfilm_generate_image`: generate an image via No996 workbench `/v1/images/generations`
+ * `no996_generate_image`: generate an image via No996 workbench `/v1/images/generations`
  * (using the protected system default API Key on Host) and import it straight into the
  * OpenFilm project via Studio so it gets indexed and can be referenced from `film.html`.
  */
@@ -8,7 +8,7 @@ const text = value => (typeof value === 'string' && value.trim().length > 0 ? va
 
 export function createImageGenTool({ isProjectAgent, projectOf, http, studioBridge }) {
   return {
-    name: 'openfilm_generate_image',
+    name: 'no996_generate_image',
     description: 'Generate an image through the connected 不加班 workbench (billed by credits) and save it directly into the project under assets/image/. Returns the relative path to reference in film.html.',
     parameters: {
       type: 'object',

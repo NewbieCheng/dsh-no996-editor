@@ -13,6 +13,8 @@
   <canvas id="stage" width="1080" height="1920"></canvas>
   <script src="../assets/motion.js"></script>
   <script src="../assets/vibe-canvas.js"></script>
+  <script src="../assets/rhythm-data.js"></script>
+  <script src="../assets/stage.js"></script>
   <script>
     (function () {
       'use strict';
@@ -21,66 +23,43 @@
       const stage = window.VibeKit.createStage(canvas, { width: 1080, height: 1920, palette: SHOT.palette });
       const rhythm = window.VibeKit.readRhythm(SHOT.filmDuration, SHOT.bpm);
 
-      function drawShot({ t, duration, ctx, w, h, safe, pal, copy, kit }) {
-  kit.drawRiseText(ctx, copy.headline || '今天就做这 3 件事', safe.cx, 380, 68, t, 0.15, {
-    al: 'center',
-    w: 900,
-    col: pal.ACC,
-  });
-
-  const items = Array.isArray(copy.items) ? copy.items : [
-    { title: '先找一扇双向门', sub: '可撤销、能重来的事，别原地内耗' },
-    { title: '把计划切成两周块', sub: '写死止损线，只验证最小关键问题' },
-    { title: '先用草稿/沙盘跑一遍', sub: '零成本暴露坑位，再投入真时间' },
-  ];
-
-  items.forEach((item, idx) => {
-    const enterStart = 0.4 + idx * 0.28;
-    const doneStart = 1.2 + idx * 0.85;
-    kit.drawChecklistRow(ctx, {
-      palette: pal,
-      x: safe.left,
-      y: 510 + idx * 280,
-      width: safe.span,
-      height: 220,
-      num: idx + 1,
-      title: item.title,
-      sub: item.sub,
-      enter: kit.P(t, enterStart, enterStart + 0.55),
-      done: kit.P(t, doneStart, doneStart + 0.45),
-      ripple: kit.P(t, doneStart + 0.05, doneStart + 0.85, kit.E.out),
-    });
-  });
-
-  kit.drawWipeBand(ctx, t, duration, { width: w, height: h, palette: pal });
-}
+      
 
       function renderFrame(t) {
         const local = Math.max(0, Math.min(SHOT.duration, Number(t) || 0));
         const globalT = SHOT.start + local;
         const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
         const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
+        const tonalPulse = window.VibeKit.hitPulse(rhythm.tonal || [], globalT, 0.26);
         const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
         window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: 1080, height: 1920, palette: stage.pal, beatPulse });
-        if (typeof drawShot === 'function') {
+        const frameCtx = {
+          t: local,
+          globalT,
+          duration: SHOT.duration,
+          filmDuration: SHOT.filmDuration,
+          shot: SHOT,
+          ctx: stage.ctx,
+          w: 1080,
+          h: 1920,
+          safe: stage.safe,
+          pal: stage.pal,
+          copy: SHOT.copy,
+          vars: SHOT.vars,
+          kit: window.VibeKit,
+          motion: window.Motion,
+          rhythm,
+          beatPulse,
+          onsetPulse,
+          tonalPulse,
+        };
+        if (typeof window.drawContinuousStage === 'function') {
           stage.ctx.save();
-          drawShot({
-            t: local,
-            globalT,
-            duration: SHOT.duration,
-            ctx: stage.ctx,
-            w: 1080,
-            h: 1920,
-            safe: stage.safe,
-            pal: stage.pal,
-            copy: SHOT.copy,
-            vars: SHOT.vars,
-            kit: window.VibeKit,
-            motion: window.Motion,
-            rhythm,
-            beatPulse,
-            onsetPulse,
-          });
+          window.drawContinuousStage(frameCtx);
+          stage.ctx.restore();
+        } else if (typeof drawShot === 'function') {
+          stage.ctx.save();
+          drawShot(frameCtx);
           stage.ctx.restore();
         }
         window.VibeKit.drawChrome(stage.ctx, globalT, {
@@ -96,6 +75,9 @@
         });
       }
 
+      let manualControl = false;
+      let previewRaf = 0;
+
       window.film = {
         width: 1080,
         height: 1920,
@@ -105,6 +87,11 @@
           return true;
         }),
         frame: function (t) {
+          manualControl = true;
+          if (previewRaf) {
+            cancelAnimationFrame(previewRaf);
+            previewRaf = 0;
+          }
           renderFrame(t);
         },
       };
@@ -112,11 +99,14 @@
       if (!window.filmHost) {
         const t0 = performance.now();
         const tick = function () {
+          if (manualControl) return;
           const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
           renderFrame(elapsed);
-          requestAnimationFrame(tick);
+          previewRaf = requestAnimationFrame(tick);
         };
-        window.film.ready.then(tick);
+        window.film.ready.then(function () {
+          if (!manualControl) previewRaf = requestAnimationFrame(tick);
+        });
       }
     })();
   </script>

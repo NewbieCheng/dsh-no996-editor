@@ -120,7 +120,7 @@ export function createVisionTools({ isProjectAgent, projectOf, attachments, extr
 
   return [
     {
-      name: 'openfilm_cutout',
+      name: 'no996_cutout',
       description: 'Preview local person cutout on one frame of a project asset: create a new transparent PNG in assets/vision, without modifying the source or timeline. Use source media seconds (not film seconds).',
       parameters: { type: 'object', additionalProperties: false, required: ['source'], properties: { source: parameter, at: seconds } },
       output: {
@@ -153,7 +153,7 @@ export function createVisionTools({ isProjectAgent, projectOf, attachments, extr
       },
     },
     {
-      name: 'openfilm_face_analysis',
+      name: 'no996_face_analysis',
       description: 'Locate up to four faces per sampled frame in project video or images for reframing. Returns normalized 2D boxes and a handful of facial landmarks. No identity, face matching or tracking; does not edit media.',
       parameters: { type: 'object', additionalProperties: false, required: ['source'], properties: { source: parameter, at: { type: 'array', minItems: 1, maxItems: maxSamples, items: seconds, description: 'One to eight source-media seconds (default [0]).' } } },
       output: {

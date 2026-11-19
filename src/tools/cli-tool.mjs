@@ -1,5 +1,5 @@
 /**
- * `openfilm_cli`: the upstream CLI, as a fallback the model may *choose*.
+ * `no996_cli`: the upstream CLI, as a fallback the model may *choose*.
  *
  * The Host can draw frames and read structure over HTTP, which covers almost
  * everything. Two things it cannot: `render` (the CLI is the renderer) and
@@ -26,7 +26,7 @@ const VERBS = ['doctor', 'version', 'skills', 'skill', 'look', 'render'];
  * by starting Studio and, on a project Studio has never shown, by opening the
  * person's browser (bin/openfilm.mjs: open). Inside DSH the film already has a
  * window — the panel — and a second one arrives with the upstream desktop-app
- * pitch in it. openfilm_frame and openfilm_export do both jobs over HTTP.
+ * pitch in it. no996_frame and no996_export do both jobs over HTTP.
  */
 const TOOL_VERBS = ['doctor', 'version', 'skills', 'skill'];
 
@@ -59,7 +59,7 @@ export function cliArguments(verb, args, projectPath) {
     // read an arbitrary directory. `.` and `..` are refused as segments.
     const parts = name.split('/');
     const safe = parts.length <= 2 && parts.every(part => /^[A-Za-z0-9._-]+$/.test(part) && !/^\.+$/.test(part));
-    if (!safe) return { error: 'name 要写成 owner/name（先用 openfilm_cli verb=skills 列出）。' };
+    if (!safe) return { error: 'name 要写成 owner/name（先用 no996_cli verb=skills 列出）。' };
     return { argv: ['skill', name] };
   }
   if (verb === 'look') {
@@ -80,7 +80,7 @@ export function cliArguments(verb, args, projectPath) {
   const to = num(args?.to, 0, 60 * 60 * 24);
   if (from !== undefined && to !== undefined && to > from) argv.push(`${from}-${to}`);
   if (typeof args?.out === 'string' && args.out) {
-    if (!within(projectPath, args.out)) return { error: 'out 必须在项目文件夹里（导出到别处请用 openfilm_export）。' };
+    if (!within(projectPath, args.out)) return { error: 'out 必须在项目文件夹里（导出到别处请用 no996_export）。' };
     argv.push('--out', resolve(args.out));
   }
   const fps = num(args?.fps, 1, 240);
@@ -146,12 +146,12 @@ function runNode(cli, argv, cwd, { timeoutMs = 300_000, spawnImpl = spawn } = {}
 
 export function createCliTool({ isProjectAgent, projectOf, cliPath, spawnImpl, timeoutMs } = {}) {
   return {
-    name: 'openfilm_cli',
-    description: 'Run the bundled OpenFilm command in this project, read-only: `doctor` (what this computer has), `version` (the pinned OpenFilm this build wraps), `skills` (the skills this film can use) and `skill owner/name` (print one whole). Prefer the other openfilm_* tools for picture, edit and export. It runs with the person\'s own permissions and only these read-only verbs.',
+    name: 'no996_cli',
+    description: 'Run the bundled OpenFilm command in this project, read-only: `doctor` (what this computer has), `version` (the pinned OpenFilm this build wraps), `skills` (the skills this film can use) and `skill owner/name` (print one whole). Prefer the other no996_* tools for picture, edit and export. It runs with the person\'s own permissions and only these read-only verbs.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['verb'],
       properties: {
-        verb: { type: 'string', enum: TOOL_VERBS, description: 'doctor（这台机器有什么）、version（固定的 OpenFilm 版本）、skills / skill（这部片可用的技能）。看画面用 openfilm_frame，导出用 openfilm_export。' },
+        verb: { type: 'string', enum: TOOL_VERBS, description: 'doctor（这台机器有什么）、version（固定的 OpenFilm 版本）、skills / skill（这部片可用的技能）。看画面用 no996_frame，导出用 no996_export。' },
         name: { type: 'string', description: 'skill: owner/name, as `skills` lists it.' },
         at: { type: 'number', minimum: 0, description: 'look: one frame at this second.' },
         from: { type: 'number', minimum: 0, description: 'look/render: range start in seconds.' },
@@ -177,10 +177,10 @@ export function createCliTool({ isProjectAgent, projectOf, cliPath, spawnImpl, t
       if (!project?.path) throw new Error('This conversation is not bound to an OpenFilm project.');
       if (process.env.NO996_OPENFILM_CLI === '1') throw new Error('这个进程被标记为不许调用 CLI（NO996_OPENFILM_CLI=1）。');
       const cli = cliPath ?? resolveCli();
-      if (!cli) throw new Error('这个插件里没带 openfilm CLI（找不到 openfilm/package.json）。用 openfilm_film / openfilm_frame / openfilm_export 代替。');
+      if (!cli) throw new Error('这个插件里没带 openfilm CLI（找不到 openfilm/package.json）。用 no996_film / no996_frame / no996_export 代替。');
       const verb = String(args?.verb ?? '');
       if (!TOOL_VERBS.includes(verb)) {
-        throw new Error(`openfilm_cli 只保留 ${TOOL_VERBS.join(' / ')}：${verb || '（空）'} 会启动 Studio 并可能弹出浏览器窗口。看某一秒的画面用 openfilm_frame，导出成片用 openfilm_export。`);
+        throw new Error(`no996_cli 只保留 ${TOOL_VERBS.join(' / ')}：${verb || '（空）'} 会启动 Studio 并可能弹出浏览器窗口。看某一秒的画面用 no996_frame，导出成片用 no996_export。`);
       }
       const built = cliArguments(verb, args, project.path);
       if (built.error) throw new Error(built.error);

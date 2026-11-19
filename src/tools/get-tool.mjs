@@ -1,5 +1,5 @@
 /**
- * `openfilm_get`: media made by a service the person connected — voice-over,
+ * `no996_get`: media made by a service the person connected — voice-over,
  * music, sound effects, transcripts, pictures, video, translation.
  *
  * Upstream owns the policy here and this tool must not second-guess it:
@@ -18,7 +18,7 @@ const text = value => (typeof value === 'string' && value.trim().length > 0 ? va
 
 export function createGetTool({ isProjectAgent, projectOf, http, prepareVoice }) {
   return {
-    name: 'openfilm_get',
+    name: 'no996_get',
     description: 'Make media for this film with a service the person connected in Studio: voice-over, music, sound effects, transcripts, images, video, subtitle translation. Check `list: true` first to see what is connected here. If nothing is connected it says so — tell the person where to connect it instead of retrying. Video clips cost money: only pass yes when the person told you to spend.',
     parameters: {
       type: 'object', additionalProperties: false,

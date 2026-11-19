@@ -30,6 +30,7 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 | 升上游 OpenFilm | [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md) |
 | 安装 / 更新 / 发版 | [`playbooks/publish.md`](playbooks/publish.md)（**唯一**正式手册） |
 | 排障 | [`playbooks/incident.md`](playbooks/incident.md)（当前流程）；[`playbooks/incident-history.md`](playbooks/incident-history.md)（历史证据，不作现行步骤） |
+| 对话状态与自动重连 | [日志调查与修复方案](topics/chat-state-and-reconnect-fix-plan.md) |
 | 做画面/动效 | [`MOTION.md`](MOTION.md) + skill `openfilm-motion` |
 | 剪片语法 | skill `openfilm-editing` |
 | 口播转写 | [`TRANSCRIBE.md`](TRANSCRIBE.md) |

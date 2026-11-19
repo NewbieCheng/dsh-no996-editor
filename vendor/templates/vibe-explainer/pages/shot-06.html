@@ -13,6 +13,8 @@
   <canvas id="stage" width="1080" height="1920"></canvas>
   <script src="../assets/motion.js"></script>
   <script src="../assets/vibe-canvas.js"></script>
+  <script src="../assets/rhythm-data.js"></script>
+  <script src="../assets/stage.js"></script>
   <script>
     (function () {
       'use strict';
@@ -21,98 +23,43 @@
       const stage = window.VibeKit.createStage(canvas, { width: 1080, height: 1920, palette: SHOT.palette });
       const rhythm = window.VibeKit.readRhythm(SHOT.filmDuration, SHOT.bpm);
 
-      function drawShot({ t, duration, ctx, w, h, safe, pal, copy, kit }) {
-  kit.drawRiseText(ctx, copy.headline || '把 96 次错，留在动手之前', safe.cx, 410, 62, t, 0.15, {
-    al: 'center',
-    w: 800,
-    col: pal.INK,
-  });
-
-  // Deterministic 96-cell grid schedule over [0.45, 2.75]
-  const total = 96;
-  const times = [];
-  const order = [];
-  const used = new Array(total).fill(false);
-  for (let i = 0; i < total; i += 1) {
-    times.push(0.45 + (i / total) * 2.25);
-    let idx = Math.floor(kit.det(i, 7, 19) * total);
-    while (used[idx]) idx = (idx + 1) % total;
-    used[idx] = true;
-    order.push(idx);
-  }
-
-  const collapse = kit.P(t, 3.0, 3.9, kit.E.inout);
-  const shown = kit.drawSimGrid(ctx, {
-    palette: pal,
-    x: 112,
-    y: 590,
-    cell: 64,
-    gap: 8,
-    cols: 12,
-    rows: 8,
-    times,
-    order,
-    keepIndex: 41,
-    collapse,
-    t,
-    targetX: safe.cx,
-    targetY: 920,
-  });
-
-  // Winning emerald node emerges cleanly at center as grid collapses
-  const winP = kit.P(t, 3.25, 4.15, kit.E.back);
-  if (winP > 0) {
-    ctx.save();
-    ctx.translate(safe.cx, 920);
-    ctx.scale(winP, winP);
-    ctx.shadowColor = pal.GOOD;
-    ctx.shadowBlur = 40;
-    kit.circ(ctx, 0, 0, 96, 'rgba(79,240,176,0.18)', pal.GOOD, 6);
-    ctx.shadowBlur = 0;
-    kit.drawCheck(ctx, 0, 4, 92, kit.P(t, 3.45, 4.15), pal.GOOD, 14);
-    ctx.restore();
-  }
-
-  // Live simulation counter / summary card
-  const summaryText = collapse > 0.6
-    ? '真实世界：1 次命中 · 沙盘推演：96 次排雷'
-    : `已完成低成本预演：${shown} / 96 次边界测试`;
-  kit.fillRR(ctx, safe.left + 30, 1290, safe.span - 60, 140, 26, pal.CARD, collapse > 0.6 ? pal.GOOD : pal.ACC, 3);
-  kit.drawText(ctx, summaryText, safe.cx, 1372, 36, {
-    w: 700,
-    col: collapse > 0.6 ? pal.GOOD : pal.ACC,
-    al: 'center',
-  });
-
-  kit.drawWipeBand(ctx, t, duration, { width: w, height: h, palette: pal });
-}
+      
 
       function renderFrame(t) {
         const local = Math.max(0, Math.min(SHOT.duration, Number(t) || 0));
         const globalT = SHOT.start + local;
         const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
         const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
+        const tonalPulse = window.VibeKit.hitPulse(rhythm.tonal || [], globalT, 0.26);
         const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
         window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: 1080, height: 1920, palette: stage.pal, beatPulse });
-        if (typeof drawShot === 'function') {
+        const frameCtx = {
+          t: local,
+          globalT,
+          duration: SHOT.duration,
+          filmDuration: SHOT.filmDuration,
+          shot: SHOT,
+          ctx: stage.ctx,
+          w: 1080,
+          h: 1920,
+          safe: stage.safe,
+          pal: stage.pal,
+          copy: SHOT.copy,
+          vars: SHOT.vars,
+          kit: window.VibeKit,
+          motion: window.Motion,
+          rhythm,
+          beatPulse,
+          onsetPulse,
+          tonalPulse,
+        };
+        if (typeof window.drawContinuousStage === 'function') {
           stage.ctx.save();
-          drawShot({
-            t: local,
-            globalT,
-            duration: SHOT.duration,
-            ctx: stage.ctx,
-            w: 1080,
-            h: 1920,
-            safe: stage.safe,
-            pal: stage.pal,
-            copy: SHOT.copy,
-            vars: SHOT.vars,
-            kit: window.VibeKit,
-            motion: window.Motion,
-            rhythm,
-            beatPulse,
-            onsetPulse,
-          });
+          window.drawContinuousStage(frameCtx);
+          stage.ctx.restore();
+        } else if (typeof drawShot === 'function') {
+          stage.ctx.save();
+          drawShot(frameCtx);
           stage.ctx.restore();
         }
         window.VibeKit.drawChrome(stage.ctx, globalT, {
@@ -128,6 +75,9 @@
         });
       }
 
+      let manualControl = false;
+      let previewRaf = 0;
+
       window.film = {
         width: 1080,
         height: 1920,
@@ -137,6 +87,11 @@
           return true;
         }),
         frame: function (t) {
+          manualControl = true;
+          if (previewRaf) {
+            cancelAnimationFrame(previewRaf);
+            previewRaf = 0;
+          }
           renderFrame(t);
         },
       };
@@ -144,11 +99,14 @@
       if (!window.filmHost) {
         const t0 = performance.now();
         const tick = function () {
+          if (manualControl) return;
           const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
           renderFrame(elapsed);
-          requestAnimationFrame(tick);
+          previewRaf = requestAnimationFrame(tick);
         };
-        window.film.ready.then(tick);
+        window.film.ready.then(function () {
+          if (!manualControl) previewRaf = requestAnimationFrame(tick);
+        });
       }
     })();
   </script>

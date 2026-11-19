@@ -15,7 +15,7 @@ const MAX_QUEUE_BYTES = 8 * 1024 * 1024;
  * every live turn under a burst (a large tool result plus streaming deltas),
  * so frames are queued and flushed on `drain` instead.
  */
-export function attachOfficialEventStream({ hub, projectId, response, onDisconnect } = {}) {
+export function attachOfficialEventStream({ hub, projectId, response, onDisconnect, afterSeq } = {}) {
   if (!hub || typeof hub.subscribe !== 'function' || typeof projectId !== 'string' || !ID.test(projectId) ||
       !response || typeof response.writeHead !== 'function' || typeof response.write !== 'function' ||
       typeof response.once !== 'function' || typeof response.end !== 'function' ||
@@ -98,7 +98,7 @@ export function attachOfficialEventStream({ hub, projectId, response, onDisconne
     stop = hub.subscribe(projectId, data => {
       if (typeof data !== 'string' || Buffer.byteLength(data, 'utf8') > MAX_EVENT_BYTES || /[\r\n]/.test(data)) { close(); return false; }
       return write(`data: ${data}\n\n`);
-    });
+    }, Number.isSafeInteger(afterSeq) ? { afterSeq } : {});
     if (closed) { stop(); return close; }
     // Reconnection hint for the browser's EventSource, then readiness.
     if (!write('retry: 3000\n\n')) return close;

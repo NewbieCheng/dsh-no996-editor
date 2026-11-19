@@ -1,0 +1,583 @@
+/*
+ * Vibe 科普剧场 · 单镜头连续生长舞台（`vibe-explainer/stage.js`）
+ *
+ * 严格遵守动效设计四大核心原则：
+ *   1. 镜头连贯性：零清屏擦除（无 drawWipeBand），8 幕共享 globalT 世界时钟，
+ *      每一幕的退场容器/线条/焦点直接形变或穿越生长为下一幕的主舞台；
+ *   2. 动作因果性：光标点击触发气泡、球体撞门锁死、激光劈裂色块、光标打卡亮灯、
+ *      三线汇聚点亮终局仪表；
+ *   3. 节奏与景别变化：Motion.cameraKeyframe 驱动推近特写/跟拍/拉远全景 + 3 层视差；
+ *   4. 运镜即质感：极光弥散底 + 透视网格 + 玻璃拟态卡 + 实测《We Never》FFT 声纹。
+ */
+(function (root) {
+  'use strict';
+
+  function drawContinuousStage(api) {
+    const t = api.globalT;
+    const ctx = api.ctx;
+    const w = api.w;
+    const h = api.h;
+    const safe = api.safe;
+    const pal = api.pal;
+    const kit = api.kit;
+    const motion = api.motion;
+    const rhythm = api.rhythm;
+    const bp = api.beatPulse || 0;
+    const op = api.onsetPulse || 0;
+    const tp = api.tonalPulse || 0;
+
+    // ---------- 全局虚拟 2.5D 相机关键帧（景别起伏：全景 -> 特写 -> 跟拍 -> 拉远） ----------
+    const cam = motion.cameraKeyframe(t, [
+      { t: 0.0, x: 0, y: 40, zoom: 0.96, rotate: 0 },
+      { t: 2.1, x: 0, y: -30, zoom: 1.07, rotate: -0.4 },
+      { t: 4.8, x: 0, y: -10, zoom: 1.12, rotate: 0.3 },
+      { t: 5.4, x: 0, y: 0, zoom: 1.0, rotate: 0 },
+      { t: 9.2, x: 0, y: -40, zoom: 1.09, rotate: -0.3 },
+      { t: 10.6, x: 0, y: 0, zoom: 1.0, rotate: 0 },
+      { t: 13.8, x: -70, y: -20, zoom: 1.10, rotate: 0.3 },
+      { t: 15.85, x: -160, y: 30, zoom: 1.24, rotate: 0 },
+      { t: 16.0, x: 0, y: 0, zoom: 1.0, rotate: 0 },
+      { t: 19.6, x: 0, y: 30, zoom: 1.07, rotate: -0.3 },
+      { t: 21.8, x: 0, y: 0, zoom: 1.0, rotate: 0 },
+      { t: 25.2, x: -50, y: 10, zoom: 1.07, rotate: 0.3 },
+      { t: 27.4, x: 0, y: 0, zoom: 0.97, rotate: 0 },
+      { t: 31.4, x: 0, y: -20, zoom: 1.10, rotate: 0 },
+      { t: 32.6, x: 0, y: 0, zoom: 1.0, rotate: 0 },
+      { t: 36.2, x: 0, y: -15, zoom: 1.06, rotate: -0.25 },
+      { t: 37.6, x: 0, y: 0, zoom: 1.14, rotate: 0 },
+      { t: 40.5, x: 0, y: 0, zoom: 1.0, rotate: 0 },
+    ], { breath: 0.006 });
+
+    // ---------- 远景视差层 (depth = 0.32)：极光雾 + 透视网格 ----------
+    kit.withParallax(ctx, w, h, cam, 0.32, function () {
+      kit.drawAuroraMesh(ctx, t, {
+        width: w,
+        height: h,
+        palette: pal,
+        pulse: bp * 0.6 + tp * 0.4,
+      });
+      kit.drawPerspectiveGrid(ctx, t, {
+        width: w,
+        height: h,
+        palette: pal,
+        horizonY: h * 0.64,
+        color: t >= 15.5 && t < 32.5 ? pal.GOOD : pal.BLUE,
+      });
+    });
+
+    // 切点过渡窗口进度（跨镜生长：前 0.55s -> 后 0.55s）
+    const tr12 = kit.P(t, 4.45, 5.45, kit.E.inout);
+    const tr23 = kit.P(t, 9.45, 10.45, kit.E.inout);
+    const tr34 = kit.P(t, 15.40, 16.35, kit.E.inout);
+    const tr45 = kit.P(t, 20.95, 21.85, kit.E.inout);
+    const tr56 = kit.P(t, 26.45, 27.40, kit.E.inout);
+    const tr67 = kit.P(t, 31.95, 32.90, kit.E.inout);
+    const tr78 = kit.P(t, 36.95, 37.90, kit.E.inout);
+
+    // ---------- 主舞台相机层 (depth = 1.0) ----------
+    kit.withCamera(ctx, w, h, cam, function () {
+
+      // ===== 幕 1 (0.0 – 5.45s)：因果光标点击 -> 对话碰撞剧场 =====
+      if (t < 5.45) {
+        const outAlpha = 1 - kit.P(t, 4.45, 5.15);
+        if (outAlpha > 0.01) {
+          ctx.save();
+          ctx.globalAlpha *= outAlpha;
+
+          // 因果触发：光标滑向顶部议题胶囊并点击 (0.05..0.65s)
+          const tagEnter = kit.P(t, 0.08, 0.45);
+          if (tagEnter > 0) {
+            kit.drawTag(ctx, '为什么越焦虑，越不敢动手？', safe.left, 320, t, 0.08, pal.ACC);
+          }
+          if (t < 1.35) {
+            const moveP = kit.P(t, 0.0, 0.50, kit.E.inout);
+            const cx = kit.lerp(safe.right - 60, safe.left + 290, moveP);
+            const cy = kit.lerp(560, 312, moveP);
+            const clickP = kit.P(t, 0.48, 1.05);
+            const cursorAlpha = 1 - kit.P(t, 1.0, 1.35);
+            ctx.save();
+            ctx.globalAlpha *= cursorAlpha;
+            kit.drawCursorClick(ctx, cx, cy, clickP, { palette: pal });
+            ctx.restore();
+          }
+
+          // 对话碰撞剧场：鸡汤纸卡先落 -> 评论区红卡在 2.0s 砸入并压暗前者
+          const sh = motion.shake(t, 2.0, { amp: 12, freq: 92, decay: 15 });
+          ctx.save();
+          ctx.translate(sh, sh * 0.3);
+          kit.drawDialogueTheater(ctx, t, [
+            {
+              at: 0.62,
+              side: 'left',
+              tone: 'paper',
+              height: 250,
+              speaker: '有人说：',
+              line1: '人生容错率很大，',
+              line2: '慢慢来就行。',
+              size: 62,
+              size2: 58,
+            },
+            {
+              at: 2.0,
+              side: 'right',
+              tone: 'bad',
+              slam: true,
+              height: 310,
+              speaker: '可评论区里有人回：',
+              line1: '可我们的世界太小，',
+              line2: '试错成本太大 = 一次输光',
+              size: 56,
+              size2: 44,
+              accentColor: pal.BAD,
+              dimOnNext: false,
+            },
+          ], { palette: pal, x: safe.left, width: safe.span, y: 430, gap: 38 });
+          ctx.restore();
+
+          // 三颗痛点胶囊按节拍砸出
+          ['没人帮衬', '运气不好', '没有保障'].forEach(function (label, idx) {
+            const p = kit.P(t, 2.85 + idx * 0.28, 3.20 + idx * 0.28, kit.E.back);
+            if (p <= 0) return;
+            const px = safe.left + idx * 304;
+            const py = 1130;
+            ctx.save();
+            ctx.globalAlpha *= kit.clamp(p * 2);
+            ctx.translate(px + 142, py);
+            ctx.scale(p, p);
+            kit.fillRR(ctx, -142, -52, 284, 104, 52, 'rgba(255,92,92,0.12)', pal.BAD, 3);
+            kit.drawText(ctx, label, 0, 14, 38, { w: 700, col: pal.INK, al: 'center' });
+            ctx.restore();
+          });
+
+          ctx.restore();
+        }
+
+        // 转场 1→2：红卡底部下划线延伸并拐角长成天平横梁，红字块形变为左侧砝码
+        if (tr12 > 0 && t < 5.15) {
+          const fadeOut = 1 - kit.P(t, 4.95, 5.15);
+          ctx.save();
+          ctx.globalAlpha *= fadeOut;
+          kit.grow.lineCarry(ctx, [
+            { x: safe.left + 40, y: 1020 },
+            { x: 540, y: 1020 },
+            { x: 540, y: 960 },
+            { x: 242, y: 960 },
+            { x: 838, y: 960 },
+          ], tr12, { palette: pal, color: pal.ACC, lw: 8 });
+          kit.grow.morphExpand(ctx,
+            { x: safe.left + 80, y: 800, w: 320, h: 110, r: 28 },
+            { x: 146, y: 1030, w: 205, h: 205, r: 18 },
+            tr12,
+            { palette: pal, fromFill: '#2a161b', toFill: '#ff5c5c', stroke: pal.BAD },
+          );
+          ctx.restore();
+        }
+      }
+
+      // ===== 幕 2 (4.85 – 10.45s)：杠杆天平（成本缩小 -> 容错暴涨） =====
+      if (t >= 4.85 && t < 10.45) {
+        const inA = kit.P(t, 5.05, 5.50);
+        const outA = 1 - kit.P(t, 9.45, 10.15);
+        const sceneA = Math.min(inA, outA);
+        if (sceneA > 0.01) {
+          ctx.save();
+          ctx.globalAlpha *= sceneA;
+
+          kit.drawBigNum(ctx, '01', t, 5.05, pal.ACC, safe.left - 10, 460);
+          kit.drawRiseText(ctx, [['试错成本', pal.BAD], [' 越低，', pal.INK], ['容错率', pal.GOOD], [' 暴涨', pal.INK]], safe.cx, 540, 54, t, 5.2, { al: 'center', w: 800 });
+
+          // 实测阶梯减重：随拍点三次降落成本
+          const cost = kit.steps(t, [[5.0, 0.96], [6.2, 0.62], [7.3, 0.36], [8.3, 0.18]], 0.45, kit.E.back);
+          kit.drawScale(ctx, {
+            palette: pal,
+            cx: safe.cx,
+            cy: 960,
+            arm: 295,
+            dropLen: 250,
+            cost,
+            alpha: sceneA,
+            leftLabel: '单次试错成本',
+            rightLabel: '真实容错率',
+          });
+
+          const pillP = kit.P(t, 7.6, 8.25, kit.E.back);
+          if (pillP > 0) {
+            ctx.save();
+            ctx.translate(0, (1 - pillP) * 45);
+            kit.drawGlassCard(ctx, safe.cx - 340, 1485, 680, 92, 46, {
+              palette: pal,
+              fill: 'rgba(79,240,176,0.12)',
+              stroke: pal.GOOD,
+              sweep: kit.P(t, 8.2, 9.2),
+            });
+            kit.drawText(ctx, '容错率 ≈ 1 ÷ 单次试错成本', safe.cx, 1545, 38, { w: 800, col: pal.GOOD, al: 'center' });
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+
+        // 转场 2→3：天平左红砝码与右绿砝码纵向拉高，生长成左“单向门”与右“双向门”
+        if (tr23 > 0) {
+          kit.grow.morphExpand(ctx,
+            { x: 185, y: 1090, w: 120, h: 120, r: 16 },
+            { x: 190, y: 670, w: 220, h: 420, r: 6 },
+            tr23,
+            { palette: pal, fromFill: '#ff5c5c', toFill: '#1b1418', stroke: pal.BAD },
+          );
+          kit.grow.morphExpand(ctx,
+            { x: 745, y: 1020, w: 190, h: 190, r: 18 },
+            { x: 670, y: 670, w: 220, h: 420, r: 6 },
+            tr23,
+            { palette: pal, fromFill: '#4ff0b0', toFill: '#101d19', stroke: pal.GOOD },
+          );
+        }
+      }
+
+      // ===== 幕 3 (10.0 – 16.35s)：单双向门碰撞 + 穿越式门框 Zoom =====
+      if (t >= 10.0 && t < 16.35) {
+        const inA = kit.P(t, 10.15, 10.65);
+        const outA = 1 - kit.P(t, 15.40, 16.05);
+        if (inA > 0.01 && outA > 0.01) {
+          ctx.save();
+          ctx.globalAlpha *= Math.min(inA, outA);
+
+          kit.drawRiseText(ctx, '先分清：这是哪一扇门？', safe.cx, 440, 66, t, 10.1, { al: 'center', w: 900, col: pal.INK });
+
+          // 左球撞入单向门被锁死；右球自由进出双向门
+          const leftGo = kit.P(t, 11.1, 12.1, kit.E.inout);
+          const leftClosed = kit.P(t, 12.0, 12.45, kit.E.back);
+          const actorLeftX = kit.lerp(130, 300, leftGo);
+
+          const rightGo = kit.P(t, 12.3, 13.7, kit.E.inout);
+          const rightBack = kit.P(t, 13.9, 14.9, kit.E.inout);
+          const actorRightX = kit.lerp(610, 880, rightGo) - rightBack * 130;
+
+          kit.drawDoors(ctx, {
+            palette: pal,
+            cy: 880,
+            leftX: 300,
+            rightX: 780,
+            leftClosed,
+            rightClosed: 0,
+            actorLeftX,
+            actorRightX,
+            actorLabel: '你',
+          });
+
+          // 撞门微震涟漪
+          const lockRip = kit.P(t, 12.05, 12.95);
+          if (lockRip > 0 && lockRip < 1) {
+            ctx.save();
+            ctx.globalAlpha *= (1 - lockRip) * 0.85;
+            kit.circ(ctx, 300, 880, 50 + lockRip * 190, null, pal.BAD, 5);
+            ctx.restore();
+          }
+
+          kit.drawText(ctx, '单向门 · 退学/梭哈', 300, 1165, 34, { w: 700, col: pal.BAD, al: 'center' });
+          kit.drawText(ctx, '双向门 · 试岗/最小实验', 780, 1165, 34, { w: 700, col: pal.GOOD, al: 'center' });
+
+          const cardP = kit.P(t, 13.2, 13.85, kit.E.back);
+          if (cardP > 0) {
+            ctx.save();
+            ctx.translate(0, (1 - cardP) * 60);
+            kit.drawGlassCard(ctx, safe.left + 20, 1275, safe.span - 40, 190, 28, {
+              palette: pal,
+              stroke: 'rgba(79,240,176,0.45)',
+              accentBar: true,
+              accentColor: pal.GOOD,
+            });
+            kit.drawText(ctx, '90% 的焦虑，都在把「双向门」当成「单向门」', safe.cx, 1358, 35, { w: 700, col: pal.INK, al: 'center' });
+            kit.drawText(ctx, '可逆的决定，先跨半步再说', safe.cx, 1418, 34, { w: 800, col: pal.GOOD, al: 'center' });
+            ctx.restore();
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // ===== 幕 4 (15.40 – 21.85s)：穿越进门展开 -> 激光劈裂整块为可止损小块 =====
+      if (t >= 15.40 && t < 21.85) {
+        const drawShot4 = function () {
+          const outA = 1 - kit.P(t, 20.95, 21.55);
+          ctx.save();
+          ctx.globalAlpha *= outA;
+          kit.drawBigNum(ctx, '02', t, 16.05, pal.ACC, safe.left - 10, 430);
+          kit.drawRiseText(ctx, [['就算是单向门，也要', pal.INK], ['先拆碎', pal.ACC]], safe.cx, 490, 56, t, 16.2, { al: 'center', w: 800 });
+
+          const split = kit.P(t, 17.55, 18.25, kit.E.back);
+          const fall = kit.P(t, 18.55, 19.35, kit.E.inn);
+          const pick = kit.P(t, 19.35, 20.15, kit.E.inout);
+
+          // 因果激光光标竖切整块触发裂解
+          if (t >= 17.05 && t < 18.0) {
+            const cutP = kit.P(t, 17.05, 17.55, kit.E.inout);
+            const lx = safe.left + 152;
+            const ly = kit.lerp(470, 730, cutP);
+            kit.line(ctx, lx, 500, lx, ly, pal.ACC, 6);
+            kit.circ(ctx, lx, ly, 12, '#ffffff', pal.ACC, 4);
+          }
+
+          kit.drawSplitBar(ctx, {
+            palette: pal,
+            x: safe.left,
+            y: 620,
+            width: safe.span,
+            height: 184,
+            count: 6,
+            enter: kit.P(t, 16.2, 16.7),
+            split,
+            fall,
+            pick,
+            wholeText: '3 个月 · 整个方向 · 一次押满',
+            pieceText: '2周',
+            focusText: '先只做这 1 块 · 2 周验证',
+          });
+
+          // 止损线与底牌
+          const lineP = kit.P(t, 19.8, 20.5, kit.E.out);
+          if (lineP > 0) {
+            kit.drawUnderline(ctx, safe.left, safe.left + safe.span * lineP, 1080, t, 19.8, 0.55, pal.GOOD, 6);
+            kit.drawText(ctx, '写死止损线：时间 ≤ 2 周 · 资金 ≤ ¥200', safe.cx, 1150, 38, { w: 700, col: pal.GOOD, al: 'center', a: lineP });
+          }
+          ctx.restore();
+        };
+
+        if (tr34 > 0 && tr34 < 1) {
+          // 穿越进右门框 (780, 880) 打开新世界
+          kit.grow.portalZoom(ctx, 780, 880, 90, 1450, tr34, drawShot4, { ringColor: pal.GOOD, ringWidth: 8 });
+        } else {
+          drawShot4();
+        }
+
+        // 转场 4→5：金块下拉延展成时间跑道外框
+        if (tr45 > 0) {
+          kit.grow.morphExpand(ctx,
+            { x: safe.left, y: 620, w: safe.span, h: 184, r: 26 },
+            { x: 100, y: 830, w: 880, h: 150, r: 16 },
+            tr45,
+            { palette: pal, fromFill: 'rgba(255,194,75,0.2)', toFill: 'rgba(20,24,32,0.75)', stroke: pal.ACC },
+          );
+        }
+      }
+
+      // ===== 幕 5 & 幕 6 (21.45 – 32.90s)：跑道扩容 -> 同空间纵向上滑展开 96 格沙盘 =====
+      const drawShot5 = function (alphaScale) {
+        ctx.save();
+        ctx.globalAlpha *= (alphaScale === undefined ? 1 : alphaScale);
+        kit.drawBigNum(ctx, '03', t, 21.55, pal.ACC, safe.left - 10, 420);
+        kit.drawRiseText(ctx, [['压垮你的不是难度，', pal.INK], ['是跑道太短', pal.ACC]], safe.cx, 490, 52, t, 21.7, { al: 'center', w: 800 });
+
+        const b1 = kit.P(t, 22.3, 22.9);
+        const b2 = kit.P(t, 22.8, 23.4);
+        const a1 = kit.P(t, 23.95, 24.45, kit.E.back);
+        const a2 = kit.P(t, 24.30, 24.80, kit.E.back);
+        const a3 = kit.P(t, 24.65, 25.15, kit.E.back);
+        const a4 = kit.P(t, 25.00, 25.50, kit.E.back);
+        kit.drawRunway(ctx, {
+          palette: pal,
+          x: 100,
+          y: 830,
+          cellWidth: 66,
+          gap: 8,
+          total: 12,
+          baseFilled: 3,
+          burnRates: [b1, b2, 0.25],
+          added: [a1, a2, a3, a4],
+        });
+        kit.drawText(ctx, '主业/积蓄保底', 195, 1055, 30, { w: 700, col: pal.ACC, al: 'center' });
+        kit.drawText(ctx, '+4 格自由尝试跑道', 630, 1055, 32, { w: 800, col: pal.GOOD, al: 'center', a: kit.P(t, 24.1, 24.7) });
+        kit.drawAudioSpectrum(ctx, t, rhythm, { palette: pal, x: 140, y: 1220, width: 800, height: 90, bars: 28 });
+        ctx.restore();
+      };
+
+      const drawShot6 = function (alphaScale) {
+        const outA = 1 - kit.P(t, 31.95, 32.50);
+        ctx.save();
+        ctx.globalAlpha *= (alphaScale === undefined ? 1 : alphaScale) * outA;
+        kit.drawRiseText(ctx, '把 96 次错，留在动手之前', safe.cx, 440, 60, t, 27.1, { al: 'center', w: 900, col: pal.INK });
+
+        // 确定性 96 格预演并塌缩为唯一绿点
+        const total = 96;
+        const times = [];
+        const order = [];
+        for (let i = 0; i < total; i += 1) {
+          times.push(27.4 + (i / total) * 2.5);
+          order.push((i * 37 + 11) % total);
+        }
+        const collapse = kit.P(t, 30.2, 31.45, kit.E.inout);
+        const shown = kit.drawSimGrid(ctx, {
+          palette: pal,
+          x: 112,
+          y: 590,
+          cell: 64,
+          gap: 8,
+          cols: 12,
+          rows: 8,
+          times,
+          order,
+          keepIndex: 41,
+          collapse,
+          t,
+          targetX: safe.cx,
+          targetY: 940,
+        });
+
+        // 收敛核心成功节点
+        const nodeP = kit.P(t, 30.2, 31.45, kit.E.back);
+        if (nodeP > 0) {
+          ctx.save();
+          ctx.shadowColor = pal.GOOD;
+          ctx.shadowBlur = 42;
+          kit.circ(ctx, safe.cx, 940, 26 + nodeP * 44, pal.GOOD);
+          kit.drawCheck(ctx, safe.cx, 940, 44 * nodeP, nodeP, pal.BG, 8);
+          ctx.restore();
+        }
+
+        const summary = collapse > 0.65 ? '仅保留 1 条低成本命中路径' : `沙盘低成本排雷：${shown} / 96`;
+        kit.drawGlassCard(ctx, safe.left + 30, 1290, safe.span - 60, 124, 26, {
+          palette: pal,
+          stroke: collapse > 0.65 ? pal.GOOD : pal.ACC,
+        });
+        kit.drawText(ctx, summary, safe.cx, 1366, 36, { w: 700, col: collapse > 0.65 ? pal.GOOD : pal.ACC, al: 'center' });
+        ctx.restore();
+      };
+
+      if (t >= 21.45 && t < 26.45) {
+        drawShot5(1);
+      } else if (t >= 26.45 && t < 27.40) {
+        // 同空间向上滑轨，1×12 跑道推升出 12×8 沙盘
+        kit.grow.spatialSlide(ctx, w, h, tr56, 'up', drawShot5, drawShot6);
+      } else if (t >= 27.40 && t < 32.90) {
+        drawShot6(1);
+      }
+
+      // ===== 幕 7 (31.95 – 37.90s)：绿点波纹炸开 + 3D 翻卡清单 + 光标打卡 =====
+      if (t >= 31.95 && t < 37.90) {
+        const items = [
+          { title: '先找一扇双向门', sub: '可撤销、能重来，别原地内耗', at: 33.4 },
+          { title: '把计划切成两周块', sub: '写死止损线，只验证最小关键问题', at: 34.4 },
+          { title: '先用沙盘跑一遍', sub: '零成本暴露坑位，再投入真时间', at: 35.4 },
+        ];
+        const drawShot7 = function () {
+          const outA = 1 - kit.P(t, 36.95, 37.55);
+          ctx.save();
+          ctx.globalAlpha *= outA;
+          kit.drawRiseText(ctx, '今天就做这 3 件事', safe.cx, 410, 64, t, 32.45, { al: 'center', w: 900, col: pal.INK });
+
+          items.forEach(function (item, idx) {
+            const ry = 530 + idx * 255;
+            const enterStart = 32.6 + idx * 0.16;
+            const doneP = kit.P(t, item.at, item.at + 0.35);
+            const ripP = kit.P(t, item.at + 0.05, item.at + 0.85, kit.E.out);
+            kit.drawChecklistRow(ctx, {
+              palette: pal,
+              x: safe.left,
+              y: ry,
+              width: safe.span,
+              height: 215,
+              num: idx + 1,
+              title: item.title,
+              sub: item.sub,
+              enter: kit.P(t, enterStart, enterStart + 0.45),
+              done: doneP,
+              ripple: ripP,
+            });
+          });
+
+          // 光标顺次移动并点击 3 个复选框形成因果打卡链
+          if (t >= 32.9 && t < 36.6) {
+            const boxX = safe.left + safe.span - 98;
+            const curY = motion.steps(t, [
+              [32.9, 638],
+              [33.4, 638],
+              [34.4, 893],
+              [35.4, 1148],
+            ], 0.35, kit.E.inout);
+            const clickActive = (t >= 33.3 && t < 33.75) ? (t - 33.3) / 0.45
+              : (t >= 34.3 && t < 34.75) ? (t - 34.3) / 0.45
+              : (t >= 35.3 && t < 35.75) ? (t - 35.3) / 0.45 : 0;
+            kit.drawCursorClick(ctx, boxX, curY, clickActive, { palette: pal, rippleColor: pal.GOOD });
+          }
+
+          // 转场 7→8：三条行动卡片发射金色贝塞尔光粒流向终局核心点
+          if (tr78 > 0) {
+            items.forEach(function (_item, idx) {
+              const sy = 638 + idx * 255;
+              kit.drawParticleFlow(ctx, t, { x: safe.left + safe.span * 0.5, y: sy }, { x: 260 + idx * 240, y: 780 }, { x: 540, y: 840 }, { x: 540, y: 860 }, {
+                palette: pal,
+                count: 6,
+                color: pal.GOOD,
+                pulse: tr78,
+              });
+            });
+          }
+          ctx.restore();
+        };
+
+        if (tr67 > 0 && tr67 < 1) {
+          kit.grow.causalRipple(ctx, safe.cx, 940, 1400, tr67, function () {
+            kit.grow.cardFlip3D(ctx, safe.cx, 880, safe.span, 560, tr67, function () {
+              kit.drawGlassCard(ctx, safe.left, 600, safe.span, 560, 32, { palette: pal, stroke: pal.GOOD, lw: 4 });
+              kit.circ(ctx, safe.cx, 770, 56, pal.GOOD);
+              kit.drawCheck(ctx, safe.cx, 770, 56, 1, pal.BG, 9);
+              kit.drawText(ctx, '96 次低成本排雷完成', safe.cx, 910, 48, { w: 800, col: pal.INK, al: 'center' });
+              kit.drawText(ctx, '翻转生成 → 今晚 3 步行动清单', safe.cx, 985, 36, { w: 700, col: pal.GOOD, al: 'center' });
+            }, drawShot7, { palette: pal });
+          }, { palette: pal, color: pal.GOOD });
+        } else {
+          drawShot7();
+        }
+      }
+
+      // ===== 幕 8 (37.10 – 42.0s)：三流汇聚 -> 容错仪表拉满 -> 慢拉定格 =====
+      if (t >= 37.10) {
+        const enter8 = kit.P(t, 37.25, 38.05, kit.E.back);
+        ctx.save();
+        ctx.globalAlpha *= enter8;
+
+        kit.drawRadialGauge(ctx, t, {
+          palette: pal,
+          cx: safe.cx,
+          cy: 635,
+          radius: 170,
+          value: 0.92 * kit.P(t, 37.4, 38.9, kit.E.out5),
+          displayValue: '×' + (1 + 4.6 * kit.P(t, 37.4, 38.9, kit.E.out5)).toFixed(1),
+          label: '当前个人容错率指数',
+          color: pal.GOOD,
+        });
+
+        kit.drawRiseText(ctx, '容错率，从来不是等来的', safe.cx, 980, 52, t, 37.85, { al: 'center', w: 700, col: pal.DIM });
+        kit.drawSlamText(ctx, [['而是你 ', pal.INK], ['亲手造出来的', pal.ACC]], safe.cx, 1110, 74, t, 38.45, {
+          al: 'center',
+          w: 900,
+          sh: 'rgba(255,194,75,0.4)',
+          shb: 32,
+        });
+
+        const noteP = kit.P(t, 39.25, 40.0, kit.E.out);
+        if (noteP > 0) {
+          kit.drawGlassCard(ctx, safe.left + 40, 1210, safe.span - 80, 120, 28, { palette: pal, stroke: 'rgba(255,194,75,0.35)' });
+          kit.drawText(ctx, '把每一次未知，都变成可负担的小实验', safe.cx, 1283, 36, { w: 700, col: pal.INK, al: 'center', a: noteP });
+        }
+
+        kit.drawAudioSpectrum(ctx, t, rhythm, { palette: pal, x: 180, y: 1385, width: 720, height: 85, bars: 24 });
+        ctx.restore();
+      }
+    });
+
+    // ---------- 前景光斑视差层 (depth = 1.35)：极克制景深漂浮光点 ----------
+    kit.withParallax(ctx, w, h, cam, 1.35, function () {
+      ctx.save();
+      for (let i = 0; i < 6; i += 1) {
+        const px = kit.det(1, 51, i) * w;
+        const py = ((kit.det(1, 52, i) * h + t * (18 + i * 5)) % (h + 120)) - 60;
+        const rad = 2.5 + kit.det(1, 53, i) * 3.5 + bp * 2.2;
+        ctx.globalAlpha = 0.14 + op * 0.12;
+        kit.circ(ctx, px, py, rad, i % 2 === 0 ? pal.ACC : pal.GOOD);
+      }
+      ctx.restore();
+    });
+  }
+
+  root.drawContinuousStage = drawContinuousStage;
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -1,5 +1,5 @@
 /**
- * `openfilm_frame`: draw one moment of the bound project's film with the
+ * `no996_frame`: draw one moment of the bound project's film with the
  * Studio that is already running, and hand the picture to the model.
  *
  * Why this exists: the upstream CLI (`openfilm look`) draws frames by starting
@@ -67,7 +67,7 @@ async function routeTakesImages(llm, exec) {
 /** Build the tool. Every dependency is injected so the module stays testable. */
 export function createFrameTool({ isProjectAgent, projectOf, http, attachments, llm } = {}) {
   return {
-    name: 'openfilm_frame',
+    name: 'no996_frame',
     description: 'Draw one moment of this OpenFilm film — or its poster — with the Studio that is already running, and return the picture itself. Use it to check what a shot actually looks like before and after an edit. Needs no local Chrome, no ffmpeg and no openfilm CLI; it renders in Studio\'s own window and costs a few seconds.',
     parameters: {
       type: 'object', additionalProperties: false,

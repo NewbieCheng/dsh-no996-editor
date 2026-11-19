@@ -69,7 +69,11 @@ export function consistency(state) {
 }
 
 function run(command, args, options = {}) {
-  return execFileSync(command, args, { stdio: 'pipe', windowsHide: true, ...options }).toString('utf8').trim();
+  // `stdio: 'inherit'` (the shell build) makes execFileSync return null, not a
+  // Buffer; calling .toString on that crashed every `shell:dev` run right after a
+  // successful build, so the fresh dist never reached .dev/shell.
+  const output = execFileSync(command, args, { stdio: 'pipe', windowsHide: true, ...options });
+  return Buffer.isBuffer(output) ? output.toString('utf8').trim() : '';
 }
 
 function git(dir, ...args) {

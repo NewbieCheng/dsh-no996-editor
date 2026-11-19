@@ -112,3 +112,104 @@ test('a missing film says how to make one instead of creating a broken one', asy
 test('an unbound conversation cannot write', async () => {
   await assert.rejects(tool.execute({ operations: [{ op: 'move', clip: 'a', at: 2 }] }, { agent: { id: 'nope' } }), /only to a conversation bound/);
 });
+
+test('insert and preset mount wordart, fonts, LUT filters, and CSS keyframes via Studio /edit', async t => {
+  const dir = await project(t);
+  const calls = [];
+  const fakeFilm = {
+    rev: '1111222233334444',
+    doc: {
+      tracks: [
+        { clips: [{ id: 'v1', src: 'assets/shot.mp4', at: 0, time: [0, 5] }] },
+        { locked: true, clips: [{ id: 'locked-clip', src: 'assets/bg.mp4', at: 0, time: [0, 5] }] },
+      ],
+    },
+  };
+  const studioClipTool = createClipTool({
+    isProjectAgent: candidate => candidate?.id === 'session-a',
+    projectOf: candidate => (candidate?.id === 'session-a' ? { projectId: 'film123', path: dir } : undefined),
+    http: () => ({
+      async get(path) {
+        calls.push({ method: 'GET', path });
+        return fakeFilm;
+      },
+      async post(path, { body }) {
+        calls.push({ method: 'POST', path, body });
+        if (path.endsWith('/saved/take')) {
+          if (body.path === 'openfilm/text/text') return { clip: { src: 'saved/openfilm/text-text/text.html', time: [0, 3] } };
+          if (body.path === 'openfilm/filters/warm-film') return { clip: { src: 'saved/openfilm/filters-warm-film/layer.html', time: [0, 3] } };
+        }
+        return { rev: 'aaaabbbbccccdddd', doc: fakeFilm.doc };
+      },
+    }),
+  });
+
+  assert.equal(studioClipTool.name, 'no996_clip');
+
+  const res = await studioClipTool.execute({
+    operations: [
+      {
+        op: 'insert',
+        src: 'openfilm/text/text',
+        wordart: 'openfilm/text/looks/gold',
+        textmotion: 'openfilm/text/motions/in-pop',
+        font: "'Smiley Sans', sans-serif",
+        text: '不加班科普',
+        at: 0.5,
+        duration: 3,
+        newTrack: 0,
+      },
+      {
+        op: 'insert',
+        src: 'openfilm/filters/warm-film',
+        amount: 0.85,
+        at: 0,
+        duration: 5,
+        newTrack: 0,
+      },
+      {
+        op: 'preset',
+        clip: 'v1',
+        motion: 'openfilm/motions/in-fade',
+      },
+    ],
+    expect: { revision: '1111222233334444' },
+  }, { agent: { ...agent, dir } });
+
+  assert.match(res.text, /已保存 Studio 编辑：3 步/);
+  assert.match(res.text, /aaaabbbbccccdddd/);
+
+  const editCall = calls.find(c => c.path.endsWith('/edit'));
+  assert.ok(editCall);
+  const ops = editCall.body.ops;
+  const wordartInsert = ops.find(o => o.op === 'insert' && o.clip?.src?.includes('text-text'));
+  assert.ok(wordartInsert);
+  const rootOv = wordartInsert.clip.overrides.find(o => o.at === ':root');
+  assert.match(rootOv.style['--fill'], /linear-gradient/);
+  assert.equal(rootOv.style['--in'], 'pop');
+  assert.equal(rootOv.style['--font'], "'Smiley Sans', sans-serif");
+  assert.equal(rootOv.style['--clip-length'], '3s');
+  assert.deepEqual(wordartInsert.clip.overrides.find(o => o.at === '.t'), { at: '.t', text: '不加班科普' });
+
+  const filterInsert = ops.find(o => o.op === 'insert' && o.clip?.src?.includes('filters-warm-film'));
+  assert.ok(filterInsert);
+  assert.match(filterInsert.clip.style, /backdrop-filter: url\("data:image\/svg\+xml,.*#openfilm-look"\)/);
+
+  const kfOp = ops.find(o => o.op === 'keyframes');
+  assert.ok(kfOp?.set['motion-in-fade']);
+
+  // Stale revision and locked track must both be refused cleanly.
+  await assert.rejects(
+    studioClipTool.execute({
+      operations: [{ op: 'preset', clip: 'v1', text: 'x' }],
+      expect: { revision: 'deadbeefdeadbeef' },
+    }, { agent }),
+    /版本已变化/,
+  );
+  await assert.rejects(
+    studioClipTool.execute({
+      operations: [{ op: 'preset', clip: 'locked-clip', volume: 0.2 }],
+    }, { agent }),
+    /已锁定/,
+  );
+});

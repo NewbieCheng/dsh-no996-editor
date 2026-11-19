@@ -42,7 +42,7 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
 });
 
-export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, log, diagLog, devHooks } = {}) {
+export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, log, diagLog, devHooks, sessionLifetimeMs = 30 * 60_000 } = {}) {
   // A proxy without a logger is valid (tests, embedders); the calls are no-ops.
   const say = typeof log?.write === 'function' ? log : { write() {}, info() {}, warn() {}, error() {} };
   const recordDiag = typeof diagLog?.record === 'function' ? diagLog : null;
@@ -72,6 +72,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   if (desktop ? !['dsh-app://app', 'app://app'].includes(webOrigin) :
       web.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(web.hostname) || !web.port || web.origin !== webOrigin || web.username || web.password) throw new TypeError('Invalid DSH origin');
   if (typeof authenticateBrowser !== 'function') throw new TypeError('Browser authentication callback is required');
+  if (!Number.isSafeInteger(sessionLifetimeMs) || sessionLifetimeMs < 1_000 || sessionLifetimeMs > 24 * 60 * 60_000) throw new TypeError('sessionLifetimeMs must be 1s–24h');
   const editorUpstream = upstreamOrigin(upstream?.origin, '127.0.0.1');
   const filmUpstream = upstreamOrigin(upstream?.filmOrigin, 'localhost');
   const pluginUpstream = upstream?.pluginOrigin ? upstreamOrigin(upstream.pluginOrigin, 'localhost') : null;
@@ -94,12 +95,21 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   const tickets = new Map();
   const sessions = new Map();
   const ticketLifetime = 60_000;
-  const sessionLifetime = 30 * 60_000;
+  // A desktop frame authenticates with this cookie, not with DSH's own session,
+  // so its lifetime decides how long an editor stays open. The panel renews it
+  // in place before it lapses (see renew-session); the value is configurable so a
+  // test can watch a full rotation without waiting half an hour.
+  const sessionLifetime = sessionLifetimeMs;
   const maxCredentials = 128;
   const cookieName = 'dsh_openfilm_session';
   function prune(map) {
     const now = Date.now();
     for (const [token, expiry] of map) if (expiry <= now) map.delete(token);
+  }
+  /** The one ticket session this request names, if it names exactly one. */
+  function sessionToken(req) {
+    const matches = String(req.headers.cookie || '').split(';').map((part) => part.trim()).filter((part) => part.startsWith(`${cookieName}=`));
+    return matches.length === 1 ? matches[0].slice(cookieName.length + 1) : undefined;
   }
   function authenticated(req) {
     if (closed) return false;
@@ -108,8 +118,8 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
     // Accepting it on both surfaces is what lets a browser without DSH's cookie
     // (the built-in one, another browser) keep using the page it just opened.
     prune(sessions);
-    const matches = String(req.headers.cookie || '').split(';').map((part) => part.trim()).filter((part) => part.startsWith(`${cookieName}=`));
-    if (matches.length === 1 && sessions.has(matches[0].slice(cookieName.length + 1))) return true;
+    const token = sessionToken(req);
+    if (token !== undefined && sessions.has(token)) return true;
     if (desktop) return false;
     try { return authenticateBrowser(req) === true; } catch { return false; }
   }
@@ -150,13 +160,22 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
       if (!value || Array.isArray(value) || Object.keys(value).length !== 1 || typeof value.ticket !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value.ticket)) return fail(res);
       prune(tickets);
       prune(sessions);
-      if (!tickets.has(value.ticket) || sessions.size >= maxCredentials) return fail(res);
+      const held = sessionToken(req);
+      const current = held !== undefined && sessions.has(held) ? held : undefined;
+      const renewable = current !== undefined;
+      if (!tickets.has(value.ticket) || (sessions.size >= maxCredentials && !renewable)) return fail(res);
       // No await between checking and deleting: only one request can consume a ticket.
       tickets.delete(value.ticket);
-      const session = randomBytes(32).toString('base64url');
+      // Renewal keeps the token the page already holds. A fresh value would not
+      // reach the cookie header a WebSocket captured at upgrade time, and this
+      // proxy's per-socket recheck authenticates from that captured header; a
+      // new token would therefore kill an editor that has simply been open a
+      // while. Extending the entry (and re-setting the same cookie's Max-Age)
+      // is what makes a long-lived editor stop reloading every half hour.
+      const session = renewable ? current : randomBytes(32).toString('base64url');
       sessions.set(session, Date.now() + sessionLifetime);
-      say.info('ticket-redeemed', { desktop, active: sessions.size });
-      res.writeHead(204, { 'cache-control': 'no-store', 'set-cookie': `${cookieName}=${session}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/; Max-Age=${sessionLifetime / 1000}` });
+      say.info(renewable ? 'session-renewed' : 'ticket-redeemed', { desktop, active: sessions.size });
+      res.writeHead(204, { 'cache-control': 'no-store', 'set-cookie': `${cookieName}=${session}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/; Max-Age=${Math.round(sessionLifetime / 1000)}` });
       res.end();
     });
     return true;
@@ -210,6 +229,10 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
       'if(entry.traceId)d.setAttribute("data-last-trace",entry.traceId);' +
       'var target=d.querySelector("[data-no996-diag-lines]")||d;target.appendChild(document.createTextNode(String(m)+"\\n"));}catch(e){}}' +
       'globalThis.__no996ShowError=show;' +
+      // A note that must never paint the red bar: expected degradations (a refused
+      // fullscreen that fell back to an in-place zoom) are recorded for diagnosis
+      // and stay out of the person's way.
+      'globalThis.__no996DiagWarn=function(m,meta){try{var entry={id:"ui-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6),ts:new Date().toISOString(),level:"info",layer:(meta&&meta.layer)||"ui",traceId:(meta&&meta.traceId)||"",code:(meta&&meta.code)||"UI_NOTE",channel:(meta&&meta.channel)||"",httpStatus:null,projectId:"",conversation:"",sessionDigest:"",location:(meta&&meta.location)||"",summary:String(m),detail:(meta&&meta.detail)||null};pushBuf(entry);reportToHost(entry);}catch(e){}};' +
       'addEventListener("error",function(e){var m=e.message||"unknown";if(/ResizeObserver loop/.test(m))return;var loc=(e.filename||"")+":"+(e.lineno||0)+":"+(e.colno||0);show("[JS] "+m+" @ "+loc,{layer:"ui",code:"JS_ERROR",location:loc,detail:{message:m,stack:e.error&&e.error.stack?String(e.error.stack).slice(0,1200):""}});});' +
       'addEventListener("unhandledrejection",function(e){var r=e.reason;var m=(r&&r.message)||String(r);var s=(r&&r.stack)||"";var at=String(s).split("\\n").filter(function(l){return l.indexOf("at ")>=0}).slice(0,4).join(" | ");show("[Promise] "+m+(at?"\\n"+at:""),{layer:"ui",code:"UNHANDLED_REJECTION",location:at.slice(0,180),detail:{message:m,stack:String(s).slice(0,1200)}});});' +
       'var ce=console.error;console.error=function(){try{for(var i=0;i<arguments.length;i++){var a=arguments[i];if(a instanceof Error){show("[React] "+(a.message||a.name),{layer:"ui",code:"REACT_ERROR",detail:{message:a.message||a.name,stack:String(a.stack||"").slice(0,1200)}});break;}}}catch(e){}return ce.apply(console,arguments);};' +
@@ -222,8 +245,47 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
       'setTimeout(function(){var r=document.getElementById("root");if(r&&!r.firstElementChild)show("界面 10 秒后仍未渲染（#root 为空）",{layer:"ui",code:"BOOT_RENDER_TIMEOUT",location:"studio-proxy:#root"});},10000);' +
       '})()</script>' : '';
     const styleLab = await getStyleLabHtml();
+    // A cross-origin frame can be refused HTML fullscreen by permissions policy even
+    // when the hosting page delegates it. The preview's own button only calls
+    // requestFullscreen and never catches the refusal, so it used to do nothing and
+    // surface as an unhandled rejection with a red bar. This keeps the native path
+    // exactly as it is and, only when the browser refuses, produces the same visual
+    // outcome in place: the preview element fills the window and Escape returns.
+    const fullscreenShim = `<script>(function(){
+if(globalThis.__no996Fullscreen)return;globalThis.__no996Fullscreen=1;
+var doc=document;if(!doc||typeof Element==='undefined'||typeof Element.prototype.requestFullscreen!=='function')return;
+var nativeRequest=Element.prototype.requestFullscreen,nativeExit=doc.exitFullscreen;
+var nativeGet=Object.getOwnPropertyDescriptor(Document.prototype,'fullscreenElement');
+var fake=null;
+function note(reason){try{if(typeof globalThis.__no996DiagWarn==='function')globalThis.__no996DiagWarn('系统全屏不可用，已切换为窗口内放大',{layer:'ui',code:'FULLSCREEN_FALLBACK',location:'studio-proxy:fullscreen',detail:{reason:String(reason||'').slice(0,160)}})}catch(e){}}
+function emit(){try{doc.dispatchEvent(new Event('fullscreenchange'))}catch(e){}}
+function clear(){
+  if(!fake)return false;
+  var el=fake;fake=null;
+  try{el.removeAttribute('data-no996-immersive');var s=el.style;s.position='';s.left='';s.top='';s.width='';s.height='';s.zIndex='';s.background='';s.margin='';}catch(e){}
+  try{if(doc.body)doc.body.style.overflow=''}catch(e){}
+  emit();return true;
+}
+function immersive(el){
+  fake=el;try{el.setAttribute('data-no996-immersive','1')}catch(e){}
+  try{var s=el.style;s.position='fixed';s.left='0';s.top='0';s.width='100vw';s.height='100vh';s.zIndex='2147483000';s.background='#000';s.margin='0';}catch(e){}
+  try{if(doc.body)doc.body.style.overflow='hidden'}catch(e){}
+  emit();
+}
+Object.defineProperty(doc,'fullscreenElement',{configurable:true,get:function(){return fake||(nativeGet&&nativeGet.get?nativeGet.get.call(doc):null)}});
+Object.defineProperty(doc,'fullscreenEnabled',{configurable:true,get:function(){return true}});
+doc.exitFullscreen=function(){if(fake){clear();return Promise.resolve()}return nativeExit?nativeExit.call(doc):Promise.resolve()};
+Element.prototype.requestFullscreen=function(options){
+  var self=this;
+  return Promise.resolve().then(function(){return nativeRequest.call(self,options)}).catch(function(error){
+    if(fake)return undefined;
+    immersive(self);note(error&&error.message);return undefined;
+  });
+};
+doc.addEventListener('keydown',function(e){if(e.key==='Escape'&&fake){e.preventDefault();clear();}},true);
+})()</script>`;
     const devHead = typeof activeDevHooks?.headInjection === 'function' ? activeDevHooks.headInjection() : '';
-    const host = `${diagnostics}${nativePrelude}<script>try{
+    const host = `${diagnostics}${nativePrelude}${fullscreenShim}<script>try{
 if(!localStorage.getItem('openfilm.workspace.current.v2')){
   var base={mode:'edit',tree:null,assets:false,layers:false,timeline:true,inspector:true,chat:true,libraryDock:'chat',chatSide:'left',layersSide:'left',inspectorSide:'right',timelineEdge:'bottom',assetsWidth:320,libraryHeight:280,layersWidth:240,inspectorWidth:360,timelineHeight:null,chatWidth:420};
   var plan=JSON.parse(JSON.stringify(base));plan.mode='canvas';plan.timeline=false;plan.inspector=false;
@@ -276,6 +338,15 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     if(event.source!==parent||parent===window||!(event.origin===parentOrigin||(${desktop}&&event.origin==='null')))return;
     const data=event.data;
     if(data&&typeof data==='object'&&!Array.isArray(data)&&Object.keys(data).length===2&&data.type==='no996-openfilm:project-snapshot-request'&&data.version===1)report(true);
+    /* Renewal: the panel holds a fresh one-time grant for this frame's own session.
+       Redeeming it here extends the cookie in place, so an editor that has stayed
+       open past the credential's lifetime never has to be reloaded. */
+    if(data&&typeof data==='object'&&!Array.isArray(data)&&Object.keys(data).length===3&&data.type==='no996-openfilm:renew-session'&&data.version===1&&typeof data.ticket==='string'&&/^[A-Za-z0-9_-]{43}$/.test(data.ticket)){
+      const answer=ok=>{try{parent.postMessage({type:'no996-openfilm:renewed',version:1,ok:ok},'*')}catch(e){}};
+      fetch('/__dsh/session',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({ticket:data.ticket})})
+        .then(function(r){answer(r.ok)})
+        .catch(function(){answer(false)});
+    }
     if(data&&typeof data==='object'&&!Array.isArray(data)&&data.type==='no996-openfilm:navigate'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
       const target='/projects/'+data.projectId;
       const sessionId=typeof data.sessionId==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(data.sessionId)?data.sessionId:'';
@@ -807,9 +878,13 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     try { url = new URL(req.url, 'http://proxy.invalid'); } catch { return false; }
     if (!officialShell || url.pathname !== '/__dsh/official-events') return false;
     const projectId = url.searchParams.get('projectId');
+    // One optional resume cursor: the last sequence the page applied. Anything else
+    // in the query is still refused, so this cannot become a general-purpose route.
+    const afterSeq = url.searchParams.get('afterSeq');
+    const resume = afterSeq === null || /^\d{1,12}$/.test(afterSeq);
     if (typeof attachOfficialEvents !== 'function' || req.method !== 'GET' || !permitted(req, false) || !authenticated(req) ||
         (req.headers.origin !== undefined && req.headers.origin !== editorOrigin) || !isSameFetchSite(req) ||
-        url.searchParams.size !== 1 || typeof projectId !== 'string' || !/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) {
+        url.searchParams.size > 2 || !resume || typeof projectId !== 'string' || !/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) {
       fail(res); return true;
     }
     void (async () => {
@@ -1028,23 +1103,41 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       return { id, path: typeof project.path === 'string' ? project.path : projectPath };
     },
     issueTicket() {
-      if (closed) return null;
+      const ticket = this.mintTicket();
+      if (!ticket) return null;
+      return { url: `${editorOrigin}/__dsh/open#${ticket}`, expiresIn: Math.round(ticketLifetime / 1000) };
+    },
+    /**
+     * A one-time grant for opening (or renewing) the frame's own session. Renewal
+     * mints the same shape; the difference is only that the frame already holds a
+     * session, so the redemption extends it instead of minting a second one.
+     */
+    mintTicket() {
       prune(tickets);
-      if (tickets.size >= maxCredentials) return null;
+      if (closed || tickets.size >= maxCredentials) return null;
       const ticket = randomBytes(32).toString('base64url');
       tickets.set(ticket, Date.now() + ticketLifetime);
       say.info('ticket-minted', { desktop, pending: tickets.size });
-      return { url: `${editorOrigin}/__dsh/open#${ticket}`, expiresIn: Math.round(ticketLifetime / 1000) };
+      return ticket;
     },
     bootstrapData() {
       if (desktop) {
-        prune(tickets);
-        if (tickets.size >= maxCredentials) return null;
-        const ticket = randomBytes(32).toString('base64url');
-        tickets.set(ticket, Date.now() + ticketLifetime);
-        return { editorOrigin, ticket, mode: officialShell ? 'official' : 'dsh', webOrigin };
+        const ticket = this.mintTicket();
+        if (!ticket) return null;
+        return {
+          editorOrigin, ticket,
+          sessionExpiresIn: Math.round(sessionLifetime / 1000),
+          mode: officialShell ? 'official' : 'dsh', webOrigin,
+        };
       }
       return { editorOrigin, mode: officialShell ? 'official' : 'dsh', webOrigin };
+    },
+    /** Renewal for a frame that is already open; never opens a second session. */
+    renewalData() {
+      if (!desktop) return null;
+      const ticket = this.mintTicket();
+      if (!ticket) return null;
+      return { ticket, sessionExpiresIn: Math.round(sessionLifetime / 1000) };
     },
     bootstrap(res) {
       if (closed) return fail(res);

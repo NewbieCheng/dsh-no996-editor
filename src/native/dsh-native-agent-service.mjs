@@ -179,10 +179,31 @@ export function createDshNativeAgentService({
     session.followPromise = undefined;
   }
 
+  /** The open reasoning of this turn, closed once: a seal ends the row instead of a later frame. */
+  function sealThought(projectId, session, streamState) {
+    if (!streamState || !streamState.thought) return;
+    const text = streamState.thought;
+    streamState.thought = '';
+    void Promise.resolve(emit(projectId, {
+      key: session.key ?? 'dsh-native',
+      kind: 'stream',
+      stream: { t: 'seal', seal: true, attempt: streamState.attempt, turn: streamState.turn, kind: 'thought', sessionId: session.sessionId, text },
+    })).catch(() => {});
+  }
+
   function settleTurn(projectId, session, { ok, stopReason, error } = {}) {
     const inflight = session.inflight;
     if (!inflight) return;
     session.inflight = undefined;
+    // What this turn ended with, kept for a page that lost the terminal frame and
+    // asks later (agent:turn-state) instead of leaving the answer "still running".
+    session.lastSettled = {
+      turnId: inflight.turnId ?? null,
+      ok: ok === true,
+      stopReason: stopReason || (ok ? 'end_turn' : 'error'),
+      ...(error ? { error: String(error).slice(0, 300) } : {}),
+      at: Date.now(),
+    };
     if (ok) {
       inflight.resolve({ ok: true, stopReason: stopReason || 'end_turn' });
     } else {
@@ -675,6 +696,7 @@ export function createDshNativeAgentService({
     }
 
     if (event.type === 'turn/end') {
+      sealThought(projectId, session, streamState);
       void syncUsage(projectId, session);
       const reason = data.stopReason === 'cancelled' || session.inflight?.cancelled ? 'cancelled' : 'end_turn';
       settleTurn(projectId, session, { ok: true, stopReason: reason });
@@ -682,6 +704,7 @@ export function createDshNativeAgentService({
     }
 
     if (event.type === 'turn/error' || event.type === 'turn/aborted') {
+      sealThought(projectId, session, streamState);
       const cancelled = event.type === 'turn/aborted' || session.inflight?.cancelled;
       if (cancelled) {
         settleTurn(projectId, session, { ok: true, stopReason: 'cancelled' });
@@ -1207,6 +1230,26 @@ export function createDshNativeAgentService({
      * prompt. Existing stored sessions are resumed; blank conversations stay in
      * memory until the first prompt so opening a panel never creates ghost sessions.
      */
+    /**
+     * Read-only: is this conversation's turn still running, and what did the last one
+     * end with? A page whose stream dropped asks this instead of leaving the answer
+     * shimmering as "still working" or inventing a success it never saw.
+     */
+    turnState(projectId, { conversation = '', turnId } = {}) {
+      if (closed) return { known: false, active: false };
+      const projectState = projects.get(projectId);
+      const session = projectState ? projectState.sessions.get(conversation) : undefined;
+      if (!session) return { known: false, active: false };
+      const active = Boolean(session.inflight);
+      const settled = session.lastSettled ?? null;
+      return {
+        known: true,
+        active,
+        turnId: session.inflight?.turnId ?? null,
+        lastSettled: settled && (turnId === undefined || settled.turnId === turnId) ? settled : null,
+      };
+    },
+
     async attach(projectId, conversation, { key } = {}) {
       if (closed) throw failure('OFFICIAL_AGENT_CLOSED');
       const projectState = projectStateOf(projectId);

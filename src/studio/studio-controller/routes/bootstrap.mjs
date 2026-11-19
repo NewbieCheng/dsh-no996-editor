@@ -72,5 +72,42 @@ export function createBootstrapRoute({
     },
   }));
 
-  return { disposers: [unregisterBootstrap] };
+  // A desktop frame authenticates with the proxy's own session cookie, not with
+  // DSH's browser cookie. That session lapses; re-opening the frame to refresh it
+  // throws away unsaved work and every live connection. The panel therefore asks
+  // for a renewal grant and hands it to the frame it already has, which redeems it
+  // in place. Nothing here opens a second session or extends a browser session.
+  const unregisterRenewal = track(register({
+    kind: 'exact', path: '/api/no996-openfilm/renew-session',
+    async handler(req, res) {
+      res.setHeader('cache-control', 'no-store');
+      if (isDisposed()) { res.writeHead(503).end('STUDIO_DISPOSED'); return; }
+      if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }).end(); return; }
+      const admission = ctx.connection.admit({ headers: req.headers });
+      if ('rejection' in admission) {
+        res.writeHead(admission.rejection).end(admission.rejection === 403 ? 'DSH_ORIGIN_REJECTED' : 'DSH_SESSION_REQUIRED'); return;
+      }
+      if (admission.peer.id !== ctx.connection.browserPeer.id) {
+        res.writeHead(403).end('DSH_BROWSER_REQUIRED'); return;
+      }
+      const surface = req.headers['x-no996-surface'];
+      const desktop = surface === 'dsh-app://app' || surface === 'app://app';
+      // Browser mode carries DSH's own cookie; there is no frame session to extend.
+      if (!desktop) { res.writeHead(204).end(); return; }
+      try {
+        const proxy = await proxyFor(surface, true);
+        const data = isDisposed() ? null : proxy.renewalData();
+        if (!data) { res.writeHead(503).end('STUDIO_UNAVAILABLE'); return; }
+        const body = JSON.stringify(data);
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'content-length': Buffer.byteLength(body) });
+        res.end(body);
+        log.info('session-renewal-issued', { desktop });
+      } catch {
+        if (!res.headersSent) res.writeHead(503);
+        if (!res.writableEnded) res.end('STUDIO_UNAVAILABLE');
+      }
+    },
+  }));
+
+  return { disposers: [unregisterBootstrap, unregisterRenewal] };
 }

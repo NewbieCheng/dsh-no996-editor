@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, readFile, stat } from 'node:fs/promises';
+import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
 export const OFFICIAL_CHAT_DOMAIN = 'no996_openfilm_official_chat';
@@ -13,25 +13,46 @@ const keyOf = id => createHash('sha256').update(id, 'utf8').digest('hex');
 
 // Studio preserves .film/id across a rename. A second, still-existing directory
 // with the old path must not inherit or lose chat just because an ID was copied.
-async function isSameRenamedProject(projectId, previousPath, path) {
-  if (typeof previousPath !== 'string' || !isAbsolute(previousPath)) return false;
+//
+// Returns why, not only whether: "it was renamed" and "another folder copied the
+// id" need different answers, and a bare false made the 503 unreadable. The reason
+// names the failed check and never a path.
+const PATH_CHANGE_REASONS = new Set([
+  'no-previous-path',
+  'no-metadata',
+  'no-marker',
+  'marker-mismatch',
+  'current-unreadable',
+  'old-path-still-present',
+  'not-same-directory',
+]);
+async function sameRenamedProject(projectId, previousPath, path) {
+  if (typeof previousPath !== 'string' || !isAbsolute(previousPath)) return { same: false, reason: 'no-previous-path' };
   try {
     const metadata = join(path, '.film');
-    if (!(await lstat(metadata)).isDirectory()) return false;
+    if (!(await lstat(metadata)).isDirectory()) return { same: false, reason: 'no-metadata' };
     const markerPath = join(metadata, 'id');
     const marker = await lstat(markerPath);
-    if (!marker.isFile() || marker.size > 128 || (await readFile(markerPath, 'utf8')).trim() !== projectId) return false;
+    if (!marker.isFile() || marker.size > 128) return { same: false, reason: 'no-marker' };
+    if ((await readFile(markerPath, 'utf8')).trim() !== projectId) return { same: false, reason: 'marker-mismatch' };
     const current = await stat(path, { bigint: true });
-    if (!current.isDirectory()) return false;
+    if (!current.isDirectory()) return { same: false, reason: 'current-unreadable' };
     try {
       const previous = await stat(previousPath, { bigint: true });
-      // Also accept path spellings that refer to the same physical directory.
-      return previous.isDirectory() && current.ino !== 0n && previous.ino === current.ino && previous.dev === current.dev;
+      if (!previous.isDirectory()) return { same: false, reason: 'not-same-directory' };
+      // Same physical directory: an inode match where the filesystem reports one,
+      // otherwise the resolved path. Windows can report ino 0, and a path spelling
+      // difference (8.3 short name, drive case) is still the same folder.
+      if (current.ino !== 0n && previous.ino === current.ino && previous.dev === current.dev) return { same: true, reason: 'same-inode' };
+      const [a, b] = await Promise.all([realpath(path), realpath(previousPath)]);
+      return a === b ? { same: true, reason: 'same-realpath' } : { same: false, reason: 'not-same-directory' };
     } catch (error) {
-      return error?.code === 'ENOENT';
+      // The old directory is gone: that is exactly what a rename looks like.
+      if (error?.code === 'ENOENT') return { same: true, reason: 'old-path-gone' };
+      return { same: false, reason: 'not-same-directory' };
     }
   } catch {
-    return false;
+    return { same: false, reason: 'current-unreadable' };
   }
 }
 
@@ -119,8 +140,16 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     const record = table.get(key);
     const data = decode(record, projectId);
     const rebound = !!record && record.path !== path;
-    if (rebound && !(await isSameRenamedProject(projectId, record.path, path))) {
-      throw failure('OFFICIAL_CHAT_PATH_CHANGED', 'The project directory changed; chat recovery is required');
+    if (rebound) {
+      const identity = await sameRenamedProject(projectId, record.path, path);
+      if (!identity.same) {
+        // The stored chat is never overwritten on a guess: a different folder that
+        // copied the id would otherwise inherit (and then lose) someone's history.
+        throw Object.assign(
+          failure('OFFICIAL_CHAT_PATH_CHANGED', 'The project directory changed; chat recovery is required'),
+          { diag: { reason: PATH_CHANGE_REASONS.has(identity.reason) ? identity.reason : 'not-same-directory' } },
+        );
+      }
     }
     return { data, rebound };
   }

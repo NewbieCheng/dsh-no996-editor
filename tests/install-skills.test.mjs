@@ -48,14 +48,15 @@ test('--print says what it would do and writes nothing', () => {
 
 test('a skill without frontmatter is refused rather than half-installed', () => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-home-'));
-  const source = join(repo, 'skills', 'broken-example');
+  const stagingSkills = mkdtempSync(join(tmpdir(), 'dsh-skills-src-'));
+  const source = join(stagingSkills, 'broken-example');
   mkdirSync(source, { recursive: true });
   writeFileSync(join(source, 'SKILL.md'), 'no frontmatter here\n');
   try {
-    const out = run(home);
+    const out = run(home, '--source', stagingSkills);
     assert.match(out, /skip broken-example/);
     assert.equal(existsSync(join(home, 'skills', 'broken-example')), false);
   } finally {
-    rmSync(source, { recursive: true, force: true });
+    rmSync(stagingSkills, { recursive: true, force: true });
   }
 });
