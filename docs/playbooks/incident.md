@@ -14,7 +14,7 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 
 1. **保存用户工作**，记录 DSH、插件版本、当前 profile 和复现步骤；不删除或修改影片、会话及用户数据。
 2. **确认请求到达哪一层**：核对页面 origin、实际请求 URL 与状态码；不要把 `dsh-app://` 的相对路径 404 自动归因为 Studio 离线。
-3. 查看 `%TEMP%/dsh-no996-editor/plugin.log` 和 `POST /api/no996-openfilm/diagnose` 的可用诊断；对话问题结合 `native-session`、`native-prompt-start`、`native-prompt-failed` 等实际日志与具体请求定位。日志、截图对外分享前去除凭据和隐私。
+3. 查看 `%TEMP%/no996-editor/plugin.log` 和 `POST /api/no996-openfilm/diagnose` 的可用诊断；对话问题结合 `native-session`、`native-prompt-start`、`native-prompt-failed` 等实际日志与具体请求定位。日志、截图对外分享前去除凭据和隐私。
 4. 对照 [架构](../ARCHITECTURE.md)、[开发生效矩阵](../DEVELOPMENT.md) 和当前源码；测试或日志只能证明观察到的范围，不代替 GUI 验收。
 5. 确需重载时先告知并保存未保存编辑；如果管理器返回 `restart-required`，完整重启 DSH。Host 重建日志不证明 GUI 已应用，须在原页面核验。
 

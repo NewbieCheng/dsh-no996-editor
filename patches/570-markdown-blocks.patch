@@ -1,5 +1,5 @@
 diff --git a/packages/shared/src/markdown-blocks.ts b/packages/shared/src/markdown-blocks.ts
-index bfafa9c..b08a1d4 100644
+index bfafa9c..1277fb9 100644
 --- a/packages/shared/src/markdown-blocks.ts
 +++ b/packages/shared/src/markdown-blocks.ts
 @@ -179,7 +179,9 @@ export type MarkdownInline =
@@ -8,7 +8,7 @@ index bfafa9c..b08a1d4 100644
    | { kind: 'em'; text: string }
 -  | { kind: 'link'; text: string; href: string };
 +  | { kind: 'link'; text: string; href: string }
-+  /** dsh-no996-editor: ![](url) — a picture in the transcript (a rendered frame, a contact sheet). */
++  /** no996-editor: ![](url) — a picture in the transcript (a rendered frame, a contact sheet). */
 +  | { kind: 'image'; href: string };
  
  /**
@@ -19,7 +19,7 @@ index bfafa9c..b08a1d4 100644
      const safe = safeMarkdownHref(href);
 -    if (!safe || !linkText.trim()) return null;
 +    if (!safe) return null;
-+    /* dsh-no996-editor: `![](url)` is a picture, not a link. An empty label is how markdown writes one,
++    /* no996-editor: `![](url)` is a picture, not a link. An empty label is how markdown writes one,
 +       and a rendered frame or a contact sheet is exactly what a film agent produces. */
 +    if (!linkText.trim()) return { kind: 'image', href: safe };
      return { kind: 'link', text: linkText, href: safe };

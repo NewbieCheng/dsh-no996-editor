@@ -6,12 +6,12 @@
 
 ## 报告方式
 
-请用 GitHub 的 [private security advisory](https://github.com/NewbieCheng/dsh-no996-editor/security/advisories/new) 报告，**不要**开公开 issue。
+请用 GitHub 的 [private security advisory](https://github.com/NewbieCheng/no996-editor/security/advisories/new) 报告，**不要**开公开 issue。
 请在报告里给出：DSH 版本、平台、复现步骤、影响（能读到什么/能执行什么）。
 
 ## 这个插件是什么
 
-`dsh-no996-editor` 是**本机回环集成**，不是沙箱：
+`no996-editor` 是**本机回环集成**，不是沙箱：
 
 - Host 拉起官方 OpenFilm Studio（临时回环端口），反向代理给浏览器；
 - 浏览器里的官方界面由 Host 提供；

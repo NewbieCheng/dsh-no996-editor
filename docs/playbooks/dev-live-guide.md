@@ -8,7 +8,7 @@ rot-if: dev:live 启动方式、环境变量、诊断日志目录或打包流程
 
 # 零基础开发指南：实时热更新、调样式与打正式包
 
-这份文档专门写给第一次接手 `dsh-no996-editor` 的同学：**不用猜命令、不用反复按 F5、改样式和 React 代码保存即生效，改完再一键落成正式可分发插件包。**
+这份文档专门写给第一次接手 `no996-editor` 的同学：**不用猜命令、不用反复按 F5、改样式和 React 代码保存即生效，改完再一键落成正式可分发插件包。**
 
 ---
 
@@ -125,7 +125,7 @@ DSH 启动并预热 Studio 后（**无需先点左侧「视频创作」面板**�
 
 ```powershell
 # 1. 把 .upstream/openfilm 的最新构建生成正式界面快照
-node scripts/build-official-shell.mjs F:\Dev\Desktop-Projects\dsh-no996-editor\.upstream\openfilm --output F:\Dev\Desktop-Projects\dsh-no996-editor\vendor\official-shell.next
+node scripts/build-official-shell.mjs F:\Dev\Desktop-Projects\no996-editor\.upstream\openfilm --output F:\Dev\Desktop-Projects\no996-editor\vendor\official-shell.next
 # （确认无误后替换旧的 vendor/official-shell）
 
 # 2. 把上游改动拆成逐文件补丁（patches/*.patch）

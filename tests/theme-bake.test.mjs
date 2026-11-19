@@ -13,7 +13,7 @@ const BRAND = Object.freeze({
 const sha = (value) => createHash('sha256').update(value).digest('hex');
 
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-no996-editor-bake-'));
+  const root = mkdtempSync(join(tmpdir(), 'no996-editor-bake-'));
   mkdirSync(join(root, 'ui', 'assets'), { recursive: true });
   writeFileSync(
     join(root, 'ui', 'index.html'),

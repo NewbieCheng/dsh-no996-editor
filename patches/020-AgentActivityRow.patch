@@ -1,12 +1,12 @@
 diff --git a/apps/desktop/chat/src/components/AgentActivityRow.tsx b/apps/desktop/chat/src/components/AgentActivityRow.tsx
-index 69c82b6..c22699c 100644
+index 69c82b6..b50d95d 100644
 --- a/apps/desktop/chat/src/components/AgentActivityRow.tsx
 +++ b/apps/desktop/chat/src/components/AgentActivityRow.tsx
 @@ -45,6 +45,8 @@ export interface AgentActivityItem {
    query?: string;
    /** A local agent's file name or command (no quotes: it is not film content). */
    detail?: string;
-+  /** dsh-no996-editor: the real tool that ran (`openfilm_frame`, `web_search`), when the agent named it. */
++  /** no996-editor: the real tool that ran (`openfilm_frame`, `web_search`), when the agent named it. */
 +  tool?: string;
    plan?: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' }>;
    /** The question the agent asks the user (chat.ask). */
@@ -18,7 +18,7 @@ index 69c82b6..c22699c 100644
 -       need splitting by hand; block parsing also drops extra blank lines. */
 +       need splitting by hand; block parsing also drops extra blank lines.
 +
-+       dsh-no996-editor: the row grows while the model writes (see LocalAgentTurn.stream), so the markdown
++       no996-editor: the row grows while the model writes (see LocalAgentTurn.stream), so the markdown
 +       is re-read as the text arrives, exactly as the agent's own interface draws it. */
      const text = item.text ?? '';
      if (!text.trim()) return null;
@@ -32,7 +32,7 @@ index 69c82b6..c22699c 100644
   *
 - * While thinking, one shimmering row; then "Thought for 6s", which opens to the agent's own reasoning in
 - * muted gray. That text is written for itself, so it starts closed, as Codex and Claude Code show it.
-+ * dsh-no996-editor: the reasoning is shown, not hidden — a bridging agent reports it, and a person watching
++ * no996-editor: the reasoning is shown, not hidden — a bridging agent reports it, and a person watching
 + * a film get edited wants to see what the agent weighed. It starts *collapsed* (the "thought for 16s"
 + * header, one click away), because a long reasoning block would otherwise push the answer off screen.
 + * When opened it is capped at THOUGHT_MAX_HEIGHT and scrolls inside itself: the row never grows past a
@@ -88,7 +88,7 @@ index 69c82b6..c22699c 100644
            className="flex h-6 max-w-full min-w-0 items-center gap-1.5 text-left"
          >
            <ActivityLabel label={item.label} pending={!!item.pending} />
-+          {/* dsh-no996-editor: what actually ran, next to what it meant for the film. A bridging agent
++          {/* no996-editor: what actually ran, next to what it meant for the film. A bridging agent
 +              reports the tool name; without it the row only says "已检查影片" and the person cannot
 +              tell which tool was called. */}
 +          {item.tool ? (
@@ -105,7 +105,7 @@ index 69c82b6..c22699c 100644
  export function StatusLine({ items, fallback, ownAgent = false }: { items: AgentActivityItem[]; fallback?: string | null; ownAgent?: boolean }) {
    const t = useT();
 -  const running = React.useMemo(() => pendingWork(items), [items]);
-+  /* dsh-no996-editor: a pending thought already has its own row — ThoughtRow shows "正在思考" with its
++  /* no996-editor: a pending thought already has its own row — ThoughtRow shows "正在思考" with its
 +     chevron — so counting it here printed the same words twice, one under the other. The status row
 +     reports work only; reasoning is the thought row's business. */
 +  const pending = React.useMemo(() => pendingWork(items), [items]);

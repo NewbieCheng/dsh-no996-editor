@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 const MAX_TEXT = 120;
 
 function directory() {
-  return join(tmpdir(), 'dsh-no996-editor', 'trace');
+  return join(tmpdir(), 'no996-editor', 'trace');
 }
 
 /** One line's worth of an envelope, with no text worth leaking. */

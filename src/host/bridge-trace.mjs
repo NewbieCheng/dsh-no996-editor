@@ -2,7 +2,7 @@
  * Bridge trace: what the Host actually sent to the panel, and whether anything
  * live took it.
  *
- * Why this exists: `%TEMP%\dsh-no996-editor-frames.jsonl` records what came *out of
+ * Why this exists: `%TEMP%\no996-editor-frames.jsonl` records what came *out of
  * DSH*, but nothing recorded what we *turned it into* or whether the page ever
  * received it. Without that middle link, "the panel shows nothing" can only be
  * guessed at — and guessing the frame shape is exactly what cost this repo two

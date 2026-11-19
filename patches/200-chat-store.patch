@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..a1ac7a7 100644
+index 9134f7a..e756e31 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
 @@ -82,12 +82,55 @@ async function readAgain(project: string): Promise<void> {
@@ -7,7 +7,7 @@ index 9134f7a..a1ac7a7 100644
  }
  
 +/**
-+ * dsh-no996-editor: re-read this project's conversations from the Host and replace what
++ * no996-editor: re-read this project's conversations from the Host and replace what
 + * the page holds.
 + *
 + * The sidebar outside this page can delete or add a conversation, and Studio can

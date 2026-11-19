@@ -6,7 +6,7 @@ checked: 0.16.1
 rot-if: 启动时序、请求路径、模块职责或构建方式变化
 -->
 
-# 开发文档 — dsh-no996-editor / No996 Studio
+# 开发文档 — no996-editor / No996 Studio
 
 >
 > 版本与测试数量以 `package.json` 和 `node --test` 的实际输出为准，本文不抄数字（抄了就会过期）。
@@ -184,10 +184,10 @@ Host 模块重载可能受模块缓存影响；修改后应核验实际运行版
 | OpenFilm 内置「错误与诊断日志中心」 | 顶栏小虫子按钮 / 底部红条「查看诊断日志」 / 设置 → 开发者；支持按层/错误码/TraceID 筛选、复制、问 Agent、导出、调整保留天数 |
 | `$DSH_HOME\no996-openfilm\logs\diagnostics-YYYY-MM-DD.jsonl` | 全链路结构化诊断日志（UI / RPC / SSE / Host / NativeAgent / Studio），默认保留 14 天、上限 50 MiB 自动清理 |
 | `POST /api/no996-openfilm/diagnose {projectId}` | `mode / studio / preset / proxy / permission / turns / grouping / log / bridge` |
-| `%TEMP%\dsh-no996-editor\plugin.log` | JSON Lines，512 KB 轮转；密钥与路径自动脱敏 |
-| `%TEMP%\dsh-no996-editor-frames.jsonl` | 原始帧（每轮覆盖） |
-| `%TEMP%\dsh-no996-editor-host.json` | `{version,pid,startedAt}`；重载后必须更新 |
-| `%TEMP%\dsh-no996-editor-preset.json` | 预设 `registered/ok/detail/raw` |
+| `%TEMP%\no996-editor\plugin.log` | JSON Lines，512 KB 轮转；密钥与路径自动脱敏 |
+| `%TEMP%\no996-editor-frames.jsonl` | 原始帧（每轮覆盖） |
+| `%TEMP%\no996-editor-host.json` | `{version,pid,startedAt}`；重载后必须更新 |
+| `%TEMP%\no996-editor-preset.json` | 预设 `registered/ok/detail/raw` |
 | 面板静默诊断 | 20 秒无 `boot` 自动显示并上报外层诊断，可整段贴回 |
 
 `turns[].verdict` 是"面板为什么是空的"的判词：`no-frames-received` / `nothing-emitted` / `some-frames-dropped` / `emitted`。`grouping` 说明会话是否在项目文件夹下。

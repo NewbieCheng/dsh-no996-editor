@@ -1,12 +1,12 @@
 diff --git a/apps/desktop/chat/src/lib/desktop-attachments.ts b/apps/desktop/chat/src/lib/desktop-attachments.ts
-index eb12f7b..56424a3 100644
+index eb12f7b..b24ab24 100644
 --- a/apps/desktop/chat/src/lib/desktop-attachments.ts
 +++ b/apps/desktop/chat/src/lib/desktop-attachments.ts
 @@ -64,6 +64,10 @@ export function useDesktopAttachments(project: string) {
    /** Takes the files in; their records come back at once, for their pills to go into the sentence. */
    const add = React.useCallback((incoming: File[]): DesktopAttachment[] => {
      const bridge = (window as unknown as { openfilmDesktop?: { pathForFile?: (f: File) => string } }).openfilmDesktop;
-+    /* dsh-no996-editor: embedded in a host window there is no openfilmDesktop bridge, but that window can still
++    /* no996-editor: embedded in a host window there is no openfilmDesktop bridge, but that window can still
 +       resolve a dropped file's real path (Electron's webUtils). Without it every drop would be copied into the
 +       project; with it the message names the file where it already sits, as the desktop app's does. */
 +    const hostPath = (window as unknown as { __no996HostPath?: (file: File) => Promise<string> }).__no996HostPath;

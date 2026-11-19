@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Zero-dependency lint for dsh-no996-editor.
+ * Zero-dependency lint for no996-editor.
  *
  * Why not eslint: this repository deliberately ships two runtime dependencies
  * and one dev dependency. What actually breaks here is not formatting taste —

@@ -198,7 +198,7 @@ export function createStudioController(ctx, createProxy, {
   const presetReport = reportPresetStatus(ctx);
   // Prove which Host build is actually running, without a browser session.
   // Written on every controller construction, so a plugin reload overwrites it.
-  void writeFile(join(tmpdir(), 'dsh-no996-editor-host.json'), JSON.stringify({
+  void writeFile(join(tmpdir(), 'no996-editor-host.json'), JSON.stringify({
     version: HOST_VERSION,
     pid: process.pid,
     startedAt: new Date().toISOString(),
@@ -869,7 +869,7 @@ export function createStudioController(ctx, createProxy, {
     } catch { /* the delete still has to run */ }
   };
   const chatTrace = createChatTrace();
-  if (chatTrace.enabled) void log.info('chat-trace', { enabled: true, dir: tmpdir() + '\\dsh-no996-editor\\trace' });
+  if (chatTrace.enabled) void log.info('chat-trace', { enabled: true, dir: tmpdir() + '\\no996-editor\\trace' });
   const isProjectAgent = agent => Boolean(agent && !disposed && nativeAgentService?.isProjectAgent?.(agent));
   // One project-scoped event fan-out feeds the official chat's stream.
   const eventHub = createOfficialEventHub();

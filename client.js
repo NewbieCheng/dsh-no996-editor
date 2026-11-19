@@ -2166,7 +2166,7 @@
 
   // src/studio/studio-entry.js
   window.__ModuleLoader__.load({
-    id: "@newbiecheng/dsh-no996-editor",
+    id: "@newbiecheng/no996-editor",
     factory(require2) {
       const React = require2("react");
       const h = React.createElement;
@@ -2323,7 +2323,7 @@
           const t = ctx.locale.bind(NS);
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
-          ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "@newbiecheng/dsh-no996-editor", locale: NS, label: () => t("envTitle") }, EnvSection));
+          ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "@newbiecheng/no996-editor", locale: NS, label: () => t("envTitle") }, EnvSection));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
           try {
             ctx.slots.inject("sidebar.brand.mark", () => {

@@ -159,7 +159,7 @@ function main() {
   if (!files.some(file => file.path === 'ui/index.html')) fail('Missing built shell/dist/index.html.');
   if (!files.some(file => /^ui\/assets\/.*\.js$/.test(file.path))) fail('Missing built shell JavaScript assets.');
   const manifest = {
-    generator: 'packages/dsh-no996-editor/scripts/build-official-shell.mjs',
+    generator: 'packages/no996-editor/scripts/build-official-shell.mjs',
     version: VERSION,
     commit: COMMIT,
     upstream: { project: 'OpenFilm', desktopVersion: VERSION, commit: COMMIT, license: 'MIT', licenseFile: 'source/LICENSE' },

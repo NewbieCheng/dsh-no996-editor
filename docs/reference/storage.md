@@ -20,9 +20,9 @@ rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 | 附件（抽帧图等） | `$DSH_HOME/attachments/v1/objects/<前2位>/<sha256>` | 内容寻址 |
 | 片型引导偏好 | `$DSH_HOME/no996-openfilm/preferences.json` | 提示（本机安装级） |
 | 账号会话 | `$DSH_HOME/no996-openfilm/workbench-auth.json` | token 只在 Host |
-| 预设激活报告 | `%TEMP%\dsh-no996-editor-preset.json` | 诊断 |
-| 插件日志 | `%TEMP%\dsh-no996-editor\plugin.log`（JSON Lines，脱敏） | 诊断 |
-| 帧记录 | `%TEMP%\dsh-no996-editor-frames.jsonl`（每轮覆盖） | 诊断 |
+| 预设激活报告 | `%TEMP%\no996-editor-preset.json` | 诊断 |
+| 插件日志 | `%TEMP%\no996-editor\plugin.log`（JSON Lines，脱敏） | 诊断 |
+| 帧记录 | `%TEMP%\no996-editor-frames.jsonl`（每轮覆盖） | 诊断 |
 | 影片项目 | 用户选择或 Studio 登记的项目目录（含 `film.html`、`assets/` 等） | 用户数据；不纳入源码或发布包 |
 
 ## 1.1 本机影片库

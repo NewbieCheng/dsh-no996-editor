@@ -1,7 +1,7 @@
 <!-- doc
 id: playbooks-incident-history
 reader: 追溯历史故障的人
-fact-source: 真实故障记录（2026-11）、%TEMP%/dsh-no996-editor/plugin.log、docs/architecture
+fact-source: 真实故障记录（2026-11）、%TEMP%/no996-editor/plugin.log、docs/architecture
 checked: historical
 rot-if: 仅在补充历史背景或修复链接时复核；不能当作当前行为
 -->
@@ -20,7 +20,7 @@ rot-if: 仅在补充历史背景或修复链接时复核；不能当作当前行
 1) 同一路由用 curl 打一次        → 请求到没到 Host？
 2) 看页面 location.origin        → dsh-app:// 下相对 /api 是 404
 3) 看 plugin.log 的最后 20 行     → 阶段、耗时、错误类别
-4) 看 %TEMP%/dsh-no996-editor-frames.jsonl → 一轮对话的真实分片
+4) 看 %TEMP%/no996-editor-frames.jsonl → 一轮对话的真实分片
 5) 重载插件（disable→enable）     → startedAt 必须变
 6) 才去看代码
 ```
@@ -268,7 +268,7 @@ ACP_REQUEST_FAILED`；模型菜单只剩「默认」；`plugin.log` 每两秒一
 
 ### 2026-11-14 · 插件「启用失败」：Cannot access 'registerRoute' before initialization
 
-**现象**：插件管理状态「异常」，红条 `1 entry did not activate dsh-no996-editor`，
+**现象**：插件管理状态「异常」，红条 `1 entry did not activate no996-editor`，
 面板完全打不开。与 2026-11-12 那条 `trackRoute` 是同一个病的新位置。
 
 **根因**：路由拆模块后，`createSystemRoutes({ register: registerRoute })` 排在

@@ -2,16 +2,16 @@
 
 把 **OpenFilm 0.4.0** 视频工作台做成 DSH 插件：官方 Studio 与桌面壳整页常驻在侧边栏，右侧对话在 Host 进程内直连 DSH 原生 `SessionController`（绑定 `openfilm-video-editing` 预设）。
 
-版本以 `package.json` 与 [CHANGELOG.md](CHANGELOG.md) 为准；"现在到哪了"看 [docs/STATE.md](docs/STATE.md)。仓库：`NewbieCheng/dsh-no996-editor`，分支 `main`。
+版本以 `package.json` 与 [CHANGELOG.md](CHANGELOG.md) 为准；"现在到哪了"看 [docs/STATE.md](docs/STATE.md)。仓库：`NewbieCheng/no996-editor`，分支 `main`。
 
 ## 安装
 
-包名：`@newbiecheng/dsh-no996-editor`（npmjs.org）。
+包名：`@newbiecheng/no996-editor`（npmjs.org）。
 
 1. 包发布在 npmjs.org，无需 token；直接用：`
 
 ```powershell
-dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor
+dsh plugin --profile desktop add @newbiecheng/no996-editor
 ```
 
 或在 DSH 插件管理器按包名安装。安装 / 更新 / 发版手册：[`docs/playbooks/publish.md`](docs/playbooks/publish.md)。
@@ -71,6 +71,6 @@ dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor
 
 ## English summary
 
-`dsh-no996-editor` packages the official OpenFilm 0.4.0 studio and desktop shell as a DSH plugin. The Host starts the official Studio on a loopback port, reverse-proxies it, and bridges the shell's chat column to a DSH session (models, approvals and cancellation stay DSH's). The official UI is vendored as a pinned build with a reviewable, replayable source patch series.
+`no996-editor` packages the official OpenFilm 0.4.0 studio and desktop shell as a DSH plugin. The Host starts the official Studio on a loopback port, reverse-proxies it, and bridges the shell's chat column to a DSH session (models, approvals and cancellation stay DSH's). The official UI is vendored as a pinned build with a reviewable, replayable source patch series.
 
-Install `@newbiecheng/dsh-no996-editor` from npmjs.org (see `docs/playbooks/publish.md`). Node 22.2+, DSH with `session-controller`/`storageDomain`/`webServer`, and `ffmpeg`/`ffprobe` for video metadata. Upstream is MIT; its license, notices and trademark terms are preserved under `vendor/official-shell`. Product names and marks here do not imply upstream endorsement.
+Install `@newbiecheng/no996-editor` from npmjs.org (see `docs/playbooks/publish.md`). Node 22.2+, DSH with `session-controller`/`storageDomain`/`webServer`, and `ffmpeg`/`ffprobe` for video metadata. Upstream is MIT; its license, notices and trademark terms are preserved under `vendor/official-shell`. Product names and marks here do not imply upstream endorsement.

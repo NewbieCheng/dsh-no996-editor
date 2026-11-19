@@ -4,7 +4,7 @@
 
 ## 0.17.1 - 品牌改名与 npmjs 发布通道
 
-- 插件改名为 @newbiecheng/dsh-no996-editor（不加班剪辑 / No996 Editor），发布通道改为 npmjs.org，GUI 版本检测可正常识别更新。
+- 插件改名为 @newbiecheng/no996-editor（不加班剪辑 / No996 Editor），发布通道改为 npmjs.org，GUI 版本检测可正常识别更新。
 - DSH 兼容下限放宽到 >=0.2.1。
 
 ## 0.17.0 —— Vibe 科普创作能力全面产品化与 4 档智能工作模式
@@ -81,25 +81,25 @@
 ## 0.15.29 —— 小写 scope，恢复「版本」Tab
 
 - **根因**：DSH `PACKAGE_NAME` 只允许小写 scope（`@[a-z0-9]…`）。`@NewbieCheng/…` 过不了校验，Host 不标 `update: registry`，插件详情页就没有「版本」区（`dsh-ops` 能显示是因为包名全小写）。
-- **修复**：包名、cordis 模块名、客户端 ModuleLoader id、npmrc scope 一律改为 `@newbiecheng/dsh-no996-editor`；用户需删掉旧 `@NewbieCheng/…` 依赖后按手册重装。
+- **修复**：包名、cordis 模块名、客户端 ModuleLoader id、npmrc scope 一律改为 `@newbiecheng/no996-editor`；用户需删掉旧 `@NewbieCheng/…` 依赖后按手册重装。
 
 ## 0.15.28 —— 客户端 ModuleLoader id 对齐 scope 包名
 
-- **根因**：包名改成 scoped 后，客户端仍用 `id: 'dsh-no996-editor'` 注册，Host 能起、侧栏「视频创作」挂不上；对照 `@michengai/dsh-archive-manager` 的 id 必须等于 npm 包名。
+- **根因**：包名改成 scoped 后，客户端仍用 `id: 'no996-editor'` 注册，Host 能起、侧栏「视频创作」挂不上；对照 `@michengai/dsh-archive-manager` 的 id 必须等于 npm 包名。
 - **修复**：`studio-entry.js` / `client-entry.js` 的 ModuleLoader id 改为与包名一致。
 
 ## 0.15.27 —— Registry 为唯一安装通道；cordis 模块名对齐 scope
 
 - **手册**：安装/更新/发版收敛到 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)（其后删除 `release.md` / 旧跳转稿，只留这一篇）。
-- **加载**：`cordis.patch.yml` 的 Host / prompt / skills 模块名改为 `@newbiecheng/dsh-no996-editor…`（与 npm 包名一致，否则 registry 安装后挂不上）。
+- **加载**：`cordis.patch.yml` 的 Host / prompt / skills 模块名改为 `@newbiecheng/no996-editor…`（与 npm 包名一致，否则 registry 安装后挂不上）。
 - **用户侧**：只从 GitLab Package Registry 安装；本机 desktop 亦切离 `link:`。
 
 ## 0.15.26 —— GitLab Package Registry（DSH 原生更新）
 
-- **包名**：`@newbiecheng/dsh-no996-editor`（带 scope，供 GitLab npm registry）。
+- **包名**：`@newbiecheng/no996-editor`（带 scope，供 GitLab npm registry）。
 - **发布通道**：发到 GitLab Package Registry（npm 协议），不再依赖 GitHub Release / 本地 tgz 作为用户更新源；源码主仓仍只推 GitHub。
 - **清单**：`publishConfig.registry`、`engines.dsh`、`repository.url`、`manifestVersion`。
-- **用户更新**：配置 `@newbiecheng` scope → registry 后，`dsh plugin add @newbiecheng/dsh-no996-editor`；之后走 DSH「版本」Tab 检测与一键更新。
+- **用户更新**：配置 `@newbiecheng` scope → registry 后，`dsh plugin add @newbiecheng/no996-editor`；之后走 DSH「版本」Tab 检测与一键更新。
 
 ## 0.15.25 —— 不加班配音真正进 openfilm get list
 
@@ -372,7 +372,7 @@ loopback 回连，`acp-stream-connected` 出现，两帧增量与 `seal` 都到�
   （source）与 `delete-failed`（code）。
 - **报错说人话**：客户端不再吞服务端返回码，红条会写出具体原因并指向 `plugin.log`。
 - **事件落盘**：`NO996_OPENFILM_TRACE=1` 时每轮把每个事件的形状写进
-  `%TEMP%\dsh-no996-editor\trace\<projectId>.jsonl`（只记 kind/长度/标题，不记模型原文）。
+  `%TEMP%\no996-editor\trace\<projectId>.jsonl`（只记 kind/长度/标题，不记模型原文）。
 - 「非流式」不是面板能修的：ACP 一轮只给 1 个 `agent_message_chunk`（日志可证），逐字流要等上游。
 
 ## 0.15.5 —— 把「这轮到底跑在哪个模型上」写进日志
@@ -990,7 +990,7 @@ Host 侧改动需要**重启 DSH**；界面刷新用 Ctrl+Shift+R 即可。旧�
 **统一运行日志：崩溃与异常都能事后查**
 
 - 新增 `src/plugin-log.mjs`：JSON Lines、**脱敏**、**轮转**（512 KB，保留 1 个旧文件）、内存里保留最近 200 条。
-- 落点：`%TEMP%\dsh-no996-editor\plugin.log`。上游 5xx 的原始响应体仍在 `%TEMP%\dsh-no996-editor-errors.jsonl`。
+- 落点：`%TEMP%\no996-editor\plugin.log`。上游 5xx 的原始响应体仍在 `%TEMP%\no996-editor-errors.jsonl`。
 - 记录什么：`host-start`（版本/端口/模式）、`studio-warm`/`studio-warm-failed`（含耗时）、`host-stop`（存活时长）、`ticket-minted`/`ticket-redeemed`、`upstream-5xx`（方法/路径/状态）、`upstream-error`（连接失败原因）、以及页面侧事件 `page-recovery-shown`/`page-restart-click`。
 - 不记录什么：密钥、票据、cookie、会话 ID、项目绝对路径与名称——这些字段一律替换成 `[redacted]` 或 10 位摘要+长度。
 - `POST /api/no996-openfilm/diagnose` 现在带回 `log.file` 与最近 12 条（`log.tail`），面板静默时贴出来的那段 JSON 就自带历史。
@@ -1076,8 +1076,8 @@ Host 侧改动需要**重启 DSH**；界面刷新用 Ctrl+Shift+R 即可。旧�
 
 **重载方式更正：插件可以热插拔，不必退出 DSH**
 
-- 实测：`plugin_manager set_plugin enabled=false` → `enabled=true`（target `include:dsh-no996-editor`）会让加载器重新求值 Host 模块，新代码立即生效（进程 PID 不变）。此前文档里“必须重启 Host”的说法是错的。
-- 新增 `%TEMP%\dsh-no996-editor-host.json`：每次插件装配写 `{version,pid,startedAt}`。重载后 `startedAt` 不是新时间，就说明看到的还是旧代码。
+- 实测：`plugin_manager set_plugin enabled=false` → `enabled=true`（target `include:no996-editor`）会让加载器重新求值 Host 模块，新代码立即生效（进程 PID 不变）。此前文档里“必须重启 Host”的说法是错的。
+- 新增 `%TEMP%\no996-editor-host.json`：每次插件装配写 `{version,pid,startedAt}`。重载后 `startedAt` 不是新时间，就说明看到的还是旧代码。
 - 页面仍需 `Ctrl+Shift+R` 刷新：注入到官方页面的 UI 属于服务端返回的 HTML。
 
 ## 0.4.2

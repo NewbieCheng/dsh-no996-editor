@@ -1,4 +1,4 @@
-# AGENTS.md — dsh-no996-editor / No996 Studio
+# AGENTS.md — no996-editor / No996 Studio
 
 给在本仓工作的智能体的操作手册。**先读四篇**：[`README.md`](README.md)、[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)、[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)、[`docs/STATE.md`](docs/STATE.md)；地图 [`docs/index.md`](docs/index.md)。
 
@@ -12,7 +12,7 @@
 
 1. **不碰用户既有项目和会话。** 模板安装只新建目录；不迁移、不删除、不改写别人的 `film.html`。
 2. **自动化测试禁止真实模型调用。** 只用 mock 与 `mkdtemp`。
-3. **源码只推 GitHub `NewbieCheng/dsh-no996-editor`。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/dsh-no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
+3. **源码只推 GitHub `NewbieCheng/no996-editor`。** 插件只从 npmjs.org 安装/更新（包名 **`@newbiecheng/no996-editor`，必须小写**），手册 [`docs/playbooks/publish.md`](docs/playbooks/publish.md)；不要把 npmjs 当源码主仓，不要用本地 `.tgz` / `link:` 当用户通道。
 4. **未验证不得声称完成。** 真机 GUI 里看到行为才算“好了”。
 5. **不要把 `openfilm_draft` 当保存**（纯内存草稿）；**不要把 Studio 代理当安全边界**（本机回环集成，不是沙箱）。
 
@@ -27,7 +27,7 @@
 | 事 | 命令 / 动作 |
 |---|---|
 | 本机调试装 | 打包工作区 → `dsh plugin --profile desktop add <本地包>`（仅本机调试；先记下当前版本，验证完按需回滚） |
-| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor` / 版本选项卡 → 整应用重启 |
+| 用户装 / 更 | `dsh plugin --profile desktop add @newbiecheng/no996-editor` / 版本选项卡 → 整应用重启 |
 | 发 | 版本与说明、烘焙/构建产物就绪并提交 → `npm run release:check`（完整检查、registry 与构建打包验证；不发布）→ **用户当轮明确要求后**运行 `powershell -File .\scripts\npmjs-publish.ps1` → `npm view` + 真机「版本」区 |
 | 包丢了 | `dsh plugin --profile desktop install`（勿在 Windows 手删 `@NewbieCheng`/`@newbiecheng` 目录） |
 
@@ -82,5 +82,5 @@ openfilm_library(kind=template, take=<id>)
 ## 5. 端口、证据与规范
 
 - **端口**：编辑器代理 `:47822`、调试窗口 `:47821`（`0`=关）；桌面页面来源为 `dsh-app://app`。变量全表见 [`docs/reference/env-vars.md`](docs/reference/env-vars.md)。
-- **证据入口**：出事先看 [`docs/playbooks/incident.md`](docs/playbooks/incident.md)。`POST /api/no996-openfilm/diagnose` 与 `%TEMP%\dsh-no996-editor\plugin.log`；进度只写在 [`docs/STATE.md`](docs/STATE.md)。
+- **证据入口**：出事先看 [`docs/playbooks/incident.md`](docs/playbooks/incident.md)。`POST /api/no996-openfilm/diagnose` 与 `%TEMP%\no996-editor\plugin.log`；进度只写在 [`docs/STATE.md`](docs/STATE.md)。
 - **不要做**：不手改 `client.js`；不让 `openfilm_draft` 承担保存/导出；不声称未接通的预览/导出沙箱已接通；不在业务提示词里塞风格库/镜头卡/模板全文。

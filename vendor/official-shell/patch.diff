@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..096df0f 100644
+index 26575ee..de421c6 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -70,7 +70,7 @@ index 26575ee..096df0f 100644
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
    React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
-+  /* dsh-no996-editor: the sidebar editing area switches conversations inside the same
++  /* no996-editor: the sidebar editing area switches conversations inside the same
 +     project folder (and across projects) via a custom window event. */
 +  React.useEffect(() => {
 +    const onSelect = (event: Event) => {
@@ -100,7 +100,7 @@ index 26575ee..096df0f 100644
 +    window.addEventListener('no996-openfilm:select-session', onSelect);
 +    return () => window.removeEventListener('no996-openfilm:select-session', onSelect);
 +  }, [project.id, projectKey]);
-+  /* dsh-no996-editor: the sidebar outside this page (and Studio itself) can add or
++  /* no996-editor: the sidebar outside this page (and Studio itself) can add or
 +     delete a conversation while this list sits in state. Re-read on a slow tick and
 +     when the window comes back, so both sides agree without a reload. A deleted
 +     conversation that was open leaves the empty starter — it must not silently
@@ -131,7 +131,7 @@ index 26575ee..096df0f 100644
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
-+  /* dsh-no996-editor: files may be let go anywhere in the page, not only on the composer card */
++  /* no996-editor: files may be let go anywhere in the page, not only on the composer card */
 +  const [pageDropping, setPageDropping] = React.useState(false);
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
@@ -140,7 +140,7 @@ index 26575ee..096df0f 100644
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
-+  /* dsh-no996-editor: the host page catches drops the frame cannot see and hands the
++  /* no996-editor: the host page catches drops the frame cannot see and hands the
 +     files over; this is where they join the composer. Host never fires our
 +     drop/dragleave, so clear pageDropping here or "松手即可附上" sticks. */
 +  React.useEffect(() => {
@@ -156,12 +156,12 @@ index 26575ee..096df0f 100644
      (data: DataTransfer) => transferHasStudioRefs(data) || [...data.types].includes('Files'),
      [],
    );
-+  /* dsh-no996-editor: take a file anywhere in this page.
++  /* no996-editor: take a file anywhere in this page.
 +     Embedded in a host window there is often no drop target but this composer, and the "素材丢这里" box was text
 +     that accepted nothing — every other pixel showed the system's "no entry" cursor. The composer keeps its own
 +     handler (it knows where the caret is); this one catches the rest and puts the pill at the pointer. */
 +  React.useEffect(() => {
-+    /* dsh-no996-editor: `types` is not reliable for a drag that starts outside the
++    /* no996-editor: `types` is not reliable for a drag that starts outside the
 +       app (an OS file drag can reach `dragover` with an empty list), and a page
 +       that does not preventDefault on dragover is refused outright — the cursor
 +       stays at "no entry" and no drop follows. So accept the hover, then decide
@@ -204,7 +204,7 @@ index 26575ee..096df0f 100644
      });
      return pills;
    }, []);
-+  /* dsh-no996-editor: attach the current conversation on open/switch so context usage
++  /* no996-editor: attach the current conversation on open/switch so context usage
 +     and real model/thinking options populate without waiting for a user prompt. */
 +  const resumeSessionId = shownSessionItem?.agentSessions?.[agent] ?? null;
 +  const ownAgentPrefs = shownSessionItem?.agentPrefs?.[agent];
@@ -339,14 +339,14 @@ index 26575ee..096df0f 100644
                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                    {/* the first message well below the session bar, as a chat app opens a conversation; the last well above
 diff --git a/apps/desktop/chat/src/components/AgentActivityRow.tsx b/apps/desktop/chat/src/components/AgentActivityRow.tsx
-index 69c82b6..c22699c 100644
+index 69c82b6..b50d95d 100644
 --- a/apps/desktop/chat/src/components/AgentActivityRow.tsx
 +++ b/apps/desktop/chat/src/components/AgentActivityRow.tsx
 @@ -45,6 +45,8 @@ export interface AgentActivityItem {
    query?: string;
    /** A local agent's file name or command (no quotes: it is not film content). */
    detail?: string;
-+  /** dsh-no996-editor: the real tool that ran (`openfilm_frame`, `web_search`), when the agent named it. */
++  /** no996-editor: the real tool that ran (`openfilm_frame`, `web_search`), when the agent named it. */
 +  tool?: string;
    plan?: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' }>;
    /** The question the agent asks the user (chat.ask). */
@@ -358,7 +358,7 @@ index 69c82b6..c22699c 100644
 -       need splitting by hand; block parsing also drops extra blank lines. */
 +       need splitting by hand; block parsing also drops extra blank lines.
 +
-+       dsh-no996-editor: the row grows while the model writes (see LocalAgentTurn.stream), so the markdown
++       no996-editor: the row grows while the model writes (see LocalAgentTurn.stream), so the markdown
 +       is re-read as the text arrives, exactly as the agent's own interface draws it. */
      const text = item.text ?? '';
      if (!text.trim()) return null;
@@ -372,7 +372,7 @@ index 69c82b6..c22699c 100644
   *
 - * While thinking, one shimmering row; then "Thought for 6s", which opens to the agent's own reasoning in
 - * muted gray. That text is written for itself, so it starts closed, as Codex and Claude Code show it.
-+ * dsh-no996-editor: the reasoning is shown, not hidden — a bridging agent reports it, and a person watching
++ * no996-editor: the reasoning is shown, not hidden — a bridging agent reports it, and a person watching
 + * a film get edited wants to see what the agent weighed. It starts *collapsed* (the "thought for 16s"
 + * header, one click away), because a long reasoning block would otherwise push the answer off screen.
 + * When opened it is capped at THOUGHT_MAX_HEIGHT and scrolls inside itself: the row never grows past a
@@ -428,7 +428,7 @@ index 69c82b6..c22699c 100644
            className="flex h-6 max-w-full min-w-0 items-center gap-1.5 text-left"
          >
            <ActivityLabel label={item.label} pending={!!item.pending} />
-+          {/* dsh-no996-editor: what actually ran, next to what it meant for the film. A bridging agent
++          {/* no996-editor: what actually ran, next to what it meant for the film. A bridging agent
 +              reports the tool name; without it the row only says "已检查影片" and the person cannot
 +              tell which tool was called. */}
 +          {item.tool ? (
@@ -445,7 +445,7 @@ index 69c82b6..c22699c 100644
  export function StatusLine({ items, fallback, ownAgent = false }: { items: AgentActivityItem[]; fallback?: string | null; ownAgent?: boolean }) {
    const t = useT();
 -  const running = React.useMemo(() => pendingWork(items), [items]);
-+  /* dsh-no996-editor: a pending thought already has its own row — ThoughtRow shows "正在思考" with its
++  /* no996-editor: a pending thought already has its own row — ThoughtRow shows "正在思考" with its
 +     chevron — so counting it here printed the same words twice, one under the other. The status row
 +     reports work only; reasoning is the thought row's business. */
 +  const pending = React.useMemo(() => pendingWork(items), [items]);
@@ -709,14 +709,14 @@ index 102217b..6cd222b 100644
        )}
      </div>
 diff --git a/apps/desktop/chat/src/components/Markdown.tsx b/apps/desktop/chat/src/components/Markdown.tsx
-index ebd7224..c4cc286 100644
+index ebd7224..abe0617 100644
 --- a/apps/desktop/chat/src/components/Markdown.tsx
 +++ b/apps/desktop/chat/src/components/Markdown.tsx
 @@ -142,6 +142,9 @@ function inline(text: string): React.ReactNode[] {
      }
      if (piece.kind === 'strong') return <strong key={index} className="font-semibold">{withRefs(piece.text)}</strong>;
      if (piece.kind === 'em') return <em key={index} className="italic">{withRefs(piece.text)}</em>;
-+    /* dsh-no996-editor: a picture in the transcript, drawn in place — a rendered frame or a contact sheet
++    /* no996-editor: a picture in the transcript, drawn in place — a rendered frame or a contact sheet
 +       reads as an image, and clicking it opens the full-size preview. */
 +    if (piece.kind === 'image') return <InlinePicture key={index} src={piece.href} />;
      if (piece.kind === 'link' && audioLinkPath(piece.href)) return <AudioLink key={index} href={piece.href} text={piece.text} />;
@@ -727,7 +727,7 @@ index ebd7224..c4cc286 100644
  }
  
 +/**
-+ * dsh-no996-editor: ![](url) drawn as a picture.
++ * no996-editor: ![](url) drawn as a picture.
 + *
 + * The frame an agent renders is the thing the person is looking at, so it belongs in the conversation
 + * rather than behind a link. Clicking opens the same full-size preview attachments use.
@@ -754,7 +754,7 @@ index ebd7224..c4cc286 100644
  function AudioLink({ href, text }: { href: string; text: string }) {
    const folder = React.useContext(ProjectFolderContext);
 diff --git a/apps/desktop/chat/src/components/ModelPopover.tsx b/apps/desktop/chat/src/components/ModelPopover.tsx
-index a72d3ce..8eee5cd 100644
+index a72d3ce..504dfe6 100644
 --- a/apps/desktop/chat/src/components/ModelPopover.tsx
 +++ b/apps/desktop/chat/src/components/ModelPopover.tsx
 @@ -4,16 +4,11 @@
@@ -768,7 +768,7 @@ index a72d3ce..8eee5cd 100644
 - * The chat is a view of its own and nothing can be drawn outside it, and the two never cover each other: the side menu
 - * takes the room beside the card (a long name wraps to fit), the card slides left to make that room, and in a narrow
 - * chat the card narrows to half of it.
-+ * its speed when it has one (agent-menu-rows.ts), each with its value. dsh-no996-editor: choosing a row replaces the menu
++ * its speed when it has one (agent-menu-rows.ts), each with its value. no996-editor: choosing a row replaces the menu
 + * with that row's choices — one card, one level at a time, the way DSH's own menus work — and the back arrow returns;
 + * picking a choice applies it and returns as well.
   */
@@ -1030,7 +1030,7 @@ index a72d3ce..8eee5cd 100644
 +                  const selected = chosenValue(choosing) === choice.value;
 +                  return (
 +                    <React.Fragment key={String(choice.value)}>
-+                      {/* dsh-no996-editor: a long list is grouped by whose models they are, the way
++                      {/* no996-editor: a long list is grouped by whose models they are, the way
 +                          DSH's own menu is, so a name is short enough to read in full. */}
 +                      {heading ? (
 +                        <div data-agent-choice-group={heading} className="px-2.5 pb-0.5 pt-2 text-[11px] font-medium text-[var(--text-faint)]">{heading}</div>
@@ -2438,7 +2438,7 @@ index 92e929a..1abde2d 100644
 +  },
  };
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
-index a5ba7ea..16958b8 100644
+index a5ba7ea..482af50 100644
 --- a/apps/desktop/chat/src/lib/agent-activity-runs.ts
 +++ b/apps/desktop/chat/src/lib/agent-activity-runs.ts
 @@ -14,7 +14,7 @@ import type { AgentActAsset } from '@openfilm/shared';
@@ -2456,7 +2456,7 @@ index a5ba7ea..16958b8 100644
      /* Status words (thinking, working…) stay in the status line, not the tool list. */
 -    if (item.kind === 'thought' || isEphemeral(item)) continue;
 +    if (isEphemeral(item)) continue;
-+    /* dsh-no996-editor: a thought gets a row of its own. It used to be dropped here, which made the
++    /* no996-editor: a thought gets a row of its own. It used to be dropped here, which made the
 +       renderer's ThoughtRow unreachable and left a reasoning turn looking like it did nothing. */
 +    if (item.kind === 'thought') {
 +      runs.push({ items: [item] });
@@ -2467,7 +2467,7 @@ index a5ba7ea..16958b8 100644
      const work = isWork(item);
      if (last && lastIsWork && work) {
 diff --git a/apps/desktop/chat/src/lib/agent-menu-rows.ts b/apps/desktop/chat/src/lib/agent-menu-rows.ts
-index 603a205..af710c4 100644
+index 603a205..3a47d47 100644
 --- a/apps/desktop/chat/src/lib/agent-menu-rows.ts
 +++ b/apps/desktop/chat/src/lib/agent-menu-rows.ts
 @@ -27,7 +27,11 @@ export function menuOptions(options: MenuOption[] | undefined, defaultName: stri
@@ -2475,7 +2475,7 @@ index 603a205..af710c4 100644
      : { id: found?.id ?? category, name: found?.name ?? category, category, fixed: true, options: found?.options?.length ? found.options : [{ value: null, name: defaultName }] });
    const speed = pick(isSpeed, 2);
 -  return [always('model', pick((o) => o.category === 'model', 1)), always('thought_level', pick((o) => o.category === 'thought_level', 1)), ...(speed ? [speed] : [])];
-+  /* dsh-no996-editor: a row the Host offers as a choice of its own — DSH's permission
++  /* no996-editor: a row the Host offers as a choice of its own — DSH's permission
 +     preset for the video tools. Rendered only when it really has choices, so an
 +     agent that reports none keeps the menu it had. */
 +  const permission = pick((o) => o.category === 'permission', 2);
@@ -2484,7 +2484,7 @@ index 603a205..af710c4 100644
  
  /**
 diff --git a/apps/desktop/chat/src/lib/agent-transcript.ts b/apps/desktop/chat/src/lib/agent-transcript.ts
-index 48d05f4..1c4f313 100644
+index 48d05f4..2aa903f 100644
 --- a/apps/desktop/chat/src/lib/agent-transcript.ts
 +++ b/apps/desktop/chat/src/lib/agent-transcript.ts
 @@ -16,6 +16,7 @@ import {
@@ -2521,7 +2521,7 @@ index 48d05f4..1c4f313 100644
 +  const next = items.map((item) => {
 +    if (item.kind !== 'thought' || !item.pending) return item;
 +    changed = true;
-+    /* dsh-no996-editor: the turn has one thought row, so it is closed and reopened several times; the end
++    /* no996-editor: the turn has one thought row, so it is closed and reopened several times; the end
 +       time is the latest close, not the first, or the row would report the first tool call's moment as
 +       the end of its thinking. */
 +    return { ...item, pending: false, endedAt: now };
@@ -2561,7 +2561,7 @@ index 48d05f4..1c4f313 100644
 -    case 'agent-thinking':
 -      return items;
 +    /**
-+     * dsh-no996-editor: thinking is kept as a row of its own.
++     * no996-editor: thinking is kept as a row of its own.
 +     *
 +     * It used to only drive the status line underneath, which is all a built-in agent's reasoning could
 +     * do — it never sent any. Our bridging agent does send it, so a turn that thought for 16s should say
@@ -2603,7 +2603,7 @@ index 48d05f4..1c4f313 100644
      /* The agent's question settled (answered / skipped / timed out): write it back to its row, so the conversation
         reads "asked what · answered what". The question's id is not the tool call's callId, so match the latest
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..a1ac7a7 100644
+index 9134f7a..e756e31 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
 @@ -82,12 +82,55 @@ async function readAgain(project: string): Promise<void> {
@@ -2611,7 +2611,7 @@ index 9134f7a..a1ac7a7 100644
  }
  
 +/**
-+ * dsh-no996-editor: re-read this project's conversations from the Host and replace what
++ * no996-editor: re-read this project's conversations from the Host and replace what
 + * the page holds.
 + *
 + * The sidebar outside this page can delete or add a conversation, and Studio can
@@ -2663,14 +2663,14 @@ index 9134f7a..a1ac7a7 100644
  export function setLastSession(project: string, id: string) {
    const chat = record(project);
 diff --git a/apps/desktop/chat/src/lib/desktop-attachments.ts b/apps/desktop/chat/src/lib/desktop-attachments.ts
-index eb12f7b..56424a3 100644
+index eb12f7b..b24ab24 100644
 --- a/apps/desktop/chat/src/lib/desktop-attachments.ts
 +++ b/apps/desktop/chat/src/lib/desktop-attachments.ts
 @@ -64,6 +64,10 @@ export function useDesktopAttachments(project: string) {
    /** Takes the files in; their records come back at once, for their pills to go into the sentence. */
    const add = React.useCallback((incoming: File[]): DesktopAttachment[] => {
      const bridge = (window as unknown as { openfilmDesktop?: { pathForFile?: (f: File) => string } }).openfilmDesktop;
-+    /* dsh-no996-editor: embedded in a host window there is no openfilmDesktop bridge, but that window can still
++    /* no996-editor: embedded in a host window there is no openfilmDesktop bridge, but that window can still
 +       resolve a dropped file's real path (Electron's webUtils). Without it every drop would be copied into the
 +       project; with it the message names the file where it already sits, as the desktop app's does. */
 +    const hostPath = (window as unknown as { __no996HostPath?: (file: File) => Promise<string> }).__no996HostPath;
@@ -2730,7 +2730,7 @@ index eb12f7b..56424a3 100644
    }, [project, thumbnail]);
  
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..c3f0db1 100644
+index 0ef8753..8307ce0 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -2747,7 +2747,7 @@ index 0ef8753..c3f0db1 100644
   * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
   * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
 + *
-+ * dsh-no996-editor: the Host MCP server is named `no996-openfilm` (see mcpServerEntry). Titles arrive as
++ * no996-editor: the Host MCP server is named `no996-openfilm` (see mcpServerEntry). Titles arrive as
 + * `mcp.no996-openfilm.openfilm_transcribe` or bare `openfilm_*`. Only recognizing `server === 'openfilm'`
 + * made every Host tool look like "someone else's MCP" and return null — the panel showed a long
 + * thought and no tool rows (2026-11-16).
@@ -2835,7 +2835,7 @@ index 0ef8753..c3f0db1 100644
      }
 -    case 'agent_thought_chunk':
 -      return { type: 'agent-thinking' };
-+    /* dsh-no996-editor: the bridging agent does report its reasoning, so carry the text through instead of
++    /* no996-editor: the bridging agent does report its reasoning, so carry the text through instead of
 +     * dropping it — the transcript turns it into a "thought for 6s" block the person can open. */
 +    case 'agent_thought_chunk': {
 +      const content = update.content as { type?: string; text?: string } | undefined;
@@ -2862,7 +2862,7 @@ index 0ef8753..c3f0db1 100644
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
-+        /* dsh-no996-editor: the real tool name travels beside the act, so the row can say what ran. The
++        /* no996-editor: the real tool name travels beside the act, so the row can say what ran. The
 +           bridging agent knows it; the closed act only says what it meant for the film. */
 +        ...(named ? { tool: named.slice(0, 80) } : {}),
        };
@@ -2872,7 +2872,7 @@ index 0ef8753..c3f0db1 100644
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
-+  /* dsh-no996-editor: which row the live frames of one provider attempt grow. The frames carry DSH's own
++  /* no996-editor: which row the live frames of one provider attempt grow. The frames carry DSH's own
 +     attempt id (see src/acp-stream-tap.mjs) — a branded string like `<session>:1`, not a counter — so a
 +     delayed commit or an interleaved tool call cannot make a later attempt's words land in an earlier
 +     paragraph. Keyed in arrival order; a commit retires the oldest attempt whose text it covers
@@ -2928,7 +2928,7 @@ index 0ef8753..c3f0db1 100644
 +  /**
 +   * It is thinking: the turn keeps one thought row, and a later stretch of reasoning adds to it.
 +   *
-+   * dsh-no996-editor: a tool call in between used to close the row and the next update opened
++   * no996-editor: a tool call in between used to close the row and the next update opened
 +   * `thought:<turnNo>:<n+1>`, so a turn with fifty tool calls reported fifty "thought for 6s" blocks
 +   * for one stretch of reasoning. One row per turn now; it stays open while it thinks and reports the
 +   * turn's thinking time when the turn moves on (see reduceTranscript's closeThoughts).
@@ -2974,7 +2974,7 @@ index 0ef8753..c3f0db1 100644
 +  /**
 +   * The words as they are being written.
 +   *
-+   * dsh-no996-editor: ACP hands a message over only once it is committed (dsh-acp reports the durable
++   * no996-editor: ACP hands a message over only once it is committed (dsh-acp reports the durable
 +   * `assistant/message`), which made a long answer appear in one frame. The child process does see
 +   * the provider deltas, so the Host forwards them here (src/acp-stream-tap.mjs), and every frame
 +   * names the provider attempt it belongs to. The row is claimed per attempt, so a delayed commit
@@ -3082,7 +3082,7 @@ index 0ef8753..c3f0db1 100644
 +}
 +
 +/**
-+ * dsh-no996-editor: bind the page key and read context usage + configOptions when a
++ * no996-editor: bind the page key and read context usage + configOptions when a
 + * conversation is opened or switched — without waiting for the first prompt.
 + */
 +export async function attachLocalAgentSession({
@@ -3150,7 +3150,7 @@ index 0ef8753..c3f0db1 100644
 +}
 +
 +/**
-+ * dsh-no996-editor: push a model/thinking/permission selection straight to the
++ * no996-editor: push a model/thinking/permission selection straight to the
 + * currently attached live session so changes apply before a turn is sent.
 + */
 +export async function applyLiveSessionOption(
@@ -3309,7 +3309,7 @@ index 0ef8753..c3f0db1 100644
    /* a turn the agent was working on by itself ends as the person writes */
    endUnprompted(session.key);
 diff --git a/apps/desktop/chat/src/state/local-agent-store.ts b/apps/desktop/chat/src/state/local-agent-store.ts
-index a2d59f9..4b3d7d9 100644
+index a2d59f9..c35d028 100644
 --- a/apps/desktop/chat/src/state/local-agent-store.ts
 +++ b/apps/desktop/chat/src/state/local-agent-store.ts
 @@ -18,7 +18,7 @@ import {
@@ -3381,14 +3381,14 @@ index a2d59f9..4b3d7d9 100644
      const choice = modelOpt.options?.find((o) => o.value === value);
      const raw = value === 'default' && choice?.description ? choice.description : optionLabel(options, modelOpt.id, value);
 -    model = raw ? (raw.split('·')[0]!.replace(/\s*\([^)]*\)/g, '').trim() || raw) : null;
-+    /* dsh-no996-editor: the Host names a model <group> / <model>; the button says the model, the menu says the group */
++    /* no996-editor: the Host names a model <group> / <model>; the button says the model, the menu says the group */
 +    const named = raw && raw.includes(' / ') ? raw.slice(raw.indexOf(' / ') + 3) : raw;
 +    model = named ? (named.split('·')[0]!.replace(/\s*\([^)]*\)/g, '').trim() || named) : null;
    }
    const effortValue = effortOpt ? optionValue(options, prefs, effortOpt.id) : undefined;
 -  const effort = effortOpt && effortValue !== 'default' ? optionLabel(options, effortOpt.id, effortValue) : null;
 +  const effortRaw = effortOpt && effortValue !== 'default' ? optionLabel(options, effortOpt.id, effortValue) : null;
-+  /* dsh-no996-editor: the composer button says the rung, not its paragraph. "自动（按这一句话的内容）" pushed
++  /* no996-editor: the composer button says the rung, not its paragraph. "自动（按这一句话的内容）" pushed
 +     the model name out of the button; "自动" is what the person needs there. */
 +  const effort = effortRaw ? (effortRaw.replace(/[（(][^）)]*[）)]/g, '').trim() || effortRaw) : null;
    return { model, effort };
@@ -9062,7 +9062,7 @@ index 340ad66..0750abb 100644
 +  return cur.length >= next.length ? cur : next;
 +}
 diff --git a/packages/shared/src/markdown-blocks.ts b/packages/shared/src/markdown-blocks.ts
-index bfafa9c..b08a1d4 100644
+index bfafa9c..1277fb9 100644
 --- a/packages/shared/src/markdown-blocks.ts
 +++ b/packages/shared/src/markdown-blocks.ts
 @@ -179,7 +179,9 @@ export type MarkdownInline =
@@ -9071,7 +9071,7 @@ index bfafa9c..b08a1d4 100644
    | { kind: 'em'; text: string }
 -  | { kind: 'link'; text: string; href: string };
 +  | { kind: 'link'; text: string; href: string }
-+  /** dsh-no996-editor: ![](url) — a picture in the transcript (a rendered frame, a contact sheet). */
++  /** no996-editor: ![](url) — a picture in the transcript (a rendered frame, a contact sheet). */
 +  | { kind: 'image'; href: string };
  
  /**
@@ -9082,7 +9082,7 @@ index bfafa9c..b08a1d4 100644
      const safe = safeMarkdownHref(href);
 -    if (!safe || !linkText.trim()) return null;
 +    if (!safe) return null;
-+    /* dsh-no996-editor: `![](url)` is a picture, not a link. An empty label is how markdown writes one,
++    /* no996-editor: `![](url)` is a picture, not a link. An empty label is how markdown writes one,
 +       and a rendered frame or a contact sheet is exactly what a film agent produces. */
 +    if (!linkText.trim()) return { kind: 'image', href: safe };
      return { kind: 'link', text: linkText, href: safe };
@@ -9090,11 +9090,11 @@ index bfafa9c..b08a1d4 100644
    return null;
 diff --git a/packages/shared/src/no996-brand.ts b/packages/shared/src/no996-brand.ts
 new file mode 100644
-index 0000000..7ed08c9
+index 0000000..bb2b35c
 --- /dev/null
 +++ b/packages/shared/src/no996-brand.ts
 @@ -0,0 +1,7 @@
-+/** No996 product identity, sourced from dsh-no996-editor brand/brand.json and logo-symbol-color.svg. */
++/** No996 product identity, sourced from no996-editor brand/brand.json and logo-symbol-color.svg. */
 +export const PRODUCT_NAME = "No996 Studio";
 +export const PRODUCT_NAME_ZH = "不加班剪辑";
 +export const MARK_VIEWBOX = '0 0 884 836';

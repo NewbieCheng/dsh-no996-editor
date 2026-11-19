@@ -43,7 +43,7 @@ $safeName = ($Name -replace '^@','' -replace '/','-')
 $tgz = Join-Path $Root "dist\$safeName-$Version.tgz"
 if (-not (Test-Path $tgz)) {
   # fallback: unscoped historical name
-  $alt = Join-Path $Root "dist\dsh-no996-editor-$Version.tgz"
+  $alt = Join-Path $Root "dist\no996-editor-$Version.tgz"
   if (Test-Path $alt) { $tgz = $alt } else { throw "missing tarball for $Name@$Version" }
 }
 

@@ -11,7 +11,7 @@ const BRAND = Object.freeze({
 });
 
 function fixture(files = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-no996-editor-theme-'));
+  const dir = mkdtempSync(join(tmpdir(), 'no996-editor-theme-'));
   const defaults = {
     'tokens.css': ':root{--n996-radius:10px}',
     'shell.css': '::selection{background:var(--n996-accent)}',

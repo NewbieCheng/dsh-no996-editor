@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const profile = process.argv[2] || 'desktop';
-const pkgDir = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'profiles', profile, 'node_modules/@newbiecheng/dsh-no996-editor');
+const pkgDir = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'profiles', profile, 'node_modules/@newbiecheng/no996-editor');
 const temp = mkdtempSync(join(tmpdir(), 'openfilm-installed-probe-'));
 process.env.OPENFILM_HOME = join(temp, 'home');
 process.env.OPENFILM_SHARED_HOME = join(temp, 'home');

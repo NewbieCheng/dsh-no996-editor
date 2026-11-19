@@ -89,7 +89,7 @@ L2 的界面结构因此和 L1 一样能改源码：npm 包只发布 dist，上�
 ## 6. 一个文件夹的布局
 
 ```text
-dsh-no996-editor/              ← 只开这一个
+no996-editor/              ← 只开这一个
   .upstream/openfilm/      ← 上游源码（含我们的 21 处改动 + node_modules），gitignore
   vendor/official-shell/   ← 我们构建出的壳（产物，进 git，供发布）
   patches/                 ← 补丁系列（源头，可重放）

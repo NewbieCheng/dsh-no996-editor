@@ -9,7 +9,7 @@ const ID = 'film123';
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 async function project() {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-no996-editor-files-'));
+  const root = await mkdtemp(join(tmpdir(), 'no996-editor-files-'));
   await mkdir(join(root, 'assets', 'music'), { recursive: true });
   await writeFile(join(root, 'assets', 'contact.png'), PNG);
   await writeFile(join(root, 'assets', 'music', 'beat-120.mp3'), Buffer.from('ID3'));

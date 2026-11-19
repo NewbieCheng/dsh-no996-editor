@@ -10,7 +10,7 @@ import { join } from 'node:path';
 // Upstream 5xx bodies are the only description of a Studio failure the person
 // can act on, and the page shows just the status. Keep the last few for
 // diagnosis; never the request body, never a project path.
-const failureLog = join(tmpdir(), 'dsh-no996-editor-errors.jsonl');
+const failureLog = join(tmpdir(), 'no996-editor-errors.jsonl');
 export function recordFailure(method, path, status, body) {
   try {
     const line = JSON.stringify({ at: new Date().toISOString(), method, path, status, body: String(body).slice(0, 800) }) + '\n';

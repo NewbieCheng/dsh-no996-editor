@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.17.1**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.17.1**（`package.json`，包名 `@newbiecheng/no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -47,7 +47,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - 两支基准片（`node scripts/benchmark-films.mjs`，证据在 `.dev/benchmarks/<时间戳>/`）：口播片 34.6 秒、1920×1080、带本机中文配音（Huihui，离线合成）；动效片 18 秒、1920×1080、带合成音垫；两条都由固定版 Studio 导出真实 MP4（h264_nvenc），ffprobe 复核时长/分辨率/音轨，口播非静音（-27.8 dB），动效片帧差由 11.77 降到 0.04（开场动效成立）。**这是无头/服务端证据**，不等于当前桌面 GUI 里手点一遍。
 - 隐藏迁移：运行时表面隐藏脚本、CSS 规则、公告偏好写入和「更多技能 / 从示例开始」点击屏蔽都已删除；隐藏项改由 `NO996-UPSTREAM` 上游补丁承担。**待真机**：原 GUI 刷新后入口、语音抽屉、设置→服务商、顶栏菜单与更新提示的实际表现。
 - 本机已装 **0.16.1**（registry 包，内置 OpenFilm 0.4.0；`installed-studio-probe.mjs` 在 profile 里按 Host 方式拉起 Studio 并拿到 `0.4.0` 健康响应）。pnpm 11 的安装脚本闸门：profile 的 `pnpm-workspace.yaml` 需要 `allowBuilds` 放行 `ffmpeg-static` / `protobufjs`，否则 `dsh plugin add` 退出码 1（包其实已装好），见 [发布手册](playbooks/publish.md) §5。**整应用重启后**设置→关于应显示 OpenFilm 0.4.0、兼容行同步 0.4.0。
-- 本机调试安装（用户已授权，非发版）：已撤掉 `shell-ui` 扫 header SVG 的品牌注入；同版本 `file:` tgz 需 **先 remove 再 add** 才会解压新包（仅 add 会沿用旧内容）。备份见 `${profile}/package.json.bak-*`。回滚：`dsh plugin --profile desktop add @newbiecheng/dsh-no996-editor@0.15.34`。
+- 本机调试安装（用户已授权，非发版）：已撤掉 `shell-ui` 扫 header SVG 的品牌注入；同版本 `file:` tgz 需 **先 remove 再 add** 才会解压新包（仅 add 会沿用旧内容）。备份见 `${profile}/package.json.bak-*`。回滚：`dsh plugin --profile desktop add @newbiecheng/no996-editor@0.15.34`。
 - 本地安装踩坑并已修：首版包只拷了 `openfilm` 目录，pnpm 对 `file:` 安装会按 `package.json` 重装依赖并清掉未声明的嵌套 `node_modules`，`playwright-core` 随之丢失，Studio 起不来（日志 `studio-warm-failed STUDIO_START`，面板 503）。修法：`playwright-core@1.61.1` 声明为本包依赖、`scripts/pack-tgz.mjs` 把每个 bundled 包的依赖树嵌进自己的 `node_modules`、新增 `tests/native-dependency-declarations.test.mjs` 守住“OpenFilm 的运行时依赖必须在本包声明”。修后在 profile 里用 `scripts/installed-studio-probe.mjs` 按 Host 的方式加载 Studio 并拿到健康响应（端口 50730），证明 503 根因已除；仍需重启应用才能让运行中的进程换上修好的包。
 - 尚未发版：改版本号、提交、推送、`npm publish`、tag/CI 都等用户当轮明确要求；见 [发布手册](playbooks/publish.md) 的授权边界。
 - XXX 表面收敛 + 不加班配音：0.15.25 修了 `env` 空串导致 provider 被官方 silently drop。见 已归档。**待真机**：重载后 `openfilm get list` 应见不加班已连接；配音抽屉精选有复刻+平台；Speak / `openfilm_get` tts → `assets/audio/vo`。

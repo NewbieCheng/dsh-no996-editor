@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..c3f0db1 100644
+index 0ef8753..8307ce0 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -16,7 +16,7 @@ index 0ef8753..c3f0db1 100644
   * Codex reports the title `mcp.openfilm.check` with kind execute and the input wrapped in
   * rawInput.arguments (next to server / tool); Claude Code reports the title `mcp__openfilm__look`.
 + *
-+ * dsh-no996-editor: the Host MCP server is named `no996-openfilm` (see mcpServerEntry). Titles arrive as
++ * no996-editor: the Host MCP server is named `no996-openfilm` (see mcpServerEntry). Titles arrive as
 + * `mcp.no996-openfilm.openfilm_transcribe` or bare `openfilm_*`. Only recognizing `server === 'openfilm'`
 + * made every Host tool look like "someone else's MCP" and return null — the panel showed a long
 + * thought and no tool rows (2026-11-16).
@@ -104,7 +104,7 @@ index 0ef8753..c3f0db1 100644
      }
 -    case 'agent_thought_chunk':
 -      return { type: 'agent-thinking' };
-+    /* dsh-no996-editor: the bridging agent does report its reasoning, so carry the text through instead of
++    /* no996-editor: the bridging agent does report its reasoning, so carry the text through instead of
 +     * dropping it — the transcript turns it into a "thought for 6s" block the person can open. */
 +    case 'agent_thought_chunk': {
 +      const content = update.content as { type?: string; text?: string } | undefined;
@@ -131,7 +131,7 @@ index 0ef8753..c3f0db1 100644
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
-+        /* dsh-no996-editor: the real tool name travels beside the act, so the row can say what ran. The
++        /* no996-editor: the real tool name travels beside the act, so the row can say what ran. The
 +           bridging agent knows it; the closed act only says what it meant for the film. */
 +        ...(named ? { tool: named.slice(0, 80) } : {}),
        };
@@ -141,7 +141,7 @@ index 0ef8753..c3f0db1 100644
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
-+  /* dsh-no996-editor: which row the live frames of one provider attempt grow. The frames carry DSH's own
++  /* no996-editor: which row the live frames of one provider attempt grow. The frames carry DSH's own
 +     attempt id (see src/acp-stream-tap.mjs) — a branded string like `<session>:1`, not a counter — so a
 +     delayed commit or an interleaved tool call cannot make a later attempt's words land in an earlier
 +     paragraph. Keyed in arrival order; a commit retires the oldest attempt whose text it covers
@@ -197,7 +197,7 @@ index 0ef8753..c3f0db1 100644
 +  /**
 +   * It is thinking: the turn keeps one thought row, and a later stretch of reasoning adds to it.
 +   *
-+   * dsh-no996-editor: a tool call in between used to close the row and the next update opened
++   * no996-editor: a tool call in between used to close the row and the next update opened
 +   * `thought:<turnNo>:<n+1>`, so a turn with fifty tool calls reported fifty "thought for 6s" blocks
 +   * for one stretch of reasoning. One row per turn now; it stays open while it thinks and reports the
 +   * turn's thinking time when the turn moves on (see reduceTranscript's closeThoughts).
@@ -243,7 +243,7 @@ index 0ef8753..c3f0db1 100644
 +  /**
 +   * The words as they are being written.
 +   *
-+   * dsh-no996-editor: ACP hands a message over only once it is committed (dsh-acp reports the durable
++   * no996-editor: ACP hands a message over only once it is committed (dsh-acp reports the durable
 +   * `assistant/message`), which made a long answer appear in one frame. The child process does see
 +   * the provider deltas, so the Host forwards them here (src/acp-stream-tap.mjs), and every frame
 +   * names the provider attempt it belongs to. The row is claimed per attempt, so a delayed commit
@@ -351,7 +351,7 @@ index 0ef8753..c3f0db1 100644
 +}
 +
 +/**
-+ * dsh-no996-editor: bind the page key and read context usage + configOptions when a
++ * no996-editor: bind the page key and read context usage + configOptions when a
 + * conversation is opened or switched — without waiting for the first prompt.
 + */
 +export async function attachLocalAgentSession({
@@ -419,7 +419,7 @@ index 0ef8753..c3f0db1 100644
 +}
 +
 +/**
-+ * dsh-no996-editor: push a model/thinking/permission selection straight to the
++ * no996-editor: push a model/thinking/permission selection straight to the
 + * currently attached live session so changes apply before a turn is sent.
 + */
 +export async function applyLiveSessionOption(

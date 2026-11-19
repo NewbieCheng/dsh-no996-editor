@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/components/ModelPopover.tsx b/apps/desktop/chat/src/components/ModelPopover.tsx
-index a72d3ce..8eee5cd 100644
+index a72d3ce..504dfe6 100644
 --- a/apps/desktop/chat/src/components/ModelPopover.tsx
 +++ b/apps/desktop/chat/src/components/ModelPopover.tsx
 @@ -4,16 +4,11 @@
@@ -13,7 +13,7 @@ index a72d3ce..8eee5cd 100644
 - * The chat is a view of its own and nothing can be drawn outside it, and the two never cover each other: the side menu
 - * takes the room beside the card (a long name wraps to fit), the card slides left to make that room, and in a narrow
 - * chat the card narrows to half of it.
-+ * its speed when it has one (agent-menu-rows.ts), each with its value. dsh-no996-editor: choosing a row replaces the menu
++ * its speed when it has one (agent-menu-rows.ts), each with its value. no996-editor: choosing a row replaces the menu
 + * with that row's choices — one card, one level at a time, the way DSH's own menus work — and the back arrow returns;
 + * picking a choice applies it and returns as well.
   */
@@ -275,7 +275,7 @@ index a72d3ce..8eee5cd 100644
 +                  const selected = chosenValue(choosing) === choice.value;
 +                  return (
 +                    <React.Fragment key={String(choice.value)}>
-+                      {/* dsh-no996-editor: a long list is grouped by whose models they are, the way
++                      {/* no996-editor: a long list is grouped by whose models they are, the way
 +                          DSH's own menu is, so a name is short enough to read in full. */}
 +                      {heading ? (
 +                        <div data-agent-choice-group={heading} className="px-2.5 pb-0.5 pt-2 text-[11px] font-medium text-[var(--text-faint)]">{heading}</div>

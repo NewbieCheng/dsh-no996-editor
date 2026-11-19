@@ -1,10 +1,10 @@
 diff --git a/packages/shared/src/no996-brand.ts b/packages/shared/src/no996-brand.ts
 new file mode 100644
-index 0000000..7ed08c9
+index 0000000..bb2b35c
 --- /dev/null
 +++ b/packages/shared/src/no996-brand.ts
 @@ -0,0 +1,7 @@
-+/** No996 product identity, sourced from dsh-no996-editor brand/brand.json and logo-symbol-color.svg. */
++/** No996 product identity, sourced from no996-editor brand/brand.json and logo-symbol-color.svg. */
 +export const PRODUCT_NAME = "No996 Studio";
 +export const PRODUCT_NAME_ZH = "不加班剪辑";
 +export const MARK_VIEWBOX = '0 0 884 836';
