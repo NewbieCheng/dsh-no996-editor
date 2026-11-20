@@ -2,7 +2,7 @@
 id: playbooks-dev-live
 reader: 新手开发者、调样式和改界面的同学
 fact-source: scripts/dev-live.mjs、src/dev/index.mjs、src/dev/dev-browser-portal.mjs、src/host/distribution.mjs、src/host/diagnostic-log.mjs、scripts/pack-tgz.mjs
-checked: 0.16.1
+checked: 0.19.0
 rot-if: dev:live 启动方式、环境变量、诊断日志目录或打包流程变化
 -->
 
