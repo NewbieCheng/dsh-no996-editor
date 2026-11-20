@@ -13,15 +13,18 @@ const PROJECT_ID = /^[A-Za-z0-9_-]{6,40}$/;
 const CONVERSATION = /^[A-Za-z0-9_-]{1,64}$/;
 const DEFAULT_PRESET = 'openfilm-video-editing';
 
-/** Chinese labels for DSH effort ids. Unknown ids stay as-is — never invent tiers. */
-const EFFORT_ZH = Object.freeze({
-  off: '关闭', none: '关闭', disabled: '关闭', '关闭': '关闭',
-  low: '低', '低': '低',
-  medium: '中', mid: '中', '中': '中',
-  high: '高', '高': '高',
-  max: '最高', maximum: '最高', '最高': '最高',
-  auto: '自动', '自动': '自动',
-  default: '默认', '默认': '默认',
+/**
+ * Transport labels for DSH effort ids (English). The chat shell translates known
+ * ids via composer.effortLevels.*; unknown ids stay as-is — never invent tiers.
+ */
+const EFFORT_LABEL = Object.freeze({
+  off: 'Off', none: 'Off', disabled: 'Off', '关闭': 'Off',
+  low: 'Low', '低': 'Low',
+  medium: 'Medium', mid: 'Medium', '中': 'Medium',
+  high: 'High', '高': 'High',
+  max: 'Max', maximum: 'Max', '最高': 'Max',
+  auto: 'Auto', '自动': 'Auto',
+  default: 'Default', '默认': 'Default',
 });
 
 const failure = (code, detail, diag) => Object.assign(
@@ -37,14 +40,13 @@ const effortId = value => {
 const effortLabel = (value, providedName) => {
   const id = effortId(value);
   if (!id) return typeof providedName === 'string' && providedName ? providedName : '';
-  if (EFFORT_ZH[id]) return EFFORT_ZH[id];
+  if (EFFORT_LABEL[id]) return EFFORT_LABEL[id];
   const lower = id.toLowerCase();
-  if (EFFORT_ZH[lower]) return EFFORT_ZH[lower];
+  if (EFFORT_LABEL[lower]) return EFFORT_LABEL[lower];
   if (typeof providedName === 'string' && providedName) {
-    if (EFFORT_ZH[providedName] || EFFORT_ZH[providedName.toLowerCase()]) {
-      return EFFORT_ZH[providedName] || EFFORT_ZH[providedName.toLowerCase()];
+    if (EFFORT_LABEL[providedName] || EFFORT_LABEL[providedName.toLowerCase()]) {
+      return EFFORT_LABEL[providedName] || EFFORT_LABEL[providedName.toLowerCase()];
     }
-    if (/[\u4e00-\u9fff]/.test(providedName)) return providedName;
   }
   return providedName || id;
 };
@@ -145,14 +147,15 @@ export function createDshNativeAgentService({
     const prompts = agent.ctx?.get?.('systemPrompt');
     if (typeof prompts?.context !== 'function') return;
     const dispose = prompts.context({
-      name: 'no996-work-mode', order: 130, interpolate: false,
+      name: 'no996-work-mode', order: 130, interpolate: false, required: true,
       text: () => {
-        if (closed || !sessionProjects.has(id) || ctx.agents?.get(id) !== agent) return '';
+        if (closed || !sessionProjects.has(id)) return '';
+        const current = ctx.agents?.get?.(id);
+        if (current && current !== agent) return '';
         const bound = sessionById(id);
         if (!bound) return '';
-        const mode = promptPrefixForWorkMode(readWorkMode(bound.projectState.projectId, bound.session)).trim();
-        const model = bound.session.model;
-        return [mode, model && `当前模型：${model.provider}/${model.model}`, bound.session.inflight?.skillContext].filter(Boolean).join('\n\n');
+        const mode = promptPrefixForWorkMode(readWorkMode(bound.projectState.projectId, bound.session));
+        return [mode, bound.session.inflight?.skillContext].filter(Boolean).join('\n\n');
       },
     });
     workModeContexts.set(agent, dispose);
@@ -529,10 +532,13 @@ export function createDshNativeAgentService({
     const candidate = isPreview ? undefined : session?.reasoningEffort;
     const current = allowed.includes(candidate) ? candidate : '__no996_default__';
     const defaultName = options.find(o => o.value === model?.reasoning?.defaultEffort)?.name;
-    options.unshift({ value: '__no996_default__', name: defaultName ? `默认（${defaultName}）` : '默认' });
+    options.unshift({
+      value: '__no996_default__',
+      name: defaultName ? `Default (${defaultName})` : 'Default',
+    });
     return {
       id: 'thinking',
-      name: '思考强度',
+      name: 'Effort',
       category: 'thought_level',
       type: 'select',
       ...(text(current) ? { currentValue: current } : {}),
@@ -1016,11 +1022,17 @@ export function createDshNativeAgentService({
       const projectState = projectStateOf(projectId);
       const session = await ensure(projectId, conversation);
       const skillContext = await selectedSkillContext(projectState.projectPath, skillIds);
-      if (skillContext) {
-        const resolved = await ctx.sessionController.resolveAgent?.(session.sessionId);
-        const live = ctx.agents?.get?.(session.sessionId) ?? resolved?.agent;
-        registerWorkModeContext(live);
-        if (!workModeContexts.has(live)) throw failure('OFFICIAL_SKILL_UNAVAILABLE', 'Session skill context unavailable');
+      // Creation/resume notifications are opportunistic (not all scopes expose them
+      // to the Host listener). Ensure registration for ordinary prompts as well.
+      let live = ctx.agents?.get?.(session.sessionId);
+      if (!live && typeof ctx.sessionController.resolveAgent === 'function') {
+        const resolved = await ctx.sessionController.resolveAgent(session.sessionId);
+        live = ctx.agents?.get?.(session.sessionId) ?? resolved?.agent;
+      }
+      registerWorkModeContext(live);
+      if (!workModeContexts.has(live)) {
+        if (skillContext) throw failure('OFFICIAL_SKILL_UNAVAILABLE', 'Session skill context unavailable');
+        void log?.('native-work-mode-context-unavailable', { projectId, conversation: session.conversation, sessionId: session.sessionId });
       }
       if (session.inflight) {
         throw failure('OFFICIAL_AGENT_BUSY', 'a turn is already running', {

@@ -1,16 +1,8 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..7063a87 100644
+index b41b3f8..908a37e 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
-@@ -5,6 +5,7 @@ const TRASH = typeof navigator !== 'undefined' && /^win/i.test(navigator.platfor
-   : typeof navigator !== 'undefined' && /^mac/i.test(navigator.platform) ? 'the Trash' : 'the trash';
- 
- export const enUS = {
-+  no996: { webDetails: 'View details', webNoResult: 'No tool result received', webFailed: 'Failed', webInterrupted: 'Interrupted' },
-   /* a turn of the app's own agent stopped: the service its model runs on has no balance left (BalanceNotice) */
-   balance: {
-     title: '{provider}: not enough balance',
-@@ -13,12 +14,38 @@ export const enUS = {
+@@ -13,13 +13,43 @@ export const enUS = {
    },
    banner: {
      studioFailed: 'Studio did not start: {error}',
@@ -49,9 +41,14 @@ index b41b3f8..7063a87 100644
 +    asrCopyFail: 'Could not build the prompt. Reload the plugin and retry.',
 +  },
    act: {
++    /* no996-editor: how much is running, not just that something is */
++    running: 'Running {n} tool',
++    /* no996-editor: the command card opens to what actually ran */
++    details: 'Details',
      waitingForYou: 'Waiting for you',
      /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
-@@ -130,14 +157,19 @@ export const enUS = {
+     waitingForModel: 'Waiting for the model',
+@@ -130,14 +160,19 @@ export const enUS = {
      previewFailed: 'This file could not be read',
    },
    composer: {
@@ -72,7 +69,29 @@ index b41b3f8..7063a87 100644
      agentOwnKey: 'Your own key',
      agentPermissionDeny: 'Don’t allow',
      agentPermissionTitle: '{name} wants to do this',
-@@ -161,7 +193,7 @@ export const enUS = {
+@@ -148,6 +183,21 @@ export const enUS = {
+     agentWaiting: 'Signing in…',
+     agentWas: 'This conversation used {name}, which isn’t available now. The next message goes to the agent below.',
+     effort: 'Effort',
++    effortLevels: {
++      off: 'Off',
++      low: 'Low',
++      medium: 'Medium',
++      high: 'High',
++      max: 'Max',
++      auto: 'Auto',
++      default: 'Default',
++    },
++    effortDefaultOf: 'Default ({name})',
++    permission: 'Permission',
++    permissionLevels: {
++      fullAccess: 'Full access',
++      workspace: 'Workspace only',
++    },
+     filesFailed: 'Couldn\'t attach {names}: {error} Remove it to send.',
+     filesPending: 'The files are still being attached.',
+     model: 'Model',
+@@ -161,7 +211,7 @@ export const enUS = {
      queued: 'Queued — sends when this turn finishes.',
      queuedCancel: 'Don\'t send',
      copyDiagnostics: 'Copy diagnostic report',
@@ -81,7 +100,7 @@ index b41b3f8..7063a87 100644
      diagnosticsCopied: 'Copied',
      switchAccount: 'Switch account',
      signedInAs: 'Signed in as {account}.',
-@@ -236,7 +268,7 @@ export const enUS = {
+@@ -236,7 +286,7 @@ export const enUS = {
      plugins: 'Community',
      close: 'Close',
      composerPlaceholder: 'Say what to change. Type @ for a file, a skill, a moment or what you selected',
@@ -90,7 +109,7 @@ index b41b3f8..7063a87 100644
      dismiss: 'Dismiss',
      jumpToLatest: 'Jump to latest',
      loadingMessages: 'Loading conversation…',
-@@ -252,6 +284,8 @@ export const enUS = {
+@@ -252,6 +302,8 @@ export const enUS = {
      untitledSession: 'New chat',
    },
    projectMenu: {
@@ -99,7 +118,7 @@ index b41b3f8..7063a87 100644
      archive: 'Archive',
      archived: 'Archived',
      asking: 'Waiting for you',
-@@ -265,6 +299,7 @@ export const enUS = {
+@@ -265,6 +317,7 @@ export const enUS = {
      unpin: 'Unpin',
    },
    starter: {
@@ -107,7 +126,7 @@ index b41b3f8..7063a87 100644
      subtitle: 'Describe the film you want and your agent makes it, or start with your material.',
      communityName: 'Community',
      communityNote: 'Add plugins, skills and material',
-@@ -304,7 +339,7 @@ export const enUS = {
+@@ -304,7 +357,7 @@ export const enUS = {
      folderDialog: 'Import from a Folder',
      make: 'Make one with the agent',
      makeHint: 'It writes down how something was made, into Yours.',
@@ -116,7 +135,7 @@ index b41b3f8..7063a87 100644
      fromFolderTitle: 'From a folder',
      dropHere: 'Drop a folder here',
      orPick: 'or click to choose one',
-@@ -314,7 +349,7 @@ export const enUS = {
+@@ -314,7 +367,7 @@ export const enUS = {
    turnLog: {
      thoughtNotKept: 'not kept in the agent\'s record',
      skills: 'Skills and MCP',
@@ -125,7 +144,7 @@ index b41b3f8..7063a87 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +453,29 @@ export const enUS = {
+@@ -418,7 +471,30 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -156,3 +175,4 @@ index b41b3f8..7063a87 100644
 +    autoExportDesc: 'Off by default: stop at verified preview so you can export manually',
 +  },
  };
++

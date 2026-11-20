@@ -18,6 +18,7 @@ export function createEditingRoutes({
   track,
   acpSessions,
   archive,
+  archiveBatch,
   editingPrefs,
   verifyOfficialProject,
   resolveDeleteTarget,
@@ -98,59 +99,23 @@ export function createEditingRoutes({
           for (const session of sessions) {
             const pref = editingPrefs.getSession(item.projectId, session.sessionId);
             session.pinned = pref?.pinned === true;
+            const native = acpSessions.getSession?.(item.projectId, session.sessionId);
+            if (native?.sessionId && archive.isArchived(native.sessionId)) session.archived = true;
             if (typeof pref?.title === 'string' && pref.title) session.title = pref.title;
           }
           sessions.sort((left, right) => (right.pinned ? 1 : 0) - (left.pinned ? 1 : 0)
             || String(right.updatedAt).localeCompare(String(left.updatedAt)));
           item.sessions = sessions;
         }
-        const hidden = new Set(acpSessions.all().map(r => r.sessionId).filter(Boolean));
-        const projectPaths = new Set(
-          items
-            .map(item => String(item.path || '').replace(/[\\/]+$/, '').toLowerCase())
-            .filter(Boolean),
-        );
-        for (const item of items) {
-          if (item.sessionId) hidden.add(item.sessionId);
-          for (const s of item.sessions ?? []) {
-            if (s?.sessionId) hidden.add(s.sessionId);
-          }
-        }
-        const hiddenWorkspaces = new Set();
-        const hiddenFolders = new Set(['Projects', 'OpenFilm']);
-        try {
-          const registry = typeof ctx.get === 'function' ? ctx.get('workspaceRegistry') : undefined;
-          if (registry && typeof registry.list === 'function') {
-            const listed = await registry.list();
-            const rows = Array.isArray(listed) ? listed : (Array.isArray(listed?.workspaces) ? listed.workspaces : []);
-            for (const row of rows) {
-              const rawPath = row?.path ?? row?.root ?? row?.cwd ?? row?.workspace?.path ?? '';
-              const norm = String(rawPath).replace(/[\\/]+$/, '').toLowerCase();
-              const isFilmFolder = norm && (projectPaths.has(norm) || /[\\/]openfilm[\\/]projects$/i.test(norm));
-              if (!isFilmFolder) continue;
-              const wid = row?.id ?? row?.workspaceId ?? row?.workspace?.id;
-              if (typeof wid === 'string' && wid) hiddenWorkspaces.add(wid);
-              const wtitle = row?.title ?? row?.name ?? row?.workspace?.title ?? row?.workspace?.name ?? basename(String(rawPath));
-              if (typeof wtitle === 'string' && wtitle.trim()) hiddenFolders.add(wtitle.trim());
-            }
-          }
-        } catch { /* best-effort workspace scan */ }
-        try {
-          if (typeof ctx.sessionController?.list === 'function') {
-            const listed = await ctx.sessionController.list({}, AbortSignal.timeout(1000));
-            const rows = Array.isArray(listed?.sessions) ? listed.sessions : (Array.isArray(listed) ? listed : []);
-            for (const row of rows) {
-              if (row?.agentPreset === 'openfilm-video-editing' && typeof row.id === 'string' && row.id) {
-                hidden.add(row.id);
-              }
-            }
-          }
-        } catch { /* best-effort preset scan */ }
+        // Only native IDs backed by our persisted bindings, never display names,
+        // workspace paths, or OpenFilm's independent conversation IDs.
+        const visibleProjects = new Set(items.map(item => item.projectId));
+        const hidden = new Set(acpSessions.all()
+          .filter(record => visibleProjects.has(record.projectId))
+          .map(record => record.sessionId).filter(Boolean));
         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({
           projects: items,
           hiddenSessionIds: [...hidden],
-          hiddenWorkspaceIds: [...hiddenWorkspaces],
-          hiddenFolderNames: [...hiddenFolders],
         }));
       } catch {
         res.writeHead(503).end('EDITING_SESSIONS_UNAVAILABLE');
@@ -183,6 +148,24 @@ export function createEditingRoutes({
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, pref: editingPrefs.get(projectId) ?? { pinned: false } }));
     },
   }));
+  if (archiveBatch) track(register({
+    kind: 'exact', path: '/api/no996-openfilm/editing-archive-batch',
+    async handler(req, res) {
+      res.setHeader('cache-control', 'no-store');
+      if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }).end(); return; }
+      const admission = ctx.connection.admit({ headers: req.headers });
+      if ('rejection' in admission) { res.writeHead(admission.rejection).end(); return; }
+      if (admission.peer.id !== ctx.connection.browserPeer.id) { res.writeHead(403).end(); return; }
+      const body = await readJsonBody(req);
+      if (!['preview', 'archive', 'restore'].includes(body.action) || (body.action !== 'preview' && body.confirmed !== true)) {
+        res.writeHead(400).end('INVALID_ARCHIVE_ACTION'); return;
+      }
+      try {
+        const result = await archiveBatch(body.action);
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(result));
+      } catch { res.writeHead(503).end('ARCHIVE_BATCH_FAILED'); }
+    },
+  }));
   // Archive / restore the project's bound conversation from the editing list.
   track(register({
     kind: 'exact', path: '/api/no996-openfilm/editing-archive',
@@ -210,8 +193,13 @@ export function createEditingRoutes({
         try {
           const store = await officialStore();
           const data = await store.load(projectId);
-          const sessions = (Array.isArray(data?.sessions) ? data.sessions : [])
-            .map(session => (session?.id === body.sessionId ? { ...session, archived } : session));
+          const items = Array.isArray(data?.sessions) ? data.sessions : [];
+          if (!items.some(session => session?.id === body.sessionId)) {
+            res.writeHead(404).end('UNKNOWN_CONVERSATION'); return;
+          }
+          const native = acpSessions.getSession?.(projectId, body.sessionId);
+          if (!archived && native?.sessionId && archive.isArchived(native.sessionId)) await archive.unarchive(native.sessionId);
+          const sessions = items.map(session => (session?.id === body.sessionId ? { ...session, archived } : session));
           if (Number.isSafeInteger(data?.revision)) await store.saveSessions(projectId, { sessions, last: data.last ?? null, expectedRevision: data.revision });
         } catch { res.writeHead(503).end('ARCHIVE_FAILED'); return; }
         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, archived }));

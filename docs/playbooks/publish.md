@@ -2,7 +2,7 @@
 id: playbooks-publish
 reader: 智能体、发版的人、装/更新插件的人
 fact-source: package.json、scripts/npmjs-publish.ps1、scripts/pack-tgz.mjs、真机 DSH 插件详情「版本」区
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 换 registry、包名、scope 大小写规则、或 DSH 安装/更新方式变化
 -->
 

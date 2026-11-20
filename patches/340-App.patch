@@ -1,0 +1,13 @@
+diff --git a/packages/openfilm/studio/ui/src/App.tsx b/packages/openfilm/studio/ui/src/App.tsx
+index 1d3117d..3753c88 100644
+--- a/packages/openfilm/studio/ui/src/App.tsx
++++ b/packages/openfilm/studio/ui/src/App.tsx
+@@ -71,7 +71,7 @@ export function App() {
+     : !none ? <BrandLoadingScreen labelKey="projects.opening" />
+       : (
+         <div className="workspace-shell bg-[var(--bg-app)]">
+-          <ProjectsPopover open currentProjectId="" onOpen={(next) => go(`/projects/${next}`)} onCurrentRemoved={() => {}} />
++          <ProjectsPopover open currentProjectId="" examples={{}} onOpen={(next) => go(`/projects/${next}`)} onCurrentRemoved={() => {}} />
+         </div>
+       );
+   return <>{page}<ConnectionNotice /><WhatsNew /></>;

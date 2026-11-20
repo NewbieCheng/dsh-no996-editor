@@ -2,7 +2,7 @@
 id: transcribe
 reader: 用转写的人、维护者
 fact-source: src/asr/transcribe-service.mjs、scripts/asr-*.mjs
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 模型、路由或权重来源变化
 -->
 

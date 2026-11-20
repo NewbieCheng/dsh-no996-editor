@@ -1,16 +1,8 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..26bde78 100644
+index 09e13c3..5219f09 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
-@@ -5,6 +5,7 @@ const TRASH = typeof navigator !== 'undefined' && /^win/i.test(navigator.platfor
-   : typeof navigator !== 'undefined' && /^mac/i.test(navigator.platform) ? 'ゴミ箱' : 'ゴミ箱';
- 
- export const ja: Words = {
-+  no996: { webDetails: '詳細を見る', webNoResult: '結果を受信していません', webFailed: '失敗', webInterrupted: '中断' },
-   /* a turn of the app's own agent stopped: the service its model runs on has no balance left (BalanceNotice) */
-   balance: {
-     title: '{provider}：残高が不足しています',
-@@ -13,9 +14,9 @@ export const ja: Words = {
+@@ -13,13 +13,17 @@ export const ja: Words = {
    },
    banner: {
      studioFailed: 'Studio を起動できませんでした：{error}',
@@ -22,7 +14,15 @@ index 09e13c3..26bde78 100644
      browserDownloading: 'Studio がページを描画するブラウザーをダウンロード中（約 100 MB、初回のみ）…',
      browserFailed: 'Studio がページを描画するブラウザーをダウンロードできませんでした：{error}',
    },
-@@ -130,14 +131,19 @@ export const ja: Words = {
+   act: {
++    /* no996-editor: how much is running, not just that something is */
++    running: '{n} 個のツールを実行中',
++    /* no996-editor: the command card opens to what actually ran */
++    details: '詳細',
+     waitingForYou: 'あなたの返答を待っています',
+     /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
+     waitingForModel: 'モデルの応答を待っています',
+@@ -130,14 +134,19 @@ export const ja: Words = {
      previewFailed: 'このファイルを読み込めませんでした',
    },
    composer: {
@@ -43,7 +43,29 @@ index 09e13c3..26bde78 100644
      agentOwnKey: '自分のキー',
      agentPermissionDeny: '許可しない',
      agentPermissionTitle: '{name} が次の操作を求めています',
-@@ -161,7 +167,7 @@ export const ja: Words = {
+@@ -148,6 +157,21 @@ export const ja: Words = {
+     agentWaiting: 'サインイン中…',
+     agentWas: 'この会話は {name} を使っていましたが、今は使えません。次のメッセージは下で選んだエージェントに送られます。',
+     effort: '思考レベル',
++    effortLevels: {
++      off: 'オフ',
++      low: '低',
++      medium: '中',
++      high: '高',
++      max: '最大',
++      auto: '自動',
++      default: 'デフォルト',
++    },
++    effortDefaultOf: 'デフォルト（{name}）',
++    permission: '権限',
++    permissionLevels: {
++      fullAccess: 'フルアクセス',
++      workspace: 'ワークスペースのみ',
++    },
+     filesFailed: '{names} を追加できませんでした：{error} 削除してから送信してください。',
+     filesPending: 'ファイルを追加しています。',
+     model: 'モデル',
+@@ -161,7 +185,7 @@ export const ja: Words = {
      queued: '待機中 — このターンが終わると送信されます。',
      queuedCancel: '送信しない',
      copyDiagnostics: '診断レポートをコピー',
@@ -52,7 +74,7 @@ index 09e13c3..26bde78 100644
      diagnosticsCopied: 'コピーしました',
      switchAccount: 'アカウントを切り替え',
      signedInAs: '{account} でサインイン中です。',
-@@ -251,6 +257,8 @@ export const ja: Words = {
+@@ -251,6 +275,8 @@ export const ja: Words = {
      untitledSession: '新しいチャット',
    },
    projectMenu: {
@@ -61,7 +83,7 @@ index 09e13c3..26bde78 100644
      archive: 'アーカイブ',
      archived: 'アーカイブ済み',
      asking: '回答待ち',
-@@ -264,6 +272,7 @@ export const ja: Words = {
+@@ -264,6 +290,7 @@ export const ja: Words = {
      unpin: 'ピン留めを外す',
    },
    starter: {
@@ -69,7 +91,7 @@ index 09e13c3..26bde78 100644
      subtitle: '作りたい映像を伝えるとエージェントが作ります。素材から始めることもできます。',
      communityName: 'コミュニティ',
      communityNote: 'プラグイン・スキル・素材を追加',
-@@ -303,7 +312,7 @@ export const ja: Words = {
+@@ -303,7 +330,7 @@ export const ja: Words = {
      folderDialog: 'フォルダから読み込む',
      make: 'エージェントと一緒に作る',
      makeHint: '作り方をスキルにまとめて「自分の」に保存します。',
@@ -78,7 +100,7 @@ index 09e13c3..26bde78 100644
      fromFolderTitle: 'フォルダから',
      dropHere: 'ここにフォルダをドロップ',
      orPick: 'またはクリックして選択',
-@@ -313,7 +322,7 @@ export const ja: Words = {
+@@ -313,7 +340,7 @@ export const ja: Words = {
    turnLog: {
      thoughtNotKept: 'エージェントの記録には思考内容が保存されていません',
      skills: 'スキルと MCP',
@@ -87,7 +109,7 @@ index 09e13c3..26bde78 100644
      skillsHidden: '自分のスキル（オフ）',
      skillsUnfiltered: 'このエージェントは本来のアプリと同じく、自分のスキルをすべて使います',
      mcpHidden: '自分の MCP サーバー（オフ）',
-@@ -417,7 +426,29 @@ export const ja: Words = {
+@@ -417,7 +444,30 @@ export const ja: Words = {
      description: 'プロジェクトのファイルはこのターンの前の状態に戻ります。その後 Studio で変えたところも戻ります。このターンはチャットから消え、メッセージは下の入力欄に戻るので、もう一度送れます。',
      confirm: '元に戻す',
      cancel: 'キャンセル',
@@ -118,3 +140,4 @@ index 09e13c3..26bde78 100644
 +    autoExportDesc: '初期値オフ：プレビューで止め、確認後に手動で書き出せます',
 +  },
  };
++

@@ -140,71 +140,11 @@ for (const template of ['paper-texture']) {
 }
 
 /**
- * replica-film：拆出来的片段与动画必须能还原原来的页面，而且动画用的每个选择器
- * 都真的在内容里存在——这一条比"看起来一样"重要，因为 draw() 找不到元素时是
- * 静默的（画面不动，控制台也不一定报错）。
- */
-const replicaDir = join(templates, 'replica-film');
-const replicaFixtures = join(fixtures, 'replica-film');
-const replicaShots = readdirSync(join(replicaDir, 'shots')).filter(name => name.endsWith('.json')).sort();
-
-function evaluateOriginal(html) {
-  const copy = JSON.parse(/const COPY = (\{[\s\S]*?\n  \});/.exec(html)[1]);
-  const expression = /\$\('#content'\)\.innerHTML = `([\s\S]*?)`;\n/.exec(html)[1];
-  const escape = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const pills = list => list.map(item => `<span class="pill">${escape(item)}</span>`).join('');
-  return { copy, content: new Function('COPY', 'escape', 'pills', `return \`${expression}\`;`)(copy, escape, pills) };
-}
-
-for (const name of replicaShots) {
-  const id = name.replace(/\.json$/, '');
-
-  test(`replica-film/${id}: 片段 + 动画能还原拆分前的页面`, () => {
-    const fixture = readFileSync(join(replicaFixtures, `${id}.html`), 'utf8');
-    const original = evaluateOriginal(fixture);
-    const generated = readFileSync(join(replicaDir, 'pages', `${id}.html`), 'utf8');
-
-    const content = generated.split('<div class="content" id="content">\n')[1].split('\n  </div>\n</main>')[0];
-    assert.equal(collapse(content), collapse(original.content), '内容片段与原来的 innerHTML 不同');
-
-    const draw = collapse(/function draw\(t\) \{([\s\S]*?)\n  \}/.exec(fixture)[1]);
-    const generatedDraw = collapse(/function draw\(t\) \{([\s\S]*?)\n  mount\(/.exec(generated)[1]).replace(/ \}$/, '');
-    assert.equal(generatedDraw, draw, 'draw() 与原来不一致');
-
-    const shot = JSON.parse(readFileSync(join(replicaDir, 'shots', name), 'utf8'));
-    assert.deepEqual(shot.copy, original.copy, 'COPY 与原来不一致');
-    assert.match(generated, new RegExp(`const DURATION = ${shot.duration};`));
-    assert.match(generated, new RegExp(`const START = ${shot.start};`));
-    assert.ok(generated.includes(`<main id="stage" class="${shot.theme}">`), '舞台主题类名变了');
-  });
-
-  test(`replica-film/${id}: 动画的每个选择器都在页面里找得到`, () => {
-    const generated = readFileSync(join(replicaDir, 'pages', `${id}.html`), 'utf8');
-    const anim = readFileSync(join(replicaDir, 'shots', `${id}.anim.js`), 'utf8');
-    const selectors = new Set([...anim.matchAll(/(?:\$|\$\$)\(\s*'([^']+)'/g)].map(match => match[1]));
-    const markup = generated.split('<div class="content" id="content">')[1].split('</main>')[0];
-    for (const selector of selectors) {
-      if (!selector.startsWith('#') && !selector.startsWith('.')) continue;
-      const [, kind, name] = /^([#.])([\w-]+)$/.exec(selector) ?? [];
-      if (!kind) continue; // descendant/complex selectors are checked by eye only
-      const check = text => (kind === '#'
-        ? new RegExp(`id="${name}"`).test(text)
-        : new RegExp(`class="[^"]*\\b${name}\\b`).test(text));
-      // Some blocks are filled by data (an empty `items` array renders nothing),
-      // so the guard is "the animation is no worse than the original", not "the
-      // element always exists".
-      if (!check(evaluateOriginal(readFileSync(join(replicaFixtures, `${id}.html`), 'utf8')).content)) continue;
-      assert.ok(check(markup), `${id}: 动画查找 ${selector}，但内容里没有这个元素`);
-    }
-  });
-}
-
-/**
  * 安装模板是把整个模板目录复制进项目（src/official/official-templates.mjs 的 copy）。
  * 所以页面只能引用模板目录内部的资源——一个指向 `_kit/` 的 ../ 链接在项目里会
  * 404，而且只在那时候才炸。这条测试守的就是这个边界。
  */
-for (const template of ['paper-texture', 'replica-film', 'sketchnote']) {
+for (const template of ['paper-texture', 'sketchnote', 'vibe-explainer']) {
   test(`${template}: 页面只引用模板目录内部的资源`, () => {
     const dir = join(templates, template);
     const offenders = [];
@@ -244,16 +184,6 @@ test('素材库：每个单元都能用示例数据渲染出来', () => {
     'paper.capsule': { text: 'C' },
     'paper.steps': { items: '<div class="step">x</div>' },
     'paper.step': { num: '1', title: 'T', body: 'B' },
-    'replica.hero': { id: 'title', titleSize: '64', title: 'T', sticker: 'S', stickerGap: '43' },
-    'replica.sticker': { id: 'stamp', style: 'left:1px', text: '◎' },
-    'replica.card': { id: 'card', style: 'left:1px', body: '<p>x</p>' },
-    'replica.dark-card': { id: 'dark', style: 'left:1px', body: '<p>x</p>' },
-    'replica.chip-row': { style: 'margin-top:0', chips: '<span class="pill">a</span>' },
-    'replica.chip': { label: 'a' },
-    'replica.metric': { id: 'metric', style: 'left:1px', valueId: 'value', value: '10+', unit: '项', chips: '<span class="pill">a</span>', chipGap: '83' },
-    'replica.page-list': { items: '<div class="list-item point">x</div>' },
-    'replica.page-point': { color: '#fff', text: 'x' },
-    'replica.scene-icon': { kind: 'heart', src: '../assets/heart.svg', style: 'left:1px' },
   };
   for (const id of Object.keys(catalog.units)) {
     assert.ok(samples[id], `catalog 里的 ${id} 还没有示例数据`);
@@ -261,11 +191,6 @@ test('素材库：每个单元都能用示例数据渲染出来', () => {
     assert.doesNotMatch(html, /\{\{/, `${id} 渲染后仍有未替换的槽位`);
     assert.ok(html.trim().length > 0, `${id} 渲染成空的了`);
   }
-  // 可选的副标与 id：不传就不该出现。
-  const bare = renderUnit({ unit: 'replica.hero', props: { titleSize: '64', title: 'T', sticker: 'S', stickerGap: '0' } }, catalog, { copy: {} });
-  assert.doesNotMatch(bare, /class="at hero" id=/);
-  const noSticker = renderUnit({ unit: 'replica.hero', props: { id: 'a', titleSize: '64', title: 'T' } }, catalog, { copy: {} });
-  assert.doesNotMatch(noSticker, /sticker/);
 });
 
 /**

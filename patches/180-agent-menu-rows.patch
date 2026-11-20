@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/agent-menu-rows.ts b/apps/desktop/chat/src/lib/agent-menu-rows.ts
-index 603a205..3a47d47 100644
+index 603a205..0504313 100644
 --- a/apps/desktop/chat/src/lib/agent-menu-rows.ts
 +++ b/apps/desktop/chat/src/lib/agent-menu-rows.ts
 @@ -27,7 +27,11 @@ export function menuOptions(options: MenuOption[] | undefined, defaultName: stri
@@ -15,3 +15,84 @@ index 603a205..3a47d47 100644
  }
  
  /**
+@@ -39,3 +43,80 @@ export function distinctNames<T extends { value: unknown; name: string }>(choice
+   for (const c of choices) count.set(c.name, (count.get(c.name) ?? 0) + 1);
+   return choices.map((c) => ((count.get(c.name) ?? 0) > 1 && c.value !== null && String(c.value) !== c.name ? { ...c, name: `${c.name} (${String(c.value)})` } : c));
+ }
++
++/**
++ * Localize Host effort option names. Host sends English transport labels
++ * (Low / Medium / High / Default …); the shell maps known ids (and those
++ * English names) through composer.effortLevels.*.
++ */
++const EFFORT_ID_ALIAS: Record<string, string> = {
++  off: 'off', none: 'off', disabled: 'off',
++  low: 'low',
++  medium: 'medium', mid: 'medium',
++  high: 'high',
++  max: 'max', maximum: 'max',
++  auto: 'auto',
++  default: 'default',
++};
++
++const EFFORT_NAME_ALIAS: Record<string, string> = {
++  Off: 'off', Low: 'low', Medium: 'medium', High: 'high', Max: 'max', Auto: 'auto', Default: 'default',
++  '关闭': 'off', '低': 'low', '中': 'medium', '高': 'high', '最高': 'max', '自动': 'auto', '默认': 'default',
++};
++
++export function localizeEffortLabel(
++  name: string | null | undefined,
++  t: (path: string) => string,
++  value?: unknown,
++): string | null {
++  if (!name && (value === undefined || value === null || value === '')) return null;
++  const rawName = String(name ?? '');
++  const id = String(value ?? '');
++
++  if (id === '__no996_default__' || /^Default(\s*[（(].+[）)])?$/i.test(rawName) || /^默认([（(].+[）)])?$/.test(rawName)) {
++    const inner = rawName.match(/[（(](.+)[）)]$/)?.[1]?.trim();
++    if (inner) {
++      const localizedInner = localizeEffortLabel(inner, t, inner) ?? inner;
++      return t('composer.effortDefaultOf').replace('{name}', localizedInner);
++    }
++    return t('composer.effortLevels.default');
++  }
++
++  const key = EFFORT_ID_ALIAS[id] || EFFORT_ID_ALIAS[id.toLowerCase()] || EFFORT_NAME_ALIAS[rawName] || EFFORT_NAME_ALIAS[rawName.replace(/[（(].*$/, '').trim()];
++  if (key) {
++    const path = `composer.effortLevels.${key}`;
++    const hit = t(path);
++    if (hit !== path) return hit;
++  }
++  return rawName || null;
++}
++
++const PERMISSION_ID_ALIAS: Record<string, string> = {
++  'danger-full-access': 'fullAccess',
++  'workspace-write': 'workspace',
++};
++
++const PERMISSION_NAME_ALIAS: Record<string, string> = {
++  'Full access': 'fullAccess',
++  'Workspace only': 'workspace',
++  '完全访问': 'fullAccess',
++  '只用工作区': 'workspace',
++};
++
++/** Localize Host permission preset names (Full access / Workspace only). */
++export function localizePermissionLabel(
++  name: string | null | undefined,
++  t: (path: string) => string,
++  value?: unknown,
++): string | null {
++  if (!name && (value === undefined || value === null || value === '')) return null;
++  const rawName = String(name ?? '');
++  const id = String(value ?? '');
++  const key = PERMISSION_ID_ALIAS[id] || PERMISSION_NAME_ALIAS[rawName];
++  if (key) {
++    const path = `composer.permissionLevels.${key}`;
++    const hit = t(path);
++    if (hit !== path) return hit;
++  }
++  return rawName || null;
++}

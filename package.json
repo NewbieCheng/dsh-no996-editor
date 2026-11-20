@@ -1,6 +1,6 @@
 {
   "name": "@newbiecheng/dsh-no996-editor",
-  "version": "0.19.0",
+  "version": "0.19.11",
   "description": "No996 Editor (不加班剪辑): OpenFilm-based video studio as a DSH plugin, bridged to native DSH sessions.",
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -28,6 +28,8 @@
     "check": "npm run lint -- --strict && npm run status:check && npm run login:sync -- --check && npm test && npm run docs:check && npm run brand:check && npm run templates:check && npm run patches:check",
     "dev": "node scripts/dev.mjs",
     "dev:live": "node scripts/dev-live.mjs",
+    "dev:up": "node scripts/dev-up.mjs",
+    "dev:dsh": "node scripts/dev-up.mjs --dsh-only",
     "templates:build": "node scripts/templates-build.mjs",
     "templates:check": "node scripts/templates-build.mjs --check",
     "motion:index": "node scripts/build-motion-index.mjs",

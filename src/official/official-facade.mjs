@@ -42,9 +42,11 @@ function officialFacadeFactory(bridge) {
   // Two choices, because a row without a real choice is not drawn at all.
   const permissionOption = state => {
     if (!state || typeof state !== 'object') return null;
+    // English transport labels; the chat shell translates known ids via
+    // composer.permission / composer.permissionLevels.*.
     const choices = [
-      { value: 'danger-full-access', name: '完全访问' },
-      { value: 'workspace-write', name: '只用工作区' },
+      { value: 'danger-full-access', name: 'Full access' },
+      { value: 'workspace-write', name: 'Workspace only' },
     ];
     // `current` is what the Host applied. A value we do not name is still shown,
     // as itself: hiding the whole row lost the choice entirely (the row went
@@ -56,7 +58,7 @@ function officialFacadeFactory(bridge) {
       : [...choices, { value: current, name: current }];
     return {
       id: 'permission',
-      name: '权限',
+      name: 'Permission',
       category: 'permission',
       type: 'select',
       currentValue: current,
@@ -478,7 +480,7 @@ function officialFacadeFactory(bridge) {
       // it replaces the floating chip that used to cover the timeline.
       if (optionId === 'permission') {
         const result = await rpc('agent:permission-set', { projectId: scope.projectId, preset: value });
-        if (!result || result.ok !== true) throw new Error('没有应用成功，可重试或在 DSH 里改权限');
+        if (!result || result.ok !== true) throw new Error('Could not apply — retry, or change the permission in DSH');
         return { ok: true, result: { configOptions: await refreshMenu() } };
       }
       if (optionId === 'work_mode') {

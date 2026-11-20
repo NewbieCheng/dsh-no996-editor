@@ -11,7 +11,7 @@ import {
   planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt, wrapCjk,
 } from '../src/film/script-plan.mjs';
 import { createStoryboardTool } from '../src/tools/storyboard-tool.mjs';
-import { catalogText, searchTemplates, scoreTemplate, templateCatalog } from '../src/film/template-catalog.mjs';
+import { catalogText, searchTemplates, scoreTemplate, templateCatalog, templateDetails } from '../src/film/template-catalog.mjs';
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'no996-storyboard-'));
 
@@ -162,14 +162,15 @@ test('from-script builds the storyboard from a transcript file', async () => {
   assert.match(subtitles.text, /--> /);
 });
 
-test('the template catalog is searchable and carries the per-template prompt', async () => {
+test('the template catalog is searchable and guidance is read only by ID', async () => {
   const root = scratch();
   mkdirSync(join(root, 'sketchnote'), { recursive: true });
   writeFileSync(join(root, 'sketchnote', 'manifest.json'), JSON.stringify({ id: 'sketchnote', title: '手绘笔记', description: '纸笔手绘风格', mode: 'film', entry: 'film.html' }));
   writeFileSync(join(root, 'sketchnote', 'prompt.md'), '# 手绘笔记\n\n保留纸张质感。\n');
   const catalog = await templateCatalog(root);
   assert.equal(catalog.length, 1);
-  assert.equal(catalog[0].prompt.includes('纸张质感'), true);
+  assert.equal(catalog[0].prompt, undefined);
+  assert.match((await templateDetails(root, 'sketchnote')).prompt, /纸张质感/);
   assert.equal(scoreTemplate(catalog[0], '手绘') > 0, true);
   assert.equal(scoreTemplate(catalog[0], '赛博朋克'), 0);
   assert.deepEqual(searchTemplates(catalog, '手绘').map(item => item.id), ['sketchnote']);

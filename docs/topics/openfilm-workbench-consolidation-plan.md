@@ -2,7 +2,7 @@
 id: openfilm-workbench-consolidation-plan
 reader: No996 Studio 产品负责人、插件维护者
 fact-source: cordis.patch.yml、src/native、src/tools、patches/series.json、OpenFilm 0.3.2 @ 758b1a3、DSH Inspect
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 方案拍板或上游工作台、素材库、预设契约变化
 -->
 

@@ -148,14 +148,14 @@ export function createWorkbenchAuth({
     try {
       response = await fetchImpl(`${base}${path}`, init);
     } catch {
-      throw publicError('WORKBENCH_UNREACHABLE', '无法连接账号服务，请检查网络后重试', 503);
+      throw publicError('WORKBENCH_UNREACHABLE', 'Could not reach the account service. Check the network and try again', 503);
     }
     const json = await readJsonBody(response);
     if (!response.ok) {
       const err = json?.error || {};
       throw publicError(
         String(err.code || 'WORKBENCH_ERROR'),
-        String(err.message || `账号服务返回 ${response.status}`),
+        String(err.message || `Account service returned ${response.status}`),
         response.status,
         err.details && typeof err.details === 'object' ? err.details : undefined,
       );
@@ -165,7 +165,7 @@ export function createWorkbenchAuth({
 
   async function applyTokens(data, { account, displayName } = {}) {
     if (!data || typeof data.access_token !== 'string' || typeof data.refresh_token !== 'string') {
-      throw publicError('AUTH_TOKEN_MISSING', '登录成功但未收到会话令牌', 502);
+      throw publicError('AUTH_TOKEN_MISSING', 'Signed in but no session token was returned', 502);
     }
     const nextUserId = typeof data.user_id === 'number' ? data.user_id : 0;
     const next = {
@@ -182,7 +182,7 @@ export function createWorkbenchAuth({
 
   async function workbenchAuthed(path, options = {}) {
     const token = await apiMethods.accessToken();
-    if (!token) throw publicError('AUTH_REQUIRED', '请先登录', 401);
+    if (!token) throw publicError('AUTH_REQUIRED', 'Please sign in first', 401);
     try {
       return await workbench(path, { ...options, token });
     } catch (error) {
@@ -198,7 +198,7 @@ export function createWorkbenchAuth({
 
   async function refreshLocked() {
     await load();
-    if (!session?.refreshToken) throw publicError('AUTH_REQUIRED', '请先登录', 401);
+    if (!session?.refreshToken) throw publicError('AUTH_REQUIRED', 'Please sign in first', 401);
     const previous = session.refreshToken;
     try {
       const data = await workbench('/api/v1/auth/refresh', {
@@ -227,7 +227,7 @@ export function createWorkbenchAuth({
       baseUrl: 'dev',
       userId: 0,
       account: 'dev@local',
-      displayName: '开发模式',
+      displayName: 'Dev mode',
       expiresAt: '',
     };
   }
@@ -239,7 +239,7 @@ export function createWorkbenchAuth({
       baseUrl: 'guest',
       userId: 0,
       account: 'guest@local',
-      displayName: '游客',
+      displayName: 'Guest',
       expiresAt: '',
     };
   }
@@ -299,6 +299,7 @@ export function createWorkbenchAuth({
     },
     async captcha(type = 'click') {
       // Default matches workbench / 清流: click challenge, not typed image code.
+      // DEV also uses the real account-service SVG (LoginGate preview must match production).
       const allowed = type === 'math' || type === 'image' ? type : 'click';
       const data = await workbench(`/api/v1/auth/captcha?type=${allowed}`);
       // Never forward a development plaintext code to the browser.
@@ -313,8 +314,8 @@ export function createWorkbenchAuth({
     },
     async login({ account, password, captchaId, captchaCode }) {
       const fields = accountFields(account);
-      if (!fields.email && !fields.phone) throw publicError('AUTH_ACCOUNT_REQUIRED', '请输入手机号或邮箱', 400);
-      if (typeof password !== 'string' || password.length < 6) throw publicError('AUTH_PASSWORD_REQUIRED', '密码至少 6 位', 400);
+      if (!fields.email && !fields.phone) throw publicError('AUTH_ACCOUNT_REQUIRED', 'Enter a phone number or email', 400);
+      if (typeof password !== 'string' || password.length < 6) throw publicError('AUTH_PASSWORD_REQUIRED', 'Password must be at least 6 characters', 400);
       const body = {
         ...fields,
         password,
@@ -328,8 +329,8 @@ export function createWorkbenchAuth({
     },
     async requestVerificationCode({ account, purpose = 'register', captchaId, captchaCode, locale }) {
       const fields = accountFields(account);
-      if (!fields.email && !fields.phone) throw publicError('AUTH_ACCOUNT_REQUIRED', '请输入邮箱', 400);
-      if (!fields.email) throw publicError('AUTH_EMAIL_REQUIRED', '目前仅支持邮箱接收验证码', 400);
+      if (!fields.email && !fields.phone) throw publicError('AUTH_ACCOUNT_REQUIRED', 'Enter an email', 400);
+      if (!fields.email) throw publicError('AUTH_EMAIL_REQUIRED', 'Verification codes are email-only for now', 400);
       const body = {
         target: fields.email,
         purpose: purpose === 'reset_password' || purpose === 'login' ? purpose : 'register',
@@ -346,10 +347,10 @@ export function createWorkbenchAuth({
     },
     async register({ account, password, code, inviteCode, displayName }) {
       const fields = accountFields(account);
-      if (!fields.email) throw publicError('AUTH_EMAIL_REQUIRED', '注册请使用邮箱', 400);
-      if (typeof password !== 'string' || password.length < 6) throw publicError('AUTH_PASSWORD_REQUIRED', '密码至少 6 位', 400);
-      if (!String(code || '').trim()) throw publicError('AUTH_CODE_REQUIRED', '请输入邮箱验证码', 400);
-      if (!String(inviteCode || '').trim()) throw publicError('AUTH_INVITE_REQUIRED', '请输入邀请码', 400);
+      if (!fields.email) throw publicError('AUTH_EMAIL_REQUIRED', 'Use an email to register', 400);
+      if (typeof password !== 'string' || password.length < 6) throw publicError('AUTH_PASSWORD_REQUIRED', 'Password must be at least 6 characters', 400);
+      if (!String(code || '').trim()) throw publicError('AUTH_CODE_REQUIRED', 'Enter an email验证码', 400);
+      if (!String(inviteCode || '').trim()) throw publicError('AUTH_INVITE_REQUIRED', 'Enter an invite code', 400);
       const body = {
         email: fields.email,
         password,
@@ -367,9 +368,9 @@ export function createWorkbenchAuth({
     },
     async resetPassword({ account, code, newPassword }) {
       const fields = accountFields(account);
-      if (!fields.email) throw publicError('AUTH_EMAIL_REQUIRED', '请使用邮箱重置密码', 400);
-      if (!String(code || '').trim()) throw publicError('AUTH_CODE_REQUIRED', '请输入邮箱验证码', 400);
-      if (typeof newPassword !== 'string' || newPassword.length < 6) throw publicError('AUTH_PASSWORD_REQUIRED', '新密码至少 6 位', 400);
+      if (!fields.email) throw publicError('AUTH_EMAIL_REQUIRED', 'Use an email to reset the password', 400);
+      if (!String(code || '').trim()) throw publicError('AUTH_CODE_REQUIRED', 'Enter an email验证码', 400);
+      if (typeof newPassword !== 'string' || newPassword.length < 6) throw publicError('AUTH_PASSWORD_REQUIRED', '新Password must be at least 6 characters', 400);
       await workbench('/api/v1/auth/reset-password', {
         method: 'POST',
         body: {
@@ -420,7 +421,7 @@ export function createWorkbenchAuth({
       if (dev) return zeroBalance({ asDev: true });
       if (guest) return zeroBalance({ guest: true });
       const token = await this.accessToken();
-      if (!token) throw publicError('AUTH_REQUIRED', '请先登录', 401);
+      if (!token) throw publicError('AUTH_REQUIRED', 'Please sign in first', 401);
       const data = await workbench('/api/v1/account/balance', { token });
       const points = Number(data?.points_balance);
       const expert = Number(data?.expert_points_balance);
@@ -444,7 +445,7 @@ export function createWorkbenchAuth({
     },
     /** Host-only: authenticated JSON request against workbench with 1 automatic refresh retry. */
     async authedRequest(path, options = {}) {
-      if (dev || guest) throw publicError('AUTH_REQUIRED', '请先登录正式不加班账号', 401);
+      if (dev || guest) throw publicError('AUTH_REQUIRED', 'Sign in to a formal No996 account first', 401);
       return await workbenchAuthed(path, options);
     },
   };
@@ -452,10 +453,10 @@ export function createWorkbenchAuth({
 }
 
 export function parseAuthActionBody(raw, limit = BODY_LIMIT) {
-  if (typeof raw !== 'string') throw publicError('INPUT', '无效请求', 400);
-  if (Buffer.byteLength(raw, 'utf8') > limit) throw publicError('BODY_LIMIT', '请求过大', 413);
+  if (typeof raw !== 'string') throw publicError('INPUT', 'Invalid request', 400);
+  if (Buffer.byteLength(raw, 'utf8') > limit) throw publicError('BODY_LIMIT', 'Request too large', 413);
   let value;
-  try { value = JSON.parse(raw || '{}'); } catch { throw publicError('INPUT', '无效 JSON', 400); }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw publicError('INPUT', '无效请求', 400);
+  try { value = JSON.parse(raw || '{}'); } catch { throw publicError('INPUT', 'Invalid JSON', 400); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw publicError('INPUT', 'Invalid request', 400);
   return value;
 }

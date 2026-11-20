@@ -416,7 +416,7 @@
     ctx.globalAlpha = fin;
     const topY = w > h ? 64 : 82;
     fillRR(ctx, safe.left, topY, 18, 18, 4, pal.ACC);
-    drawText(ctx, opts.series || 'VIBE 知识大赏', safe.left + 32, topY + 18, 30, { w: 700, col: pal.INK, a: 0.9 });
+    drawText(ctx, opts.series || 'VIBE 科普剧场', safe.left + 32, topY + 18, 30, { w: 700, col: pal.INK, a: 0.9 });
     if (opts.chapter) {
       drawText(ctx, opts.chapter, safe.right, topY + 18, 28, { w: 600, col: pal.DIM, al: 'right' });
     }

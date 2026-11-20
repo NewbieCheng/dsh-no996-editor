@@ -1,21 +1,24 @@
 diff --git a/apps/desktop/chat/src/components/AgentActivityRow.tsx b/apps/desktop/chat/src/components/AgentActivityRow.tsx
-index 69c82b6..2afcfb8 100644
+index 69c82b6..b0d5305 100644
 --- a/apps/desktop/chat/src/components/AgentActivityRow.tsx
 +++ b/apps/desktop/chat/src/components/AgentActivityRow.tsx
-@@ -45,6 +45,12 @@ export interface AgentActivityItem {
+@@ -45,6 +45,15 @@ export interface AgentActivityItem {
    query?: string;
    /** A local agent's file name or command (no quotes: it is not film content). */
    detail?: string;
++  /**
++   * no996-editor: the command / path / query the row opens to, and what the tool returned.
++   * A person watching a film get edited should be able to check what actually ran without
++   * the command taking over the conversation: the row stays one line until asked.
++   */
++  command?: string;
++  output?: string;
 +  /** no996-editor: the real tool that ran (`openfilm_frame`, `web_search`), when the agent named it. */
 +  tool?: string;
-+  toolOutput?: string;
-+  toolInput?: string;
-+  toolErrorCode?: string;
-+  toolOutcome?: 'completed' | 'failed' | 'interrupted';
    plan?: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' }>;
    /** The question the agent asks the user (chat.ask). */
    ask?: { question: string; options: Array<{ label: string; description?: string }>; answer?: string; status?: 'answered' | 'skipped' | 'timeout' };
-@@ -153,7 +159,10 @@ const AgentActivityRow = React.memo(function AgentActivityRow({
+@@ -153,7 +162,10 @@ const AgentActivityRow = React.memo(function AgentActivityRow({
  
    if (item.kind === 'text') {
      /* Agent text is markdown. As plain text, `**bold**`, `###` and `>` would show raw and paragraphs would
@@ -27,7 +30,7 @@ index 69c82b6..2afcfb8 100644
      const text = item.text ?? '';
      if (!text.trim()) return null;
      return (
-@@ -181,36 +190,47 @@ export function formatWorkDuration(ms: number): string {
+@@ -181,36 +193,47 @@ export function formatWorkDuration(ms: number): string {
  }
  
  /**
@@ -88,25 +91,24 @@ index 69c82b6..2afcfb8 100644
            <Markdown text={text} muted />
          </div>
        ) : null}
-@@ -395,6 +415,7 @@ function ActGroup({ items }: { items: AgentActivityItem[] }) {
+@@ -395,7 +418,13 @@ function ActGroup({ items }: { items: AgentActivityItem[] }) {
   * on click.
   */
  function ActRow({ item }: { item: AgentActivityItem }) {
 +  const t = useT();
    const Icon = ACT_ICONS[item.label];
++  /* Closed by default: a command is a thing to check, not a thing to read past. */
++  const [open, setOpen] = React.useState(false);
++  const detail = [item.command, item.output]
++    .filter((part): part is string => typeof part === 'string' && part.trim() !== '')
++    .join('\n\n');
    return (
      <div className="flex min-w-0 items-start gap-2 py-1 text-[14px] leading-6">
-@@ -406,25 +427,44 @@ function ActRow({ item }: { item: AgentActivityItem }) {
-           data-activity-header=""
-           data-activity-id={item.id}
-           aria-busy={!!item.pending}
--          className="flex h-6 max-w-full min-w-0 items-center gap-1.5 text-left"
-+          className="flex min-h-6 max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 py-0.5 text-left"
+       {Icon ? (
+@@ -409,6 +438,15 @@ function ActRow({ item }: { item: AgentActivityItem }) {
+           className="flex h-6 max-w-full min-w-0 items-center gap-1.5 text-left"
          >
--          <ActivityLabel label={item.label} pending={!!item.pending} />
-+          {item.toolOutcome === 'failed' || item.toolOutcome === 'interrupted'
-+            ? <span className="shrink-0 whitespace-nowrap text-[var(--text-faint)]">{t(item.toolOutcome === 'failed' ? 'no996.webFailed' : 'no996.webInterrupted')}</span>
-+            : <ActivityLabel label={item.label} pending={!!item.pending} />}
+           <ActivityLabel label={item.label} pending={!!item.pending} />
 +          {/* no996-editor: what actually ran, next to what it meant for the film. A bridging agent
 +              reports the tool name; without it the row only says "已检查影片" and the person cannot
 +              tell which tool was called. */}
@@ -117,36 +119,38 @@ index 69c82b6..2afcfb8 100644
 +            </span>
 +          ) : null}
            {item.query ? (
--            <span className="min-w-0 truncate text-[var(--text-faint)] opacity-80" title={item.query}>
-+            <span className="max-w-full min-w-0 flex-1 basis-24 truncate text-[var(--text-faint)] opacity-80" title={item.query}>
+             <span className="min-w-0 truncate text-[var(--text-faint)] opacity-80" title={item.query}>
                “{item.query}”
-             </span>
-           ) : null}
-           {/* File name or command: not film content, so no quotes, monospace */}
-           {item.detail ? (
--            <span className="min-w-0 truncate font-mono text-[12.5px] text-[var(--text-faint)] opacity-80" title={item.detail}>
-+            <span className="max-w-full min-w-0 flex-1 basis-24 truncate font-mono text-[12.5px] text-[var(--text-faint)] opacity-80" title={item.detail}>
-               {item.detail}
-             </span>
-           ) : null}
-           {/* Reserve the clock's width after completion so long commands keep the same truncation. */}
--          <span className="ml-auto flex w-12 shrink-0 justify-end">
-+          <span className={item.pending ? 'ml-auto flex shrink-0 justify-end' : 'hidden'}>
-             {item.pending ? <PendingElapsed startedAt={item.startedAt} /> : null}
-           </span>
+@@ -427,6 +465,28 @@ function ActRow({ item }: { item: AgentActivityItem }) {
          </div>
-+        {item.toolInput || item.toolOutput || item.toolOutcome || (item.label === 'act.command.run' && item.detail) ? (
-+          <details className="rounded border border-[var(--border)] px-2 text-xs text-[var(--text-faint)]">
-+            <summary className="cursor-pointer">{t('no996.webDetails')}{item.toolErrorCode ? ` · ${item.toolErrorCode}` : ''}</summary>
-+            {item.query ? <p className="break-words">{item.query}</p> : null}
-+            {item.toolInput || (item.label === 'act.command.run' && item.detail) ? <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words">{item.toolInput ?? item.detail}</pre> : null}
-+            {item.toolOutcome || item.toolOutput ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words">{item.toolOutput ?? t('no996.webNoResult')}</pre> : null}
-+          </details>
-+        ) : null}
          {item.asset ? <AssetPreview asset={item.asset} /> : null}
          {item.ask?.status ? <AskOutcome ask={item.ask} /> : null}
++        {detail ? (
++          <div className="mt-1 min-w-0">
++            <button
++              type="button"
++              aria-expanded={open}
++              data-activity-details=""
++              onClick={() => setOpen((value) => !value)}
++              className="flex items-center gap-1 rounded-[4px] py-0.5 text-[12px] text-[var(--text-faint)] hover:text-[var(--text)]"
++            >
++              <ChevronDown size={12} aria-hidden className={`transition-transform ${open ? 'rotate-180' : ''}`} />
++              {t('act.details')}
++            </button>
++            {open ? (
++              <pre
++                data-activity-command=""
++                className="mt-1 max-h-[240px] overflow-auto whitespace-pre-wrap break-words rounded-[6px] border border-[var(--border)] bg-[var(--bg-hover)] p-2 font-mono text-[12px] leading-relaxed text-[var(--text-faint)]"
++              >
++                {detail}
++              </pre>
++            ) : null}
++          </div>
++        ) : null}
        </div>
-@@ -635,7 +675,12 @@ function togglePlayer(url: string, owner: string): void {
+     </div>
+   );
+@@ -635,7 +695,12 @@ function togglePlayer(url: string, owner: string): void {
   */
  export function StatusLine({ items, fallback, ownAgent = false }: { items: AgentActivityItem[]; fallback?: string | null; ownAgent?: boolean }) {
    const t = useT();
@@ -160,9 +164,15 @@ index 69c82b6..2afcfb8 100644
    /* The last time anything happened: each new item (text, an act starting or finishing) gives the list a new identity */
    // eslint-disable-next-line react-hooks/exhaustive-deps
    const changedAt = React.useMemo(() => Date.now(), [items]);
-@@ -650,6 +695,9 @@ export function StatusLine({ items, fallback, ownAgent = false }: { items: Agent
+@@ -648,8 +713,14 @@ export function StatusLine({ items, fallback, ownAgent = false }: { items: Agent
+     return null;
+   }
    if (running.length || fallback) {
-     return <StatusShell label={running.length ? t('act.thinking') : fallback!} since={changedAt} />;
+-    return <StatusShell label={running.length ? t('act.thinking') : fallback!} since={changedAt} />;
++    /* no996-editor: name the work. "Thinking" alone read as if nothing was happening
++       while two commands were still running. */
++    const label = running.length ? t('act.running').replace('{n}', String(running.length)) : fallback!;
++    return <StatusShell label={label} since={changedAt} />;
    }
 +  /* Nothing but a thought runs: its own row is already saying so, with its own clock. A second line
 +     here ("正在工作") is the same sentence in other words. */

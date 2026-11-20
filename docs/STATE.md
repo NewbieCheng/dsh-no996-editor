@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,13 +10,13 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.19.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.19.11**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
 
 项目与对话（Host 原生会话，**一条对话一条 DSH 会话**）、模型与思考强度菜单、审批、取消、
-逐字流式回答、思考行（默认收起，最高 280px）、工具行、内联图片、归档、模板安装/检索/**模板提示词注入**、
+逐字流式回答、思考行（默认收起，最高 280px）、工具行、内联图片、归档、模板安装/检索/**模板说明按需读取**、
 抽帧、时间轴落盘编辑、导出、CLI 兜底（`doctor` / `version` / `skills` / `skill`）、本机口播转写、分镜（`.film/storyboard.json`）与字幕 SRT。
 素材库：**全部免费素材（CC0）都能检索**——音乐/音效/贴纸走 Studio 路由，转场/特效/滤镜/文字由 Host 按库索引在进程内检索（0.4.0 收窄了 agent 动词，见 [`DEVELOPMENT.md`](DEVELOPMENT.md)）；取用走 `saved/take`，转场可自动放到切点。收费的只有生成类服务。
 
@@ -28,6 +28,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - **2026-11-20 剪辑聊天（0.19.0，已发布源码与包，真机验收仍待做）。** 已核对本机 desktop profile 指向本工作区 `link:`，固定版 OpenFilm 壳已重建，补丁重放和测试通过。此证据不等于正在运行的桌面已加载新 Host，也不等于真实模型、搜索或安装技能已验收。
 - **源码变更**：模式/当前模型独立于用户正文；支持手动切换、切回 Auto 归初始阶段和模型动态更新实际阶段。活动行收口，窄栏容纳失败状态及可展开的网页/命令详情；推理切换使用实际档位并保留默认。`/` 与「＋ → 技能」共用选择入口，分剪辑预设与 OpenFilm 已安装两组。实现与限制见[架构](ARCHITECTURE.md#23-聊天桥实时模式和显式技能)，原始排障见[聊天修复记录](topics/chat-work-mode-search-and-model-fix-plan.md)与[技能方案](topics/chat-slash-skills-plan.md)。
 - **验收**：在 DSH `0.2.2-rc.5` 完整重启后用临时项目：① 窄栏触发搜索失败并展开原因、结束后重开历史，确认无覆盖/残留思考；② 切换不同档位的模型、手动→Auto→阶段变化，确认模式与模型不进入用户气泡；③ 验证两组同名技能互不覆盖、OpenFilm 停用后不可选/不可发、未引入全局 DSH 技能。
+- **2026-11-20 模板精简与壳补丁重排（0.19.11）。** `replica-film`（原"知识大赏"入口）整包移除、`_kit/replica` 复刻单元删除，模板说明改为按需读取（手动放入的外部模板可搜索不可执行，对照项目指令无新模板块）；上游壳补丁系列重排至 80 个并重建快照（登录门、引导、账号、示例画廊、项目库、导航、品牌等界面补丁更新）；登录/游客会话保持、偏好、Studio 插件面/影片视图桥接、素材库检索等 bug 修复；新增 `dev:up` / `dev:dsh` 本机联调脚本。源码已就绪，**待真机**：桌面重启后核对模板列表无复刻入口、登录/游客流程与示例/项目库页面表现。
 
 - 已发布的 0.16.1 在项目页会调用嵌入桥未实现的 `takeLink()`，导致编辑器白屏；本工作区已补齐 0.4.0 的桌面深链兼容接口（嵌入模式不接收 OS 深链），并补回「从示例开始」的翻译。修复纳入 0.16.2；隔离浏览器已验证编辑器渲染与示例引用，DSH 桌面待验。
 
@@ -64,11 +65,11 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - 清配色后 20s 无 boot：品牌 logo `MutationObserver` 死循环（非 Settings About）。观察器已修；Settings About A1 已重新接回（`SettingsModal` + i18n，撤 `tuneAbout`）。**待真机**：重载后能进工作台；设置侧栏「兼容 OpenFilm」、关于「基于 OpenFilm 开发」、语言说明「不加班剪辑…」。
 - 作曲栏底部上下文用量与思考强度即时同步：原生壳（`ContextUsage.tsx` + bake）在 `used === 0` 时不再渲染进度圆弧（消除 12 点方向 2px 误导黑点），`0 < share < 1%` 显示 `<1%` 与最小可见弧段；Host `syncUsage` 在 `contextPressure` 为 0/缺失时回退 `contextBreakdown`；`attach` 时补齐缺失选项并把会话已存 `agentPrefs`（含思考强度）即时同步到 Host，空白会话 `selectThinking` 通过 `store.setSelection` 持久化且 `official-facade.mjs` 优先使用稳定 `meta.sessionId`。**待真机**：打开历史对话即见真实用量或干净空环；未发消息前切换思考强度后刷新/切走再切回，菜单与实际请求仍保持新档位。
 - 分镜 → 时间轴自动落地：需要 OpenFilm 的片段创建接口；在那之前 `plan` 只报 `missing`。
-- 检查模板提示词在新建与只读场景中的实际注入；分镜可视化另行设计。
+- 模板按需读取：用桌面临时项目验证 9:16 空白画布、包内模板复制及打开、手动放入的外部模板可搜索而不可执行；对照项目指令确认没有新模板块。分镜可视化另行设计。
 - 不加班工作台统一 API Key（`is_default` 不可删除可轮换）+ `no996/auto` 智能路由（支持图片理解）+ DSH Web Search/Fetch + Studio 生图/配音/搜网/预留视频桥接 + 右侧工作台首页抽屉（扣费明细/可调模型费率表/默认密钥卡片）。**待真机**：登录后首句对话自动选用 `no996/auto` 并签发默认 Key；发送图片可正常识图与扣费；右侧抽屉实时展示积分明细与模型费率。
 - **连续生长动效 v2、内置 Vibe BGM、「完成后自动导出」二级开关与品牌化全量素材工具层**（当前工作区 `0.18.0`）：
   1. `WorkModePill` 弹层底部新增「完成后自动导出」开关（`autoExport` 默认关，按 `(projectId, conversation)` 持久化并广播 `mode_update`）；`no996_export` 对 `video/gif/audio/slides/nle` 强制要求 `autoExport === true` 或 `explicitUserRequest === true`（`stills/poster/subtitles` 放行）。
-  2. 内置 Vibe 知识大赏曲目 `We Never · 若如初见`（26 KB 实测拍点 `vendor/media/bgm/vibe-we-never.rhythm.json` 随包分发；音频实体按需多源校验 SHA-256 缓存在 `$DSH_HOME/no996-openfilm/media/bgm/we-never.mp3`），`no996_audio` 支持 `bgm-list` / `bgm-install` / `extract` / `duck`（-12 dB 人声闪避）；`no996_assets` 新增 `inspectUrl` / `fromUrl` 网页图片安全抓取（SSRF 防护）。
+  2. 内置 Vibe 科普剧场曲目 `We Never · 若如初见`（26 KB 实测拍点 `vendor/media/bgm/vibe-we-never.rhythm.json` 随包分发；音频实体按需多源校验 SHA-256 缓存在 `$DSH_HOME/no996-openfilm/media/bgm/we-never.mp3`），`no996_audio` 支持 `bgm-list` / `bgm-install` / `extract` / `duck`（-12 dB 人声闪避）；`no996_assets` 新增 `inspectUrl` / `fromUrl` 网页图片安全抓取（SSRF 防护）。`replica-film`（原「知识大赏」入口）已整包移除，产品列表与提示词注入不再提供该选项。
   3. `_kit` 连续舞台引擎（`motion.js`、`vibe-canvas.js`、`page.mjs`、`templates-build.mjs`）支持 `continuousStage`、2.5D 相机视差、6 类生长转场、因果交互与对话/声纹/首尾帧组件；`vibe-explainer` 已重构为 8 镜单镜头连续生长 `stage.js`（零 `drawWipeBand`），无头 Chromium 6 切点帧抽检通过。
   4. **动效设计四大核心原则**与**剪辑师六阶段工具/素材库调用时机表**已锁定至提示词、`storyboard.mjs`、`openfilm-director/vibe-craft/motion/editing` 与 `docs/MOTION.md`。
   5. **工具前缀品牌化与全量花字/字体/滤镜/双源模板打通**：Host 21 个工具统一暴露 `no996_*`（UI 活动行同时兼容识别历史 `openfilm_*`）；新增 `no996_fonts` 扫描系统/项目/内置 OFL 字体；`no996_library` 补齐 `wordart`（41 款花字）/`textmotion`（31 款）/`motion`（64 款）/`layer`（5 款）/双源 `template`（不加班模板 + 官方 14 套）检索与 `inspect` 配方透视；`no996_clip` 支持通过 Studio `/edit` 直接 `insert` / `preset` / `remove` 花字、字体、LUT 滤镜与关键帧。

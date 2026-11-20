@@ -1,16 +1,12 @@
 diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
 new file mode 100644
-index 0000000..66e34a6
+index 0000000..513efe0
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
-@@ -0,0 +1,811 @@
+@@ -0,0 +1,830 @@
 +/**
-+ * Workbench account chip + User Center drawer (~480px) for 不加班.
-+ * Covers:
-+ *  - Hero identity & 3-bucket points wallet
-+ *  - Tab 1: 账号概览与平台能力状态 (短效 Host JWT，无本地静态密钥)
-+ *  - Tab 2: 我的积分扣费表 (/billing/traces & /account/ledgers，含 N 分钟合并标识)
-+ *  - Tab 3: 可调模型与费率表 (/pricing/catalog & /v1 spec)
++ * Workbench account chip + User Center drawer (~480px) for No996.
++ * Copy goes through studio i18n (`workbench.*`); Host only sends stable status flags / English fallbacks.
 + */
 +import * as React from 'react';
 +import { createPortal } from 'react-dom';
@@ -29,6 +25,7 @@ index 0000000..66e34a6
 +import { Tooltip } from './Tooltip';
 +import type { SettingsSection } from './settings/SettingsModal';
 +import { useLanguage, useT } from '@/i18n';
++import { go } from '@/lib/navigate';
 +import { PRODUCT_NAME, PRODUCT_NAME_ZH } from '../../../../../shared/src/no996-brand';
 +
 +type Wallet = {
@@ -142,6 +139,9 @@ index 0000000..66e34a6
 +
 +type DrawerTab = 'overview' | 'ledger' | 'pricing';
 +
++const fill = (template: string, values: Record<string, string | number>) =>
++  template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
++
 +async function hostRpc<T>(channel: string, payload: Record<string, unknown> = {}): Promise<T> {
 +  const response = await fetch('/__dsh/official-rpc', {
 +    method: 'POST',
@@ -157,11 +157,11 @@ index 0000000..66e34a6
 +  return response.json() as Promise<T>;
 +}
 +
-+function labelOf(status: AuthStatus | null): string {
++function labelOf(status: AuthStatus | null, t: (path: string) => string): string {
 +  if (!status?.loggedIn) return '';
-+  if (status.dev) return '开发模式';
-+  if (status.guest) return '游客模式';
-+  return String(status.displayName || status.account || '已登录').trim().slice(0, 64);
++  if (status.dev) return t('workbench.labelDev');
++  if (status.guest) return t('workbench.labelGuest');
++  return String(status.displayName || status.account || t('workbench.labelSignedIn')).trim().slice(0, 64);
 +}
 +
 +/** Settings and the project browser display the same identity used by the top bar, not a provider login. */
@@ -185,24 +185,32 @@ index 0000000..66e34a6
 +  return (
 +    <div data-no996-account={surface} className="flex min-w-0 flex-col gap-1">
 +      <strong className="truncate text-[13px]">{product}</strong>
-+      {status ? <span className="truncate text-[12px] text-[var(--text-muted)]">{labelOf(status) || t('projects.accountLocal')}</span> : null}
++      {status ? <span className="truncate text-[12px] text-[var(--text-muted)]">{labelOf(status, t) || t('projects.accountLocal')}</span> : null}
 +    </div>
 +  );
 +}
 +
-+function formatPoints(value: number | null | undefined): string {
++function localeTag(language: string): string {
++  if (language === 'zh-CN') return 'zh-CN';
++  if (language === 'ja') return 'ja';
++  if (language === 'ko') return 'ko';
++  if (language === 'es') return 'es';
++  return 'en';
++}
++
++function formatPoints(value: number | null | undefined, language: string): string {
 +  if (typeof value === 'number' && Number.isFinite(value)) {
-+    return new Intl.NumberFormat('zh-CN').format(value);
++    return new Intl.NumberFormat(localeTag(language)).format(value);
 +  }
 +  return '—';
 +}
 +
-+function formatSyncedAt(iso?: string): string {
++function formatSyncedAt(iso: string | undefined, language: string): string {
 +  if (!iso) return '';
 +  const ms = Date.parse(iso);
 +  if (!Number.isFinite(ms)) return '';
 +  try {
-+    return new Date(ms).toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
++    return new Date(ms).toLocaleString(localeTag(language), { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 +  } catch {
 +    return '';
 +  }
@@ -216,6 +224,7 @@ index 0000000..66e34a6
 +  onSettings?: (section: SettingsSection) => void;
 +}) {
 +  const t = useT();
++  const language = useLanguage();
 +  const [status, setStatus] = React.useState<AuthStatus | null>(null);
 +  const [wallet, setWallet] = React.useState<Wallet | null>(null);
 +  const [capabilities, setCapabilities] = React.useState<CapabilitiesPayload | null>(null);
@@ -254,7 +263,7 @@ index 0000000..66e34a6
 +    };
 +  }, []);
 +
-+  const name = labelOf(status);
++  const name = labelOf(status, t);
 +  const isFormal = Boolean(status?.loggedIn && !status?.guest && !status?.dev);
 +  const available = wallet?.available_points ?? status?.credits ?? null;
 +  const hasPeriod = typeof wallet?.period_points_balance === 'number';
@@ -282,12 +291,12 @@ index 0000000..66e34a6
 +      if (ov?.balance) setWallet(ov.balance);
 +      setCapabilities(ov?.capabilities ?? null);
 +    } catch {
-+      setWallet((prev) => prev ? { ...prev, stale: true, message: '积分同步失败' } : prev);
++      setWallet((prev) => prev ? { ...prev, stale: true, message: t('workbench.syncFailed') } : prev);
 +    } finally {
 +      walletBusyRef.current = false;
 +      setWalletBusy(false);
 +    }
-+  }, []);
++  }, [t]);
 +
 +  const loadLedger = React.useCallback(async (mode: 'traces' | 'ledgers', page: number) => {
 +    if (!isFormal) {
@@ -357,6 +366,17 @@ index 0000000..66e34a6
 +    if (tab === 'pricing' && !pricingData) void loadPricing();
 +  }, [open, tab, ledgerMode, ledgerPage, loadLedger, loadPricing, pricingData]);
 +
++  /**
++   * DEV never clears the session (Host keeps Dev mode), so auth:logout cannot
++   * reveal LoginGate. `/?loginPreview=1` + `no996-open-account-login` force the
++   * real login page for styling without signing out.
++   */
++  const goDevHome = () => {
++    setOpen(false);
++    go('/?loginPreview=1', false);
++    try { window.dispatchEvent(new CustomEvent('no996-open-account-login')); } catch { /* ignore */ }
++  };
++
 +  const logout = async () => {
 +    if (busy || status?.dev) return;
 +    setBusy(true);
@@ -377,8 +397,8 @@ index 0000000..66e34a6
 +    }
 +  };
 +
-+  const synced = formatSyncedAt(wallet?.cached_at);
-+  const periodExpires = wallet?.period_expires_at ? formatSyncedAt(wallet.period_expires_at) : '';
++  const synced = formatSyncedAt(wallet?.cached_at, language);
++  const periodExpires = wallet?.period_expires_at ? formatSyncedAt(wallet.period_expires_at, language) : '';
 +  const totalPages = Math.max(1, Math.ceil((ledgerData.total || 0) / 15));
 +
 +  const endpointReady = (cap: string, token: string, fallback = false) => {
@@ -392,13 +412,13 @@ index 0000000..66e34a6
 +  };
 +
 +  const capabilityLights = [
-+    { key: 'chat', label: '对话 / Auto 识图', enabled: endpointReady('chat', 'chat', true) },
-+    { key: 'image', label: 'AI 生图', enabled: endpointReady('image_generation', 'image', true) },
-+    { key: 'tts', label: '配音合成', enabled: endpointReady('audio_speech', 'tts', true) },
-+    { key: 'asr', label: '语音识别 ASR', enabled: endpointReady('audio_asr', 'asr', true) },
-+    { key: 'ocr', label: '文档 OCR', enabled: endpointReady('ocr', 'ocr', true) },
-+    { key: 'search', label: '联网搜索', enabled: endpointReady('web_search', 'web-search', true) },
-+    { key: 'video', label: '生视频 (预留)', enabled: endpointReady('video_generation', 'video', false) },
++    { key: 'chat', label: t('workbench.capChat'), enabled: endpointReady('chat', 'chat', true) },
++    { key: 'image', label: t('workbench.capImage'), enabled: endpointReady('image_generation', 'image', true) },
++    { key: 'tts', label: t('workbench.capTts'), enabled: endpointReady('audio_speech', 'tts', true) },
++    { key: 'asr', label: t('workbench.capAsr'), enabled: endpointReady('audio_asr', 'asr', true) },
++    { key: 'ocr', label: t('workbench.capOcr'), enabled: endpointReady('ocr', 'ocr', true) },
++    { key: 'search', label: t('workbench.capSearch'), enabled: endpointReady('web_search', 'web-search', true) },
++    { key: 'video', label: t('workbench.capVideo'), enabled: endpointReady('video_generation', 'video', false) },
 +  ];
 +
 +  return (
@@ -408,8 +428,8 @@ index 0000000..66e34a6
 +          type="button"
 +          aria-haspopup="dialog"
 +          aria-expanded={open}
-+          aria-label={`账号 ${name}`}
-+          title={typeof available === 'number' ? `${name} · ${formatPoints(available)} 积分` : name}
++          aria-label={fill(t('workbench.accountAria'), { name })}
++          title={typeof available === 'number' ? fill(t('workbench.accountPointsTitle'), { name, points: formatPoints(available, language) }) : name}
 +          onClick={() => setOpen(true)}
 +          className="flex h-[26px] max-w-[11rem] min-w-0 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-2 text-[12px] text-[var(--text)] transition hover:bg-[var(--bg-hover)]"
 +        >
@@ -419,11 +439,11 @@ index 0000000..66e34a6
 +          ) : null}
 +        </button>
 +      ) : null}
-+      <Tooltip label={diagAlertCount > 0 ? `诊断日志（${diagAlertCount} 条新异常）` : '诊断日志（查看 / 复制 / 导出 / 问 Agent）'} side="bottom">
++      <Tooltip label={diagAlertCount > 0 ? fill(t('workbench.diagnosticsWithAlerts'), { n: diagAlertCount }) : t('workbench.diagnosticsHint')} side="bottom">
 +        <button
 +          type="button"
 +          data-no996-diag-trigger=""
-+          aria-label="诊断日志"
++          aria-label={t('workbench.diagnostics')}
 +          onClick={() => window.dispatchEvent(new CustomEvent('no996:open-diagnostics', { detail: { traceId: '' } }))}
 +          className="relative flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
 +        >
@@ -433,10 +453,10 @@ index 0000000..66e34a6
 +          ) : null}
 +        </button>
 +      </Tooltip>
-+      <Tooltip label="刷新界面（重新加载工作台页面）" side="bottom">
++      <Tooltip label={t('workbench.reloadPageHint')} side="bottom">
 +        <button
 +          type="button"
-+          aria-label="刷新界面"
++          aria-label={t('workbench.reloadPage')}
 +          onClick={() => location.reload()}
 +          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
 +        >
@@ -447,7 +467,7 @@ index 0000000..66e34a6
 +        <div className="fixed inset-0 z-[10060]" role="presentation">
 +          <button
 +            type="button"
-+            aria-label="关闭账号面板"
++            aria-label={t('workbench.closePanel')}
 +            className="absolute inset-0 bg-black/45"
 +            onClick={() => setOpen(false)}
 +          />
@@ -462,13 +482,13 @@ index 0000000..66e34a6
 +            <header className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--border)] px-4">
 +              <div className="min-w-0 flex-1">
 +                <h2 id="workbench-account-title" className="truncate text-[13.5px] font-semibold text-[var(--text)]">
-+                  工作台首页 · 账号与计费中心
++                  {t('workbench.title')}
 +                </h2>
 +              </div>
-+              <Tooltip label="刷新数据">
++              <Tooltip label={t('workbench.refreshData')}>
 +                <button
 +                  type="button"
-+                  aria-label="刷新数据"
++                  aria-label={t('workbench.refreshData')}
 +                  disabled={walletBusy}
 +                  onClick={() => {
 +                    void refreshOverview();
@@ -482,7 +502,7 @@ index 0000000..66e34a6
 +              </Tooltip>
 +              <button
 +                type="button"
-+                aria-label="关闭"
++                aria-label={t('workbench.close')}
 +                onClick={() => setOpen(false)}
 +                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
 +              >
@@ -490,12 +510,12 @@ index 0000000..66e34a6
 +              </button>
 +            </header>
 +
-+            <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-2 text-[12px]" aria-label="账号功能切换">
++            <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-2 text-[12px]" aria-label={t('workbench.tabsAria')}>
 +              {(
 +                [
-+                  { id: 'overview', label: '账号概览', icon: UserCheck },
-+                  { id: 'ledger', label: '我的积分扣费表', icon: Receipt },
-+                  { id: 'pricing', label: '可调模型与费率表', icon: Sparkles },
++                  { id: 'overview', label: t('workbench.tabOverview'), icon: UserCheck },
++                  { id: 'ledger', label: t('workbench.tabLedger'), icon: Receipt },
++                  { id: 'pricing', label: t('workbench.tabPricing'), icon: Sparkles },
 +                ] as const
 +              ).map((item) => {
 +                const Icon = item.icon;
@@ -523,7 +543,7 @@ index 0000000..66e34a6
 +                <>
 +                  <section className="flex items-start justify-between gap-2 min-w-0">
 +                    <div className="min-w-0">
-+                      <div className="text-[11px] text-[var(--text-faint)]">当前账号</div>
++                      <div className="text-[11px] text-[var(--text-faint)]">{t('workbench.currentAccount')}</div>
 +                      <div className="mt-0.5 truncate text-[15px] font-semibold text-[var(--text)]" title={name}>{name}</div>
 +                      {status?.account && status.account !== name ? (
 +                        <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]" title={status.account}>{status.account}</div>
@@ -532,45 +552,45 @@ index 0000000..66e34a6
 +                    {isFormal && capabilities?.limits ? (
 +                      <span className="shrink-0 rounded border border-[var(--border)] bg-[var(--bg-field)] px-2 py-0.5 text-[11px] text-[var(--text-muted)] tabular-nums">
 +                        {capabilities.limits.user_quota_disabled
-+                          ? '平台限流：已停用'
-+                          : `限流 ${capabilities.limits.effective_rpm ?? 60} RPM`}
++                          ? t('workbench.rateLimitedOff')
++                          : fill(t('workbench.rateLimitedRpm'), { rpm: capabilities.limits.effective_rpm ?? 60 })}
 +                      </span>
 +                    ) : null}
 +                  </section>
 +
 +                  <section className="rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-3.5 py-3">
 +                    <div className="flex items-center justify-between gap-2">
-+                      <span className="text-[11.5px] text-[var(--text-faint)]">可用总积分</span>
-+                      {synced ? <span className="text-[11px] text-[var(--text-faint)]">同步 {synced}</span> : null}
++                      <span className="text-[11.5px] text-[var(--text-faint)]">{t('workbench.availablePoints')}</span>
++                      {synced ? <span className="text-[11px] text-[var(--text-faint)]">{fill(t('workbench.syncedAt'), { time: synced })}</span> : null}
 +                    </div>
 +                    <div className="mt-1 text-[24px] font-semibold tabular-nums tracking-tight text-[var(--text)]">
-+                      {formatPoints(available)}
-+                      <span className="ml-1 text-[12px] font-medium text-[var(--text-muted)]">点</span>
++                      {formatPoints(available, language)}
++                      <span className="ml-1 text-[12px] font-medium text-[var(--text-muted)]">{t('workbench.pointsUnit')}</span>
 +                    </div>
 +                    {wallet?.stale ? (
-+                      <p className="mt-1.5 text-[11.5px] text-[var(--warn)]">{wallet.message || '显示的是本地缓存，线上可能已变化。'}</p>
++                      <p className="mt-1.5 text-[11.5px] text-[var(--warn)]">{wallet.message || t('workbench.staleCache')}</p>
 +                    ) : null}
 +                    {status?.guest ? (
-+                      <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">游客模式不连接账号服务，积分与网关不可用</p>
++                      <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">{t('workbench.guestNoGateway')}</p>
 +                    ) : null}
 +                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-2.5 text-[11px]">
 +                      <div>
-+                        <div className="text-[var(--text-faint)]">本期积分</div>
++                        <div className="text-[var(--text-faint)]">{t('workbench.periodPoints')}</div>
 +                        <div className="mt-0.5 font-semibold tabular-nums text-[var(--text)]">
-+                          {hasPeriod ? formatPoints(wallet?.period_points_balance) : '—'}
++                          {hasPeriod ? formatPoints(wallet?.period_points_balance, language) : '—'}
 +                        </div>
-+                        {periodExpires ? <div className="truncate text-[10px] text-[var(--text-muted)]">至 {periodExpires}</div> : null}
++                        {periodExpires ? <div className="truncate text-[10px] text-[var(--text-muted)]">{fill(t('workbench.until'), { time: periodExpires })}</div> : null}
 +                      </div>
 +                      <div>
-+                        <div className="text-[var(--text-faint)]">永久积分</div>
++                        <div className="text-[var(--text-faint)]">{t('workbench.permanentPoints')}</div>
 +                        <div className="mt-0.5 font-semibold tabular-nums text-[var(--text)]">
-+                          {formatPoints(wallet?.points_balance ?? available)}
++                          {formatPoints(wallet?.points_balance ?? available, language)}
 +                        </div>
 +                      </div>
 +                      <div>
-+                        <div className="text-[var(--text-faint)]">高级积分</div>
++                        <div className="text-[var(--text-faint)]">{t('workbench.expertPoints')}</div>
 +                        <div className="mt-0.5 font-semibold tabular-nums text-[var(--text)]">
-+                          {formatPoints(wallet?.expert_points_balance ?? 0)}
++                          {formatPoints(wallet?.expert_points_balance ?? 0, language)}
 +                        </div>
 +                      </div>
 +                    </div>
@@ -580,10 +600,10 @@ index 0000000..66e34a6
 +                    <div className="flex items-center justify-between gap-2">
 +                      <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text)]">
 +                        <ShieldCheck size={14} className="text-emerald-500" />
-+                        <span>安全会话与平台已开放能力</span>
++                        <span>{t('workbench.secureTitle')}</span>
 +                      </div>
 +                      <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-+                        {isFormal ? 'Host 短效加密会话 · 实时扣费' : '未登录正式账号'}
++                        {isFormal ? t('workbench.secureTagFormal') : t('workbench.secureTagInformal')}
 +                      </span>
 +                    </div>
 +
@@ -603,12 +623,12 @@ index 0000000..66e34a6
 +                          ))}
 +                        </div>
 +                        <p className="text-[11px] leading-relaxed text-[var(--text-faint)]">
-+                          所有对话（Auto 识图）、生图、语音合成 / ASR 识别、OCR 与联网请求均通过 Host 短效会话安全中转，零静态密钥落盘；第三方外部调用请前往网页工作台自主创建 API Key。
++                          {t('workbench.secureBodyFormal')}
 +                        </p>
 +                      </>
 +                    ) : (
 +                      <p className="text-[11.5px] text-[var(--text-muted)]">
-+                        请登录正式不加班账号，立即启用 Auto 智能识图模型与全模态积分计费。
++                        {t('workbench.secureBodyInformal')}
 +                      </p>
 +                    )}
 +                  </section>
@@ -624,7 +644,7 @@ index 0000000..66e34a6
 +                    >
 +                      <Settings2 size={15} strokeWidth={1.75} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
 +                      <span className="min-w-0 flex-1 font-medium">{t('settings.title')}</span>
-+                      <span className="text-[11.5px] text-[var(--text-faint)]">第三方 API · 外观 · 快捷键</span>
++                      <span className="text-[11.5px] text-[var(--text-faint)]">{t('workbench.settingsHint')}</span>
 +                    </button>
 +                  ) : null}
 +                </>
@@ -639,32 +659,32 @@ index 0000000..66e34a6
 +                        onClick={() => { setLedgerMode('traces'); setLedgerPage(1); }}
 +                        className={`rounded px-2.5 py-1 ${ledgerMode === 'traces' ? 'bg-[var(--bg-panel)] font-medium text-[var(--text)]' : 'text-[var(--text-muted)]'}`}
 +                      >
-+                        AI 调用明细
++                        {t('workbench.ledgerTraces')}
 +                      </button>
 +                      <button
 +                        type="button"
 +                        onClick={() => { setLedgerMode('ledgers'); setLedgerPage(1); }}
 +                        className={`rounded px-2.5 py-1 ${ledgerMode === 'ledgers' ? 'bg-[var(--bg-panel)] font-medium text-[var(--text)]' : 'text-[var(--text-muted)]'}`}
 +                      >
-+                        积分流水账
++                        {t('workbench.ledgerLedgers')}
 +                      </button>
 +                    </div>
 +                    <span className="text-[11px] text-[var(--text-faint)] tabular-nums">
-+                      共 {ledgerData.total ?? 0} 条
++                      {fill(t('workbench.ledgerTotal'), { n: ledgerData.total ?? 0 })}
 +                    </span>
 +                  </div>
 +
 +                  {!isFormal ? (
-+                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">登录正式账号后可查看每次扣费明细。</p>
++                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">{t('workbench.ledgerNeedLogin')}</p>
 +                  ) : ledgerBusy ? (
-+                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">正在拉取最新扣费记录…</p>
++                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">{t('workbench.ledgerLoading')}</p>
 +                  ) : (ledgerData.items?.length ?? 0) === 0 ? (
-+                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">暂无扣费记录，使用「不加班 Auto」或生图/配音后会实时入账。</p>
++                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">{t('workbench.ledgerEmpty')}</p>
 +                  ) : (
 +                    <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
 +                      {ledgerData.items!.map((item, idx) => {
 +                        const cost = Number(item.charged_points ?? item.points_cost ?? item.delta ?? 0);
-+                        const modelLabel = item.resolved_model || item.model_code || item.model || item.service_code || item.reason || '平台调用';
++                        const modelLabel = item.resolved_model || item.model_code || item.model || item.service_code || item.reason || t('workbench.platformCall');
 +                        const tokens = Number(item.total_tokens ?? ((item.input_tokens ?? 0) + (item.output_tokens ?? 0)));
 +                        return (
 +                          <div key={String(item.id ?? item.trace_id ?? idx)} className="flex items-center justify-between gap-2 px-3 py-2 text-[12px]">
@@ -672,22 +692,22 @@ index 0000000..66e34a6
 +                              <div className="flex items-center gap-1.5 truncate font-medium text-[var(--text)]">
 +                                <span className="truncate">{modelLabel}</span>
 +                                {item.requested_model === 'auto' && item.resolved_model && item.resolved_model !== 'auto' ? (
-+                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">Auto 路由</span>
++                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">{t('workbench.autoRouted')}</span>
 +                                ) : null}
 +                                {Number(item.call_count) > 1 ? (
 +                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)] tabular-nums">
-+                                    合并 ×{item.call_count}
++                                    {fill(t('workbench.mergedCalls'), { n: item.call_count })}
 +                                  </span>
 +                                ) : null}
 +                              </div>
 +                              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10.5px] text-[var(--text-faint)]">
-+                                {item.created_at ? <span>{formatSyncedAt(item.created_at)}</span> : null}
++                                {item.created_at ? <span>{formatSyncedAt(item.created_at, language)}</span> : null}
 +                                {tokens > 0 ? <span className="tabular-nums">{tokens.toLocaleString()} Tokens</span> : null}
 +                                {item.remark ? <span className="truncate max-w-[180px]">{item.remark}</span> : null}
 +                              </div>
 +                            </div>
 +                            <span className={`shrink-0 font-semibold tabular-nums ${cost < 0 || ledgerMode === 'traces' ? 'text-[var(--text)]' : 'text-emerald-500'}`}>
-+                              {ledgerMode === 'traces' ? `-${Math.abs(cost)}` : cost > 0 ? `+${cost}` : cost} 点
++                              {fill(t('workbench.pointsDelta'), { signed: ledgerMode === 'traces' ? `-${Math.abs(cost)}` : cost > 0 ? `+${cost}` : cost })}
 +                            </span>
 +                          </div>
 +                        );
@@ -703,7 +723,7 @@ index 0000000..66e34a6
 +                        onClick={() => setLedgerPage((p) => Math.max(1, p - 1))}
 +                        className="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--bg-hover)] disabled:opacity-40"
 +                      >
-+                        <ChevronLeft size={12} /> 上一页
++                        <ChevronLeft size={12} /> {t('workbench.prevPage')}
 +                      </button>
 +                      <span className="tabular-nums">{ledgerPage} / {totalPages}</span>
 +                      <button
@@ -712,7 +732,7 @@ index 0000000..66e34a6
 +                        onClick={() => setLedgerPage((p) => p + 1)}
 +                        className="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--bg-hover)] disabled:opacity-40"
 +                      >
-+                        下一页 <ChevronRight size={12} />
++                        {t('workbench.nextPage')} <ChevronRight size={12} />
 +                      </button>
 +                    </div>
 +                  ) : null}
@@ -722,26 +742,25 @@ index 0000000..66e34a6
 +              {tab === 'pricing' ? (
 +                <div className="space-y-3 text-[12px]">
 +                  <div className="rounded-md border border-[var(--border)] bg-[var(--bg-field)] p-3 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
-+                    <div className="font-medium text-[var(--text)]">Auto 智能路由与全模态计费说明</div>
++                    <div className="font-medium text-[var(--text)]">{t('workbench.pricingTitle')}</div>
 +                    <p className="mt-1">
-+                      当选用 <code className="rounded bg-[var(--bg-panel)] px-1 font-mono text-[var(--text)]">no996/auto</code> 模型时，系统对外保持统一标识并在后台自动择优：
 +                      {pricingData?.auto_vision_routing_enabled !== false
-+                        ? ' 请求包含图片时将自动识别并调度至支持视觉理解的可用通道，按实际命中的模型费率精确扣费。'
-+                        : ' 仅路由文本默认通道。'}
++                        ? t('workbench.pricingBodyVision')
++                        : t('workbench.pricingBodyText')}
 +                    </p>
 +                  </div>
 +
 +                  {!isFormal ? (
-+                    <p className="py-6 text-center text-[var(--text-muted)]">登录正式账号后可查看当前可用模型与积分费率表。</p>
++                    <p className="py-6 text-center text-[var(--text-muted)]">{t('workbench.pricingNeedLogin')}</p>
 +                  ) : pricingBusy ? (
-+                    <p className="py-6 text-center text-[var(--text-muted)]">正在加载平台定价目录…</p>
++                    <p className="py-6 text-center text-[var(--text-muted)]">{t('workbench.pricingLoading')}</p>
 +                  ) : (
 +                    <>
 +                      <div>
-+                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">大语言模型（/v1/responses）</div>
++                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">{t('workbench.pricingModels')}</div>
 +                        <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
 +                          {(pricingData?.models ?? []).length === 0 ? (
-+                            <div className="px-3 py-3 text-[var(--text-muted)]">暂无公开定价条目，请咨询管理员或查看工作台详情。</div>
++                            <div className="px-3 py-3 text-[var(--text-muted)]">{t('workbench.pricingEmptyModels')}</div>
 +                          ) : (
 +                            pricingData!.models!.map((m, idx) => (
 +                              <div key={String(m.model_code || idx)} className="flex items-center justify-between gap-2 px-3 py-2">
@@ -749,15 +768,15 @@ index 0000000..66e34a6
 +                                  <div className="flex items-center gap-1.5 font-medium text-[var(--text)]">
 +                                    <span className="truncate">{m.display_name || m.model_code}</span>
 +                                    {m.supports_vision ? (
-+                                      <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">识图</span>
++                                      <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">{t('workbench.visionBadge')}</span>
 +                                    ) : null}
 +                                  </div>
 +                                  <div className="font-mono text-[10.5px] text-[var(--text-faint)]">{m.model_code}</div>
 +                                </div>
 +                                <div className="shrink-0 text-right text-[11px] tabular-nums text-[var(--text-muted)]">
 +                                  {m.fixed_points && m.fixed_points > 0
-+                                    ? `${m.fixed_points} 点/次`
-+                                    : `${m.points_per_1k_input ?? 0} 入 / ${m.points_per_1k_output ?? 0} 出 (每千 Token)`}
++                                    ? fill(t('workbench.pointsPerCall'), { n: m.fixed_points })
++                                    : fill(t('workbench.pointsPerTok'), { input: m.points_per_1k_input ?? 0, output: m.points_per_1k_output ?? 0 })}
 +                                </div>
 +                              </div>
 +                            ))
@@ -766,10 +785,10 @@ index 0000000..66e34a6
 +                      </div>
 +
 +                      <div>
-+                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">多模态与工具服务</div>
++                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">{t('workbench.pricingServices')}</div>
 +                        <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
 +                          {(pricingData?.services ?? []).length === 0 ? (
-+                            <div className="px-3 py-3 text-[var(--text-muted)]">已接入：/v1/images/generations、/v1/audio/speech、/v1/audio/transcriptions、/v1/ocr、/v1/tools/web_search</div>
++                            <div className="px-3 py-3 text-[var(--text-muted)]">{t('workbench.pricingEmptyServices')}</div>
 +                          ) : (
 +                            pricingData!.services!.map((s, idx) => (
 +                              <div key={String(s.service_code || idx)} className="flex items-center justify-between gap-2 px-3 py-2">
@@ -778,7 +797,7 @@ index 0000000..66e34a6
 +                                  <div className="font-mono text-[10.5px] text-[var(--text-faint)]">{s.service_code}</div>
 +                                </div>
 +                                <div className="shrink-0 text-right text-[11px] tabular-nums text-[var(--text-muted)]">
-+                                  {s.points_per_unit ?? 0} 点 / {s.unit_label || '次'}
++                                  {fill(t('workbench.pointsPerUnit'), { n: s.points_per_unit ?? 0, unit: s.unit_label || t('workbench.unitOnce') })}
 +                                </div>
 +                              </div>
 +                            ))
@@ -794,18 +813,18 @@ index 0000000..66e34a6
 +            <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3">
 +              <button
 +                type="button"
-+                disabled={busy || status?.dev === true}
-+                onClick={() => void logout()}
++                disabled={busy && !status?.dev}
++                onClick={() => { if (status?.dev) goDevHome(); else void logout(); }}
 +                className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-[12.5px] text-[var(--text)] transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
 +              >
-+                {status?.dev ? '开发模式无需退出' : busy ? '退出中…' : status?.guest ? '退出游客' : '退出登录'}
++                {status?.dev ? t('workbench.backHome') : busy ? t('workbench.loggingOut') : status?.guest ? t('workbench.leaveGuest') : t('workbench.signOut')}
 +              </button>
 +              <button
 +                type="button"
 +                onClick={() => setOpen(false)}
 +                className="rounded-md px-3 py-1.5 text-[12.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
 +              >
-+                关闭
++                {t('workbench.close')}
 +              </button>
 +            </footer>
 +          </aside>

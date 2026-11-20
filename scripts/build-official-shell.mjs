@@ -85,6 +85,7 @@ function main() {
     'packages/openfilm/studio/ui/src/i18n/ja.ts',
     'packages/openfilm/studio/ui/src/i18n/ko.ts',
     'packages/openfilm/studio/ui/src/i18n/zh-CN.ts',
+    'packages/openfilm/studio/ui/src/lib/navigate.ts',
     'packages/openfilm/studio/ui/src/lib/plugins-window.ts',
     'packages/openfilm/studio/ui/src/lib/providers.ts',
     'packages/openfilm/studio/ui/src/shell/top-bar.tsx',

@@ -29,7 +29,7 @@ test('each bundled template registers as a real OpenFilm project', { skip: !exis
   const locations = await import(pathToFileURL(join(root, 'node_modules', 'openfilm', 'src', 'locations.mjs')).href);
   assert.equal(locations.studioHomeDir(), process.env.OPENFILM_HOME, 'Studio home must follow OPENFILM_HOME');
   const ids = [];
-  for (const id of ['replica-film', 'sketchnote', 'paper-texture']) {
+  for (const id of ['vibe-explainer', 'sketchnote', 'paper-texture']) {
     const installed = await installTemplate({
       root: templates,
       id,

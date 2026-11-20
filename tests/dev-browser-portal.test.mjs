@@ -140,6 +140,79 @@ test('dev browser portal serves electron loopback APIs, redirects /editor to /, 
   assert.equal(csrfPost.status, 403);
 });
 
+test('dev browser portal plugin /s/ modules CORS-allow the public :47821 Origin', async (t) => {
+  let studioOrigin = '';
+  const studioUp = createServer((req, res) => {
+    if (req.url === '/api/edit-module') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ element: `${pluginOrigin}/s/grant/ui.js` }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><title>OpenFilm</title><div id="root"></div>');
+  });
+  const filmUp = createServer((_req, res) => res.writeHead(200).end(''));
+  const pluginUp = createServer((req, res) => {
+    const headers = { 'content-type': 'text/javascript', 'content-security-policy': "default-src 'self'" };
+    if (req.headers.origin === studioOrigin) {
+      headers['access-control-allow-origin'] = studioOrigin;
+      headers['access-control-expose-headers'] = 'etag';
+    }
+    res.writeHead(200, headers).end('export default class extends HTMLElement {}');
+  });
+  const studioPort = await listen(studioUp);
+  studioOrigin = `http://127.0.0.1:${studioPort}`;
+  const filmPort = await listen(filmUp);
+  const pluginPort = await listen(pluginUp);
+  const pluginOrigin = `http://localhost:${pluginPort}`;
+  const studio = {
+    origin: studioOrigin,
+    filmOrigin: `http://localhost:${filmPort}`,
+    pluginOrigin,
+    key: KEY,
+  };
+
+  const liveSse = createDevLiveSse({ root: ROOT, enabled: false });
+  const portal = await startDevBrowserPortal({
+    port: 0,
+    ensureStudioStarted: async () => {},
+    createProxyOptions: async () => ({
+      officialShell: true,
+      devHooks: createDevHmrHooks({ viteOrigin: null, liveSse, styleLabHtml: () => '', relaxedEmbed: true }),
+      authorizeOfficialProject: async () => true,
+      officialRpc: async () => ({ ok: true }),
+    }),
+  });
+
+  t.after(async () => {
+    await portal.close();
+    liveSse.close();
+    await Promise.all([
+      new Promise(done => studioUp.close(done)),
+      new Promise(done => filmUp.close(done)),
+      new Promise(done => pluginUp.close(done)),
+    ]);
+  });
+
+  await portal.setUpstream(studio);
+
+  const api = await fetch(`${portal.origin}/api/edit-module`);
+  assert.equal(api.status, 200);
+  const { element } = await api.json();
+  assert.match(element, /^http:\/\/localhost:\d+\/s\/grant\/ui\.js$/);
+  assert.notEqual(element.startsWith(pluginOrigin), true, 'element must be rewritten off Studio pluginOrigin');
+
+  // Browser at the public portal Origin must be able to load the rewritten /s/ module.
+  const moduleRes = await fetch(element, { headers: { origin: portal.origin } });
+  assert.equal(moduleRes.status, 200);
+  assert.equal(moduleRes.headers.get('access-control-allow-origin'), portal.origin);
+  assert.match(await moduleRes.text(), /^export default/);
+
+  const foreign = await fetch(element, { headers: { origin: 'http://127.0.0.1:9999' } });
+  assert.equal(foreign.status, 403);
+  await foreign.body.cancel();
+});
+
 test('isReleasePackage fails closed on releaseBuild stamp or missing src/dev', () => {
   assert.equal(isReleasePackage(ROOT), false);
   const flags = devFlags({ NO996_OPENFILM_DEV: '1', NO996_OPENFILM_DEV_HMR: '1' });

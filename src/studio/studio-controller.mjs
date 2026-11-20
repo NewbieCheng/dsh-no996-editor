@@ -2,7 +2,7 @@ import { filmSkillCatalog, skillListing } from '../native/film-skill-selection.m
 import { createElevationProbe } from '../host/elevation.mjs';
 import { createStudioRuntime } from './studio-runtime.mjs';
 import { createHostComponentDetector } from '../host/host-components.mjs';
-import { finishTemplateCreation, installTemplate, listTemplates } from '../official/official-templates.mjs';
+import { blankFilmHtml, finishTemplateCreation, installTemplate, listTemplates } from '../official/official-templates.mjs';
 import {
   balanceCachePatch,
   balanceFromPrefs,
@@ -27,6 +27,7 @@ import { homedir, tmpdir } from 'node:os';
 const HOST_VERSION = (() => { try { return String(JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version); } catch { return 'unknown'; } })();
 
 const templatesRoot = fileURLToPath(new URL('../../vendor/templates/', import.meta.url));
+const externalTemplateRoot = () => join(homedir(), '.openfilm', 'Templates');
 
 /** The ACP path is the default; an explicit 0 is the escape hatch. */
 /** Page events the Host will record; anything else is refused. */
@@ -38,8 +39,9 @@ import { createDshAskAgent } from '../host/dsh-ai.mjs';
 import { reportPresetStatus } from '../host/preset-report.mjs';
 import { createGuideTool } from '../tools/guide-tool.mjs';
 import { createStoryboardTool } from '../tools/storyboard-tool.mjs';
-import { templateCatalog } from '../film/template-catalog.mjs';
-import { readActiveTemplates, renderTemplateBlock, syncTemplateBlock, withTemplateBlock, writeActiveTemplates } from '../film/template-prompts.mjs';
+import { templateCatalog, templateDetails } from '../film/template-catalog.mjs';
+
+import { readActiveTemplates, writeActiveTemplates } from '../film/template-prompts.mjs';
 import { PERSONA } from '../native/openfilm-persona.mjs';
 import { instructionChain } from '../native/instruction-inventory.mjs';
 import { createStudioHttp } from './studio-http.mjs';
@@ -101,6 +103,7 @@ import { createDiagLogsController } from './studio-controller/routes/diag-logs.m
 import { createEnvironmentRoute } from './studio-controller/routes/environment.mjs';
 import { createDiagnosticsRoutes } from './studio-controller/routes/diagnostics.mjs';
 import { createEditingRoutes } from './studio-controller/routes/editing.mjs';
+import { createEditingArchiveBatch } from '../project/editing-archive-batch.mjs';
 import { createSystemRoutes } from './studio-controller/routes/system.mjs';
 import { createTurnLog } from './studio-controller/turns.mjs';
 import { buildFallbackPayload } from '../host/fallback-prompt.mjs';
@@ -318,11 +321,13 @@ export function createStudioController(ctx, createProxy, {
       ? join(homedir(), 'Videos', 'OpenFilm', 'Projects')
       : join(homedir(), 'OpenFilm', 'Projects');
   };
-  const createBlankOfficialProject = async (proxy) => {
+  const createBlankOfficialProject = async (proxy, ratio) => {
+    const film = blankFilmHtml(ratio);
     const parentDir = await projectParentDir(proxy);
     await mkdir(parentDir, { recursive: true });
     const target = join(parentDir, `自定义-${randomBytes(3).toString('hex')}`);
     await mkdir(target);
+    await writeFile(join(target, 'film.html'), film, { flag: 'wx' });
     const project = await proxy.createProject(target);
     if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') {
       throw Object.assign(new Error('Studio returned an invalid project'), { code: 'TEMPLATE_REGISTRATION_UNCERTAIN' });
@@ -691,7 +696,23 @@ export function createStudioController(ctx, createProxy, {
         onAuthChanged?.();
         return { loggedIn: false };
       }
-      if (workbenchAuth.dev) return { ok: true, dev: true };
+      // DEV still needs a captcha payload for LoginGate styling/preview.
+      // Other auth:action calls stay short-circuited (no real login/register).
+      if (workbenchAuth.dev) {
+        const action = payload && typeof payload === 'object' ? payload : {};
+        if (action.action === 'captcha') {
+          try {
+            return await dispatchAuthAction(workbenchAuth, action);
+          } catch (error) {
+            return {
+              ok: false,
+              error: String(error?.code || 'AUTH'),
+              message: String(error?.message || '请求失败').slice(0, 200),
+            };
+          }
+        }
+        return { ok: true, dev: true };
+      }
       const action = payload && typeof payload === 'object' ? payload : {};
       try {
         const result = await dispatchAuthAction(workbenchAuth, action);
@@ -760,7 +781,7 @@ export function createStudioController(ctx, createProxy, {
         const presets = payload && typeof payload === 'object'
           ? { ratio: payload.ratio, seconds: payload.seconds, language: payload.language }
           : undefined;
-        return finishOnboardingProject('custom', await createBlankOfficialProject(proxy), presets);
+        return finishOnboardingProject('custom', await createBlankOfficialProject(proxy, presets?.ratio), presets);
       }
       const chosen = (await listTemplates(templatesRoot)).find(item => item.id === templateId);
       if (!chosen) throw Object.assign(new Error('Unknown template'), { code: 'TEMPLATE_INPUT' });
@@ -907,15 +928,6 @@ export function createStudioController(ctx, createProxy, {
       const upgraded = upgradeProjectInstructions({ root: projectPath });
       if (upgraded.upgraded) void log.info('project-instructions-upgraded', { projectId });
     }
-    try {
-      const active = readActiveTemplates(projectPath);
-      if (active.length > 0) {
-        const catalog = await templateCatalog(templatesRoot);
-        const chosen = active.map(id => catalog.find(item => item.id === id)).filter(Boolean);
-        const synced = syncTemplateBlock(projectPath, chosen);
-        if (synced.changed) void log.info('project-templates-synced', { projectId, count: chosen.length });
-      }
-    } catch { /* templates are a convenience: the base protocol still applies */ }
   };
 
   nativeAgentService = createDshNativeAgentService({
@@ -988,18 +1000,15 @@ export function createStudioController(ctx, createProxy, {
       isProjectAgent,
       projectOf: projectOfAgent,
       http: studioHttp,
-      templates: () => templateCatalog(templatesRoot),
-      // Choosing a template persists the choice and renders its prompt into the
-      // project's AGENTS.md: a template is a point of view, not just a starting file
-      // (src/template-prompts.mjs). Several may be active; order is the join order.
+      templates: async () => (await Promise.all([
+        templateCatalog(templatesRoot), templateCatalog(externalTemplateRoot(), { source: 'external' }),
+      ])).flat(),
+      templateDetail: id => id.startsWith('external:')
+        ? templateDetails(externalTemplateRoot(), id.slice('external:'.length), { source: 'external' })
+        : templateDetails(templatesRoot, id),
       activateTemplate: async (projectPath, id) => {
-        const catalog = await templateCatalog(templatesRoot);
         const active = readActiveTemplates(projectPath);
-        const next = active.includes(id) ? active : [...active, id];
-        writeActiveTemplates(projectPath, next);
-        const chosen = next.map(templateId => catalog.find(item => item.id === templateId)).filter(Boolean);
-        const synced = syncTemplateBlock(projectPath, chosen);
-        return { active: next, templates: chosen, instructionSync: synced.reason ?? 'written' };
+        return { active: writeActiveTemplates(projectPath, active.includes(id) ? active : [id, ...active]) };
       },
     }),
     // Plan before cutting: the storyboard is the contract the timeline follows, and
@@ -1277,6 +1286,15 @@ export function createStudioController(ctx, createProxy, {
     track: trackRoute,
     acpSessions: nativeSessions,
     archive,
+    archiveBatch: createEditingArchiveBatch({
+      file: join(dshFilmDir, 'editing-archive-receipt.json'), bindings: nativeSessions, archive,
+      verify: verifyOfficialProject,
+      isBusy: row => {
+        if (nativeAgentService?.turnState(row.projectId, { conversation: row.conversation ?? '' }).active) return true;
+        const agent = ctx.agents?.get?.(row.sessionId);
+        return Boolean(agent && (!ctx.agents?.turnBoundaryOf || ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq != null));
+      },
+    }),
     editingPrefs,
     verifyOfficialProject,
     listTemplates,

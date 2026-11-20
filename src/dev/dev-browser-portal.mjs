@@ -102,6 +102,9 @@ export async function startDevBrowserPortal({
         webOrigin: publicOrigin,
         listenPort: 0,
         desktop: false,
+        // Page Origin is the public door (:47821); internal editorOrigin is ephemeral.
+        // Plugin /s/ modules must CORS-allow the public Origin or dynamic import 403s.
+        viewerOrigins: [publicOrigin, altOrigin].filter(Boolean),
         authenticateBrowser: () => true,
       });
       if (closed || currentUpstream !== studio) {

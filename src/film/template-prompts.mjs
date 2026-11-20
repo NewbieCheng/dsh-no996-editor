@@ -7,7 +7,7 @@
 //
 // So a template is *activated* per project:
 //
-//   .film/templates.json   { "version": 1, "active": ["sketchnote", "replica-film"] }
+//   .film/templates.json   { "version": 1, "active": ["sketchnote", "vibe-explainer"] }
 //
 // and the active prompts are rendered into the project's `AGENTS.md` inside a block
 // this Host owns:

@@ -2,7 +2,7 @@
 id: playbooks-upstream
 reader: 维护上游的人
 fact-source: patches/series.json、vendor/official-shell/manifest.json、src/official/official-shell.mjs
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 上游目录结构或补丁流程变化
 -->
 
@@ -81,6 +81,15 @@ node --test tests/*.test.mjs
 - 只接受固定 commit；工作树里出现计划外的改动直接失败。
 - 只收白名单扩展名的 dist 文件；符号链接、计划外文件直接失败。
 - **拒绝覆盖已有目录**：默认写入 `vendor/official-shell`；可用 `--output <新目录>` 生成隔离候选快照。目标必须不存在；更换正式快照前须确认目标、保留备份并经授权，不要直接删除或覆盖。
+
+### 快照掉队（2026-11-20 实证，后续可追溯）
+
+只改 `.upstream` 不重建快照，运行的包纹丝不动：Host 与面板吃的都是 `vendor/official-shell/ui/`，补丁拆好了也没用。当天现象是登录门新太阳没出现，排查法：
+
+- 新代码标记在补丁里能搜到（`grep -c <标记> patches/<对应补丁>` 非零），在 `vendor/official-shell/ui/assets/main-*.js` 里零命中；
+- `vendor/…/ui` 产物的构建时间早于补丁文件的更新时间。
+
+修法就是把 §4 链条走完（split → 上游构建 → 隔离快照 → 换正式快照 → bake → 校验 → 打包重装），缺一步都会复现。另两条配套教训：`build-official-shell.mjs` 的 `PATCHED` 白名单必须与 `series.json` 的 source 保持同步（否则正式快照打不出来）；`split` 之后又改了上游文件，`split` 必须重跑一次，以工作区最终状态为准。
 
 ---
 

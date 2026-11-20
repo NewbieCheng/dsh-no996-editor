@@ -173,7 +173,7 @@ test('dispatchAuthAction routes register and verification', async () => {
   assert.equal(seen[0][0], 'otp');
   assert.equal(seen[0][1].captchaId, '1');
   assert.equal(seen[1][1].inviteCode, 'INVITE');
-  assert.throws(() => parseAuthActionBody('{'), /无效/);
+  assert.throws(() => parseAuthActionBody('{'), /Invalid JSON/);
 });
 
 test('guest session is memory-only, zero balance, and clears on logout', async () => {
@@ -186,7 +186,7 @@ test('guest session is memory-only, zero balance, and clears on logout', async (
   const entered = await auth.enterGuest();
   assert.equal(entered.loggedIn, true);
   assert.equal(entered.guest, true);
-  assert.equal(entered.displayName, '游客');
+  assert.equal(entered.displayName, 'Guest');
   assert.equal(auth.guest, true);
   const status = await auth.status();
   assert.equal(status.guest, true);

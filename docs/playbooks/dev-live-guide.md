@@ -1,151 +1,165 @@
 <!-- doc
 id: playbooks-dev-live
-reader: 新手开发者、调样式和改界面的同学
-fact-source: scripts/dev-live.mjs、src/dev/index.mjs、src/dev/dev-browser-portal.mjs、src/host/distribution.mjs、src/host/diagnostic-log.mjs、scripts/pack-tgz.mjs
-checked: 0.19.0
-rot-if: dev:live 启动方式、环境变量、诊断日志目录或打包流程变化
+reader: 新手开发者、调样式和改界面的同学、智能体
+fact-source: scripts/dev-up.mjs、scripts/dev-up.ps1、scripts/dev-live.mjs、src/dev/index.mjs、src/dev/dev-browser-portal.mjs、src/studio/studio-proxy.mjs、src/studio/studio-proxy/plugin-surface.mjs、src/host/distribution.mjs、scripts/pack-tgz.mjs、.upstream/openfilm/packages/openfilm/studio/ui/src/App.tsx、WorkbenchAccount.tsx、lib/navigate.ts、studio/server/bridge.js
+checked: 0.19.11
+rot-if: dev:up / 门户 Origin 分裂、viewerOrigins、film EDITOR、/?library=1、/?loginPreview=1 或打包流程变化
 -->
 
 # 零基础开发指南：实时热更新、调样式与打正式包
 
-这份文档专门写给第一次接手 `no996-editor` 的同学：**不用猜命令、不用反复按 F5、改样式和 React 代码保存即生效，改完再一键落成正式可分发插件包。**
+## 开发模式：启动 / 重启 DSH（抄这条）
+
+仓库根目录、本机 `desktop` profile 已 `link:` 到本仓时：
+
+| 你要做什么 | 命令 | 说明 |
+|---|---|---|
+| **第一次开 / 全套起来** | `npm run dev:up` | 起 Vite（若未听 `:47825`）→ **杀掉并重启** DeepSeek Harness → 带上 DEV 环境变量 |
+| **只重启 DSH**（Vite 已在跑） | `npm run dev:dsh` | 等价 `npm run dev:up -- --dsh-only`；改了 `src/**/*.mjs`、代理、`viewerOrigins`、角标变黄时用这个 |
+| 额外开样式拾取条 | `npm run dev:up -- --style-lab` | |
+| 不杀已有 GUI（少用） | `npm run dev:up -- --no-kill` | |
+
+`dev:up` / `dev:dsh` 启动时带上的环境变量（必须在**进程启动前**设好，事后改无效）：
+
+- `NO996_OPENFILM_DEV_HMR=1`
+- `NO996_OPENFILM_VITE_ORIGIN=http://127.0.0.1:47825`
+- `NO996_OPENFILM_DEV=1`
+
+起来后打开：**[http://127.0.0.1:47821/](http://127.0.0.1:47821/)**  
+右下角绿色 **`DEV HMR · 已连接`** 即通。
+
+- 账号抽屉 **「登录页」**（DEV）→ `/?loginPreview=1`，盖上真实 `LoginGate`（DEV 免登时 `auth:logout` 无效，只能这样预览）
+- 项目库首页单独打开：地址栏进 `/?library=1`
+- 登录页上点「返回工作台」会清掉 `loginPreview` 并回到 `/?library=1`
+
+| 口 | 用途 |
+|---|---|
+| `47825` | Vite（只给代理用，别当工作台打开） |
+| `47821` | 开发者浏览器 / Agent 开放工作台（免登录、免 Ticket） |
+| `127.0.0.2:47822` | DSH 侧栏「视频创作」面板（严格鉴权） |
+
+找不到 exe 时先设：`$env:DSH_APP = "F:\apps\DSH_harness\DeepSeek Harness.exe"`  
+或：`powershell -File .\scripts\dev-up.ps1`
+
+不走 npm、手敲等价流程：
+
+```powershell
+# 仓库根目录
+npm run dev:live               # 终端 1，保持开着；已在跑可跳过
+# 终端 2：
+Get-Process -Name "DeepSeek Harness" -ErrorAction SilentlyContinue | Stop-Process -Force
+$env:NO996_OPENFILM_DEV_HMR = "1"
+$env:NO996_OPENFILM_VITE_ORIGIN = "http://127.0.0.1:47825"
+$env:NO996_OPENFILM_DEV = "1"
+Start-Process -FilePath "F:\apps\DSH_harness\DeepSeek Harness.exe" -WorkingDirectory "F:\apps\DSH_harness"
+# 打开 http://127.0.0.1:47821/
+```
+
+> **Host（`src/**/*.mjs`）改完**：角标会提示重载；要干净模块缓存就再跑 **`npm run dev:dsh`**。只 F5 页面不够。
 
 ---
 
-## 一句话先看懂：改不同文件怎么生效
+## 一句话：改不同文件怎么生效
 
 | 你想改什么 | 改哪个目录 | 保存后怎么生效 |
 |---|---|---|
-| OpenFilm 界面 React / TSX / Tailwind 样式 | `.upstream/openfilm/`（例如 `packages/openfilm/studio/ui/src/` 或 `apps/desktop/chat/src/`） | **Vite Fast Refresh 毫秒级热更新**（不刷新页面、不丢弹窗和状态） |
-| 不加班主题配色 / CSS 覆盖 | `assets/theme/tokens.css`、`assets/theme/shell.css`、`assets/theme/studio.css`、`brand/brand.json` | **原地热替换**（零刷新直接变色/改样式） |
-| 壳叠加脚本（DOM 补丁） | `assets/shell-ui.js` | 自动通知工作台页面刷新 |
-| DSH 侧栏 / 面板外框代码 | `src/studio/studio-panel.mjs`、`src/studio/studio-entry.js` | `esbuild` 自动重建 `client.js` |
-| Host 后端逻辑（`.mjs`） | `src/**/*.mjs`、`index.js` | 脚手架自动 touch 模块图，右下角角标会提示「Host 源码已改，请重载插件」 |
+| OpenFilm 界面 React / TSX / Tailwind 样式 | `.upstream/openfilm/`（例如 `packages/openfilm/studio/ui/src/`） | **Vite Fast Refresh** |
+| 不加班主题配色 / CSS 覆盖 | `assets/theme/*.css`、`brand/brand.json` | **原地热替换** |
+| 壳叠加脚本（DOM 补丁） | `assets/shell-ui.js` | 自动通知工作台刷新 |
+| DSH 侧栏 / 面板外框 | `src/studio/studio-entry.js` 等 | `esbuild` 重建 `client.js` |
+| Host 后端（`.mjs`） | `src/**/*.mjs`、`index.js` | touch 模块图 → 重载插件或 `npm run dev:dsh` |
 
 > [!TIP]
-> **Windows 注意**：文件监听只放在仓库目录（例如 `.upstream/openfilm`、`assets/`、`src/`）内，不要把源码或监听目录放到带 `~1` 短名的 `%TEMP%`（如 `ADMINI~1`）路径下。
+> **Windows**：监听目录不要放在带 `~1` 短名的 `%TEMP%`（如 `ADMINI~1`）路径下。
 
 ---
 
-## 第一步：一次性准备本地开发源码（只需做一次）
-
-1. 在仓库根目录安装依赖：
+## 一次性准备（只需做一次）
 
 ```powershell
 npm ci
-```
-
-2. 拉取与当前版本匹配的 OpenFilm 固定版本源码到 `.upstream/openfilm`：
-
-```powershell
 npm run upstream:fetch
 ```
 
----
+确认 `~/.dsh/profiles/desktop/package.json` 里是：
 
-## 第二步：一条命令开启实时热更新（边改边看）
-
-### 1. 启动实时开发服务
-
-打开终端 1，在仓库根目录执行：
-
-```powershell
-npm run dev:live
+```json
+"@newbiecheng/dsh-no996-editor": "link:F:/Dev/Desktop-Projects/dsh-openfilm"
 ```
 
-它会同时启动：
-- **Vite Dev Server**（`http://127.0.0.1:47825`）：直接编译并提供 `.upstream/openfilm` 源码，开启 React Fast Refresh（HMR WebSocket 走 `/__dsh_vite_hmr`）；
-- **主题 CSS 热监听**：监听 `assets/theme/*.css` 和 `brand/brand.json`；
-- **客户端重建监听**：`esbuild` 监听 `src/studio/studio-entry.js` → 自动生成 `client.js`；
-- **Host 模块变动提醒**：监听 `src/**/*.mjs`（如果原本已经有本地未提交修改，脚本会完整保留，不会覆盖）。
+正式用户包仍走 npmjs；本机调试用 `link:`。
 
-### 2. 用开发环境变量启动 DSH（启动即开放浏览器端口）
+---
 
-打开终端 2，设置好下面几个环境变量后再启动你的本机 DSH（DSH 是本插件必需的真实后端，不需要另造假后端）：
+## 开发门户规律：同一类 Origin 分裂
 
-```powershell
-$env:NO996_OPENFILM_DEV_HMR = "1"
-$env:NO996_OPENFILM_VITE_ORIGIN = "http://127.0.0.1:47825"
-# 可选：跳过工作台登录门，方便离线调样式
-$env:NO996_OPENFILM_DEV = "1"
-# 可选：开启样式拾取悬浮工具条（仅开发态可用，不进正式包）
-$env:NO996_OPENFILM_STYLE_LAB = "1"
+`http://127.0.0.1:47821` 是**公开门**；背后的 editor / film / plugin 是**临时口**（端口每次启动都变）。浏览器页的 `location.origin` 永远是门，不是临时口。DSH 侧栏（`127.0.0.2:47822`）往往「看起来正常」，Chrome 开 `47821` 却挂——多半是这一类，不是两套互不相关的病。
+
+```text
+页面 Origin = http://127.0.0.1:47821          ← 门（viewer）
+editorOrigin = http://127.0.0.1:<临时>         ← 代理内部编辑器
+filmOrigin   = http://localhost:<临时>         ← 预览 iframe /p/…
+pluginOrigin = http://localhost:<临时>         ← /s/ 工作台模块、/f/ 文件
 ```
 
-DSH 启动并预热 Studio 后（**无需先点左侧「视频创作」面板**），开发端口与内置面板同时就绪：
-- **DSH 内置面板口**：`47822`（仅 DSH 客户端面板使用，保留严格鉴权）；
-- **开发者永久开放口**：**`http://127.0.0.1:47821/`**（任何 Chrome、Playwright、DevTools 或**其它 AI Agent 的浏览器/内嵌 `<iframe>` 面板**直接打开即用！免登录、免 Cookie、免 60 秒 Ticket；老地址 `47821/editor` 会自动 `302` 到 `/`，误开 `:47825/` 也会自动跳过去不再白屏）。
+**以后同类问题怎么下手（按顺序）：**
 
-页面右下角出现绿色角标 **`DEV HMR · 已连接`**，就说明热更新与实时样式链路全通了。
+1. 看 **页面** `location.origin` 是不是 `47821`（或 `localhost:47821`）。
+2. 看失败资源的 **真实 URL**：是临时口、`/s/`、`/p/`，还是门上的路径。
+3. 对可疑请求试带 `Origin: http://127.0.0.1:47821`：`curl -sI -H "Origin: …"` —— **403 / ACAO 不对** → CORS 或代理 Origin 闸门。
+4. 预览卡住「Drawing the first frame」：打开 film iframe 的 `film.html`，搜 `const EDITOR =` —— 必须等于**页面 Origin**（门），不能等于临时 `editorOrigin`；否则 `postMessage(..., EDITOR)` 被浏览器静默丢掉，DSH 侧栏却正常。
+5. 修的时候优先问：**这个响应/消息认的是 editor，还是也该认 `viewerOrigins`？** 已有入口：`viewerOrigins`（门户传入）、`plugin-surface.mjs`（`/s`/`/f` CORS）、`studio-proxy.mjs`（film `EDITOR` / film ACAO / Origin 放行）。
+6. Host（`.mjs`）改完必须 `npm run dev:dsh` 或重载插件；只靠 F5 不够。
 
-> 如果在虚拟机或网络盘下发现保存文件没有触发热更新，可以加轮询参数重启第一步：`npm run dev:live -- --poll`。
+| 现象 | 同一类里的哪一刀 | 证据 | 怎么办 |
+|---|---|---|---|
+| `Failed to fetch …/s/…/ui.js`、剪辑工作台起不来 | 门 Origin 拉 plugin 口模块，CORS 只认临时 editor | Network：模块 200 但无门的 `Access-Control-Allow-Origin`，或 OPTIONS/GET 403 | `viewerOrigins` + `plugin-surface` 把 viewers 当 editor；`npm run dev:dsh` |
+| 带 `Origin: 47821` 打 `/p/…/film.html` → **403** | film 代理拒门 Origin | `curl -I -H "Origin: http://127.0.0.1:47821" http://localhost:<film>/p/…` | film `rejectionReason` / ACAO 放行 viewers（同 `studio-proxy`） |
+| 预览一直 **Drawing the first frame**；DSH 侧栏正常、Console 几乎无报错 | film 桥 `EDITOR` 写成临时 editor，门收不到 `ready`/`seeked` | iframe `src` 是 `localhost:<film>/p/…`；HTML 里 `EDITOR` ≠ `47821`；1–2s 内无 `openfilm-film` 消息 | film HTML 重写：有 `viewerOrigins` 时 `EDITOR = viewers[0]`（门） |
+| Vite DEV 下 `Failed to resolve module specifier 'openfilm/workbench/…'` | 开发态 `ctx.bundle` 空，生产 import map 未注入 | 查看 HTML 是否缺 `openfilm/workbench/*` import map | 上游 `workbenches.ts`：无 bundle 时注入 `/@fs` + `/@id` 的 DEV import map |
+| 「开发模式无需退出」点不了 / 想调首页样式却被踢回项目 | DEV 没有可清的会话；裸 `/` 会 `go` 最近项目 | App 在无 `id` 时自动 `go(/projects/<last>)` | 账号抽屉 → **回到首页** → `/?library=1`（强制项目库，不自动进最近片） |
+| 直接打开 `47825` 白屏 | Vite 只给代理用 | 地址栏是 47825 | 用 `47821` |
+| `desktop` 不能 `dsh --profile desktop` | Electron 独占 | CLI 报错 | 起 `DeepSeek Harness.exe`，环境变量在**启动前**设好 |
+| 管理员身份跑 DSH | 拖放 UIPI | 拖文件无反应 | 普通权限（`dev:up` 默认如此） |
+| Host 改了界面仍旧 | 模块缓存 / 旧进程没带 DEV | 角标黄、或 `plugin.log` 的 `startedAt` 没变 | `npm run dev:dsh` |
 
----
+回归锚点（改代理时顺手跑）：`tests/plugin-surface.test.mjs`、`tests/dev-browser-portal.test.mjs`、`tests/studio-proxy-film-viewer.test.mjs`。
 
-## 第三步：怎么调样式与改界面（完整日常流程）
-
-### 场景 A：微调主题颜色、圆角、阴影或局部 CSS
-1. 打开 `assets/theme/tokens.css`、`assets/theme/shell.css` 或 `assets/theme/studio.css`（或修改 `brand/brand.json`）。
-2. 直接修改并 **Ctrl+S 保存**。
-3. DSH 工作台会在几十毫秒内自动把新的 `<style data-no996-theme>` 替换进页面，右下角角标变为 **`DEV HMR · 样式热更新 HH:MM:SS`**，**页面不刷新、当前打开的项目和弹窗完全保留**。
-
-### 场景 B：修改 OpenFilm React 组件、按钮、布局或文案
-1. 用编辑器打开 `.upstream/openfilm/` 下的对应 `.tsx` / `.ts` / `.css` 文件（比如 `packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx`）。
-2. 修改代码并 **Ctrl+S 保存**。
-3. Vite 会通过 HMR WebSocket 把更新直接热替换到当前 React 组件里，界面立刻变成最新效果。
-4. 如果你想先用可视化点选找元素选择器，启动前加 `$env:NO996_OPENFILM_STYLE_LAB = "1"`，页面左下角会出现「样式台」浮窗，点「点选元素」点击画面即可复制对应 DOM 选择器和 CSS 变量。
-
-### 场景 C：修改了 `src/**/*.mjs`（Host 后端逻辑）
-1. 修改并保存 `src/**/*.mjs`。
-2. 右下角角标会变成黄色提示 **`DEV HMR · Host 源码已改，请重载插件`**。
-3. 在 DSH 插件管理里点击重载本插件（若遇到模块缓存或提示需重启则重启 DSH）即可。
+虚拟机或网络盘文件监听不灵时：`npm run dev:live -- --poll`，再 `npm run dev:dsh`。
 
 ---
 
-## 第四步：出了报错怎么看、怎么复制、怎么问 AI 诊断
+## 调样式与改界面（日常）
 
-系统在页面与宿主之间建了全链路结构化诊断日志（带 `traceId` 串联前后端）：
+### A. 主题 / CSS
+改 `assets/theme/*.css` 或 `brand/brand.json` → Ctrl+S → 角标提示样式热更新，不丢弹窗。
 
-- **日志落盘位置**：`$DSH_HOME/no996-openfilm/logs/diagnostics-YYYY-MM-DD.jsonl`（默认自动保留 **14 天**、目录上限 **50 MiB**，启动与跨天自动清理过期文件）。
-- **页面内入口（三个位置都能打开）**：
-  1. 底部出现红色报错条时，直接点条上的 **「查看诊断日志」**；
-  2. 工作台右上角账号条旁的 **小虫子图标（诊断日志按钮）**（有新报错会带红点提示）；
-  3. **设置 → 开发者 → 打开日志中心**。
-- **在「错误与诊断日志中心」里你可以直接做 4 件事**：
-  1. **展开定位**：查看精确的 `location`（如 `src/native/dsh-native-agent-service.mjs:selectThinking`）、`traceId`、入参、允许列表与脱敏调用栈；
-  2. **复制给开发者**：一键复制完整 Markdown 排障报告；
-  3. **问 Agent 诊断**：点 **「填入当前对话问 Agent」** 直接填进右侧剪辑对话，或点 **「复制 Agent 提示词」** 贴给 DSH 主会话；
-  4. **导出诊断包 / 清理日志**：导出脱敏 `.json` 诊断包发给别人，或在顶部调整保留天数（7 / 14 / 30 / 90 天）及手动清理。
+### B. React / TSX
+改 `.upstream/openfilm/...` → Ctrl+S → Vite Fast Refresh。需要点选元素时：`npm run dev:up -- --style-lab`。
+
+### C. Host `.mjs`
+保存后角标变黄 → 重载插件；仍不对就 `npm run dev:dsh`。
 
 ---
 
-## 第五步：改完以后，怎么打包成正式插件（开发工具绝对不进包）
+## 报错怎么看
 
-在 `.upstream/openfilm/` 调试满意后，**必须**把源码改动固化回本仓库快照和补丁，再打包验证：
+- 落盘：`$DSH_HOME/no996-openfilm/logs/diagnostics-YYYY-MM-DD.jsonl`（默认 14 天 / 50 MiB）
+- 页面：红条「查看诊断日志」、顶栏小虫子、设置 → 开发者
+- Host：`%TEMP%\no996-editor\plugin.log`、`%TEMP%\no996-editor-host.json`
+
+---
+
+## 改完怎么打正式包
 
 ```powershell
-# 1. 把 .upstream/openfilm 的最新构建生成正式界面快照
-node scripts/build-official-shell.mjs F:\Dev\Desktop-Projects\no996-editor\.upstream\openfilm --output F:\Dev\Desktop-Projects\no996-editor\vendor\official-shell.next
-# （确认无误后替换旧的 vendor/official-shell）
-
-# 2. 把上游改动拆成逐文件补丁（patches/*.patch）
+node scripts/build-official-shell.mjs <上游检出> --output vendor/official-shell.next
+# 确认后替换 vendor/official-shell
 npm run patches:split
-
-# 3. 把 assets/theme/*.css 烘焙进正式界面快照
 npm run shell:bake
-
-# 4. 跑全量检查（语法、单测、文档、品牌、模板、补丁一致性）
 npm run check
-
-# 5. 打「发给用户的正式包」到 dist/（彻底剔除开发文件并锁死 47821 工作台）
 node scripts/pack-tgz.mjs
-
-# （仅当你要把工作区打成“本地开发调试包”安装进本机 DSH 时，才显式加 --dev 输出到 .dev/，绝不会进 dist/）
-# node scripts/pack-tgz.mjs --dev
 ```
 
 > [!IMPORTANT]
-> **给用户的包 vs 开发者本地包三级硬隔离**：
-> 1. **物理剔除**：默认 `pack-tgz.mjs` 打包出的正式 `.tgz` **物理不存在** `src/dev/`、`assets/style-lab.js`、`scripts/`、`patches/` 等开发文件；
-> 2. **包内指纹**：正式 `.tgz` 会在包内 `package.json` 自动打上 `dsh.releaseBuild = true`（`--dev` 调试包不会写入且只输出到 `.dev/`）；
-> 3. **运行时锁死**：哪怕用户端强行设置了 `NO996_OPENFILM_DEV=1` / `DEV_HMR=1` / `OPEN_BROWSER=1`，正式包检测到 `releaseBuild === true` 或缺少 `src/dev/` 时也会全部忽略，`:47821/` 与 `:47821/editor` 一律返回 `404`，绝不暴露开发者入口。
+> 正式 `.tgz` **不含** `src/dev/`；会打 `dsh.releaseBuild = true`。即使用户设了 `DEV_HMR=1`，`:47821` 也是 404。本地调试包才用 `node scripts/pack-tgz.mjs --dev`（输出到 `.dev/`）。

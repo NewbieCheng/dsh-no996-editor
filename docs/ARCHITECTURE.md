@@ -2,7 +2,7 @@
 id: architecture
 reader: 开发者、智能体
 fact-source: index.js、cordis.patch.yml、src/native/dsh-native-agent-service.mjs、src/film/template-prompts.mjs
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 进程模型、对话边界、预设/模板注入方式变化
 -->
 
@@ -36,28 +36,19 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
 
 ### 2.1 会话与工作区边界
 - **一条对话 = 一条原生 DSH 会话**：映射保存在 `$DSH_HOME/no996-openfilm/native-sessions.json`（`projectId + conversation -> sessionId`）。
-- **专属 Workspace 承载 + 侧栏视图隔离**：新建会话优先绑定影片根目录对应的唯一 `workspaceId`；同时 [sidebar-editing.mjs](../src/ui/sidebar-editing.mjs) 在 DSH「工作区」视图下自动隐藏剪辑专属文件夹与所有 `hiddenSessionIds`，剪辑对话统一收口在左侧「剪辑区」内展示。
+- **剪辑区与工作区分开显示**：新建会话只复用已有且目录匹配的 `workspaceId`，不为影片注册新工作区。[侧栏](../src/ui/sidebar-editing.mjs) 只在宿主渲染可识别的原生会话 ID 时过滤对应行，不按项目名、文件夹名或预设隐藏整组。停用后恢复这些行；直接卸载仍可能在「未分组」看到剪辑历史。切换区域不改变归档状态。
 - **不抛误导性 503**：429 限流、冷却期等模型/回合业务错误仅通过 SSE `done: { ok: false, error }` 在聊天框内提示，不再触发底部全局 HTTP 503 红条。
 
-### 2.2 预设联动、指令链与模板提示词注入
+### 2.2 预设联动、指令链与模板发现
 1. **预设与 Skill 隔离**（[cordis.patch.yml](../cordis.patch.yml)）：
    - `preset-openfilm-video-editing` 内置 `@deepseek-ai/dsh-persona`（剪辑与动效搭档人设）、`@newbiecheng/dsh-no996-editor/openfilm-prompt`、`@newbiecheng/dsh-no996-editor/openfilm-skills`（注册包内 [`skills/`](../skills/) 下的技能，包括导演、剪辑、动效、Vibe Craft），并设 `skill-filesystem.includeDefaultRoots: false`，不继承 DSH 全局技能根。
    - `agent-instructions` 配置 `projectRootMarkers: ['.git', '.film', 'film.html']`，保证影片文件夹自身就是指令根，仓库/单仓上层的 `AGENTS.md` 不进入影片对话。
-2. **模板专属提示词注入**（[template-prompts.mjs](../src/film/template-prompts.mjs)）：
-   - 每个视频模板可在 `vendor/templates/<id>/prompt.md`（≤ 2 KB）定义自己的“设定、节奏、镜头与屏上字规矩”。
-   - 链路：
-     ```text
-     openfilm_library(kind=template, take=<id>) / 创建模板项目
-       → <项目>/.film/templates.json   { "active": ["sketchnote", …] }
-       → 仅当文件可确认为插件所有时更新 <项目>/AGENTS.md 的生成块
-       → 当轮从工具回执读取；后续会话读取成功同步的指令文件
-     ```
-   - 支持多模板叠加（按 `active` 顺序渲染，整块上限 8 KB）；不写死在全局 `persona` 中，只作用于选了该模板的当前项目。
+2. **模板是可选资源**（[目录](../src/film/template-catalog.mjs)）：搜索只读清单，按比例、用途和槽位缩小范围，最多返回 5 项。用户点名时才按 ID 读说明；外部包仅作为参考数据。模板创建和本片参考记录只写 `.film/templates.json`，不再给项目指令添加或刷新模板块。既有文件不迁移。
 
 ### 2.3 聊天桥、实时模式和显式技能
 
 - **请求链**：OpenFilm 聊天组件 → [iframe facade](../src/official/official-facade.mjs) → [Studio Host RPC](../src/studio/studio-controller.mjs) → [原生 Agent 驱动](../src/native/dsh-native-agent-service.mjs) → DSH `sessionController`。浏览器路径/会话 ID 不是授权依据；Host 验证项目并根据 `(projectId, conversation)` 绑定会话。流式状态经 SSE 返回。
-- **模式与模型**：当前剪辑 Agent 的 `systemPrompt.context` 每次读取本会话的模式、实际阶段和已知模型，而不是拼到用户正文。手动模式优先；切回 Auto 清理旧阶段，模型根据新请求调用 `no996_mode` 更新阶段，Host 发 `mode_update` 刷新界面。这不是输入框层面的自动分类器。切模型时以会话确认的模型和档位为准，「默认」不提交自造档位。
+- **模式与模型**：发送前确保当前剪辑 Agent 已注册一个必需的 `systemPrompt.context`；每次装配/刷新读取本会话的模式、实际阶段和自动导出，不拼到用户正文。当前模型留在菜单和请求元数据，不重复注入。项目指令、运行环境、技能目录仍由 DSH 分别提供，剪辑界面不把它们渲染成用户消息，工作模式继续用一个控件。手动模式优先；切回 Auto 清理旧阶段，模型根据新请求调用 `no996_mode` 更新阶段，Host 发 `mode_update` 刷新界面。这不是输入框层面的自动分类器。与 DSH `/plan` 一样，已发出的模型请求不被倒改；`/plan` 在轮中把选择排到下一个接受的步骤，剪辑模式则即时保存选择并在下一次提示装配/刷新时读取，不调用 `/plan`、不改变沙箱权限。切模型时以会话确认的模型和档位为准，「默认」不提交自造档位。
 - **两路技能**：[技能目录](../src/native/film-skill-selection.mjs) 合并剪辑预设同源内置技能与 OpenFilm 已启用的个人/项目技能。`skills:list` 不开模型回合，不读 DSH 全局目录。选中只添加引用，发送携带来源区分的 ID，Host 重新校验并将所选内容放入当前回合的独立上下文。这里是上下文桥，不是 DSH 原生 slash command，也不负责安装、不授予额外权限。
 - **已知边界**：预设组目前是内置注册同源目录，不是实际 Agent 的 `skills.snapshot`，因此不能宣称覆盖预设的运行时增删或所有调用限制。OpenFilm 安装仍走上游入口；嵌入面板只发现和引用已安装技能。
 

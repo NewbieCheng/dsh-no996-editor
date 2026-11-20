@@ -53,9 +53,9 @@ function parseRetryAfterMs(headerVal) {
 }
 
 const DEFAULT_EFFORTS = Object.freeze([
-  { id: 'low', name: '低', description: '快速响应，较少推理步骤' },
-  { id: 'medium', name: '中', description: '均衡推理深度与速度' },
-  { id: 'high', name: '高', description: '深度思考，适合复杂剪辑与规划' },
+  { id: 'low', name: 'Low', description: 'Faster replies with fewer reasoning steps' },
+  { id: 'medium', name: 'Medium', description: 'Balanced reasoning depth and speed' },
+  { id: 'high', name: 'High', description: 'Deeper reasoning for complex edits and planning' },
 ]);
 
 /**
@@ -246,15 +246,15 @@ export function createNo996LlmAdapter({
       const signedOutAutoModel = {
         provider,
         id: 'auto',
-        name: '不加班 Auto (需先登录)',
-        description: '请先在「视频创作」或插件设置中登录不加班账号；登录后自动启用智能路由与识图',
+        name: 'No996 Auto（需先登录）',
+        description: '在视频创作或插件设置中登录 No996 账号后，可使用智能路由与图片理解',
         inputModalities: ['text', 'image'],
       };
       const autoModel = {
         provider,
         id: 'auto',
-        name: '不加班 Auto (智能路由 · 支持识图)',
-        description: '按平台路由自动选择最优模型，支持文本与图片理解，统一积分计费',
+        name: 'No996 Auto (smart routing · vision)',
+        description: 'Picks the best route on the platform for text and image understanding, billed in points',
         inputModalities: ['text', 'image'],
       };
       modelMetaCache.clear();
@@ -330,7 +330,7 @@ export function createNo996LlmAdapter({
       return {
         provider,
         id: model,
-        name: cached?.name || (model === 'auto' ? '不加班 Auto (智能路由 · 支持识图)' : model),
+        name: cached?.name || (model === 'auto' ? 'No996 Auto (smart routing · vision)' : model),
         context: { contextWindow: cached?.contextWindow || 128000 },
         inputModalities: cached?.inputModalities || (model === 'auto' ? ['text', 'image'] : ['text']),
         reasoning: { efforts: [...DEFAULT_EFFORTS], defaultEffort: 'medium' },

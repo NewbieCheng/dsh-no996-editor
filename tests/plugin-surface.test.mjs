@@ -54,3 +54,36 @@ test('workspace surfaces translate only trusted origins and keep Studio in charg
     assert.deepEqual(events, [['PUT', 'f', 412]]);
   } finally { await Promise.all([shutdown(proxy), shutdown(server)]); }
 });
+
+test('plugin surface CORS also allows configured viewer origins (dev portal front door)', async () => {
+  const seen = [];
+  const server = createServer((req, res) => {
+    seen.push(req.headers.origin);
+    const headers = { 'content-type': 'text/javascript' };
+    if (req.headers.origin === upstreamEditor) {
+      headers['access-control-allow-origin'] = upstreamEditor;
+      headers['access-control-expose-headers'] = 'etag';
+    }
+    res.writeHead(200, headers).end('export default class extends HTMLElement {}');
+  });
+  const port = await listen(server, '127.0.0.1');
+  const viewer = 'http://127.0.0.1:47821';
+  let surface;
+  const proxy = createPluginSurfaceProxy(
+    { host: `localhost:${port}`, port, origin: `http://localhost:${port}` },
+    () => ({ editor, surface, upstreamEditor, viewers: [viewer] }),
+    () => {},
+  );
+  try {
+    surface = `http://127.0.0.1:${await listen(proxy, '127.0.0.1')}`;
+    const route = '/s/grant-token/ui.js?v=version';
+    const reply = await fetch(surface + route, { headers: { origin: viewer } });
+    assert.equal(reply.status, 200);
+    assert.equal(reply.headers.get('access-control-allow-origin'), viewer);
+    assert.match(await reply.text(), /^export default/);
+    assert.deepEqual(seen, [upstreamEditor]);
+    const blocked = await fetch(surface + route, { headers: { origin: 'http://127.0.0.1:9999' } });
+    assert.equal(blocked.status, 403);
+    await blocked.body.cancel();
+  } finally { await Promise.all([shutdown(proxy), shutdown(server)]); }
+});

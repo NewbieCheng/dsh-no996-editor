@@ -69,6 +69,21 @@
   }
   var areaBus = createAreaBus();
 
+  // src/studio/panel-failure.mjs
+  var CODES = /* @__PURE__ */ new Set(["PANEL_BOOTSTRAP_FAILED", "IFRAME_SILENT_TIMEOUT", "RESTART_REQUIRED", "VERSION_INCOMPATIBLE", "OFFICIAL_SHELL_UNAVAILABLE", "STUDIO_START", "STUDIO_CLOSE", "STUDIO_DEPENDENCY", "STUDIO_DISPOSED", "DSH_ORIGIN_REJECTED", "DSH_SESSION_REQUIRED", "DSH_BROWSER_REQUIRED"]);
+  function studioFailureSummary({ code, httpStatus, at = /* @__PURE__ */ new Date(), attempt = 0 } = {}) {
+    const safeCode = CODES.has(code) ? code : "PANEL_BOOTSTRAP_FAILED";
+    const stage = safeCode === "IFRAME_SILENT_TIMEOUT" ? "shell-boot" : "host-bootstrap";
+    return [
+      "No996 Studio \xB7 Startup diagnostic",
+      `Time: ${at.toISOString()}`,
+      `Stage: ${stage}`,
+      `Code: ${safeCode}`,
+      Number.isInteger(httpStatus) && httpStatus >= 400 && httpStatus <= 599 ? `HTTP: ${httpStatus}` : "",
+      `Attempt: ${Number.isSafeInteger(attempt) && attempt >= 0 ? attempt + 1 : 1}`
+    ].filter(Boolean).join("\n");
+  }
+
   // src/studio/studio-panel.mjs
   function createStudioPanel(React) {
     const h = React.createElement;
@@ -77,8 +92,6 @@
       const [state, setState] = React.useState({ status: "idle" });
       const [attempt, setAttempt] = React.useState(0);
       const [silent, setSilent] = React.useState(false);
-      const [diag, setDiag] = React.useState(null);
-      const [boot, setBoot] = React.useState(null);
       const [preset, setPreset] = React.useState(null);
       const [projectId, setProjectId] = React.useState(null);
       const [archive, setArchive] = React.useState(null);
@@ -145,7 +158,6 @@
       React.useEffect(() => {
         const controller = new AbortController();
         setState({ status: "loading" });
-        setBoot(null);
         heardRef.current = false;
         const attemptOnce = (retries) => Promise.resolve().then(() => startStudio(controller.signal)).catch(async (error) => {
           const transient = /HTTP (404|503)\b/.test(String(error?.message || error));
@@ -178,7 +190,7 @@
           if (!controller.signal.aborted) {
             const message = String(error?.message || error);
             reportPanelDiag({ level: "error", layer: "ui", code: "PANEL_BOOTSTRAP_FAILED", location: "src/studio/studio-panel.mjs:startStudio", summary: `\u9762\u677F\u542F\u52A8 Studio \u5931\u8D25: ${message.slice(0, 200)}`, detail: { message } });
-            setState({ status: "error", message });
+            setState({ status: "error", message, code: error?.code, httpStatus: error?.httpStatus });
           }
         });
         return () => controller.abort();
@@ -191,7 +203,6 @@
         let timer;
         const watchNavigation = () => {
           heardRef.current = false;
-          setBoot(null);
           setSilent(false);
           clearTimeout(timer);
           timer = setTimeout(() => {
@@ -216,7 +227,6 @@
               const pending = typeof areaBus.takePendingTarget === "function" ? areaBus.takePendingTarget() : areaBus.takePending();
               if (pending) postNavigate(pending);
             }
-            setBoot({ hasNative: data.hasNative === true, rendered: data.rendered === true });
           }
           if (data && typeof data === "object" && data.type === "no996-openfilm:restart" && data.version === 1) {
             setSilent(false);
@@ -251,23 +261,6 @@
           window.removeEventListener("message", receive);
         };
       }, [state.status, state.url, attempt]);
-      React.useEffect(() => {
-        if (!HOST_HTTP || !silent || state.status !== "ready") return void 0;
-        let live = true;
-        fetch("/api/no996-openfilm/diagnose", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(projectId ? { projectId } : {})
-        }).then((response) => response.ok ? response.json() : { httpStatus: response.status }).then((value) => {
-          if (live) setDiag(value);
-        }).catch((error) => {
-          if (live) setDiag({ error: String(error && error.message || error) });
-        });
-        return () => {
-          live = false;
-        };
-      }, [silent, state.status, attempt, projectId]);
       const retry = () => {
         setSilent(false);
         setAttempt((value) => value + 1);
@@ -445,6 +438,41 @@
           setArchiveBusy(false);
         }
       };
+      const [copyStatus, setCopyStatus] = React.useState("");
+      const failureCard = (code, httpStatus) => {
+        const summary = studioFailureSummary({ code, httpStatus, attempt });
+        return h(
+          "section",
+          { style: { padding: 24, maxWidth: 640, color: "var(--dsw-alias-label-primary)" } },
+          h("h2", { role: "alert", style: { fontSize: 18 } }, t("studioFailed")),
+          h("p", null, t(code === "IFRAME_SILENT_TIMEOUT" ? "studioSilentHint" : code === "OFFICIAL_SHELL_UNAVAILABLE" ? "studioShellMismatch" : "studioFailureHint")),
+          h("p", null, t("studioRestartHint")),
+          h(
+            "div",
+            { style: { display: "flex", flexWrap: "wrap", gap: 12 } },
+            h("button", { type: "button", onClick: () => {
+              setCopyStatus("");
+              retry();
+            } }, t("studioRetry")),
+            h("button", { type: "button", onClick: async () => {
+              try {
+                await navigator.clipboard.writeText(summary);
+                setCopyStatus("studioCopied");
+              } catch {
+                setCopyStatus("studioCopyFallback");
+              }
+            } }, t("studioCopyDiagnostic"))
+          ),
+          copyStatus ? h("p", { role: "status" }, t(copyStatus)) : null,
+          h(
+            "details",
+            { open: copyStatus === "studioCopyFallback" || void 0 },
+            h("summary", null, t("studioFailureDetails")),
+            h("pre", { style: { whiteSpace: "pre-wrap", userSelect: "text" } }, summary),
+            h("a", { href: "https://github.com/NewbieCheng/dsh-no996-editor/issues", target: "_blank", rel: "noreferrer" }, t("studioContact"))
+          )
+        );
+      };
       let studio;
       const archived = archive?.available !== false && archive?.archived === true;
       if (state.status === "loading" || state.status === "idle") {
@@ -455,12 +483,7 @@
           preset && !preset.ok ? h("p", { style: { margin: "8px 0 0", fontSize: 12, opacity: 0.8 } }, `${t("presetMissing")} ${String(preset.detail || "").slice(0, 120)}`) : null
         );
       } else if (state.status === "error") {
-        studio = h(
-          "section",
-          { style: { padding: 24, color: "var(--dsw-alias-label-primary)" } },
-          h("p", { role: "alert" }, t("studioFailed"), " ", state.message),
-          h("button", { type: "button", onClick: retry }, t("studioRetry"))
-        );
+        studio = failureCard(state.code || "PANEL_BOOTSTRAP_FAILED", state.httpStatus ?? Number(/\bHTTP ([45]\d\d)\b/.exec(state.message)?.[1]));
       } else {
         studio = h("iframe", {
           ref: iframeRef,
@@ -495,13 +518,7 @@
         {
           style: { position: "absolute", inset: 0, zIndex: 35, padding: 24, overflow: "auto", background: "var(--dsw-alias-bg-base, #18181b)", color: "var(--dsw-alias-label-primary)" }
         },
-        h("p", { role: "alert" }, t("studioFailed"), " \u5B98\u65B9\u754C\u9762 20 \u79D2\u5185\u6CA1\u6709\u56DE\u5E94\u3002\u91CD\u8BD5\u4F1A\u91CD\u65B0\u52A0\u8F7D\u754C\u9762\uFF0C\u672A\u4FDD\u5B58\u7684\u5185\u5BB9\u53EF\u80FD\u4E22\u5931\u3002"),
-        h(
-          "pre",
-          { style: { whiteSpace: "pre-wrap", fontSize: 12, overflow: "auto", maxHeight: "50vh" } },
-          JSON.stringify({ boot, preset, diag: diag ?? { note: "\u8BCA\u65AD\u4E0D\u53EF\u7528\u6216\u5C1A\u672A\u8FD4\u56DE" } }, null, 1)
-        ),
-        h("button", { type: "button", onClick: retry }, t("studioRetry"))
+        failureCard("IFRAME_SILENT_TIMEOUT")
       ) : null;
       const banner = archived ? h(
         "div",
@@ -1363,7 +1380,8 @@
         toggle.type = "button";
         toggle.className = "n996-folder-toggle";
         toggle.setAttribute("aria-expanded", folderOpen ? "true" : "false");
-        toggle.style.cssText = "display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;padding:6px 8px;border:0;border-radius:6px;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit;font-size:13px;";
+        toggle.style.cssText = "display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:34px;padding:5px 8px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-label-primary, inherit);text-align:left;cursor:pointer;font:inherit;font-size:14px;";
+        toggle.title = projectDisplayTitle(project);
         const chevron = doc.createElement("span");
         chevron.className = "n996-chevron";
         chevron.setAttribute("aria-hidden", "true");
@@ -1401,7 +1419,8 @@
           child.style.cssText = "display:flex;align-items:center;gap:2px;border-radius:6px;margin-left:26px;";
           const open = doc.createElement("button");
           open.type = "button";
-          open.style.cssText = "display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;padding:5px 8px;border:0;border-radius:6px;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit;font-size:13px;";
+          open.style.cssText = "display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:32px;padding:5px 8px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-label-primary, inherit);text-align:left;cursor:pointer;font:inherit;font-size:14px;";
+          open.title = sessionDisplayTitle(session);
           const title = doc.createElement("span");
           if (session.pinned) title.append(pinBadge());
           if (session.archived) title.append("\u5DF2\u5F52\u6863 \xB7 ");
@@ -1918,6 +1937,38 @@
       };
       item("\u5DE5\u4F5C\u533A", "workspaces", "grid");
       item(EDITING_LABEL, "editing", "clapper");
+      if (mode === "editing") {
+        const batch = doc.createElement("button");
+        batch.type = "button";
+        batch.setAttribute("role", "menuitem");
+        batch.style.cssText = "display:block;width:100%;padding:7px 9px;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;";
+        batch.textContent = "\u6574\u7406\u526A\u8F91\u5386\u53F2";
+        batch.onclick = async () => {
+          const view2 = doc.defaultView;
+          const call = (action, confirmed = false) => postJson("/api/no996-openfilm/editing-archive-batch", { action, confirmed });
+          try {
+            batch.disabled = true;
+            const preview = await call("preview");
+            if (!preview.available) {
+              view2?.alert("\u5F53\u524D DSH \u4E0D\u652F\u6301\u5F52\u6863\u3002");
+              return;
+            }
+            let action;
+            if (preview.eligible && view2?.confirm(`\u5F52\u6863 ${preview.eligible} \u4E2A\u7A7A\u95F2\u526A\u8F91\u4F1A\u8BDD\uFF1F\u4E0D\u4F1A\u5220\u9664\u5386\u53F2\u6216\u505C\u6B62\u4EFB\u52A1\u3002\u53D6\u6D88\u53EF\u67E5\u770B\u6062\u590D\u9009\u9879\u3002`)) action = "archive";
+            else if (preview.recoverable && view2?.confirm(`\u6062\u590D\u4E4B\u524D\u901A\u8FC7\u6574\u7406\u5165\u53E3\u5F52\u6863\u7684\u526A\u8F91\u5386\u53F2\uFF08\u6700\u591A ${preview.recoverable} \u4E2A\uFF09\uFF1F`)) action = "restore";
+            if (!action) return;
+            const result = await call(action, true);
+            view2?.alert(`\u5DF2\u5904\u7406 ${result.changed} \u4E2A\uFF0C\u8DF3\u8FC7 ${result.skipped} \u4E2A\uFF0C\u5931\u8D25 ${result.failed} \u4E2A\u3002`);
+            closePopover();
+            refresh();
+          } catch {
+            view2?.alert("\u5386\u53F2\u6574\u7406\u672A\u5B8C\u6210\uFF0C\u8BF7\u5237\u65B0\u540E\u67E5\u770B\u72B6\u6001\u518D\u91CD\u8BD5\u3002");
+          } finally {
+            batch.disabled = false;
+          }
+        };
+        popover.append(batch);
+      }
       const rect = trigger.getBoundingClientRect();
       popover.style.left = `${Math.max(8, Math.min(rect.left, (doc.defaultView?.innerWidth ?? 1200) - 230))}px`;
       popover.style.top = `${Math.round(rect.bottom + 4)}px`;
@@ -1965,33 +2016,20 @@
       startRetry();
     };
     const hiddenSessionIds = /* @__PURE__ */ new Set();
-    const hiddenWorkspaceIds = /* @__PURE__ */ new Set();
-    const hiddenFolderNames = /* @__PURE__ */ new Set(["Projects", "OpenFilm"]);
+    const hiddenRows = /* @__PURE__ */ new Map();
     let hiddenSeeded = false;
+    let disposed = false;
     const syncHiddenIds = (data) => {
-      if (!data || typeof data !== "object") return;
+      if (disposed || !data || typeof data !== "object") return;
       if (Array.isArray(data.hiddenSessionIds)) {
         hiddenSessionIds.clear();
         for (const id of data.hiddenSessionIds) {
           if (typeof id === "string" && id) hiddenSessionIds.add(id);
         }
       }
-      if (Array.isArray(data.hiddenWorkspaceIds)) {
-        hiddenWorkspaceIds.clear();
-        for (const id of data.hiddenWorkspaceIds) {
-          if (typeof id === "string" && id) hiddenWorkspaceIds.add(id);
-        }
-      }
-      if (Array.isArray(data.hiddenFolderNames)) {
-        hiddenFolderNames.clear();
-        hiddenFolderNames.add("Projects");
-        hiddenFolderNames.add("OpenFilm");
-        for (const name of data.hiddenFolderNames) {
-          if (typeof name === "string" && name.trim()) hiddenFolderNames.add(name.trim());
-        }
-      }
     };
     const hideFilmSessionsInWorkspaces = () => {
+      if (disposed) return;
       try {
         if (!hiddenSeeded && typeof fetchSessions === "function") {
           hiddenSeeded = true;
@@ -2001,29 +2039,22 @@
           }).catch(() => {
           });
         }
-        if (hiddenWorkspaceIds.size > 0) {
-          for (const wid of hiddenWorkspaceIds) {
-            for (const el of doc.querySelectorAll(`[data-workspace-id="${wid}"]`)) {
-              if (el && el.style.display !== "none") el.style.display = "none";
-            }
-          }
-        }
-        const folderButtons = doc.querySelectorAll('button[aria-expanded], [role="button"][aria-expanded]');
-        for (const btn of folderButtons) {
-          const label = (btn.textContent || "").trim();
-          if (hiddenFolderNames.has(label)) {
-            const group = btn.closest("[data-workspace-id], section, li, div");
-            const target = group && group !== doc.body ? group : btn;
-            if (target.style.display !== "none") target.style.display = "none";
-          }
-        }
-        if (hiddenSessionIds.size === 0) return;
+        const matching = /* @__PURE__ */ new Set();
         const links = doc.querySelectorAll('a[href*="/sessions/"], [data-session-id]');
         for (const el of links) {
           const sid = el.getAttribute?.("data-session-id") || (/\/sessions\/([A-Za-z0-9_-]+)/.exec(el.getAttribute?.("href") || "")?.[1] ?? "");
           if (!sid || !hiddenSessionIds.has(sid)) continue;
           const row = el.closest('li, [role="listitem"]') ?? el;
-          if (row && row.style.display !== "none") row.style.display = "none";
+          matching.add(row);
+          if (!hiddenRows.has(row) && row.style.display !== "none") {
+            hiddenRows.set(row, row.style.display);
+            row.style.display = "none";
+          }
+        }
+        for (const [row, display] of hiddenRows) {
+          if (matching.has(row)) continue;
+          if (row.style.display === "none") row.style.display = display;
+          hiddenRows.delete(row);
         }
       } catch {
       }
@@ -2104,7 +2135,10 @@
     observer.observe(doc.body ?? doc.documentElement, { childList: true, subtree: true });
     mount();
     return () => {
+      disposed = true;
       observer?.disconnect();
+      for (const [row, display] of hiddenRows) if (row.style.display === "none") row.style.display = display;
+      hiddenRows.clear();
       cleanup();
     };
   }
@@ -2458,7 +2492,16 @@
         panel: "Video studio",
         envTitle: "Editing environment",
         studioLoading: "Starting OpenFilm Studio\u2026",
-        studioFailed: "Unable to start OpenFilm Studio.",
+        studioFailed: "Unable to open Video Creation",
+        studioFailureHint: "The editing workspace did not start or could not be reached. Try again first.",
+        studioShellMismatch: "The installed OpenFilm interface does not match the runtime. Verify the plugin installation or send the diagnostic to the developer.",
+        studioSilentHint: "OpenFilm did not respond within 20 seconds. Retrying reloads the page and may discard unsaved edits.",
+        studioRestartHint: "If it still fails, save your work, completely quit and restart DSH. If the problem persists, send the diagnostic to the plugin developer.",
+        studioCopyDiagnostic: "Copy diagnostic",
+        studioCopied: "Diagnostic copied.",
+        studioCopyFallback: "Clipboard unavailable. Select the text below to copy it.",
+        studioFailureDetails: "Details",
+        studioContact: "Contact the developer",
         studioRetry: "Try again",
         studioStopped: "Video workspace stopped",
         studioStoppedHint: "The editing service is not running. Restart it to continue; projects and media are untouched.",
@@ -2478,7 +2521,16 @@
         panel: "\u89C6\u9891\u521B\u4F5C",
         envTitle: "\u526A\u8F91\u73AF\u5883",
         studioLoading: "\u6B63\u5728\u542F\u52A8 OpenFilm \u5DE5\u4F5C\u53F0\u2026",
-        studioFailed: "\u65E0\u6CD5\u542F\u52A8 OpenFilm \u5DE5\u4F5C\u53F0\u3002",
+        studioFailed: "\u6682\u65F6\u65E0\u6CD5\u6253\u5F00\u89C6\u9891\u521B\u4F5C",
+        studioFailureHint: "\u526A\u8F91\u5DE5\u4F5C\u53F0\u672A\u80FD\u542F\u52A8\u6216\u8FDE\u63A5\uFF0C\u8BF7\u5148\u91CD\u8BD5\u3002",
+        studioShellMismatch: "\u5B89\u88C5\u7684 OpenFilm \u754C\u9762\u4E0E\u8FD0\u884C\u7EC4\u4EF6\u4E0D\u5339\u914D\uFF0C\u8BF7\u68C0\u67E5\u63D2\u4EF6\u5B89\u88C5\uFF0C\u6216\u590D\u5236\u8BCA\u65AD\u53D1\u7ED9\u5F00\u53D1\u8005\u3002",
+        studioSilentHint: "OpenFilm \u5728 20 \u79D2\u5185\u6CA1\u6709\u56DE\u5E94\u3002\u91CD\u8BD5\u4F1A\u91CD\u65B0\u52A0\u8F7D\u9875\u9762\uFF0C\u672A\u4FDD\u5B58\u7684\u5185\u5BB9\u53EF\u80FD\u4E22\u5931\u3002",
+        studioRestartHint: "\u5982\u679C\u4ECD\u7136\u5931\u8D25\uFF0C\u8BF7\u4FDD\u5B58\u5DE5\u4F5C\uFF0C\u5B8C\u5168\u9000\u51FA\u5E76\u91CD\u542F DSH\u3002\u91CD\u542F\u540E\u4ECD\u6253\u4E0D\u5F00\uFF0C\u53EF\u5C06\u8BCA\u65AD\u53D1\u7ED9\u63D2\u4EF6\u5F00\u53D1\u8005\u3002",
+        studioCopyDiagnostic: "\u590D\u5236\u8BCA\u65AD",
+        studioCopied: "\u5DF2\u590D\u5236\u8BCA\u65AD\u3002",
+        studioCopyFallback: "\u65E0\u6CD5\u4F7F\u7528\u526A\u8D34\u677F\uFF0C\u8BF7\u9009\u4E2D\u4E0B\u65B9\u6587\u672C\u624B\u52A8\u590D\u5236\u3002",
+        studioFailureDetails: "\u67E5\u770B\u8BE6\u60C5",
+        studioContact: "\u8054\u7CFB\u5F00\u53D1\u8005",
         studioRetry: "\u91CD\u8BD5",
         studioStopped: "\u5DE5\u4F5C\u53F0\u5DF2\u505C\u6B62\u8FD0\u884C",
         studioStoppedHint: "\u89C6\u9891\u7F16\u8F91\u670D\u52A1\u5DF2\u65AD\u5F00\u3002\u91CD\u65B0\u542F\u52A8\u5373\u53EF\u7EE7\u7EED\uFF0C\u9879\u76EE\u548C\u7D20\u6750\u4E0D\u53D7\u5F71\u54CD\u3002",
@@ -2558,7 +2610,8 @@
         if (!response.ok) {
           const code = await response.text();
           const known = ["DSH_ORIGIN_REJECTED", "DSH_SESSION_REQUIRED", "DSH_BROWSER_REQUIRED", "STUDIO_DISPOSED"];
-          throw new Error(`HTTP ${response.status}${known.includes(code) ? ` (${code})` : ""} @ ${window.location.origin} (host)`);
+          const safeCode = known.includes(code) ? code : /^Studio is unavailable \((STUDIO_START|STUDIO_CLOSE|STUDIO_DEPENDENCY|OFFICIAL_SHELL_UNAVAILABLE)\)$/.exec(code)?.[1];
+          throw Object.assign(new Error(`HTTP ${response.status} (host)`), { code: safeCode, httpStatus: response.status });
         }
         const data = await response.json();
         if (typeof data?.editorOrigin !== "string") throw new Error("Invalid Studio response");

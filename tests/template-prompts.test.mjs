@@ -17,22 +17,22 @@ const scratch = () => mkdtempSync(join(tmpdir(), 'no996-template-prompts-'));
 test('the active list round-trips and is deduplicated', () => {
   const root = scratch();
   assert.deepEqual(readActiveTemplates(root), []);
-  const active = writeActiveTemplates(root, ['sketchnote', 'sketchnote', 'replica-film']);
-  assert.deepEqual(active, ['sketchnote', 'replica-film']);
-  assert.deepEqual(readActiveTemplates(root), ['sketchnote', 'replica-film']);
-  assert.match(readFileSync(join(root, '.film', 'templates.json'), 'utf8'), /"replica-film"/);
+  const active = writeActiveTemplates(root, ['sketchnote', 'sketchnote', 'vibe-explainer']);
+  assert.deepEqual(active, ['sketchnote', 'vibe-explainer']);
+  assert.deepEqual(readActiveTemplates(root), ['sketchnote', 'vibe-explainer']);
+  assert.match(readFileSync(join(root, '.film', 'templates.json'), 'utf8'), /"vibe-explainer"/);
   assert.deepEqual(writeActiveTemplates(root, ['bad id!', 'ok']), ['ok']);
 });
 
 test('each active template contributes its own section, in order', () => {
   const block = renderTemplateBlock([
     { id: 'sketchnote', title: '手绘笔记', prompt: '保留纸张质感与手绘笔迹。' },
-    { id: 'replica-film', title: '复刻影片', prompt: '保留分镜结构，替换主题。' },
+    { id: 'vibe-explainer', title: 'Vibe 科普剧场', prompt: '用物理隐喻讲清概念。' },
   ]);
   assert.ok(block.startsWith(BLOCK_BEGIN));
   assert.ok(block.endsWith(BLOCK_END));
   const first = block.indexOf('手绘笔记');
-  const second = block.indexOf('复刻影片');
+  const second = block.indexOf('Vibe 科普剧场');
   assert.ok(first > 0 && second > first, 'order follows the active list');
   assert.ok(block.includes('保留纸张质感与手绘笔迹。'));
   assert.ok(block.includes('冲突时优先于通用做法'));
@@ -104,7 +104,7 @@ test('taking a template activates it and returns its prompt in the same turn', a
   writeFileSync(join(root, 'AGENTS.md'), INSTRUCTIONS, 'utf8');
   const catalog = [
     { id: 'sketchnote', title: '手绘笔记', description: '纸笔手绘', prompt: '保留纸张质感。' },
-    { id: 'replica-film', title: '复刻影片', description: '复刻结构', prompt: '保留分镜。' },
+    { id: 'vibe-explainer', title: 'Vibe 科普剧场', description: '物理隐喻科普', prompt: '用物理隐喻讲清概念。' },
   ];
   const activated = [];
   const tool = createLibraryTool({
@@ -116,10 +116,8 @@ test('taking a template activates it and returns its prompt in the same turn', a
       const active = readActiveTemplates(projectPath);
       const next = active.includes(id) ? active : [...active, id];
       writeActiveTemplates(projectPath, next);
-      const chosen = next.map(templateId => catalog.find(item => item.id === templateId)).filter(Boolean);
-      syncTemplateBlock(projectPath, chosen);
       activated.push(id);
-      return { active: next, templates: chosen };
+      return { active: next };
     },
   });
   const exec = { agent: { id: 'agent' } };
@@ -135,19 +133,18 @@ test('taking a template activates it and returns its prompt in the same turn', a
 
   const first = await tool.execute({ kind: 'template', take: 'sketchnote' }, exec);
   assert.match(first.text, /保留纸张质感/);
-  assert.match(first.text, /已启用为本片模板/);
+  assert.match(first.text, /已记录为本片参考/);
   assert.deepEqual(activated, ['sketchnote']);
-  assert.ok(readFileSync(join(root, 'AGENTS.md'), 'utf8').includes('保留纸张质感。'));
+  assert.equal(readFileSync(join(root, 'AGENTS.md'), 'utf8'), initial);
 
   // A second template stacks instead of replacing the first.
-  await tool.execute({ kind: 'template', take: 'replica-film' }, exec);
+  await tool.execute({ kind: 'template', take: 'vibe-explainer' }, exec);
   const text = readFileSync(join(root, 'AGENTS.md'), 'utf8');
-  assert.ok(text.includes('保留纸张质感。'));
-  assert.ok(text.includes('保留分镜。'));
-  assert.deepEqual(readActiveTemplates(root), ['sketchnote', 'replica-film']);
+  assert.equal(text, initial);
+  assert.deepEqual(readActiveTemplates(root), ['sketchnote', 'vibe-explainer']);
 
   // Taking the same one again changes nothing.
   const again = await tool.execute({ kind: 'template', take: 'sketchnote' }, exec);
-  assert.match(again.text, /sketchnote、replica-film/);
+  assert.match(again.text, /sketchnote、vibe-explainer/);
   await assert.rejects(tool.execute({ kind: 'template', take: 'nope' }, exec), /没有这个模板/);
 });

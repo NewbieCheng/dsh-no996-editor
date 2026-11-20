@@ -42,7 +42,24 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
 });
 
-export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, log, diagLog, devHooks, sessionLifetimeMs = 30 * 60_000 } = {}) {
+function normalizeViewerOrigins(value) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new TypeError('viewerOrigins must be an array of loopback http origins');
+  const allowed = new Set();
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !entry) continue;
+    let parsed;
+    try { parsed = new URL(entry); } catch { throw new TypeError('viewerOrigins entries must be absolute URLs'); }
+    if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(parsed.hostname) || !parsed.port
+      || parsed.origin !== entry || parsed.username || parsed.password) {
+      throw new TypeError('viewerOrigins must be loopback http://127.0.0.1|localhost:<port> origins');
+    }
+    allowed.add(parsed.origin);
+  }
+  return [...allowed];
+}
+
+export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, log, diagLog, devHooks, viewerOrigins, sessionLifetimeMs = 30 * 60_000 } = {}) {
   // A proxy without a logger is valid (tests, embedders); the calls are no-ops.
   const say = typeof log?.write === 'function' ? log : { write() {}, info() {}, warn() {}, error() {} };
   const recordDiag = typeof diagLog?.record === 'function' ? diagLog : null;
@@ -73,6 +90,7 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
       web.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(web.hostname) || !web.port || web.origin !== webOrigin || web.username || web.password) throw new TypeError('Invalid DSH origin');
   if (typeof authenticateBrowser !== 'function') throw new TypeError('Browser authentication callback is required');
   if (!Number.isSafeInteger(sessionLifetimeMs) || sessionLifetimeMs < 1_000 || sessionLifetimeMs > 24 * 60 * 60_000) throw new TypeError('sessionLifetimeMs must be 1s–24h');
+  const viewers = normalizeViewerOrigins(viewerOrigins);
   const editorUpstream = upstreamOrigin(upstream?.origin, '127.0.0.1');
   const filmUpstream = upstreamOrigin(upstream?.filmOrigin, 'localhost');
   const pluginUpstream = upstream?.pluginOrigin ? upstreamOrigin(upstream.pluginOrigin, 'localhost') : null;
@@ -180,13 +198,26 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
     });
     return true;
   }
+  /** Origins that load the editor UI: ephemeral editorOrigin, plus any public door (dev portal). */
+  function isEditorLikeOrigin(origin) {
+    return origin === editorOrigin || viewers.includes(origin);
+  }
+  /**
+   * Target Origin the film bridge must postMessage to. Behind a reverse door the
+   * browser tab's Origin is the door (e.g. :47821), not the ephemeral editor port;
+   * baking editorOrigin into EDITOR drops every ready/seeked message and the
+   * preview stays on "Drawing the first frame".
+   */
+  function filmEditorOrigin() {
+    return viewers[0] || editorOrigin;
+  }
   function rejectionReason(req, film) {
     const expected = new URL(film ? filmOrigin : editorOrigin);
     if (closed || req.headers.host !== expected.host) return 'OF_HOST_REJECTED';
     if (relaxedEmbed && !film && (req.method === 'GET' || req.method === 'HEAD' || req.headers.origin === editorOrigin)) return null;
     const origin = req.headers.origin;
     const desktopNavigation = desktop && !film && req.method === 'GET' && req.headers['sec-fetch-dest'] === 'iframe' && authenticated(req);
-    if (origin && origin !== editorOrigin && !(film && origin === filmOrigin) && !(desktopNavigation && (origin === webOrigin || origin === 'null'))) return 'OF_ORIGIN_REJECTED';
+    if (origin && !isEditorLikeOrigin(origin) && !(film && origin === filmOrigin) && !(desktopNavigation && (origin === webOrigin || origin === 'null'))) return 'OF_ORIGIN_REJECTED';
     if (!film) {
       const site = req.headers['sec-fetch-site'];
       if (site !== undefined && !['same-origin', 'same-site', 'none'].includes(site) && !(desktopNavigation && site === 'cross-site')) return 'OF_SITE_REJECTED';
@@ -428,7 +459,10 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       const headerText = JSON.stringify(out);
       if (forbidden.some((value) => headerText.includes(value))) { up.resume(); return fail(res, 502); }
       if (film) {
-        out['access-control-allow-origin'] = editorOrigin;
+        // Echo a viewer/editor Origin so the public door can CORS-fetch film assets;
+        // navigations without Origin keep the editor surface default.
+        const reqOrigin = req.headers.origin;
+        out['access-control-allow-origin'] = reqOrigin && isEditorLikeOrigin(reqOrigin) ? reqOrigin : filmEditorOrigin();
         out['x-content-type-options'] = 'nosniff';
       }
       out['cache-control'] = 'no-store';
@@ -539,7 +573,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
               }
             }
             if (film && type.startsWith('text/html')) {
-              value = value.replaceAll(`const EDITOR = ${JSON.stringify(editorUpstream.origin)};`, `const EDITOR = ${JSON.stringify(editorOrigin)};`);
+              value = value.replaceAll(`const EDITOR = ${JSON.stringify(editorUpstream.origin)};`, `const EDITOR = ${JSON.stringify(filmEditorOrigin())};`);
             } else if (!film && type.startsWith('text/html') && !url.pathname.startsWith('/api/')) {
               value = await rewriteEditorHtml(value, url, status);
             }
@@ -972,7 +1006,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     if (!officialEvents(req, res) && !voiceProviders(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
   });
   const plugin = pluginUpstream && createPluginSurfaceProxy(pluginUpstream, () => ({
-    editor: editorOrigin, surface: closed ? null : pluginOrigin, upstreamEditor: editorUpstream.origin,
+    editor: editorOrigin, surface: closed ? null : pluginOrigin, upstreamEditor: editorUpstream.origin, viewers,
   }), (method, lane, status) => {
     say.warn('plugin-surface-http', { method, lane, status });
   });
@@ -1082,6 +1116,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
 
   return Object.freeze({
     editorOrigin,
+    filmOrigin,
     diagnostics: () => ({ ...diag, mode: officialShell ? 'official' : 'dsh' }),
     async listProjects() {
       const reply = await studioCall('GET', '/api/projects');

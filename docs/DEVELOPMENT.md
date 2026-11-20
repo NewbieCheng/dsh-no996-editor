@@ -2,7 +2,7 @@
 id: development
 reader: 新开发者、智能体
 fact-source: package.json、cordis.patch.yml、src/*.mjs、scripts/*
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 启动时序、请求路径、模块职责或构建方式变化
 -->
 
@@ -173,7 +173,7 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 Host 模块重载可能受模块缓存影响；修改后应核验实际运行版本。如果重载未应用变更，保存工作并按管理器提示完整重启 DSH，再验证原页面。现有 `npm run dev` 不应被视为递归监听整个 `src/` 的保证。
 
 **零基础实时开发流程（Vite HMR + 热样式）见 [`playbooks/dev-live-guide.md`](playbooks/dev-live-guide.md)。**
-运行 `npm run dev:live` 后配合 `NO996_OPENFILM_DEV_HMR=1` 启动 DSH，React/TSX 修改走 Vite Fast Refresh、主题 CSS 走原地无刷新替换；`src/dev/` 与调试工具会在 `scripts/pack-tgz.mjs` 打包时物理排除，不进入发布包。
+下次直接：`npm run dev:up`（起 Vite + 重启 DSH）；**只重启 DSH**用 `npm run dev:dsh`。口诀与表见 [开发模式：启动 / 重启 DSH](playbooks/dev-live-guide.md)。开放 `http://127.0.0.1:47821/`。React/TSX 走 Vite Fast Refresh，主题 CSS 原地热替换；`src/dev/` 与调试工具在 `scripts/pack-tgz.mjs` 打包时物理排除，不进发布包。
 
 管理器返回 `restart-required` 时：如实报告，并按 `nextStep` 完整重启 DSH；日志里的新 `host-start` 只证明 Host 重建，不证明 GUI 已应用。
 

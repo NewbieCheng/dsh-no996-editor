@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 排查故障的人、智能体
 fact-source: src/native/dsh-native-agent-service.mjs、src/studio/studio-controller.mjs、docs/ARCHITECTURE.md
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 -->
 
@@ -24,7 +24,9 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 |---|---|---|
 | 看不到插件或版本区 | profile、registry 包名、安装来源与重启提示 | [安装 / 更新手册](publish.md) |
 | 面板白屏或启动超时 | 页面 origin、bootstrap 请求、Host 日志和 Studio 健康情况 | [开发文档](../DEVELOPMENT.md)；历史案例仅用于提出假设 |
-| 剪辑／放映／画布报 `Failed to fetch dynamically imported module` | 查看浏览器 Network：内置工作台模块应从独立的本地插件页面代理加载，不应直连 Studio 的内部模块端口 | 查 `plugin-surface-http` 的 HTTP 状态与 `s`（模块）或 `f`（项目文件）类别；诊断不记录授权 URL。HTTP 200 但缺少编辑器对应的 `Access-Control-Allow-Origin` 也会加载失败，不能只测端口。 |
+| 剪辑／放映／画布报 `Failed to fetch dynamically imported module` | 查看浏览器 Network：内置工作台模块应从独立的本地插件页面代理加载，不应直连 Studio 的内部模块端口 | 查 `plugin-surface-http` 的 HTTP 状态与 `s`（模块）或 `f`（项目文件）类别；诊断不记录授权 URL。HTTP 200 但缺少编辑器对应的 `Access-Control-Allow-Origin` 也会加载失败，不能只测端口。开发门户 `47821` 上再对照 [开发门户规律](dev-live-guide.md)。 |
+| 门户 `47821` 预览卡在 Drawing the first frame，DSH 侧栏正常 | 页面 Origin、film iframe URL、`film.html` 里 `const EDITOR =`、带门 Origin 的 `/p/` 是否 403；Console 可几乎无报错 | 同一类 Origin 分裂：`EDITOR` / film CORS 必须认门（`viewerOrigins`）。步骤与表见 [开发门户规律](dev-live-guide.md) |
+| DEV 想回项目库首页却总进最近项目 | 地址是否变成 `/?library=1`；裸 `/` 会自动 `go` 最近项目 | 账号菜单「回到首页」；规律见 [开发门户规律](dev-live-guide.md) |
 | 对话无响应或模型不符 | 会话 ID、模型选择、原生会话日志和诊断事件 | [架构](../ARCHITECTURE.md)；不要以旧 `acp-*` 日志缺失判错 |
 | 上下文圆环 0% 或 12 点小黑点 | `native-attach` 的 `usage`、`projections().contextPressure / contextBreakdown`、`ContextUsage.tsx` 是否已重编 | [架构](../ARCHITECTURE.md)；0% 不应渲染 `round` 进度弧 |
 | 思考强度需发消息才同步 | `native-select-thinking` 日志、`attach` 是否同步 `agentPrefs`、空白会话 `store.setSelection` | [架构](../ARCHITECTURE.md)；核对 `official-facade.mjs` 的 `conversationId` |

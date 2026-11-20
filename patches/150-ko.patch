@@ -1,16 +1,8 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index 07ac398..70f27bf 100644
+index 07ac398..ed6ddd3 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
-@@ -1,6 +1,7 @@
- import type { Words } from './words';
- 
- export const ko: Words = {
-+  no996: { webDetails: '상세 보기', webNoResult: '도구 결과를 받지 못했습니다', webFailed: '실패', webInterrupted: '중단' },
-   /* a turn of the app's own agent stopped: the service its model runs on has no balance left (BalanceNotice) */
-   balance: {
-     title: '{provider}: 잔액 부족',
-@@ -9,9 +10,9 @@ export const ko: Words = {
+@@ -9,13 +9,17 @@ export const ko: Words = {
    },
    banner: {
      studioFailed: 'Studio를 시작하지 못했습니다: {error}',
@@ -22,7 +14,15 @@ index 07ac398..70f27bf 100644
      browserDownloading: 'Studio가 페이지를 그리는 브라우저를 내려받는 중(약 100MB, 한 번만)…',
      browserFailed: 'Studio가 페이지를 그리는 브라우저를 내려받지 못했습니다: {error}',
    },
-@@ -126,14 +127,19 @@ export const ko: Words = {
+   act: {
++    /* no996-editor: how much is running, not just that something is */
++    running: '도구 {n}개 실행 중',
++    /* no996-editor: the command card opens to what actually ran */
++    details: '자세히',
+     waitingForYou: '답변을 기다리는 중',
+     /* the app's own agent, after two minutes with nothing from the model (some think for minutes first) */
+     waitingForModel: '모델 응답을 기다리는 중',
+@@ -126,14 +130,19 @@ export const ko: Words = {
      previewFailed: '이 파일을 읽을 수 없습니다',
    },
    composer: {
@@ -43,7 +43,29 @@ index 07ac398..70f27bf 100644
      agentOwnKey: '내 키',
      agentPermissionDeny: '허용 안 함',
      agentPermissionTitle: '{name}이(가) 다음 작업을 하려고 합니다',
-@@ -157,7 +163,7 @@ export const ko: Words = {
+@@ -144,6 +153,21 @@ export const ko: Words = {
+     agentWaiting: '로그인하는 중…',
+     agentWas: '이 대화는 {name}을(를) 사용했지만 지금은 사용할 수 없습니다. 다음 메시지는 아래에서 선택한 에이전트로 전송됩니다.',
+     effort: '추론 강도',
++    effortLevels: {
++      off: '끔',
++      low: '낮음',
++      medium: '보통',
++      high: '높음',
++      max: '최대',
++      auto: '자동',
++      default: '기본',
++    },
++    effortDefaultOf: '기본 ({name})',
++    permission: '권한',
++    permissionLevels: {
++      fullAccess: '전체 접근',
++      workspace: '작업 공간만',
++    },
+     filesFailed: '{names}을(를) 추가하지 못했습니다: {error} 제거한 뒤 보내세요.',
+     filesPending: '파일을 추가하는 중입니다.',
+     model: '모델',
+@@ -157,7 +181,7 @@ export const ko: Words = {
      queued: '대기 중 — 이번 턴이 끝나면 보냅니다.',
      queuedCancel: '보내지 않기',
      copyDiagnostics: '진단 보고서 복사',
@@ -52,7 +74,7 @@ index 07ac398..70f27bf 100644
      diagnosticsCopied: '복사됨',
      switchAccount: '계정 전환',
      signedInAs: '{account}(으)로 로그인되어 있습니다.',
-@@ -247,6 +253,8 @@ export const ko: Words = {
+@@ -247,6 +271,8 @@ export const ko: Words = {
      untitledSession: '새 채팅',
    },
    projectMenu: {
@@ -61,7 +83,7 @@ index 07ac398..70f27bf 100644
      archive: '보관',
      archived: '보관됨',
      asking: '답변 대기 중',
-@@ -260,6 +268,7 @@ export const ko: Words = {
+@@ -260,6 +286,7 @@ export const ko: Words = {
      unpin: '고정 해제',
    },
    starter: {
@@ -69,7 +91,7 @@ index 07ac398..70f27bf 100644
      subtitle: '원하는 영상을 말하면 에이전트가 만듭니다. 소재부터 시작해도 됩니다.',
      communityName: '커뮤니티',
      communityNote: '플러그인, 스킬, 소재 추가',
-@@ -299,7 +308,7 @@ export const ko: Words = {
+@@ -299,7 +326,7 @@ export const ko: Words = {
      folderDialog: '폴더에서 가져오기',
      make: '에이전트와 함께 만들기',
      makeHint: '만드는 방법을 스킬로 정리해 내 스킬에 저장합니다.',
@@ -78,7 +100,7 @@ index 07ac398..70f27bf 100644
      fromFolderTitle: '폴더에서',
      dropHere: '여기에 폴더를 끌어다 놓으세요',
      orPick: '또는 클릭해서 선택',
-@@ -309,7 +318,7 @@ export const ko: Words = {
+@@ -309,7 +336,7 @@ export const ko: Words = {
    turnLog: {
      thoughtNotKept: '에이전트 기록에 생각 내용이 저장되지 않았습니다',
      skills: '스킬과 MCP',
@@ -87,7 +109,7 @@ index 07ac398..70f27bf 100644
      skillsHidden: '내 스킬(꺼짐)',
      skillsUnfiltered: '이 에이전트는 자체 앱에서처럼 내 스킬을 모두 사용합니다',
      mcpHidden: '내 MCP 서버(꺼짐)',
-@@ -413,7 +422,29 @@ export const ko: Words = {
+@@ -413,7 +440,30 @@ export const ko: Words = {
      description: '프로젝트 파일이 이번 턴 이전 상태로 돌아가고, 그 뒤 Studio에서 바꾼 내용도 함께 되돌아갑니다. 이번 턴은 대화에서 빠지고 메시지는 아래 입력창으로 돌아와 다시 보낼 수 있습니다.',
      confirm: '실행 취소',
      cancel: '취소',
@@ -118,3 +140,4 @@ index 07ac398..70f27bf 100644
 +    autoExportDesc: '기본 꺼짐: 미리보기 상태에서 멈추며 확인 후 직접 내보낼 수 있습니다',
 +  },
  };
++

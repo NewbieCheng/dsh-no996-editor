@@ -57,7 +57,7 @@ rot-if: 原生回合事件、聊天桥重连机制或项目身份校验发生变
 
 ### 2.2 全屏红条的独立根因
 
-[11 月 19 日诊断:14–15](<C:/Users/Administrator/.dsh/no996-openfilm/logs/diagnostics-2026-11-19.jsonl#L14-L15>) 为北京时间 21:52:43.671、23:01:37.596，同一堆栈。逐列定位 [截图中打包文件:130、146](../../vendor/official-shell/ui/assets/workbench-edit-CHgnlOLk.js#L130-L146)：`130:14077` 是 `preview-fullscreen` 的 `onClick`，`146:69857` 是 `requestFullscreen()` 调用，Promise 没有被处理。[Studio iframe](../../src/studio/studio-panel.mjs#L316-L334) 跨源嵌入，只声明 `clipboard-read; clipboard-write`。11 月 18 日旧壳保留的同签名堆栈也对应 `requestFullscreen()`；这是预览按钮错误，不是网络错误，也与 21:52:24 那次重载不是同一事件（报错晚约 19 秒）。
+[11 月 19 日诊断:14–15](<C:/Users/Administrator/.dsh/no996-openfilm/logs/diagnostics-2026-11-19.jsonl#L14-L15>) 为北京时间 21:52:43.671、23:01:37.596，同一堆栈。逐列定位 当时的打包文件 `workbench-edit-CHgnlOLk.js`（已被后续构建替换）：`130:14077` 是 `preview-fullscreen` 的 `onClick`，`146:69857` 是 `requestFullscreen()` 调用，Promise 没有被处理。[Studio iframe](../../src/studio/studio-panel.mjs#L316-L334) 跨源嵌入，只声明 `clipboard-read; clipboard-write`。11 月 18 日旧壳保留的同签名堆栈也对应 `requestFullscreen()`；这是预览按钮错误，不是网络错误，也与 21:52:24 那次重载不是同一事件（报错晚约 19 秒）。
 
 ## 3. 修复顺序
 

@@ -62,7 +62,7 @@ export function createLoginRememberStore({ home } = {}) {
 
   function decrypt(key, payload) {
     const buf = Buffer.from(String(payload || ''), 'base64');
-    if (buf.length < 12 + 16 + 1) throw publicError('REMEMBER_CORRUPT', '本机记住的登录信息已损坏', 400);
+    if (buf.length < 12 + 16 + 1) throw publicError('REMEMBER_CORRUPT', 'Saved sign-in details on this computer are corrupted', 400);
     const iv = buf.subarray(0, 12);
     const tag = buf.subarray(12, 28);
     const data = buf.subarray(28);

@@ -374,7 +374,8 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
       toggle.type = 'button';
       toggle.className = 'n996-folder-toggle';
       toggle.setAttribute('aria-expanded', folderOpen ? 'true' : 'false');
-      toggle.style.cssText = 'display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;padding:6px 8px;border:0;border-radius:6px;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit;font-size:13px;';
+      toggle.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:34px;padding:5px 8px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-label-primary, inherit);text-align:left;cursor:pointer;font:inherit;font-size:14px;';
+      toggle.title = projectDisplayTitle(project);
       const chevron = doc.createElement('span');
       chevron.className = 'n996-chevron';
       chevron.setAttribute('aria-hidden', 'true');
@@ -411,7 +412,8 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
         child.style.cssText = 'display:flex;align-items:center;gap:2px;border-radius:6px;margin-left:26px;';
         const open = doc.createElement('button');
         open.type = 'button';
-        open.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;padding:5px 8px;border:0;border-radius:6px;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit;font-size:13px;';
+        open.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:32px;padding:5px 8px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-label-primary, inherit);text-align:left;cursor:pointer;font:inherit;font-size:14px;';
+        open.title = sessionDisplayTitle(session);
         const title = doc.createElement('span');
         if (session.pinned) title.append(pinBadge());
         if (session.archived) title.append('已归档 · ');
@@ -923,6 +925,32 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     };
     item('工作区', 'workspaces', 'grid');
     item(EDITING_LABEL, 'editing', 'clapper');
+    if (mode === 'editing') {
+      const batch = doc.createElement('button');
+      batch.type = 'button';
+      batch.setAttribute('role', 'menuitem');
+      batch.style.cssText = 'display:block;width:100%;padding:7px 9px;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;';
+      batch.textContent = '整理剪辑历史';
+      batch.onclick = async () => {
+        const view = doc.defaultView;
+        const call = (action, confirmed = false) => postJson('/api/no996-openfilm/editing-archive-batch', { action, confirmed });
+        try {
+          batch.disabled = true;
+          const preview = await call('preview');
+          if (!preview.available) { view?.alert('当前 DSH 不支持归档。'); return; }
+          let action;
+          if (preview.eligible && view?.confirm(`归档 ${preview.eligible} 个空闲剪辑会话？不会删除历史或停止任务。取消可查看恢复选项。`)) action = 'archive';
+          else if (preview.recoverable && view?.confirm(`恢复之前通过整理入口归档的剪辑历史（最多 ${preview.recoverable} 个）？`)) action = 'restore';
+          if (!action) return;
+          const result = await call(action, true);
+          view?.alert(`已处理 ${result.changed} 个，跳过 ${result.skipped} 个，失败 ${result.failed} 个。`);
+          closePopover();
+          refresh();
+        } catch { view?.alert('历史整理未完成，请刷新后查看状态再重试。'); }
+        finally { batch.disabled = false; }
+      };
+      popover.append(batch);
+    }
     const rect = trigger.getBoundingClientRect();
     popover.style.left = `${Math.max(8, Math.min(rect.left, (doc.defaultView?.innerWidth ?? 1200) - 230))}px`;
     popover.style.top = `${Math.round(rect.bottom + 4)}px`;
@@ -979,33 +1007,20 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
   };
 
   const hiddenSessionIds = new Set();
-  const hiddenWorkspaceIds = new Set();
-  const hiddenFolderNames = new Set(['Projects', 'OpenFilm']);
+  const hiddenRows = new Map();
   let hiddenSeeded = false;
+  let disposed = false;
   const syncHiddenIds = data => {
-    if (!data || typeof data !== 'object') return;
+    if (disposed || !data || typeof data !== 'object') return;
     if (Array.isArray(data.hiddenSessionIds)) {
       hiddenSessionIds.clear();
       for (const id of data.hiddenSessionIds) {
         if (typeof id === 'string' && id) hiddenSessionIds.add(id);
       }
     }
-    if (Array.isArray(data.hiddenWorkspaceIds)) {
-      hiddenWorkspaceIds.clear();
-      for (const id of data.hiddenWorkspaceIds) {
-        if (typeof id === 'string' && id) hiddenWorkspaceIds.add(id);
-      }
-    }
-    if (Array.isArray(data.hiddenFolderNames)) {
-      hiddenFolderNames.clear();
-      hiddenFolderNames.add('Projects');
-      hiddenFolderNames.add('OpenFilm');
-      for (const name of data.hiddenFolderNames) {
-        if (typeof name === 'string' && name.trim()) hiddenFolderNames.add(name.trim());
-      }
-    }
   };
   const hideFilmSessionsInWorkspaces = () => {
+    if (disposed) return;
     try {
       if (!hiddenSeeded && typeof fetchSessions === 'function') {
         hiddenSeeded = true;
@@ -1014,31 +1029,23 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
           hideFilmSessionsInWorkspaces();
         }).catch(() => {});
       }
-      if (hiddenWorkspaceIds.size > 0) {
-        for (const wid of hiddenWorkspaceIds) {
-          for (const el of doc.querySelectorAll(`[data-workspace-id="${wid}"]`)) {
-            if (el && el.style.display !== 'none') el.style.display = 'none';
-          }
-        }
-      }
-      // Hide dedicated/legacy film workspace folder(s) from the general Workspaces view
-      const folderButtons = doc.querySelectorAll('button[aria-expanded], [role="button"][aria-expanded]');
-      for (const btn of folderButtons) {
-        const label = (btn.textContent || '').trim();
-        if (hiddenFolderNames.has(label)) {
-          const group = btn.closest('[data-workspace-id], section, li, div');
-          const target = group && group !== doc.body ? group : btn;
-          if (target.style.display !== 'none') target.style.display = 'none';
-        }
-      }
-      if (hiddenSessionIds.size === 0) return;
+      const matching = new Set();
       const links = doc.querySelectorAll('a[href*="/sessions/"], [data-session-id]');
       for (const el of links) {
         const sid = el.getAttribute?.('data-session-id')
           || (/\/sessions\/([A-Za-z0-9_-]+)/.exec(el.getAttribute?.('href') || '')?.[1] ?? '');
         if (!sid || !hiddenSessionIds.has(sid)) continue;
         const row = el.closest('li, [role="listitem"]') ?? el;
-        if (row && row.style.display !== 'none') row.style.display = 'none';
+        matching.add(row);
+        if (!hiddenRows.has(row) && row.style.display !== 'none') {
+          hiddenRows.set(row, row.style.display);
+          row.style.display = 'none';
+        }
+      }
+      for (const [row, display] of hiddenRows) {
+        if (matching.has(row)) continue;
+        if (row.style.display === 'none') row.style.display = display;
+        hiddenRows.delete(row);
       }
     } catch { /* ignore */ }
   };
@@ -1126,7 +1133,10 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
   mount();
 
   return () => {
+    disposed = true;
     observer?.disconnect();
+    for (const [row, display] of hiddenRows) if (row.style.display === 'none') row.style.display = display;
+    hiddenRows.clear();
     cleanup();
   };
 }

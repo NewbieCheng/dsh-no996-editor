@@ -126,7 +126,7 @@ try {
         res.write('event: ready\ndata: {}\n\n');
       },
       officialRpc: async (channel, payload, meta) => {
-        if (channel === 'auth:status') return { loggedIn: true, dev: true, account: 'dev@local', displayName: '开发模式' };
+        if (channel === 'auth:status') return { loggedIn: true, dev: true, account: 'dev@local', displayName: 'Dev mode' };
         if (channel === 'prefs:get') return { prefs: { onboardingCompleted: true } };
         if (channel === 'template:list') return { templates: [], prefs: {} };
         if (channel.startsWith('diag:')) return diagLogs.handleRpc(channel, payload);

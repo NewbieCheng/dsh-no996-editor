@@ -1,0 +1,119 @@
+diff --git a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
+index 4c99bb2..3ba7a4f 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
+@@ -13,7 +13,7 @@
+ import React from 'react';
+ import { Check, ChevronDown, FolderSearch } from 'lucide-react';
+ import { useT } from '@/i18n';
+-import { SERVICE_VERBS, offered, providerOrder, useProviders, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
++import { SERVICE_VERBS, no996VoiceStatus, offered, providerOrder, useProviders, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
+ import { Popover } from '@/components/Popover';
+ import { ProviderMark } from './ProviderMark';
+ import { AddProviderDialog, KIND_ICON, ProviderDialog, ServicesBar } from './ProvidersSection';
+@@ -28,6 +28,7 @@ interface Choice {
+   provider: string;
+   name: string;
+   model: string;
++  auto?: true;
+ }
+ 
+ export function ModelsSection() {
+@@ -44,6 +45,14 @@ export function ModelsSection() {
+   const [card, setCard] = React.useState<string | null>(null);
+   /* asks the custom services to open their form (counted, so asking again opens it again) */
+   const [addCustom, setAddCustom] = React.useState(0);
++  /* Empty chat "Install ASR" sets this before opening Settings → Services. */
++  React.useEffect(() => {
++    try {
++      if (sessionStorage.getItem('openfilm.settings.card') !== 'local') return;
++      sessionStorage.removeItem('openfilm.settings.card');
++      setCard('local');
++    } catch { /* private mode */ }
++  }, []);
+   /* Local services opens its own card (LocalModelsDialog), not a service's */
+   const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
+   const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;
+@@ -105,14 +114,18 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+   const state = hook.state!;
+   const label = t(`settings.providers.verbs.${verb}`);
+   const chosen = state.use[verb] ?? '';
+-  const order = providerOrder(state.providers.filter((p) => p.verbs.includes(verb) || p.id === chosen));
++  const no996 = verb === 'tts' ? state.providers.find(p => p.id === 'no996') : undefined;
++  const rows = state.providers.filter((p) => p.verbs.includes(verb) || p.id === chosen);
++  const order = providerOrder(rows.map(p => p === no996 ? { ...p, source: no996VoiceStatus(p) === 'ready' ? 'file' as const : null } : p));
++  const auto: Choice | null = no996 ? { value: 'no996-voice-auto', provider: 'no996', model: '', name: t('settings.providers.no996Voice.auto'), auto: true } : null;
+   /* the model chosen, or the provider's first when it has none or no longer makes it (as a run does) */
+   const models = state.providers.find((p) => p.id === chosen)?.models[verb] ?? [];
+   const model = models.find((m) => m.id === state.model[verb]) ?? models[0];
+   const value = chosen ? `${chosen}:${model?.id ?? ''}` : '';
+   const choicesOf = (p: OwnProvider): Choice[] => (p.models[verb] ?? [])
+     .map((m) => ({ value: `${p.id}:${m.id}`, provider: p.id, name: m.name, model: m.id }));
+-  const current = order.connected.flatMap(choicesOf).find((c) => c.value === value) ?? null;
++  const manual = order.connected.flatMap(choicesOf).find((c) => c.value === value) ?? null;
++  const current = no996?.no996VoiceDefault && chosen === 'no996' && manual ? { ...manual, value: auto!.value, name: t('settings.providers.no996Voice.defaultModel') } : manual;
+   const Icon = KIND_ICON[verb];
+ 
+   return (
+@@ -127,8 +140,9 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+           waiting={[...order.recommended, ...order.more]}
+           choicesOf={choicesOf}
+           current={current}
++          auto={auto}
+           busy={hook.busy === verb}
+-          onPick={(choice) => void hook.choose(verb, choice?.provider ?? '', choice ? { model: choice.model } : undefined)}
++          onPick={(choice) => void (choice?.auto ? hook.choose('tts', '', { no996VoiceAuto: true }) : hook.choose(verb, choice?.provider ?? '', choice ? { model: choice.model } : undefined))}
+           onConnect={onConnect}
+         />
+       )}
+@@ -141,7 +155,7 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+  * The connected ones first, to choose from (and None); then the others, their models shown as what connecting brings,
+  * each opening its card to connect it.
+  */
+-function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empty, onPick, onConnect }: {
++function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empty, auto, onPick, onConnect }: {
+   label: string;
+   connected: OwnProvider[];
+   waiting: OwnProvider[];
+@@ -150,6 +164,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+   busy: boolean;
+   /** what the button says when nothing is chosen (else "Choose a model") */
+   empty?: string;
++  auto?: Choice | null;
+   onPick: (choice: Choice | null) => void;
+   onConnect: (provider: string) => void;
+ }) {
+@@ -171,7 +186,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+     const at = options.indexOf(document.activeElement as HTMLElement);
+     options[(at + (e.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus();
+   };
+-  const pick = (choice: Choice | null) => { setOpen(false); if (choice?.value !== current?.value) onPick(choice); };
++  const pick = (choice: Choice | null) => { setOpen(false); if (!choice || choice.value !== current?.value) onPick(choice); };
+   const connect = (id: string) => { setOpen(false); onConnect(id); };
+ 
+   const rowClass = 'flex w-full items-center gap-2.5 rounded-[7px] px-2.5 text-left outline-none hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]';
+@@ -191,7 +206,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+       <>
+         <span className="flex w-4 justify-center"><ProviderMark id={p.id} size={15} /></span>
+         <span className="min-w-0 flex-1 truncate">{p.name}</span>
+-        {connectable ? <span className="shrink-0 text-[12.5px] font-normal text-[var(--text-faint)] group-hover:text-[var(--text)]">{t('settings.providers.connect')}</span> : null}
++        {connectable ? <span className="shrink-0 text-[12.5px] font-normal text-[var(--text-faint)] group-hover:text-[var(--text)]">{p.id === 'no996' ? t('settings.providers.no996Voice.details') : t('settings.providers.connect')}</span> : null}
+       </>
+     );
+     return connectable ? (
+@@ -216,13 +231,14 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+       <Popover open={open} onOpenChange={setOpen} placement="auto" align="end" layer={10060} trigger={trigger}>
+         <div ref={list} role="listbox" aria-label={label} onKeyDown={onKeyDown}
+           className="max-h-[min(480px,var(--popover-max-h))] w-[340px] overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-raised)] p-1.5 shadow-[var(--shadow-lg)]">
++          {auto ? option(auto, auto.name) : null}
+           {connected.map((p) => (
+             <div key={p.id} role="group" aria-label={p.name} className="pb-1">
+               {heading(p, false)}
+               {choicesOf(p).map((c) => option(c, c.name))}
+             </div>
+           ))}
+-          {connected.length ? option(null, t('settings.models.none')) : null}
++          {connected.length || auto ? option(null, t('settings.models.none')) : null}
+           {waiting.length ? (
+             <div className={connected.length ? 'mt-1.5 border-t border-[var(--border)] pt-1.5' : ''}>
+               <div className="px-2.5 pb-1 pt-1.5 text-[12px] text-[var(--text-faint)]">{t('settings.models.notConnected')}</div>

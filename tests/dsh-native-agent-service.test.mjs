@@ -214,7 +214,7 @@ test('native agent creates preset-bound sessions per conversation, streams frame
     // Thinking & model switching
     const thinking = await service.thinkingOption(project.projectId, '');
     assert.equal(thinking?.currentValue, '__no996_default__');
-    assert.equal(thinking?.options[0].name, '默认（中）');
+    assert.equal(thinking?.options[0].name, 'Default (Medium)');
     await service.selectThinking(project.projectId, 'high', '');
     await service.selectModel(project.projectId, { provider: 'deepseek-official', model: 'deepseek-chat' }, '');
     assert.equal(selectedModels.at(-1).reasoningEffort, 'high');
@@ -278,7 +278,7 @@ test('attach binds page key and pushes usage before any prompt', async () => {
   }
 });
 
-test('resume restores stored model/effort and thinking labels stay Chinese', async () => {
+test('resume restores stored model/effort and thinking labels stay English transport', async () => {
   const project = makeProject();
   const { ctx, created } = createFakeCtx();
   const seeded = await ctx.sessionController.create({ cwd: project.path, agentPreset: 'openfilm-video-editing' });
@@ -311,7 +311,7 @@ test('resume restores stored model/effort and thinking labels stay Chinese', asy
 
     const thinking = await service.thinkingOption(project.projectId, 'conv-old');
     assert.equal(thinking?.currentValue, 'high');
-    assert.deepEqual(thinking?.options.map(o => o.name).slice(1), ['低', '中', '高']);
+    assert.deepEqual(thinking?.options.map(o => o.name).slice(1), ['Low', 'Medium', 'High']);
 
     const diag = service.diagnose(project.projectId, 'conv-old');
     assert.equal(diag.modelSource, 'store');
@@ -352,9 +352,9 @@ test('selectModel refreshes effort to a supported tier and refuses unsupported t
     await service.selectModel(project.projectId, { provider: 'deepseek-official', model: 'muse-spark' }, '');
     const thinking = await service.thinkingOption(project.projectId, '');
     assert.deepEqual(thinking?.options.map(o => ({ value: o.value, name: o.name })), [
-      { value: '__no996_default__', name: '默认（高）' },
-      { value: 'off', name: '关闭' },
-      { value: 'high', name: '高' },
+      { value: '__no996_default__', name: 'Default (High)' },
+      { value: 'off', name: 'Off' },
+      { value: 'high', name: 'High' },
     ]);
     assert.equal(thinking?.currentValue, 'high', 'medium must drop to model default when unsupported');
     await assert.rejects(
@@ -402,7 +402,7 @@ test('probe/attach on blank conversation never creates ghost DSH session or work
     const catalog = await service.modelCatalog(project.projectId, '', previewValue);
     assert.equal(catalog.default.model, 'muse-spark');
     const previewThinking = await service.thinkingOption(project.projectId, '', previewValue);
-    assert.deepEqual(previewThinking?.options.map(o => o.name), ['默认（高）', '关闭', '高']);
+    assert.deepEqual(previewThinking?.options.map(o => o.name), ['Default (High)', 'Off', 'High']);
     assert.equal(previewThinking?.currentValue, '__no996_default__');
 
     const attached = await service.attach(project.projectId, 'conv-blank', { key: 'dsh-blank-key' });

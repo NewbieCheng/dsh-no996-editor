@@ -14,17 +14,16 @@ test('normalizeWorkModeState and promptPrefixForWorkMode enforce phase and autoE
   assert.equal(auto.mode, 'auto');
   assert.equal(auto.effective, 'design');
   assert.equal(auto.autoExport, false, 'autoExport defaults to false');
-  assert.match(promptPrefixForWorkMode(auto), /智能自动（auto，当前阶段 design）/);
-  assert.match(promptPrefixForWorkMode(auto), /未开启自动导出/);
+  assert.equal(promptPrefixForWorkMode(auto), '会话模式：智能自动（auto）｜当前阶段 design｜自动导出：关闭');
 
   const autoWithExport = normalizeWorkModeState({ mode: 'produce', autoExport: true });
   assert.equal(autoWithExport.autoExport, true);
-  assert.match(promptPrefixForWorkMode(autoWithExport), /已开启「完成后自动导出」/);
+  assert.match(promptPrefixForWorkMode(autoWithExport), /自动导出：开启/);
 
   const explicitChat = normalizeWorkModeState({ mode: 'chat', effective: 'produce' });
   assert.equal(explicitChat.effective, 'chat', 'explicit non-auto mode locks its effective phase');
   assert.match(promptPrefixForWorkMode(explicitChat), /快速对话（chat）/);
-  assert.match(promptPrefixForWorkMode({ mode: 'design' }), /导演视觉与动效设计卡/);
+  assert.match(promptPrefixForWorkMode({ mode: 'design' }), /当前阶段 design/);
   assert.match(promptPrefixForWorkMode({ mode: 'produce' }), /制片执行（produce）/);
 });
 
@@ -35,16 +34,26 @@ test('dshSessionStore and nativeAgentService persist workMode and emit mode_upda
   const store = createDshSessionStore({ file: storeFile });
 
   const prompts = [];
+  const modelRequests = [];
+  let registrations = 0;
   let modeContext;
   const scopedAgent = { id: 'sess-1', session: { header: { agentPreset: 'openfilm-video-editing' } },
-    ctx: { get: key => key === 'systemPrompt' ? { context: entry => { modeContext = entry; return () => { modeContext = null; }; } } : undefined } };
+    ctx: { get: key => key === 'systemPrompt' ? { context: entry => { registrations++; modeContext = entry; return () => { modeContext = null; }; } } : undefined } };
+  // Simulate a lazily resolved Agent with no creation notification to this Host.
   const ctx = {
-    agents: { list: () => [scopedAgent], get: id => id === scopedAgent.id ? scopedAgent : undefined },
+    agents: { list: () => [], get: () => undefined },
     sessionController: {
       async create() { return { sessionId: 'sess-1' }; },
       async *follow() { /* idle stream */ },
+      async resolveAgent(id) { return id === scopedAgent.id ? { agent: scopedAgent } : undefined; },
       async prompt(arg) {
         prompts.push(arg);
+        assert.equal(modeContext?.required, true);
+        modelRequests.push(modeContext.text());
+        if (arg.content[0]?.text === '模拟自动切换') {
+          service.setWorkMode(project.projectId, 'tab-a', { effective: 'design', autoExport: false });
+          modelRequests.push(modeContext.text());
+        }
         setTimeout(() => {
           onStatus?.('sess-1', false);
         }, 5);
@@ -85,9 +94,9 @@ test('dshSessionStore and nativeAgentService persist workMode and emit mode_upda
     assert.equal(persistedStore.getWorkMode(project.projectId, 'tab-a')?.mode, 'design');
     assert.equal(persistedStore.getWorkMode(project.projectId, 'tab-a')?.autoExport, true);
 
-    await service.send(project.projectId, { conversation: 'tab-a', key: 'k-tab-a', turnId: 't1', text: '做个知识大赏' });
+    await service.send(project.projectId, { conversation: 'tab-a', key: 'k-tab-a', turnId: 't1', text: '做个科普短片' });
     assert.equal(prompts.length, 1);
-    assert.deepEqual(prompts[0].content, [{ type: 'text', text: '做个知识大赏' }]);
+    assert.deepEqual(prompts[0].content, [{ type: 'text', text: '做个科普短片' }]);
     assert.match(modeContext.text(), /会话模式：导演设计/);
     await service.send(project.projectId, { conversation: 'tab-a', turnId: 't2', text: '', images: [{ mediaType: 'image/png', data: 'mock' }] });
     assert.deepEqual(prompts[1].content, [{ type: 'image', mediaType: 'image/png', data: 'mock' }]);
@@ -104,8 +113,15 @@ test('dshSessionStore and nativeAgentService persist workMode and emit mode_upda
     assert.match(modeContext.text(), /会话模式：制片执行/);
     const auto = service.setWorkMode(project.projectId, 'tab-a', { mode: 'auto' });
     assert.deepEqual([auto.mode, auto.effective, auto.reason], ['auto', 'chat', '']);
-    service.setWorkMode(project.projectId, 'tab-a', { effective: 'design' });
-    assert.match(modeContext.text(), /当前阶段 design/);
+    await service.send(project.projectId, { conversation: 'tab-a', turnId: 't3', text: '模拟自动切换' });
+    assert.deepEqual(modelRequests, [
+      '会话模式：导演设计（design）｜当前阶段 design｜自动导出：开启',
+      '会话模式：导演设计（design）｜当前阶段 design｜自动导出：开启',
+      '会话模式：智能自动（auto）｜当前阶段 chat｜自动导出：开启',
+      '会话模式：智能自动（auto）｜当前阶段 design｜自动导出：关闭',
+    ]);
+    assert.deepEqual(prompts[2].content, [{ type: 'text', text: '模拟自动切换' }]);
+    assert.equal(registrations, 1);
   } finally {
     await service.close();
   }

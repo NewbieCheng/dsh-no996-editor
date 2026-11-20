@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..c52d79a 100644
+index 0ef8753..7dcaa9d 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -485,7 +485,7 @@ index 0ef8753..c52d79a 100644
 +  scope: { projectId: string; conversation: string },
 +): Promise<LocalAgentSessionInfo['configOptions'] | null> {
 +  const bridge = desktopBridge()?.localAgents;
-+  if (!bridge?.setOption) return null;
++  if (!bridge?.setOption || !scope?.projectId || !scope.conversation) return null;
 +  const preferredKey = `${scope.projectId}:${scope.conversation}:${agent}`;
 +  if (preferredKey) {
 +    const inflight = attaching.get(preferredKey);

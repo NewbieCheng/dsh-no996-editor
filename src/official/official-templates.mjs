@@ -2,6 +2,16 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, readdir, readFile, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { filmHtml } from '../../vendor/film-doc.mjs';
+
+const BLANK_STAGES = new Map([['16:9', [1920, 1080]], ['9:16', [1080, 1920]], ['1:1', [1080, 1080]]]);
+
+export function blankFilmHtml(ratio = '16:9') {
+  const size = BLANK_STAGES.get(ratio);
+  if (!size) throw failure('TEMPLATE_INPUT', 'Invalid canvas ratio');
+  const [w, h] = size;
+  return filmHtml({ stage: { w, h }, tracks: [] });
+}
 
 // Keep discovery, installation and the template-prompt catalog on the same ID contract.
 const TEMPLATE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;

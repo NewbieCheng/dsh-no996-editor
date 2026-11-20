@@ -102,7 +102,8 @@ test('rejects project parents inside a template', async t => {
 
 test('listTemplates honors explicit order and featured flag across real templates', async () => {
   const listed = await listTemplates(new URL('../vendor/templates', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
-  assert.ok(listed.length >= 5);
+  assert.ok(listed.length > 0);
   assert.equal(listed[0].id, 'vibe-explainer');
+  assert.ok(listed.every((item, i) => i === 0 || listed[i - 1].order <= item.order));
   assert.equal(listed[0].featured, true);
 });

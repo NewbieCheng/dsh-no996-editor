@@ -47,9 +47,9 @@ test('restart messages require the current frame and origin; navigation rearms w
     watchdog();
     tree = panel.render();
     assert.equal(find(tree, 'iframe').length, 1, 'warning must preserve the frame');
-    assert.match(text(tree), /20 秒内没有回应/);
+    assert.match(text(tree), /studioSilentHint/);
     send(origin, source, { type: 'no996-openfilm:boot', version: 1, rendered: true });
-    assert.doesNotMatch(text(panel.render()), /20 秒内没有回应/);
+    assert.doesNotMatch(text(panel.render()), /studioSilentHint/);
     send('http://evil.example', source, { type: 'no996-openfilm:restart', version: 1 });
     send(origin, {}, { type: 'no996-openfilm:restart', version: 1 });
     panel.render(); await new Promise(resolve => setImmediate(resolve));
@@ -118,7 +118,9 @@ test('a failed start offers exactly one retry that re-runs bootstrap', async () 
   try {
     panel.render(); await new Promise(resolve => setImmediate(resolve));
     let tree = panel.render();
-    const alert = find(tree, 'p').find(node => node.props.role === 'alert');
+    const alert = find(tree, 'h2').find(node => node.props.role === 'alert');
+    assert.match(text(tree), /studioRestartHint/);
+    assert.match(text(tree), /studioCopyDiagnostic/);
     assert.match(text(alert), /studioFailed/);
     const retry = find(tree, 'button')[0];
     assert.equal(text(retry), 'studioRetry');
@@ -156,7 +158,8 @@ test('an invalid editor origin is refused instead of framed', async () => {
     panel.render(); await new Promise(resolve => setImmediate(resolve));
     const tree = panel.render();
     assert.equal(find(tree, 'iframe').length, 0);
-    assert.match(text(tree), /Invalid local Studio address/);
+    assert.match(text(tree), /PANEL_BOOTSTRAP_FAILED/);
+    assert.doesNotMatch(text(tree), /evil\.example\.com/);
   } finally { panel.close(); cleanup(); }
 });
 

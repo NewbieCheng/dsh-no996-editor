@@ -2,7 +2,7 @@
 id: openfilm-dev-hot-reload-plan
 reader: 插件维护者、需要改 OpenFilm 源码样式的开发者
 fact-source: scripts/dev.mjs、scripts/dev-styles.mjs、scripts/upstream.mjs、src/official/official-shell.mjs、src/studio/studio-runtime.mjs、src/studio/studio-proxy.mjs、OpenFilm 0.3.2 @ 758b1a3 的 server.mjs 与 shell vite 配置
-checked: 0.19.0
+checked: 0.19.11
 rot-if: 上游 Studio 改静态服务方式、shell 构建配置变化或方案拍板
 -->
 

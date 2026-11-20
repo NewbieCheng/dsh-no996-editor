@@ -1,5 +1,5 @@
 /**
- * Vibe 知识大赏模板的静态页面组装器（`_kit/vibe/page.mjs`）。
+ * Vibe 科普剧场模板的静态页面组装器（`_kit/vibe/page.mjs`）。
  *
  * 每个镜头由两份极简源文件组成：
  *   - `shots/shot-XX.json`      —— 文案、时长、配色覆盖、语义拍点、音效标签
@@ -26,7 +26,7 @@ export function render(shot, _catalog, options = {}) {
     id: shot.id,
     title: shot.title,
     chapter: shot.chapter || '',
-    series: shot.series || 'VIBE 知识大赏',
+    series: shot.series || 'VIBE 科普剧场',
     brand: shot.brand || '不加班智能团',
     duration: shot.duration,
     filmDuration: shot.filmDuration || shot.duration,

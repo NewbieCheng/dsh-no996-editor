@@ -18,7 +18,12 @@ window.__ModuleLoader__.load({
       panel: 'Video studio',
       envTitle: 'Editing environment',
       studioLoading: 'Starting OpenFilm Studio…',
-      studioFailed: 'Unable to start OpenFilm Studio.',
+      studioFailed: 'Unable to open Video Creation',
+      studioFailureHint: 'The editing workspace did not start or could not be reached. Try again first.',
+      studioShellMismatch: 'The installed OpenFilm interface does not match the runtime. Verify the plugin installation or send the diagnostic to the developer.',
+      studioSilentHint: 'OpenFilm did not respond within 20 seconds. Retrying reloads the page and may discard unsaved edits.',
+      studioRestartHint: 'If it still fails, save your work, completely quit and restart DSH. If the problem persists, send the diagnostic to the plugin developer.',
+      studioCopyDiagnostic: 'Copy diagnostic', studioCopied: 'Diagnostic copied.', studioCopyFallback: 'Clipboard unavailable. Select the text below to copy it.', studioFailureDetails: 'Details', studioContact: 'Contact the developer',
       studioRetry: 'Try again', studioStopped: 'Video workspace stopped', studioStoppedHint: 'The editing service is not running. Restart it to continue; projects and media are untouched.', studioRestart: 'Restart workspace',
       studioTitle: 'OpenFilm Studio',
       presetReady: 'Video editing mode: loaded', presetMissing: 'Video editing mode: not loaded —',
@@ -29,7 +34,12 @@ window.__ModuleLoader__.load({
       panel: '视频创作',
       envTitle: '剪辑环境',
       studioLoading: '正在启动 OpenFilm 工作台…',
-      studioFailed: '无法启动 OpenFilm 工作台。',
+      studioFailed: '暂时无法打开视频创作',
+      studioFailureHint: '剪辑工作台未能启动或连接，请先重试。',
+      studioShellMismatch: '安装的 OpenFilm 界面与运行组件不匹配，请检查插件安装，或复制诊断发给开发者。',
+      studioSilentHint: 'OpenFilm 在 20 秒内没有回应。重试会重新加载页面，未保存的内容可能丢失。',
+      studioRestartHint: '如果仍然失败，请保存工作，完全退出并重启 DSH。重启后仍打不开，可将诊断发给插件开发者。',
+      studioCopyDiagnostic: '复制诊断', studioCopied: '已复制诊断。', studioCopyFallback: '无法使用剪贴板，请选中下方文本手动复制。', studioFailureDetails: '查看详情', studioContact: '联系开发者',
       studioRetry: '重试', studioStopped: '工作台已停止运行', studioStoppedHint: '视频编辑服务已断开。重新启动即可继续，项目和素材不受影响。', studioRestart: '重新启动工作台',
       studioTitle: 'OpenFilm 工作台',
       presetReady: '视频剪辑模式：已加载', presetMissing: '视频剪辑模式：未加载 —',
@@ -96,7 +106,8 @@ window.__ModuleLoader__.load({
       if (!response.ok) {
         const code = await response.text();
         const known = ['DSH_ORIGIN_REJECTED', 'DSH_SESSION_REQUIRED', 'DSH_BROWSER_REQUIRED', 'STUDIO_DISPOSED'];
-        throw new Error(`HTTP ${response.status}${known.includes(code) ? ` (${code})` : ''} @ ${window.location.origin} (host)`);
+        const safeCode = known.includes(code) ? code : /^Studio is unavailable \((STUDIO_START|STUDIO_CLOSE|STUDIO_DEPENDENCY|OFFICIAL_SHELL_UNAVAILABLE)\)$/.exec(code)?.[1];
+        throw Object.assign(new Error(`HTTP ${response.status} (host)`), { code: safeCode, httpStatus: response.status });
       }
       const data = await response.json();
       if (typeof data?.editorOrigin !== 'string') throw new Error('Invalid Studio response');

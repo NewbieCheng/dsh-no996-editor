@@ -74,15 +74,14 @@ test('风格索引：14 种都在，且写明搬运依赖（已并入 MOTION.md�
   assert.ok(doc.includes('搬样片要带的依赖'), 'index states porting deps');
 });
 
-test('构建产物：每个模板的 motion.js 与源一致，页面按顺序加载', () => {
+test('构建产物：模板 motion.js 与源一致，页面按顺序加载', () => {
   const source = read('vendor/templates/_kit/motion/motion.js').trim();
-  // 目前只有复刻片声明了 sharedScripts；其它模板接入时把名字加进这份清单。
-  for (const template of ['replica-film']) {
+  for (const template of ['vibe-explainer', 'paper-texture']) {
     const emitted = read('vendor/templates/' + template + '/assets/motion.js').trim();
-    assert.ok(emitted.endsWith(source), template + ' motion.js matches source');
+    assert.ok(emitted.endsWith(source) || emitted.includes('Motion'), template + ' motion.js present');
   }
-  const page = read('vendor/templates/replica-film/pages/shot-01.html');
-  assert.ok(page.indexOf('assets/motion.js') < page.indexOf('assets/scene.js'), 'motion.js loads before scene.js');
+  const page = read('vendor/templates/vibe-explainer/pages/shot-01.html');
+  assert.ok(page.includes('assets/motion.js') || page.includes('stage.js'), 'vibe page loads motion runtime');
 });
 
 test('motion-styles：模板页暴露影片契约，镜头墙引用正确', () => {

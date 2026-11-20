@@ -67,16 +67,18 @@ test('balance cache helpers match 清流 available = permanent + period', async 
   assert.equal(cleared.cachedBalanceAt, '');
 });
 
-test('product catalog and onboarding copy cover five choices', () => {
-  for (const id of ['paper-texture', 'replica-film', 'sketchnote', 'motion-styles', 'custom']) {
+test('product catalog and onboarding copy cover four templates plus blank', () => {
+  for (const id of ['vibe-explainer', 'paper-texture', 'sketchnote', 'motion-styles', 'custom']) {
     const meta = productMeta(id);
     assert.ok(meta?.productTitle);
-    assert.match(meta.productBlurb, /适合/);
-    assert.doesNotMatch(meta.productBlurb, /DrawAI|film\.html/);
+    assert.match(meta.productBlurb, /适合|首推/);
+    assert.doesNotMatch(meta.productBlurb, /DrawAI|film\.html|知识大赏/);
     const copy = onboardingCopy(id);
     assert.ok(copy.title.includes('AI 剪辑员工'));
     assert.ok(copy.steps.length >= 3);
     assert.match(copy.uploadHint, /对话框/);
   }
+  assert.equal(productMeta('replica-film'), null);
   assert.equal(productMeta('nope'), null);
+  assert.doesNotMatch(onboardingCopy('custom').steps.join('\n'), /知识大赏/);
 });

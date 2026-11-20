@@ -26,7 +26,7 @@ description: 制作知识科普/概念解释视频、无口播纯画片、对话
 1. **抽核心冲突**：把文字观点变成可见的**物理对抗/状态转变**（天平权衡、双向门碰撞、激光裂解、跑道扩容、96 格收敛、因果光流汇聚、仪表面板拉满等）。
 2. **锁定生长链与景别曲线**：开场前先画好相邻切点的 `growth` 链条与 `cameraKeyframe` 曲线，确保 7 个切点用上 ≥3 种不同生长转场。
 3. **动作四段式**：预备回撤(`Motion.anticipate`) → 主运动(`spring`/`E.back`) → 余震(`shake`)/高光(`glow`) → 连续承接(`morphBox`/`carryPose`)。
-4. **音画精准咬合**：Vibe 知识大赏优先用内置《We Never · 若如初见》（BPM 112.3，16s/24s/104s Drop）；用 `no996_sfx` 在大字砸入(`hit`)、点击(`click`)、裂解(`crack`)、打勾(`bell`)、平滑过渡(`whoosh` 提前 `0.18s`) 精确落拍，**同轨 `<audio>` 严禁重叠**。
+4. **音画精准咬合**：Vibe 科普剧场优先用内置《We Never · 若如初见》（BPM 112.3，16s/24s/104s Drop）；用 `no996_sfx` 在大字砸入(`hit`)、点击(`click`)、裂解(`crack`)、打勾(`bell`)、平滑过渡(`whoosh` 提前 `0.18s`) 精确落拍，**同轨 `<audio>` 严禁重叠**。
 5. **乱序抽帧铁律**：只允许闭式函数 `f(t)`，严禁 `Math.random` / `Date.now` / `performance.now`。
 6. **交付前 100 分自检 + 切点三联帧检**：读 `references/rubric-and-audio.md` 达 `≥80 分` 且零红线再交预览。
 

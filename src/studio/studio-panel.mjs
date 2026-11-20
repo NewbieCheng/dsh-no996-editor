@@ -12,6 +12,7 @@
 
 
 import { areaBus } from '../host/area-bus.mjs';
+import { studioFailureSummary } from './panel-failure.mjs';
 
 /** Shared project-URL guard. The injected template picker and the standalone
  * templates page both build `/projects/<id>`, so the rule lives in one place. */
@@ -27,8 +28,6 @@ export function createStudioPanel(React) {
     const [state, setState] = React.useState({ status: 'idle' });
     const [attempt, setAttempt] = React.useState(0);
     const [silent, setSilent] = React.useState(false);
-    const [diag, setDiag] = React.useState(null);
-    const [boot, setBoot] = React.useState(null);
     const [preset, setPreset] = React.useState(null);
     // Archive state of the project whose editor is open. It is read from the
     // Host, which owns DSH's durable archive set; this panel keeps no copy.
@@ -103,7 +102,6 @@ export function createStudioPanel(React) {
     React.useEffect(() => {
       const controller = new AbortController();
       setState({ status: 'loading' });
-      setBoot(null);
       heardRef.current = false;
       // A plugin reload removes the route for a moment; a request landing in that
       // gap returns 404, and the panel used to keep that error until someone
@@ -143,7 +141,7 @@ export function createStudioPanel(React) {
         if (!controller.signal.aborted) {
           const message = String(error?.message || error);
           reportPanelDiag({ level: 'error', layer: 'ui', code: 'PANEL_BOOTSTRAP_FAILED', location: 'src/studio/studio-panel.mjs:startStudio', summary: `面板启动 Studio 失败: ${message.slice(0, 200)}`, detail: { message } });
-          setState({ status: 'error', message });
+          setState({ status: 'error', message, code: error?.code, httpStatus: error?.httpStatus });
         }
       });
       return () => controller.abort();
@@ -157,7 +155,6 @@ export function createStudioPanel(React) {
       let timer;
       const watchNavigation = () => {
         heardRef.current = false;
-        setBoot(null);
         setSilent(false);
         clearTimeout(timer);
         timer = setTimeout(() => {
@@ -184,7 +181,6 @@ export function createStudioPanel(React) {
             const pending = typeof areaBus.takePendingTarget === 'function' ? areaBus.takePendingTarget() : areaBus.takePending();
             if (pending) postNavigate(pending);
           }
-          setBoot({ hasNative: data.hasNative === true, rendered: data.rendered === true });
         }
         if (data && typeof data === 'object' && data.type === 'no996-openfilm:restart' && data.version === 1) {
           setSilent(false);
@@ -226,22 +222,6 @@ export function createStudioPanel(React) {
         window.removeEventListener('message', receive);
       };
     }, [state.status, state.url, attempt]);
-
-    React.useEffect(() => {
-      if (!HOST_HTTP || !silent || state.status !== 'ready') return undefined;
-      let live = true;
-      // Naming the project is what makes the answer useful: the turn record and the
-      // grouping state are per project, and "the panel is empty" is a per-project question.
-      fetch('/api/no996-openfilm/diagnose', {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(projectId ? { projectId } : {}),
-      })
-        .then(response => (response.ok ? response.json() : { httpStatus: response.status }))
-        .then(value => { if (live) setDiag(value); })
-        .catch(error => { if (live) setDiag({ error: String((error && error.message) || error) }); });
-      return () => { live = false; };
-    }, [silent, state.status, attempt, projectId]);
 
     const retry = () => { setSilent(false); setAttempt(value => value + 1); };
     // A desktop frame authenticates with the proxy's own session cookie, and that
@@ -399,6 +379,25 @@ export function createStudioPanel(React) {
       finally { setArchiveBusy(false); }
     };
 
+    const [copyStatus, setCopyStatus] = React.useState('');
+    const failureCard = (code, httpStatus) => {
+      const summary = studioFailureSummary({ code, httpStatus, attempt });
+      return h('section', { style: { padding: 24, maxWidth: 640, color: 'var(--dsw-alias-label-primary)' } },
+        h('h2', { role: 'alert', style: { fontSize: 18 } }, t('studioFailed')),
+        h('p', null, t(code === 'IFRAME_SILENT_TIMEOUT' ? 'studioSilentHint' : code === 'OFFICIAL_SHELL_UNAVAILABLE' ? 'studioShellMismatch' : 'studioFailureHint')),
+        h('p', null, t('studioRestartHint')),
+        h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 12 } },
+          h('button', { type: 'button', onClick: () => { setCopyStatus(''); retry(); } }, t('studioRetry')),
+          h('button', { type: 'button', onClick: async () => {
+            try { await navigator.clipboard.writeText(summary); setCopyStatus('studioCopied'); }
+            catch { setCopyStatus('studioCopyFallback'); }
+          } }, t('studioCopyDiagnostic'))),
+        copyStatus ? h('p', { role: 'status' }, t(copyStatus)) : null,
+        h('details', { open: copyStatus === 'studioCopyFallback' || undefined },
+          h('summary', null, t('studioFailureDetails')),
+          h('pre', { style: { whiteSpace: 'pre-wrap', userSelect: 'text' } }, summary),
+          h('a', { href: 'https://github.com/NewbieCheng/dsh-no996-editor/issues', target: '_blank', rel: 'noreferrer' }, t('studioContact'))));
+    };
     let studio;
     const archived = archive?.available !== false && archive?.archived === true;
     if (state.status === 'loading' || state.status === 'idle') {
@@ -406,9 +405,7 @@ export function createStudioPanel(React) {
         t('studioLoading'),
         preset && !preset.ok ? h('p', { style: { margin: '8px 0 0', fontSize: 12, opacity: 0.8 } }, `${t('presetMissing')} ${String(preset.detail || '').slice(0, 120)}`) : null);
     } else if (state.status === 'error') {
-      studio = h('section', { style: { padding: 24, color: 'var(--dsw-alias-label-primary)' } },
-        h('p', { role: 'alert' }, t('studioFailed'), ' ', state.message),
-        h('button', { type: 'button', onClick: retry }, t('studioRetry')));
+      studio = failureCard(state.code || 'PANEL_BOOTSTRAP_FAILED', state.httpStatus ?? Number(/\bHTTP ([45]\d\d)\b/.exec(state.message)?.[1]));
     } else {
       studio = h('iframe', {
         ref: iframeRef, title: t('studioTitle'), src: state.url,
@@ -441,10 +438,7 @@ export function createStudioPanel(React) {
     const silentOverlay = state.status === 'ready' && silent ? h('section', {
       style: { position: 'absolute', inset: 0, zIndex: 35, padding: 24, overflow: 'auto', background: 'var(--dsw-alias-bg-base, #18181b)', color: 'var(--dsw-alias-label-primary)' },
     },
-    h('p', { role: 'alert' }, t('studioFailed'), ' 官方界面 20 秒内没有回应。重试会重新加载界面，未保存的内容可能丢失。'),
-    h('pre', { style: { whiteSpace: 'pre-wrap', fontSize: 12, overflow: 'auto', maxHeight: '50vh' } },
-      JSON.stringify({ boot, preset, diag: diag ?? { note: '诊断不可用或尚未返回' } }, null, 1)),
-    h('button', { type: 'button', onClick: retry }, t('studioRetry'))) : null;
+    failureCard('IFRAME_SILENT_TIMEOUT')) : null;
 
     const banner = archived
       ? h('div', {

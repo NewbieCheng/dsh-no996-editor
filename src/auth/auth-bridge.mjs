@@ -24,7 +24,7 @@ function mapError(error) {
     status: status >= 100 && status <= 599 ? status : 400,
     body: {
       error: String(error?.code || 'AUTH'),
-      message: String(error?.message || '请求失败').slice(0, 200),
+      message: String(error?.message || 'Request failed').slice(0, 200),
       ...(error?.details && typeof error.details === 'object' ? { details: error.details } : {}),
     },
   };
@@ -46,9 +46,9 @@ function publicStatus(result) {
 }
 
 export async function dispatchAuthAction(auth, value) {
-  if (!auth) throw Object.assign(new Error('账号服务不可用'), { code: 'UNAVAILABLE', status: 503 });
+  if (!auth) throw Object.assign(new Error('Account service unavailable'), { code: 'UNAVAILABLE', status: 503 });
   const action = typeof value?.action === 'string' ? value.action : '';
-  if (!ACTIONS.has(action)) throw Object.assign(new Error('无效操作'), { code: 'INPUT', status: 400 });
+  if (!ACTIONS.has(action)) throw Object.assign(new Error('Invalid action'), { code: 'INPUT', status: 400 });
   switch (action) {
     case 'status':
       return publicStatus(await auth.status());
@@ -87,11 +87,11 @@ export async function dispatchAuthAction(auth, value) {
       return publicStatus(await auth.logout());
     case 'guest':
       if (typeof auth.enterGuest !== 'function') {
-        throw Object.assign(new Error('游客模式不可用'), { code: 'UNAVAILABLE', status: 503 });
+        throw Object.assign(new Error('Guest mode unavailable'), { code: 'UNAVAILABLE', status: 503 });
       }
       return publicStatus(await auth.enterGuest());
     default:
-      throw Object.assign(new Error('无效操作'), { code: 'INPUT', status: 400 });
+      throw Object.assign(new Error('Invalid action'), { code: 'INPUT', status: 400 });
   }
 }
 

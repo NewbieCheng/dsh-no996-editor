@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..6e63756 100644
+index 26575ee..3be6e5a 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -11,17 +11,18 @@ index 26575ee..6e63756 100644
  import { buildPromptDisplay, type Turn } from '@openfilm/shared';
  import { useT, useUiLocale } from '@/i18n';
  import { ConversationBar } from '@/components/ConversationSessionBar';
-@@ -14,7 +14,9 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
+@@ -14,7 +14,10 @@ import { ProjectConversation, TurnUndoContext, primeStoredTranscript } from '@/c
  import type { ProjectVersion } from '@/components/project-version';
  import { ProjectStarters } from '@/components/ProjectStarters';
  import { AttachmentPreview, type AttachmentPreviewItem } from '@/components/AttachmentPreview';
 +import { ContextUsage } from '@/components/ContextUsage';
  import { ModelPopover } from '@/components/ModelPopover';
++import { localizeEffortLabel } from '@/lib/agent-menu-rows';
 +import { WorkModePill } from '@/components/WorkModePill';
  import { Popover } from '@/components/Popover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -33,6 +35,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+@@ -33,6 +36,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -29,7 +30,7 @@ index 26575ee..6e63756 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -43,6 +46,7 @@ import {
+@@ -43,6 +47,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -37,8 +38,12 @@ index 26575ee..6e63756 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -70,6 +74,8 @@ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-tran
- import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
+@@ -67,9 +72,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
+ import { accountModel, accountModelOf, routeWithoutKey } from '@/lib/route-without-key';
+ import { keptNote, ProjectFolderContext, readStudioProject } from '@/lib/studio-film';
+ import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-transfer';
+-import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, useLocalAgents } from '@/state/local-agent-store';
++import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, optionValue, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
 +import { refreshChatSessions } from '@/lib/chat-store';
@@ -46,7 +51,7 @@ index 26575ee..6e63756 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -157,6 +163,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -157,6 +164,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -54,7 +59,7 @@ index 26575ee..6e63756 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +191,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -184,11 +192,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
    const [sessionId, setSessionId] = React.useState<string>(() => {
@@ -127,7 +132,7 @@ index 26575ee..6e63756 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +453,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +454,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -136,7 +141,7 @@ index 26575ee..6e63756 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +481,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +482,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -200,13 +205,15 @@ index 26575ee..6e63756 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,16 +563,39 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +564,48 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
 +  /* no996-editor: attach the current conversation on open/switch so context usage
 +     and real model/thinking options populate without waiting for a user prompt. */
 +  const resumeSessionId = shownSessionItem?.agentSessions?.[agent] ?? null;
++  const ownAgentPrefs = shownSessionItem?.agentPrefs?.[agent];
++  const hasOwnAgentPrefs = Boolean(ownAgentPrefs && Object.keys(ownAgentPrefs).length > 0);
 +  React.useEffect(() => {
 +    if (!sessionId) return undefined;
 +    let cancelled = false;
@@ -219,118 +226,46 @@ index 26575ee..6e63756 100644
 +      meta: { projectId: project.id, sessionId },
 +      onOptions: (options) => {
 +        if (cancelled || !options) return;
-+        // DSH owns this conversation's selection. Attaching is a read, not a replay of old prefs.
-+        useLocalAgents.getState().noteOptions(agent, options, { syncPrefs: true });
++        useLocalAgents.getState().noteOptions(agent, options, { syncPrefs: hasOwnAgentPrefs ? 'missing' : true });
++        if (agent === 'deepseek' && ownAgentPrefs) {
++          const ordered = options.filter((o) => o.category === 'model' || o.category === 'thought_level');
++          const pushOwn = async () => {
++            let latest = options;
++            for (const opt of ordered) {
++              const wanted = ownAgentPrefs[opt.id];
++              const current = latest.find((o) => o.id === opt.id)?.currentValue;
++              if (cancelled) return;
++              if (wanted === undefined || wanted === current) continue;
++              const updated = await applyLiveSessionOption(agent, opt.id, wanted, { projectId: projectKey, conversation: sessionId });
++              if (cancelled) return;
++              if (updated?.length) {
++                latest = updated;
++                useLocalAgents.getState().noteOptions(agent, updated, { syncPrefs: 'missing' });
++              }
++            }
++          };
++          void pushOwn();
++        }
 +      },
 +    }).catch(() => {});
 +    return () => { cancelled = true; };
-+  }, [project.id, project.path, projectKey, sessionId, resumeSessionId, agent]);
++  }, [project.id, project.path, projectKey, sessionId, resumeSessionId, agent, hasOwnAgentPrefs, ownAgentPrefs]);
 +
    /* how full the agent's context is in this conversation: said only once it is nearly full */
    const agentContext = useAgentContext(projectKey, sessionId, agent);
    const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
-   const contextFull = Boolean(agentContext && agentContext.size > 0 && agentContext.used / agentContext.size >= CONTEXT_NOTICE_SHARE) && contextNoticeOff !== sessionId;
- 
-   /* the skills this message can name (the Skills button, and `@`) */
-+  const filmBridge = app.skills as typeof app.skills & { listFilm?: (path: string) => Promise<SkillListing> };
-   const [skillListing, setSkillListing] = React.useState<SkillListing | null>(null);
-   const reloadSkills = React.useCallback(async () => {
--    const next = await app.skills?.list(project.path, agent).catch(() => null);
--    if (next) setSkillListing(next);
-+    const next = await (filmBridge?.listFilm ? filmBridge.listFilm(project.path) : app.skills?.list(project.path, agent))?.catch(() => null);
-+    setSkillListing(next ?? null);
-   }, [project.path, agent]);
-   React.useEffect(() => { void reloadSkills(); }, [reloadSkills]);
-   /* a skill as people see it, in the language shown: its title, and what its page says (none: its name and the
-@@ -549,27 +694,31 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-       },
-       /* the skills, each the pill the Skills button makes: after the files, which people reach for most and which stop
-          at 20. Every one, uncut: an agent's own can be a hundred or more, and a person may not remember the name to type */
--      {
--        id: 'skills',
--        groupLabel: t('skills.button'),
-+      ...((filmBridge?.listFilm ? [
-+        { id: 'film-preset-skills', title: locale.startsWith('zh') ? 'DSH · 剪辑预设' : 'DSH · Editing preset', skills: skillListing?.own.skills ?? [] },
-+        { id: 'film-installed-skills', title: locale.startsWith('zh') ? 'OpenFilm · 已安装' : 'OpenFilm · Installed', skills: skillListing?.openfilm ?? [] },
-+      ] : [{ id: 'skills', title: t('skills.button'), skills: nameableSkills }]).map(group => ({
-+        id: group.id,
-+        groupLabel: group.title,
-         limit: Infinity,
-         /* `/` names a skill; `@` points at things */
-         trigger: '/',
--        items: nameableSkills.map((skill) => {
-+        items: group.skills.map((skill) => {
-           const words = skillWords(skill.name, skill.description);
-+          const title = (skill as { title?: string }).title ?? words.title;
-           return {
-             id: skillReferenceId(skill.name),
-             kind: 'skill' as const,
--            label: words.title,
-+            label: title,
-             /* what it does, cut to the row */
-             ...(words.summary ? { detail: words.summary, describes: true } : {}),
--            keywords: [skill.name],
--            select: () => skillPill(skill),
-+            keywords: [skill.name, title],
-+            select: () => skillPill({ ...skill, title }),
-           };
-         }),
--      },
-+      }))),
-     ];
--  }, [selection, mentionFiles, nameableSkills, skillWords, skillPill, t, takeStudioRefs]);
-+  }, [selection, mentionFiles, nameableSkills, skillWords, skillPill, skillListing, filmBridge, locale, t, takeStudioRefs]);
-   const onComposerChange = React.useCallback((state: PromptEditorState) => {
-     setFollowUp(state.text);
-     setFollowUpRefs(state.references);
-@@ -727,7 +876,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-     const turn = createLocalAgentTurn(id, agent, ordered.length);
-     const agentStore = useLocalAgents.getState();
-     const own = sessions.find((s) => s.id === sessionId)?.agentPrefs;
--    const picked = conversationPrefs(agentStore.prefs, own);
-+    const picked = agent === 'deepseek' ? agentStore.prefs : conversationPrefs(agentStore.prefs, own);
-     const options = agentOptions({ ...agentStore, prefs: picked }, agent);
-     const prefs = effectivePrefs(picked, agent, agentStore.roster, options);
+@@ -733,7 +898,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      const summary = agentModelSummary(options, prefs);
-@@ -809,7 +958,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-       images,
-       turn,
-       options: prefs,
--      meta,
-+      meta: { ...meta, ...(filmBridge?.listFilm && skills?.length ? { filmSkillIds: skills } : {}) },
-       onOptions: (options) => useLocalAgents.getState().noteOptions(agent, options),
-       /* Studio's note in the message reached the agent: Studio counts it told (lib/studio-film keptNote) */
-       onStarted: said,
-@@ -918,15 +1067,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-       return `[${index}: ${refPill(pillId, ref).label}]${link ? `(${link})` : ''}`;
-     }, (pillId) => {
-       const name = skillReferencePackage(pillId);
--      if (name) return `skill “${name}”`;
-+      if (name) return filmBridge?.listFilm ? '' : `skill “${name}”`;
-       const file = attachedById.get(pillId);
-       return file ? attachmentWords(file) ?? '' : null;
-     }).trim();
-     /* the skills it names, for this message: each one's SKILL.md follows it, unseen in the chat, the first time this
-        conversation's agent session meets that skill (lib/skill-pages) */
-     const agentSession = sessions.find((s) => s.id === sessionId)?.agentSessions?.[agent] ?? null;
--    const skillNames = pagesToSend(activatedSkillIds(followUpRefs), sessions.find((s) => s.id === sessionId)?.skillsGiven, agent, agentSession);
--    if (!instruction) return;
-+    const selectedFilmSkills = filmBridge?.listFilm ? activatedSkillIds(followUpRefs) : [];
-+    const skillNames = filmBridge?.listFilm ? [] : pagesToSend(activatedSkillIds(followUpRefs), sessions.find((s) => s.id === sessionId)?.skillsGiven, agent, agentSession);
-+    if (!instruction && !selectedFilmSkills.length) return;
-     const blocker = attachmentBlocker(attached, t);
-     if (blocker) { setFollowUpError(blocker); return; }
-     setFollowUpError(null);
-@@ -957,7 +1107,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-       .then(async ([{ pictures, images }, skills, kept]) => ({
-         text: instruction + studioReferencesText(ready, { stage, pictures }) + kept.text + undoneNote(sessionId) + skills.map((s) => `\n\n${s.text}`).join(''),
-         images: [...images, ...await attachedPictures(files, PROMPT_PICTURES_MAX - images.length)],
--        skills: skills.map((s) => s.name),
-+        skills: filmBridge?.listFilm ? selectedFilmSkills : skills.map((s) => s.name),
-         said: kept.said,
-       })));
-     const opened = openTurn(id, instruction, promptDisplay ?? null, turnAttachments(files));
-@@ -1011,6 +1161,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+     /* how hard it thinks, as the menu offers it */
+     const effortOption = options?.find((o) => o.category === 'thought_level');
+-    const effort = effortOption && offeredOption(agent, agentStore.roster, effortOption) ? summary.effort : null;
++    const effortValue = effortOption ? optionValue(options, prefs, effortOption.id) : undefined;
++    const effortRaw = effortOption && offeredOption(agent, agentStore.roster, effortOption) ? summary.effort : null;
++    const effort = localizeEffortLabel(effortRaw, t, effortValue);
+     const modelLabel = [summary.model, effort].filter(Boolean).join(' · ');
+     const started: Turn = {
+       ...makePlaceholder(id, 'video', instruction, { projectId: projectKey, sessionId }),
+@@ -1011,6 +1178,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -344,7 +279,16 @@ index 26575ee..6e63756 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1043,6 +1200,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1035,7 +1209,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   const onAccountPicked = onAccount ? accountModelOf(agentOptions(la, 'deepseek'), agentPrefs.deepseek?.[onAccount.configId]) : null;
+   const pickAccountModel = () => {
+     if (!onAccount) return;
+-    la.setPref('deepseek', onAccount.configId, onAccount.value);
++    la.setPref('deepseek', onAccount.configId, onAccount.value, { projectId: projectKey, conversation: sessionId });
+     keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, deepseek: { ...s.agentPrefs?.deepseek, [onAccount.configId]: onAccount.value } } }));
+     composerRef.current?.focus();
+   };
+@@ -1043,6 +1217,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    const editComposerCard = (
      <div className="flex flex-col gap-1">
@@ -356,7 +300,7 @@ index 26575ee..6e63756 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1237,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1254,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -369,20 +313,15 @@ index 26575ee..6e63756 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1139,6 +1302,12 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1139,6 +1319,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
        </div>
        <div className="flex items-center gap-0.5 px-0.5">
          <ModelPopover
-+          key={sessionId}
-+          onSessionOption={async (targetAgent, configId, value) => {
-+            const updated = await applyLiveSessionOption(targetAgent, configId, value, { projectId: projectKey, conversation: sessionId });
-+            if (updated && shownSession.current === sessionId) useLocalAgents.getState().noteOptions(targetAgent, updated, { syncPrefs: true });
-+            return Boolean(updated);
-+          }}
++          sessionScope={{ projectId: projectKey, conversation: sessionId }}
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1315,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1327,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -393,7 +332,7 @@ index 26575ee..6e63756 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1326,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1338,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -408,7 +347,7 @@ index 26575ee..6e63756 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1347,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1183,6 +1359,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -425,7 +364,7 @@ index 26575ee..6e63756 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1374,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1386,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}

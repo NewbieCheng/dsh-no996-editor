@@ -45,10 +45,11 @@ test('no996_library searches wordart, textmotion, filter, motion, layer and hybr
 
   // 3. Hybrid template listing (No996 + OpenFilm 14 built-in templates)
   const tpl = await tool.execute({ kind: 'template', query: 'travel' }, { agent: { id: 'ok' } });
-  assert.match(tpl.text, /不加班高阶动效模板/);
-  assert.match(tpl.text, /vibe-explainer/);
-  assert.match(tpl.text, /内置多轨结构模板/);
+  assert.doesNotMatch(tpl.text, /vibe-explainer/);
   assert.match(tpl.text, /openfilm\/templates\/travel-vlog/);
+  const browse = await tool.execute({ kind: 'template' }, { agent: { id: 'ok' } });
+  assert.match(browse.text, /vibe-explainer/);
+  assert.ok(browse.text.split('\n').filter(line => line.startsWith('· ')).length <= 5);
 });
 
 test('no996_library inspect returns complete CSS vars, LUT grade, @keyframes, and multi-track blueprint', async () => {

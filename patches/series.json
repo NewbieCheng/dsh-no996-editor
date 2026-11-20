@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "58bf007c24d1bf216338a47580b5781a62b5083e622e83d857b7f1a1dab4763b"
+    "sha256": "5a40ee80df079b691a406370a917d4c4f1d83e40a1655dc645a2402671c0d9a2"
   },
   "patches": [
     {
@@ -13,16 +13,16 @@
       "file": "010-App.patch",
       "source": "apps/desktop/chat/src/App.tsx",
       "group": "chat",
-      "sha256": "0336f0ddd1c6dee6b52e4b668657a9c9f9c30c60a961135cdb58348361d24173",
-      "bytes": 25583
+      "sha256": "f45535ce56f07357a0ba675a2f4b61580bd1a52fcad98ec73a3b4745ccd2d0a2",
+      "bytes": 21841
     },
     {
       "id": "020-AgentActivityRow",
       "file": "020-AgentActivityRow.patch",
       "source": "apps/desktop/chat/src/components/AgentActivityRow.tsx",
       "group": "chat",
-      "sha256": "f394ca9b0224c26fe164a53701fac15335586c1bfab1705cc4133602bdd0e8a2",
-      "bytes": 10392
+      "sha256": "74a4442cc7b9b39caa3bb37335ecc07223fb832b10ab4cc360555c756bae23b6",
+      "bytes": 9882
     },
     {
       "id": "030-BrandLogo",
@@ -61,16 +61,16 @@
       "file": "070-ModelPopover.patch",
       "source": "apps/desktop/chat/src/components/ModelPopover.tsx",
       "group": "menus",
-      "sha256": "4855ff6d80436ee34efc88b0f3d00dbe441a2f273eee2935d889ce77bef18953",
-      "bytes": 25504
+      "sha256": "5443aa8d48d2b74e5f0d79bf0578985a1932612555229aa6eb7d8b096f2cf8d4",
+      "bytes": 25587
     },
     {
       "id": "080-OnboardingGate",
       "file": "080-OnboardingGate.patch",
       "source": "apps/desktop/chat/src/components/OnboardingGate.tsx",
       "group": "onboarding",
-      "sha256": "d5f04aa4eb715e90970f65ce7b2d2e616187eabd6f99cf25034525cd99b46bd5",
-      "bytes": 13707
+      "sha256": "51db1b676de061861c42023618216541a452f2c47da6bbc062340a60d3750ce8",
+      "bytes": 13709
     },
     {
       "id": "090-ProjectStarters",
@@ -101,64 +101,64 @@
       "file": "120-en-US.patch",
       "source": "apps/desktop/chat/src/i18n/locales/en-US.ts",
       "group": "i18n",
-      "sha256": "3effd868846126b30e41bfa7ce5e17ee7550bc1b785d17bc239c5cb4cc471d0e",
-      "bytes": 8459
+      "sha256": "7c4ffbccfbb8341a3560838f98af477ccc607d9c739ac4a6a652734db0958382",
+      "bytes": 8907
     },
     {
       "id": "130-es",
       "file": "130-es.patch",
       "source": "apps/desktop/chat/src/i18n/locales/es.ts",
       "group": "i18n",
-      "sha256": "5f0ab2de9da761388d0b16f0cd1b820632648da99d556809b0ca3f71d76a8c91",
-      "bytes": 7013
+      "sha256": "e88542d2e92d624f580416ddb7c34198bf74054ba9f707da425ba61afed508d1",
+      "bytes": 7690
     },
     {
       "id": "140-ja",
       "file": "140-ja.patch",
       "source": "apps/desktop/chat/src/i18n/locales/ja.ts",
       "group": "i18n",
-      "sha256": "ed51f01f48c76bc61f68deb877b9b5bf74f9da73e886c6754528f70815e8a2c4",
-      "bytes": 8119
+      "sha256": "274b2286a5ba125ac3c0bf76a4e59a4c915c3e90ad414c70f8d998c421f4b2a2",
+      "bytes": 8925
     },
     {
       "id": "150-ko",
       "file": "150-ko.patch",
       "source": "apps/desktop/chat/src/i18n/locales/ko.ts",
       "group": "i18n",
-      "sha256": "2b984a9592b6c8a7a4cbf70bdfe5943c672e2b8bed49564bd9b743dddf68f39f",
-      "bytes": 7400
+      "sha256": "2793acb184a352d2d2813ed397b034f9b795f28f13597514431a4ac78d148410",
+      "bytes": 8290
     },
     {
       "id": "160-zh-CN",
       "file": "160-zh-CN.patch",
       "source": "apps/desktop/chat/src/i18n/locales/zh-CN.ts",
       "group": "i18n",
-      "sha256": "bdd763c4c92abfa062cf21cfd8b7af512fe496b4c05560c7c21be02d331b2b27",
-      "bytes": 8619
+      "sha256": "a295e02285ea058fe333faffb7c889c0e9150e4a3d6df2e77a3ad3dee30f1e33",
+      "bytes": 9082
     },
     {
       "id": "170-agent-activity-runs",
       "file": "170-agent-activity-runs.patch",
       "source": "apps/desktop/chat/src/lib/agent-activity-runs.ts",
       "group": "chat",
-      "sha256": "694e0ff8812243ce734c525c0aa32ee83f2111d9c9e8b24d1678932815615a66",
-      "bytes": 2055
+      "sha256": "93a1b913bc1afc655a3dc64c866ffbe6251542483180e95ca5a676176601ce4c",
+      "bytes": 1580
     },
     {
       "id": "180-agent-menu-rows",
       "file": "180-agent-menu-rows.patch",
       "source": "apps/desktop/chat/src/lib/agent-menu-rows.ts",
       "group": "menus",
-      "sha256": "a3c594192dc467f92adc1c10654040e94629175539fecf3502287047de74964d",
-      "bytes": 1356
+      "sha256": "f4f1e87db7be6b1ddf06d4e236a0d1c1a178580f747914889c0a620419f4e22d",
+      "bytes": 4475
     },
     {
       "id": "190-agent-transcript",
       "file": "190-agent-transcript.patch",
       "source": "apps/desktop/chat/src/lib/agent-transcript.ts",
       "group": "chat",
-      "sha256": "7b7e85825f9046860825a4927249868b8f44d32f3c0961865c50280ca0013f4d",
-      "bytes": 5877
+      "sha256": "4a60eefc5402e1f24213d4ed7a241080945e5e0a516a47a915b9420670175a89",
+      "bytes": 5242
     },
     {
       "id": "200-chat-store",
@@ -181,16 +181,16 @@
       "file": "220-local-agent-run.patch",
       "source": "apps/desktop/chat/src/lib/local-agent-run.ts",
       "group": "chat",
-      "sha256": "de7274b007be65e60e75c292642512f15e41558bbf7ec58f96cc3752f916faaa",
-      "bytes": 35798
+      "sha256": "ec4c908c6d1ffab724376d0d33ef40f6ebe3c6ee12de3bb4ee0f1f4f1680cf47",
+      "bytes": 35842
     },
     {
       "id": "230-local-agent-store",
       "file": "230-local-agent-store.patch",
       "source": "apps/desktop/chat/src/state/local-agent-store.ts",
       "group": "chat",
-      "sha256": "b54295c4969538cc6a15b7d1caf1f5ae0a6ba764856c5d96d1fd8871f07818e8",
-      "bytes": 4692
+      "sha256": "686e42086fd828ebf92c1c612786435ffca63f60f9ea042f4334761af568f0e3",
+      "bytes": 5923
     },
     {
       "id": "240-EnvironmentNotice",
@@ -205,8 +205,8 @@
       "file": "250-LoginGate.patch",
       "source": "apps/desktop/shell/LoginGate.tsx",
       "group": "chat",
-      "sha256": "71d304770f87417ea19704292f308b42b27363a08610545bfa63b972c5e7ba08",
-      "bytes": 31222
+      "sha256": "01334e64dcdc656b7289c96a8e2647998a6b86899f15918208411c0ebffdbd88",
+      "bytes": 39818
     },
     {
       "id": "260-RecoveryGate",
@@ -253,8 +253,8 @@
       "file": "310-login.css.patch",
       "source": "apps/desktop/shell/login.css",
       "group": "chat",
-      "sha256": "3b6795163d8c3af28f8e34af0125445531445736b32a1232cd87708814deb720",
-      "bytes": 18821
+      "sha256": "b5b94c6340b6c99f25e6939d33321897d226f95a37ef89f01f2d7b540e914636",
+      "bytes": 27661
     },
     {
       "id": "320-main",
@@ -269,8 +269,8 @@
       "file": "330-App.patch",
       "source": "packages/openfilm/studio/ui/src/App.tsx",
       "group": "chat",
-      "sha256": "667062259b17f384e39fee5170b9162c1371b04263cfaabc281b973d5cfa28ca",
-      "bytes": 747
+      "sha256": "cd0bb8408f3cb104565b3e18b103c2a02ff3d35b4ab51e403d83ce9575b610c8",
+      "bytes": 3306
     },
     {
       "id": "340-AppMenu",
@@ -301,8 +301,8 @@
       "file": "370-ExamplesGallery.patch",
       "source": "packages/openfilm/studio/ui/src/components/ExamplesGallery.tsx",
       "group": "chat",
-      "sha256": "c0bf317fa4fbc1220a98166aed928d8dac620395abe052a131f2da19aa54aabd",
-      "bytes": 1632
+      "sha256": "0556f468562c46c540d9ce8ba34ab70cf9bea0c9c3cf30421febae7689d8ab2d",
+      "bytes": 1872
     },
     {
       "id": "380-PluginsWindow",
@@ -317,8 +317,8 @@
       "file": "390-ProjectsLibrary.patch",
       "source": "packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx",
       "group": "chat",
-      "sha256": "e03b97a8e91fd56c01e92388012bcaa38e83cdee0964da8d9cd4bc95c3ceb8ab",
-      "bytes": 6240
+      "sha256": "4b2e9b6c7fec9b22813ef6356245eee12914beeea1d304383339feebebb6b851",
+      "bytes": 10118
     },
     {
       "id": "400-ProjectsSidebar",
@@ -341,8 +341,8 @@
       "file": "420-WorkbenchAccount.patch",
       "source": "packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx",
       "group": "chat",
-      "sha256": "def68d715850f48456611c43bcd32c9c23b51cdb6f157b6f65f09b09d95874cb",
-      "bytes": 39475
+      "sha256": "85e86e305ea262e8390d0e5e01f92fcf6169c02bd4d82b4a4557b2d77e0a8095",
+      "bytes": 40293
     },
     {
       "id": "430-LibraryDrawer",
@@ -389,8 +389,8 @@
       "file": "480-en.patch",
       "source": "packages/openfilm/studio/ui/src/i18n/en.ts",
       "group": "chat",
-      "sha256": "2d9e6f9f2a71791a5620146c8ff883327f92af97205548c376ac4d9e549802cd",
-      "bytes": 11161
+      "sha256": "3e569073816794ceac96e7c76287c31fbc2b0a59d59adeb442efe4fab43c1c93",
+      "bytes": 19331
     },
     {
       "id": "490-es",
@@ -421,52 +421,60 @@
       "file": "520-zh-CN.patch",
       "source": "packages/openfilm/studio/ui/src/i18n/zh-CN.ts",
       "group": "chat",
-      "sha256": "96a9e23091118f7a478c006ee9e6ce1c78fc3fec92ddd5793da20cb54bee10b9",
-      "bytes": 11392
+      "sha256": "3ae0499da094e648a9a9474eced03ad180b9f6207c371870f3fa47d5fb9abae6",
+      "bytes": 19437
     },
     {
-      "id": "530-plugins-window",
-      "file": "530-plugins-window.patch",
+      "id": "530-navigate",
+      "file": "530-navigate.patch",
+      "source": "packages/openfilm/studio/ui/src/lib/navigate.ts",
+      "group": "chat",
+      "sha256": "796cffece9f53507382f6f80567fce37bccd509d090a6a2b31c1ca228d050eed",
+      "bytes": 1568
+    },
+    {
+      "id": "540-plugins-window",
+      "file": "540-plugins-window.patch",
       "source": "packages/openfilm/studio/ui/src/lib/plugins-window.ts",
       "group": "chat",
       "sha256": "a3dfc4d03005654a1617b38565b5c3a28aa2d927d13ad583b29d0ebc8eeab4ca",
       "bytes": 966
     },
     {
-      "id": "540-providers",
-      "file": "540-providers.patch",
+      "id": "550-providers",
+      "file": "550-providers.patch",
       "source": "packages/openfilm/studio/ui/src/lib/providers.ts",
       "group": "chat",
       "sha256": "376cd1a970cfddf4995868c169a9b09e466c45c155e914a9bb5fbbebe861665b",
       "bytes": 5301
     },
     {
-      "id": "550-top-bar",
-      "file": "550-top-bar.patch",
+      "id": "560-top-bar",
+      "file": "560-top-bar.patch",
       "source": "packages/openfilm/studio/ui/src/shell/top-bar.tsx",
       "group": "chat",
       "sha256": "4a58337266e372a4d30509f2be598a0c88d1606d4dd9e6f5a45d625c38b972ab",
       "bytes": 2215
     },
     {
-      "id": "560-contract",
-      "file": "560-contract.patch",
+      "id": "570-contract",
+      "file": "570-contract.patch",
       "source": "packages/shared/src/contract.ts",
       "group": "shared",
       "sha256": "0880e0f80c0eb13b79da614571395dc1408af490b2410adaf24823bdc62296ae",
       "bytes": 2640
     },
     {
-      "id": "570-markdown-blocks",
-      "file": "570-markdown-blocks.patch",
+      "id": "580-markdown-blocks",
+      "file": "580-markdown-blocks.patch",
       "source": "packages/shared/src/markdown-blocks.ts",
       "group": "shared",
       "sha256": "243c34cd0c7d5002d57c479fd62cbc6e7933a3ccdb6d7a69310a76d51f191bae",
       "bytes": 1354
     },
     {
-      "id": "580-no996-brand",
-      "file": "580-no996-brand.patch",
+      "id": "590-no996-brand",
+      "file": "590-no996-brand.patch",
       "source": "packages/shared/src/no996-brand.ts",
       "group": "shared",
       "sha256": "2315e134dba19cf03438f750f99b7eae4db26831d22495c6e29e6abdb233a1cc",

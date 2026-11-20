@@ -13,8 +13,8 @@ const browser = await chromium.launch({ headless: true, ...(exe ? { executablePa
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 let envCalls = 0;
 const templates = [
+  { id: 'vibe-explainer', title: 'Vibe 科普剧场', productTitle: 'Vibe 科普剧场', productBlurb: '隐喻大字+Canvas剧场', featured: true },
   { id: 'paper-texture', title: '纸纹讲堂', productTitle: '口播讲堂', productBlurb: '竖屏讲解、口播感' },
-  { id: 'replica-film', title: '复刻影片', productTitle: '知识大赏', productBlurb: '分镜知识片、卡片与场景感' },
   { id: 'sketchnote', title: '手绘笔记', productTitle: '手绘笔记', productBlurb: '纸笔笔记风短片' },
   { id: 'motion-styles', title: '动效风格样片', productTitle: '动效风格样片', productBlurb: '弹簧/错峰/相机推镜的整片样片' },
   { id: 'custom', title: '自定义', productTitle: '自定义', productBlurb: '空白开始，先丢素材再定风格' },
@@ -23,7 +23,7 @@ await page.route('**/__dsh/official-rpc', async (route) => {
   const body = JSON.parse(route.request().postData() || '{}');
   const channel = body.channel;
   let reply = { ok: true };
-  if (channel === 'auth:status') reply = { loggedIn: true, dev: true, account: 'dev@local', displayName: '开发模式' };
+  if (channel === 'auth:status') reply = { loggedIn: true, dev: true, account: 'dev@local', displayName: 'Dev mode' };
   if (channel === 'prefs:get') reply = { prefs: { onboardingCompleted: false, defaultTemplateId: '', lastProjectId: '', customLanguage: '中文' } };
   if (channel === 'system:check') {
     envCalls += 1;

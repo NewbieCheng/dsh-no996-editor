@@ -18,7 +18,7 @@
 
 ## 二、声音与内置 BGM 规则
 
-- **Vibe 知识大赏默认配乐**：`no996_audio(action="bgm-install", id="vibe-we-never", duration=<片长>)` 装入《We Never · 若如初见》（112.3 BPM，关键 Drop 在 `16s / 24s / 104s`）与 `assets/rhythm-data.js`。
+- **Vibe 科普剧场默认配乐**：`no996_audio(action="bgm-install", id="vibe-we-never", duration=<片长>)` 装入《We Never · 若如初见》（112.3 BPM，关键 Drop 在 `16s / 24s / 104s`）与 `assets/rhythm-data.js`。
 - **有口播/对话必做人声闪避**：先用 `no996_audio(action="extract")` 或 `no996_transcribe` 拿说话活跃段，再调 `no996_audio(action="duck", speechRanges=...)` 压低 `-12 dB`。
 - **克制拟音（`no996_sfx`）**：在光标点击(`click`)、砸入(`hit`)、裂解(`crack`)、打勾(`bell`)、自然过渡(`whoosh` 提前 `0.18s`) 配声；安静访谈小改不强加。
 - **双 mode 规则**：常规节奏点用 `mode=clips`（`packCuesToLanes` 自动分轨零重叠）；密集脉冲用 `mode=stem` 输出 `-1.2 dBFS` 稳幅母带。

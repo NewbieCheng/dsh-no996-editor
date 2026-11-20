@@ -1,6 +1,6 @@
 diff --git a/apps/desktop/chat/src/components/OnboardingGate.tsx b/apps/desktop/chat/src/components/OnboardingGate.tsx
 new file mode 100644
-index 0000000..ec02cbf
+index 0000000..e6948fd
 --- /dev/null
 +++ b/apps/desktop/chat/src/components/OnboardingGate.tsx
 @@ -0,0 +1,403 @@
@@ -42,7 +42,7 @@ index 0000000..ec02cbf
 +const TEXT = '#f3eee4';
 +const MUTE = '#8d90a6';
 +const PROJECT_ID = /^[A-Za-z0-9_-]{6,40}$/;
-+const ORDER = ['paper-texture', 'replica-film', 'sketchnote', 'motion-styles', 'custom'];
++const ORDER = ['vibe-explainer', 'paper-texture', 'sketchnote', 'motion-styles', 'custom'];
 +
 +const STYLE_ID = 'no996-bay-onboarding-css';
 +

@@ -29,8 +29,8 @@ export const BUILTIN_BGM_CATALOG = Object.freeze([
     durationSec: 189.824542,
     bpm: 112.3,
     sha256: '9d27ffec5594d66f15057e762363cba46783203875483bbecca8729d7b1441c1',
-    tags: ['vibe', '知识大赏', '科普', '卡点', '节奏', '电子', '律动'],
-    description: 'Vibe 知识大赏标志性官方配乐（189.8s / 112.3 BPM），随插件附带全部 348 主拍与 873 起音实测数据。',
+    tags: ['vibe', '科普剧场', '科普', '卡点', '节奏', '电子', '律动'],
+    description: 'Vibe 科普剧场标志性官方配乐（189.8s / 112.3 BPM），随插件附带全部 348 主拍与 873 起音实测数据。',
   }),
 ]);
 

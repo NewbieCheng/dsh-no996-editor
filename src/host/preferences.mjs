@@ -19,10 +19,6 @@ const PRODUCT = Object.freeze({
     productTitle: '口播讲堂',
     productBlurb: '适合竖屏口播、课程讲解：一人出镜把一件事讲清楚。',
   },
-  'replica-film': {
-    productTitle: '知识大赏',
-    productBlurb: '适合知识科普短片：分镜卡片串联，有场景与节奏感。',
-  },
   sketchnote: {
     productTitle: '手绘笔记',
     productBlurb: '适合笔记风总结与轻教程：纸笔板书感，好读好记。',
@@ -157,7 +153,7 @@ export function onboardingCopy(templateId, presets = {}) {
       steps: [
         '这是空白项目。',
         '先说主题和时长，或把素材拖进对话。',
-        '想套口播/知识大赏/手绘骨架时再说一声。',
+        '想套口播/科普剧场/手绘骨架时再说一声。',
       ],
       ratio: presets?.ratio,
       seconds: presets?.seconds,
