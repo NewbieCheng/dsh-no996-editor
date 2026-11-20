@@ -19,7 +19,7 @@ description: 制作知识科普/概念解释视频、无口播纯画片、对话
 1. **纯概念/无素材**：`no996_fonts` 选实装字体 + `no996_library(kind="wordart", inspect=...)` 借鉴花字配色描边 + `no996_kit(action="install", kits=["motion", "vibe-canvas"])` 搭连续动态剧场 + `no996_audio(action="bgm-install", id="vibe-we-never", duration=<片长>)` 装入《We Never · 若如初见》及实测拍点。
 2. **有口播/实拍**：`no996_transcribe` 拿句级时间码 + `no996_face_analysis` 避脸 + `VibeOverlay.safeAnchor` 透明叠层或 `no996_clip(insert/preset)` 叠花字/滤镜；若加 BGM 必须走 `no996_audio(action="duck")` 人声闪避。
 3. **对话/辩论/访谈**：`no996_audio(action="extract")` 切分说话段落与停顿，用 `drawDialogueTheater` 做双角色气泡交锋与镜头推近特写。
-4. **首尾帧图文协同 / 网页产品页**：用用户上传的起/中/终关键帧、`no996_assets(inspectUrl/fromUrl)` 抓回的网页实图，或 `no996_generate_image` 生成关键帧，由 `drawImageAnchorStage` 演活中间转场、放大特写与标注引线。
+4. **首尾帧图文协同 / 网页产品页**：用用户上传的起/中/终关键帧、`no996_assets(inspectUrl/fromUrl)` 抓回的网页实图，或 `no996_get(verb="image", ...)` 生成关键帧，由 `drawImageAnchorStage` 演活中间转场、放大特写与标注引线。
 
 ## 2. 六步创意编导法
 

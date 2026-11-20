@@ -168,6 +168,8 @@ npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 | `vendor/templates/<id>/prompt.md` | 否 | 下一次 `openfilm_library take=<id>` 即生效 | 无 |
 | `src/native/instruction-inventory.mjs`（/diagnose 的注入清单） | 否 | 重载插件 + 刷新 | 无 |
 
+本机 `desktop` profile 可用 `link:` 指向开发工作区；先核对 profile 的依赖来源，再确认固定版壳可解析。改聊天 TSX 时，按[上游构建手册](playbooks/upstream-bump.md)重建壳、生成补丁并在干净检出重放。保存工作后完整重启 DSH，用临时项目在原桌面 GUI 验收；本地链接不是正式发布渠道。
+
 Host 模块重载可能受模块缓存影响；修改后应核验实际运行版本。如果重载未应用变更，保存工作并按管理器提示完整重启 DSH，再验证原页面。现有 `npm run dev` 不应被视为递归监听整个 `src/` 的保证。
 
 **零基础实时开发流程（Vite HMR + 热样式）见 [`playbooks/dev-live-guide.md`](playbooks/dev-live-guide.md)。**

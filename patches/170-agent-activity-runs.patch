@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/agent-activity-runs.ts b/apps/desktop/chat/src/lib/agent-activity-runs.ts
-index a5ba7ea..482af50 100644
+index a5ba7ea..3414257 100644
 --- a/apps/desktop/chat/src/lib/agent-activity-runs.ts
 +++ b/apps/desktop/chat/src/lib/agent-activity-runs.ts
 @@ -14,7 +14,7 @@ import type { AgentActAsset } from '@openfilm/shared';
@@ -11,6 +11,15 @@ index a5ba7ea..482af50 100644
   * "read 3 files · ran 2 commands" would read like a tool.
   */
  
+@@ -45,7 +45,7 @@ function isEphemeral(item: ActivityRunItem): boolean {
+ }
+ 
+ /** A question to the person gets its own row, not folded into a summary: the question and answer must show at a glance. */
+-const STANDALONE_ACT_LABELS = new Set(['act.chat.ask']);
++const STANDALONE_ACT_LABELS = new Set(['act.chat.ask', 'act.research.search', 'act.research.read']);
+ 
+ /**
+  * Work (tool calls). It folds into one summary row, including steps that made something (voice, sound,
 @@ -64,7 +64,14 @@ export function buildRuns<T extends ActivityRunItem>(items: T[]): ActivityRun<T>
    let lastIsWork = false;
    for (const item of items) {

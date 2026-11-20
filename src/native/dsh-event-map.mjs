@@ -57,7 +57,8 @@ export function mapToolCallForUi(name, rawInput) {
     };
   }
   if (lower === 'web_search' || lower === 'web_fetch') {
-    const q = input.query ?? input.url ?? '';
+    const queries = Array.isArray(input.queries) ? input.queries.filter(value => typeof value === 'string').slice(0, 8) : [];
+    const q = String(input.query ?? input.url ?? queries.join(' · ')).slice(0, 600);
     return {
       title: name,
       toolName: name,

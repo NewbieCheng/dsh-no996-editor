@@ -102,6 +102,28 @@ test('no996-llm-provider: advertises auto with image modality and streams Respon
     assert.equal(usage?.usage?.outputTokens, 15);
     assert.equal(dirty, 1);
 
+    // Signed-out adapter still advertises `no996/auto` with a sign-in hint so DSH keeps the group visible
+    const signedOutAdapter = createNo996LlmAdapter({
+      auth: {
+        baseUrl: url,
+        dev: false,
+        status: async () => ({ loggedIn: false }),
+        accessToken: async () => null,
+      },
+    });
+    const signedOutModels = await signedOutAdapter.listModels('no996');
+    assert.equal(signedOutModels.length, 1);
+    assert.equal(signedOutModels[0].id, 'auto');
+    assert.match(signedOutModels[0].name, /需先登录/);
+    await assert.rejects(
+      async () => {
+        for await (const _ of signedOutAdapter.stream({ provider: 'no996', model: 'auto', messages: [] })) {
+          // drain
+        }
+      },
+      (err) => err?.code === 'INVALID_CREDENTIAL',
+    );
+
     // Registration refresh triggers handle.replace(['no996']) so DSH re-lists models on login
     let replaced = null;
     const reg = registerNo996LlmProvider({

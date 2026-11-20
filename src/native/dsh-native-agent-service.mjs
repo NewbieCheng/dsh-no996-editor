@@ -4,6 +4,7 @@
 // and MCP loopback server with direct calls to `ctx.sessionController` inside
 // the Host process. Each conversation opens a real DSH Session bound to the
 // `openfilm-video-editing` preset (`cwd = project.path`).
+import { selectedSkillContext } from './film-skill-selection.mjs';
 import { randomUUID } from 'node:crypto';
 import { parseToolArgs, mapToolCallForUi, convertToolContent } from './dsh-event-map.mjs';
 import { normalizeWorkModeState, promptPrefixForWorkMode } from './work-mode.mjs';
@@ -134,6 +135,31 @@ export function createDshNativeAgentService({
     }
     return undefined;
   };
+
+  // Register on the Agent context itself, not on an assumed assembly scope key.
+  // Keep the provider live so changing phase between steps needs no new message.
+  const workModeContexts = new Map();
+  function registerWorkModeContext(agent) {
+    const id = agent?.id;
+    if (!text(id) || workModeContexts.has(agent) || agent.session?.header?.agentPreset !== agentPreset) return;
+    const prompts = agent.ctx?.get?.('systemPrompt');
+    if (typeof prompts?.context !== 'function') return;
+    const dispose = prompts.context({
+      name: 'no996-work-mode', order: 130, interpolate: false,
+      text: () => {
+        if (closed || !sessionProjects.has(id) || ctx.agents?.get(id) !== agent) return '';
+        const bound = sessionById(id);
+        if (!bound) return '';
+        const mode = promptPrefixForWorkMode(readWorkMode(bound.projectState.projectId, bound.session)).trim();
+        const model = bound.session.model;
+        return [mode, model && `当前模型：${model.provider}/${model.model}`, bound.session.inflight?.skillContext].filter(Boolean).join('\n\n');
+      },
+    });
+    workModeContexts.set(agent, dispose);
+  }
+  const offAgentCreated = ctx.on?.('agent/created', ({ agent }) => { registerWorkModeContext(agent); });
+  const offAgentDisposed = ctx.on?.('agent/disposed', ({ agent }) => { workModeContexts.delete(agent); });
+  for (const agent of ctx.agents?.list?.() ?? []) registerWorkModeContext(agent);
 
   const offError = typeof ctx.on === 'function'
     ? ctx.on('api-session/error', (sessionId, message) => {
@@ -500,12 +526,10 @@ export function createDshNativeAgentService({
     }
     if (options.length === 0) return null;
     const allowed = options.map(o => o.value);
-    const candidate = isPreview
-      ? (model?.reasoning?.defaultEffort ?? allowed[0])
-      : (session?.reasoningEffort ?? model?.reasoning?.defaultEffort);
-    const current = text(candidate) && allowed.includes(candidate)
-      ? candidate
-      : (text(model?.reasoning?.defaultEffort) && allowed.includes(model.reasoning.defaultEffort) ? model.reasoning.defaultEffort : allowed[0]);
+    const candidate = isPreview ? undefined : session?.reasoningEffort;
+    const current = allowed.includes(candidate) ? candidate : '__no996_default__';
+    const defaultName = options.find(o => o.value === model?.reasoning?.defaultEffort)?.name;
+    options.unshift({ value: '__no996_default__', name: defaultName ? `默认（${defaultName}）` : '默认' });
     return {
       id: 'thinking',
       name: '思考强度',
@@ -616,14 +640,17 @@ export function createDshNativeAgentService({
     if (event.type === 'tool/result') {
       const msg = data.message && typeof data.message === 'object' ? data.message : {};
       const content = convertToolContent(msg.content);
-      const rawOutput = content.map(item => item?.content?.text ?? '').filter(Boolean).join('\n').slice(0, 1200);
+      const error = data.error && typeof data.error === 'object' ? data.error : null;
+      const errorCode = typeof error?.code === 'string' && /^[a-z0-9_/-]{1,80}$/i.test(error.code) ? error.code : undefined;
+      const rawOutput = content.map(item => item?.content?.text ?? '').filter(Boolean).join('\n').slice(0, 8000);
       void Promise.resolve(emit(projectId, {
         key,
         kind: 'update',
         update: {
           sessionUpdate: 'tool_call_update',
           toolCallId: msg.toolCallId,
-          status: msg.isError === true ? 'failed' : 'completed',
+          status: msg.isError === true || errorCode ? 'failed' : 'completed',
+          ...(errorCode ? { errorCode } : {}),
           content,
           ...(rawOutput ? { rawOutput } : {}),
         },
@@ -978,7 +1005,7 @@ export function createDshNativeAgentService({
       return typeof sid === 'string' ? sessionProjects.get(sid) : undefined;
     },
 
-    async send(projectId, { conversation, key, turnId, text: promptText, images } = {}) {
+    async send(projectId, { conversation, key, turnId, text: promptText, images, skillIds } = {}) {
       if (typeof promptText !== 'string' || promptText.length > 200000) {
         throw failure('OFFICIAL_AGENT_INPUT', 'bad prompt', {
           location: 'src/native/dsh-native-agent-service.mjs:send',
@@ -988,6 +1015,13 @@ export function createDshNativeAgentService({
       }
       const projectState = projectStateOf(projectId);
       const session = await ensure(projectId, conversation);
+      const skillContext = await selectedSkillContext(projectState.projectPath, skillIds);
+      if (skillContext) {
+        const resolved = await ctx.sessionController.resolveAgent?.(session.sessionId);
+        const live = ctx.agents?.get?.(session.sessionId) ?? resolved?.agent;
+        registerWorkModeContext(live);
+        if (!workModeContexts.has(live)) throw failure('OFFICIAL_SKILL_UNAVAILABLE', 'Session skill context unavailable');
+      }
       if (session.inflight) {
         throw failure('OFFICIAL_AGENT_BUSY', 'a turn is already running', {
           location: 'src/native/dsh-native-agent-service.mjs:send',
@@ -1007,13 +1041,8 @@ export function createDshNativeAgentService({
           content.push({ type: 'image', mediaType: image.mediaType, data: image.data, ...(text(image.name) ? { name: image.name } : {}) });
         }
       }
-      const modeState = readWorkMode(projectId, session);
-      const directive = promptPrefixForWorkMode(modeState);
-      if (promptText.trim()) {
-        content.push({ type: 'text', text: `${directive}${promptText}` });
-      } else if (content.length > 0 && directive) {
-        content.push({ type: 'text', text: directive.trim() });
-      }
+      // The film preset reads live mode via no996_mode; never put it in user history.
+      if (promptText.trim()) content.push({ type: 'text', text: promptText });
       if (content.length === 0) throw failure('OFFICIAL_AGENT_INPUT', 'empty prompt');
 
       ensureFollow(projectState, session);
@@ -1022,7 +1051,7 @@ export function createDshNativeAgentService({
       }
       const requestId = randomUUID();
       const turnDone = new Promise((resolve, reject) => {
-        session.inflight = { turnId, cancelled: false, resolve, reject };
+        session.inflight = { turnId, cancelled: false, resolve, reject, skillContext };
       });
 
       try {
@@ -1128,23 +1157,13 @@ export function createDshNativeAgentService({
         }
       }
       const allowed = effortIdsOf(model);
-      let effort = session.reasoningEffort;
-      if (text(effort) && allowed.length > 0 && !allowed.includes(effort)) {
-        effort = text(model?.reasoning?.defaultEffort) && allowed.includes(model.reasoning.defaultEffort)
-          ? model.reasoning.defaultEffort
-          : undefined;
-      }
-      if (text(session.sessionId)) {
-        await ctx.sessionController.selectModel({
-          sessionId: session.sessionId,
-          provider,
-          model: modelId,
-          ...(text(effort) ? { reasoningEffort: effort } : {}),
-        });
-      }
-      session.model = { provider, model: modelId };
-      session.reasoningEffort = text(effort) ? effort : undefined;
-      session.modelSource = 'selected';
+      const effort = allowed.includes(session.reasoningEffort) ? session.reasoningEffort
+        : allowed.includes(model?.reasoning?.defaultEffort) ? model.reasoning.defaultEffort : undefined;
+      const requested = { provider, model: modelId, ...(text(effort) ? { reasoningEffort: effort } : {}) };
+      const applied = text(session.sessionId)
+        ? await ctx.sessionController.selectModel({ sessionId: session.sessionId, ...requested })
+        : undefined;
+      applySelection(session, applied?.selected ?? requested, 'selected');
       persistSelection(projectId, session);
       if (session.key) void syncUsage(projectId, session);
       void log?.('native-select-model', {
@@ -1190,7 +1209,8 @@ export function createDshNativeAgentService({
       }
       const allowed = effortIdsOf(model);
       // Refuse inventing a tier the model did not advertise.
-      if (allowed.length > 0 && !allowed.includes(value)) {
+      const useDefault = value === '__no996_default__';
+      if (!allowed.length || (!useDefault && !allowed.includes(value))) {
         throw failure('OFFICIAL_AGENT_INPUT', `thinking effort not supported: ${value}`, {
           location: 'src/native/dsh-native-agent-service.mjs:selectThinking',
           projectId,
@@ -1203,17 +1223,11 @@ export function createDshNativeAgentService({
           reason: `thinking effort '${value}' not in model allowed list [${allowed.join(', ')}]`,
         });
       }
-      if (text(session.sessionId)) {
-        await ctx.sessionController.selectModel({
-          sessionId: session.sessionId,
-          provider: target.provider,
-          model: target.model,
-          reasoningEffort: value,
-        });
-      }
-      session.model = { provider: target.provider, model: target.model };
-      session.reasoningEffort = value;
-      session.modelSource = session.modelSource ?? 'selected';
+      const requested = { provider: target.provider, model: target.model, ...(useDefault ? {} : { reasoningEffort: value }) };
+      const applied = text(session.sessionId)
+        ? await ctx.sessionController.selectModel({ sessionId: session.sessionId, ...requested })
+        : undefined;
+      applySelection(session, applied?.selected ?? requested, 'selected');
       persistSelection(projectId, session);
       void log?.('native-select-thinking', {
         projectId,
@@ -1337,8 +1351,10 @@ export function createDshNativeAgentService({
       const current = readWorkMode(projectId, session);
       const updated = normalizeWorkModeState({
         ...current,
+        ...(next.mode === 'auto' && next.effective === undefined ? { effective: 'chat', reason: '' } : {}),
+        ...(next.mode && next.mode !== current.mode ? { reason: '' } : {}),
         ...next,
-        updatedAt: Date.now(),
+        updatedAt: Math.max(Date.now(), current.updatedAt + 1),
       });
       session.workMode = updated;
       if (typeof store.setWorkMode === 'function') {
@@ -1440,6 +1456,10 @@ export function createDshNativeAgentService({
       closed = true;
       offError?.();
       offStatus?.();
+      offAgentCreated?.();
+      offAgentDisposed?.();
+      for (const dispose of workModeContexts.values()) dispose?.();
+      workModeContexts.clear();
       const pending = [];
       for (const projectState of projects.values()) {
         for (const session of projectState.sessions.values()) {

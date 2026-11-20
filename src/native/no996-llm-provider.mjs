@@ -215,6 +215,7 @@ export function createNo996LlmAdapter({
   onWalletDirty = undefined,
 } = {}) {
   const base = String(auth?.baseUrl || '').replace(/\/+$/, '');
+  const modelMetaCache = new Map();
 
   async function resolveBearer({ forceRefresh = false } = {}) {
     if (!auth) throw makeLlmError('不加班认证服务未就绪', 'INVALID_CREDENTIAL');
@@ -242,6 +243,13 @@ export function createNo996LlmAdapter({
       return { width: image.width, height: image.height, maxBytes: image.bytes };
     },
     async listModels(provider) {
+      const signedOutAutoModel = {
+        provider,
+        id: 'auto',
+        name: '不加班 Auto (需先登录)',
+        description: '请先在「视频创作」或插件设置中登录不加班账号；登录后自动启用智能路由与识图',
+        inputModalities: ['text', 'image'],
+      };
       const autoModel = {
         provider,
         id: 'auto',
@@ -249,9 +257,17 @@ export function createNo996LlmAdapter({
         description: '按平台路由自动选择最优模型，支持文本与图片理解，统一积分计费',
         inputModalities: ['text', 'image'],
       };
-      if (!auth || auth.dev || auth.guest) return [];
+      modelMetaCache.clear();
+      if (!auth || auth.dev || auth.guest) {
+        modelMetaCache.set('auto', signedOutAutoModel);
+        return [signedOutAutoModel];
+      }
       const status = await auth.status?.().catch(() => null);
-      if (!status?.loggedIn || status?.guest || status?.dev) return [];
+      if (!status?.loggedIn || status?.guest || status?.dev) {
+        modelMetaCache.set('auto', signedOutAutoModel);
+        return [signedOutAutoModel];
+      }
+      modelMetaCache.set('auto', autoModel);
 
       try {
         const dshLlm = await loadDshLlm();
@@ -279,24 +295,44 @@ export function createNo996LlmAdapter({
         const rows = Array.isArray(json?.data) ? json.data : [];
         const extras = rows
           .filter(r => r && typeof r.id === 'string' && r.id && r.id !== 'auto')
-          .map(r => ({
-            provider,
-            id: r.id,
-            name: typeof r.name === 'string' && r.name ? r.name : r.id,
-            inputModalities: Array.isArray(r.input_modalities) && r.input_modalities.length ? r.input_modalities : ['text', 'image'],
-          }));
+          .map(r => {
+            const displayName = (typeof r.display_name === 'string' && r.display_name)
+              || (typeof r.name === 'string' && r.name)
+              || r.id;
+            const rawMods = Array.isArray(r.input_modalities) ? r.input_modalities
+              : (Array.isArray(r.modalities) ? r.modalities : null);
+            const inputModalities = rawMods && rawMods.length ? rawMods : ['text'];
+            const contextWindow = Number.isFinite(Number(r.context_window)) && Number(r.context_window) > 0
+              ? Number(r.context_window)
+              : 128000;
+            const entry = {
+              provider,
+              id: r.id,
+              name: displayName,
+              inputModalities,
+              contextWindow,
+            };
+            modelMetaCache.set(r.id, entry);
+            return {
+              provider,
+              id: entry.id,
+              name: entry.name,
+              inputModalities: entry.inputModalities,
+            };
+          });
         return [autoModel, ...extras];
       } catch {
         return [autoModel];
       }
     },
     async resolveModel(provider, model) {
+      const cached = modelMetaCache.get(model);
       return {
         provider,
         id: model,
-        name: model === 'auto' ? '不加班 Auto (智能路由 · 支持识图)' : model,
-        context: { contextWindow: 128000 },
-        inputModalities: ['text', 'image'],
+        name: cached?.name || (model === 'auto' ? '不加班 Auto (智能路由 · 支持识图)' : model),
+        context: { contextWindow: cached?.contextWindow || 128000 },
+        inputModalities: cached?.inputModalities || (model === 'auto' ? ['text', 'image'] : ['text']),
         reasoning: { efforts: [...DEFAULT_EFFORTS], defaultEffort: 'medium' },
       };
     },

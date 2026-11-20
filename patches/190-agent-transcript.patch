@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/agent-transcript.ts b/apps/desktop/chat/src/lib/agent-transcript.ts
-index 48d05f4..2aa903f 100644
+index 48d05f4..c45f47b 100644
 --- a/apps/desktop/chat/src/lib/agent-transcript.ts
 +++ b/apps/desktop/chat/src/lib/agent-transcript.ts
 @@ -16,6 +16,7 @@ import {
@@ -10,16 +10,20 @@ index 48d05f4..2aa903f 100644
    type AgentAct,
    type AgentActAsset,
    type AgentAsk,
-@@ -35,6 +36,8 @@ export interface TranscriptItem {
+@@ -35,6 +36,12 @@ export interface TranscriptItem {
    kind: 'text' | 'act' | 'notice' | 'thought' | 'plan';
    /** What it is doing (a closed set); absent for text / notice. */
    act?: AgentAct;
 +  /** The real tool that ran (openfilm_frame, web_search), when the agent named it. */
 +  tool?: string;
++  toolOutput?: string;
++  toolInput?: string;
++  toolErrorCode?: string;
++  toolOutcome?: 'completed' | 'failed' | 'interrupted';
    /** The short visible text after the act (search query / picture description), picked by the server. */
    query?: string;
    /**
-@@ -83,6 +86,31 @@ export function reduceTranscript(
+@@ -83,6 +90,31 @@ export function reduceTranscript(
    items: TranscriptItem[],
    event: PublicGenerationEvent,
    now: number = Date.now(),
@@ -51,7 +55,7 @@ index 48d05f4..2aa903f 100644
  ): TranscriptItem[] {
    switch (event.type) {
      case 'agent-text': {
-@@ -94,7 +122,7 @@ export function reduceTranscript(
+@@ -94,7 +126,7 @@ export function reduceTranscript(
          const next = [...items];
          next[at] = {
            ...next[at]!,
@@ -60,7 +64,7 @@ index 48d05f4..2aa903f 100644
            pending,
          };
          return next;
-@@ -127,6 +155,7 @@ export function reduceTranscript(
+@@ -127,6 +159,7 @@ export function reduceTranscript(
          kind: 'act',
          act: event.act,
          ...(event.query ? { query: event.query } : {}),
@@ -68,7 +72,7 @@ index 48d05f4..2aa903f 100644
          ...(event.ask ? { ask: event.ask } : {}),
          turnNo: event.turnNo,
          pending: true,
-@@ -147,9 +176,45 @@ export function reduceTranscript(
+@@ -147,9 +180,45 @@ export function reduceTranscript(
        return next;
      }
  
@@ -117,3 +121,17 @@ index 48d05f4..2aa903f 100644
  
      /* The agent's question settled (answered / skipped / timed out): write it back to its row, so the conversation
         reads "asked what · answered what". The question's id is not the tool call's callId, so match the latest
+@@ -284,7 +353,12 @@ function traceLogItem(item: TranscriptItem): AgentActivityItem {
+       id: item.id,
+       // The copy key is the act itself. An unknown key renders an empty row, and acts are a closed set,
+       // so a missing line of copy is a slip tests can catch, not a leak in production.
+-      label: `act.${item.act ?? 'working'}`,
++      label: `act.${item.tool === 'web_search' ? 'research.search' : item.tool === 'web_fetch' ? 'research.read' : item.act ?? 'working'}`,
++      tool: item.tool,
++      toolOutput: item.toolOutput,
++      toolInput: item.toolInput,
++      toolErrorCode: item.toolErrorCode,
++      toolOutcome: item.toolOutcome,
+       ...(item.query ? { query: item.query } : {}),
+       ...(item.detail ? { detail: item.detail } : {}),
+       ...(item.ask ? { ask: item.ask } : {}),

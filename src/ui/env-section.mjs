@@ -50,6 +50,36 @@ export function createEnvSection(React) {
   const readSaved = () => {
     try { return window.localStorage.getItem(STORAGE_KEY) ?? ''; } catch { return ''; }
   };
+  const ICON_LABEL = {
+    fish: '鱼', cake: '蛋糕', egg: '蛋', milk: '牛奶', chili: '辣椒', potato: '土豆',
+    chocolate: '巧克力', garlic: '蒜', scallion: '葱', mint: '薄荷', snow_lotus: '雪莲',
+    sweet_potato: '红薯', bean: '豆子',
+  };
+  function captchaHint(prompt, iconTarget) {
+    const icon = ICON_LABEL[iconTarget] || '图标';
+    if (prompt === 'click_largest') return `请点击最大的${icon}`;
+    if (prompt === 'click_smallest') return `请点击最小的${icon}`;
+    if (prompt === 'click_second_smallest') return `请点击第二小的${icon}`;
+    if (prompt === 'click_icon') return `请点击图中的${icon}`;
+    if (prompt === 'click_sequence') return '请按提示顺序点击';
+    if (prompt === 'click_size_asc') return `请按从小到大点击${icon}`;
+    if (prompt === 'click_size_desc') return `请按从大到小点击${icon}`;
+    return '请完成人机验证';
+  }
+  async function postAuth(payload) {
+    const surface = `${window.location.protocol}//${window.location.host}`;
+    const response = await fetch('/api/no996-openfilm/auth', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json', 'x-no996-surface': surface },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) {
+      throw new Error(data?.message || data?.error || `HTTP ${response.status}`);
+    }
+    return data;
+  }
 
   return function EnvSection() {
     const [data, setData] = React.useState(null);
@@ -57,6 +87,13 @@ export function createEnvSection(React) {
     const [projectId, setProjectId] = React.useState('');
     const [savedId, setSavedId] = React.useState('');
     const [loading, setLoading] = React.useState(true);
+    const [authOpen, setAuthOpen] = React.useState(false);
+    const [authAccount, setAuthAccount] = React.useState('');
+    const [authPassword, setAuthPassword] = React.useState('');
+    const [authBusy, setAuthBusy] = React.useState(false);
+    const [authMsg, setAuthMsg] = React.useState('');
+    const [captcha, setCaptcha] = React.useState(null);
+    const [clicks, setClicks] = React.useState([]);
     const load = React.useCallback(async project => {
       setLoading(true);
       setError('');
@@ -72,6 +109,72 @@ export function createEnvSection(React) {
         setLoading(false);
       }
     }, []);
+    const fetchCaptcha = React.useCallback(async () => {
+      setAuthMsg('');
+      setClicks([]);
+      try {
+        const cap = await postAuth({ action: 'captcha', type: 'click' });
+        setCaptcha(cap);
+      } catch (fail) {
+        setCaptcha(null);
+        setAuthMsg(String(fail?.message ?? fail));
+      }
+    }, []);
+    const submitLogin = React.useCallback(async (captchaId, captchaCode) => {
+      setAuthBusy(true);
+      setAuthMsg('');
+      try {
+        await postAuth({
+          action: 'login',
+          account: authAccount.trim(),
+          password: authPassword,
+          captchaId,
+          captchaCode,
+        });
+        setAuthOpen(false);
+        setAuthPassword('');
+        setCaptcha(null);
+        setClicks([]);
+        await load(savedId || projectId.trim());
+      } catch (fail) {
+        setAuthMsg(String(fail?.message ?? fail));
+        setClicks([]);
+        if (captchaId) void fetchCaptcha();
+      } finally {
+        setAuthBusy(false);
+      }
+    }, [authAccount, authPassword, fetchCaptcha, load, projectId, savedId]);
+    const handleLogout = React.useCallback(async () => {
+      setAuthBusy(true);
+      setAuthMsg('');
+      try {
+        await postAuth({ action: 'logout' });
+        await load(savedId || projectId.trim());
+      } catch (fail) {
+        setAuthMsg(String(fail?.message ?? fail));
+      } finally {
+        setAuthBusy(false);
+      }
+    }, [load, projectId, savedId]);
+    const handleCaptchaClick = React.useCallback(event => {
+      if (!captcha?.id || authBusy) return;
+      const target = event.target?.closest?.('[data-captcha-id]');
+      const id = target?.getAttribute?.('data-captcha-id');
+      if (!id) return;
+      const prompt = captcha.prompt || '';
+      const isSeq = prompt === 'click_sequence' || prompt === 'click_size_asc' || prompt === 'click_size_desc';
+      if (!isSeq) {
+        void submitLogin(captcha.id, id);
+        return;
+      }
+      if (clicks.includes(id)) return;
+      const needed = prompt === 'click_sequence' ? (captcha.sequence?.length || 1) : 4;
+      const next = [...clicks, id];
+      setClicks(next);
+      if (next.length >= needed) {
+        void submitLogin(captcha.id, next.join(','));
+      }
+    }, [authBusy, captcha, clicks, submitLogin]);
     // A saved project is reused on open (load it at once); clearing the saved
     // value turns that back off. Nothing is sent anywhere: localStorage only.
     React.useEffect(() => {
@@ -97,6 +200,8 @@ export function createEnvSection(React) {
     }, []);
 
     const preset = data?.preset;
+    const wbAuth = data?.workbenchAuth;
+    const isFormalUser = Boolean(wbAuth?.loggedIn && !wbAuth?.guest && !wbAuth?.dev);
     const skills = Array.isArray(data?.skills?.isolated) ? data.skills.isolated : [];
     const tools = Array.isArray(data?.tools) ? data.tools : [];
     const chain = data?.project && !data.project.error ? data.project : null;
@@ -107,6 +212,54 @@ export function createEnvSection(React) {
       h('p', { style: dim }, '影片子进程实际能加载的东西（只读）。全局 skill 目录不进影片对话，读文件/读图/丢 PDF 走下面的影片工具，不受影响。'),
       loading ? h('p', { style: dim }, '正在读取… Loading…') : null,
       error ? h('p', { style: dim }, `读取失败 Load failed：${error}`) : null,
+      wbAuth ? h('div', null,
+        h('p', { style: sub }, '不加班账号与模型 · no996/auto'),
+        h('p', { style: dim }, isFormalUser
+          ? `已登录：${wbAuth.displayName || wbAuth.account || '正式账号'}（不加班 Auto 与生图/配音/联网已就绪）`
+          : wbAuth.guest
+            ? '当前为游客模式（模型列表显示「不加班 Auto (需先登录)」，仅登录正式账号后可调用）'
+            : '未登录（模型列表显示「不加班 Auto (需先登录)」，登录后自动启用并刷新）'),
+        h('div', { style: row },
+          isFormalUser
+            ? h('button', { style: { ...button, marginTop: 0 }, disabled: authBusy, onClick: handleLogout }, authBusy ? '退出中…' : '退出不加班账号')
+            : h('button', {
+              style: { ...button, marginTop: 0 },
+              disabled: authBusy,
+              onClick: () => {
+                const next = !authOpen;
+                setAuthOpen(next);
+                if (next && !captcha) void fetchCaptcha();
+              },
+            }, authOpen ? '收起登录' : '登录不加班账号'),
+        ),
+        !isFormalUser && authOpen ? h('div', { style: { marginTop: 8 } },
+          h('input', {
+            style: input, type: 'text', value: authAccount, placeholder: '邮箱或手机号',
+            onChange: event => setAuthAccount(event.target.value),
+          }),
+          h('input', {
+            style: input, type: 'password', value: authPassword, placeholder: '密码（至少 6 位）',
+            onChange: event => setAuthPassword(event.target.value),
+          }),
+          h('div', { style: row },
+            h('button', {
+              style: { ...button, marginTop: 0 },
+              disabled: authBusy || !authAccount.trim() || authPassword.length < 6,
+              onClick: () => void fetchCaptcha(),
+            }, captcha ? '刷新人机验证' : '获取人机验证'),
+            captcha?.id ? h('span', { style: dim }, `${captchaHint(captcha.prompt, captcha.icon_target)}${clicks.length ? `（已点 ${clicks.length}）` : ''}`) : null,
+          ),
+          captcha?.svg ? h('div', {
+            style: {
+              marginTop: 8, border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 8,
+              overflow: 'hidden', cursor: 'pointer', maxWidth: 360, background: 'var(--dsw-alias-bg-base)',
+            },
+            onClick: handleCaptchaClick,
+            dangerouslySetInnerHTML: { __html: captcha.svg },
+          }) : null,
+          authMsg ? h('p', { style: { ...dim, marginTop: 6 } }, authMsg) : null,
+        ) : null,
+      ) : null,
       preset ? h('div', null,
         h('p', { style: sub }, '预设 Preset'),
         h('p', { style: dim }, h('span', { style: code }, preset.id), ` — ${preset.ok ? '已加载 loaded' : `未加载 not loaded（${preset.detail}）`}`),

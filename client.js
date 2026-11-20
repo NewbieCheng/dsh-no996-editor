@@ -643,12 +643,59 @@
         return "";
       }
     };
+    const ICON_LABEL = {
+      fish: "\u9C7C",
+      cake: "\u86CB\u7CD5",
+      egg: "\u86CB",
+      milk: "\u725B\u5976",
+      chili: "\u8FA3\u6912",
+      potato: "\u571F\u8C46",
+      chocolate: "\u5DE7\u514B\u529B",
+      garlic: "\u849C",
+      scallion: "\u8471",
+      mint: "\u8584\u8377",
+      snow_lotus: "\u96EA\u83B2",
+      sweet_potato: "\u7EA2\u85AF",
+      bean: "\u8C46\u5B50"
+    };
+    function captchaHint(prompt, iconTarget) {
+      const icon = ICON_LABEL[iconTarget] || "\u56FE\u6807";
+      if (prompt === "click_largest") return `\u8BF7\u70B9\u51FB\u6700\u5927\u7684${icon}`;
+      if (prompt === "click_smallest") return `\u8BF7\u70B9\u51FB\u6700\u5C0F\u7684${icon}`;
+      if (prompt === "click_second_smallest") return `\u8BF7\u70B9\u51FB\u7B2C\u4E8C\u5C0F\u7684${icon}`;
+      if (prompt === "click_icon") return `\u8BF7\u70B9\u51FB\u56FE\u4E2D\u7684${icon}`;
+      if (prompt === "click_sequence") return "\u8BF7\u6309\u63D0\u793A\u987A\u5E8F\u70B9\u51FB";
+      if (prompt === "click_size_asc") return `\u8BF7\u6309\u4ECE\u5C0F\u5230\u5927\u70B9\u51FB${icon}`;
+      if (prompt === "click_size_desc") return `\u8BF7\u6309\u4ECE\u5927\u5230\u5C0F\u70B9\u51FB${icon}`;
+      return "\u8BF7\u5B8C\u6210\u4EBA\u673A\u9A8C\u8BC1";
+    }
+    async function postAuth(payload) {
+      const surface = `${window.location.protocol}//${window.location.host}`;
+      const response = await fetch("/api/no996-openfilm/auth", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", "x-no996-surface": surface },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false) {
+        throw new Error(data?.message || data?.error || `HTTP ${response.status}`);
+      }
+      return data;
+    }
     return function EnvSection() {
       const [data, setData] = React.useState(null);
       const [error, setError] = React.useState("");
       const [projectId, setProjectId] = React.useState("");
       const [savedId, setSavedId] = React.useState("");
       const [loading, setLoading] = React.useState(true);
+      const [authOpen, setAuthOpen] = React.useState(false);
+      const [authAccount, setAuthAccount] = React.useState("");
+      const [authPassword, setAuthPassword] = React.useState("");
+      const [authBusy, setAuthBusy] = React.useState(false);
+      const [authMsg, setAuthMsg] = React.useState("");
+      const [captcha, setCaptcha] = React.useState(null);
+      const [clicks, setClicks] = React.useState([]);
       const load = React.useCallback(async (project) => {
         setLoading(true);
         setError("");
@@ -664,6 +711,72 @@
           setLoading(false);
         }
       }, []);
+      const fetchCaptcha = React.useCallback(async () => {
+        setAuthMsg("");
+        setClicks([]);
+        try {
+          const cap = await postAuth({ action: "captcha", type: "click" });
+          setCaptcha(cap);
+        } catch (fail) {
+          setCaptcha(null);
+          setAuthMsg(String(fail?.message ?? fail));
+        }
+      }, []);
+      const submitLogin = React.useCallback(async (captchaId, captchaCode) => {
+        setAuthBusy(true);
+        setAuthMsg("");
+        try {
+          await postAuth({
+            action: "login",
+            account: authAccount.trim(),
+            password: authPassword,
+            captchaId,
+            captchaCode
+          });
+          setAuthOpen(false);
+          setAuthPassword("");
+          setCaptcha(null);
+          setClicks([]);
+          await load(savedId || projectId.trim());
+        } catch (fail) {
+          setAuthMsg(String(fail?.message ?? fail));
+          setClicks([]);
+          if (captchaId) void fetchCaptcha();
+        } finally {
+          setAuthBusy(false);
+        }
+      }, [authAccount, authPassword, fetchCaptcha, load, projectId, savedId]);
+      const handleLogout = React.useCallback(async () => {
+        setAuthBusy(true);
+        setAuthMsg("");
+        try {
+          await postAuth({ action: "logout" });
+          await load(savedId || projectId.trim());
+        } catch (fail) {
+          setAuthMsg(String(fail?.message ?? fail));
+        } finally {
+          setAuthBusy(false);
+        }
+      }, [load, projectId, savedId]);
+      const handleCaptchaClick = React.useCallback((event) => {
+        if (!captcha?.id || authBusy) return;
+        const target = event.target?.closest?.("[data-captcha-id]");
+        const id = target?.getAttribute?.("data-captcha-id");
+        if (!id) return;
+        const prompt = captcha.prompt || "";
+        const isSeq = prompt === "click_sequence" || prompt === "click_size_asc" || prompt === "click_size_desc";
+        if (!isSeq) {
+          void submitLogin(captcha.id, id);
+          return;
+        }
+        if (clicks.includes(id)) return;
+        const needed = prompt === "click_sequence" ? captcha.sequence?.length || 1 : 4;
+        const next = [...clicks, id];
+        setClicks(next);
+        if (next.length >= needed) {
+          void submitLogin(captcha.id, next.join(","));
+        }
+      }, [authBusy, captcha, clicks, submitLogin]);
       React.useEffect(() => {
         const saved = readSaved();
         if (saved) {
@@ -692,6 +805,8 @@
         setSavedId("");
       }, []);
       const preset = data?.preset;
+      const wbAuth = data?.workbenchAuth;
+      const isFormalUser = Boolean(wbAuth?.loggedIn && !wbAuth?.guest && !wbAuth?.dev);
       const skills = Array.isArray(data?.skills?.isolated) ? data.skills.isolated : [];
       const tools = Array.isArray(data?.tools) ? data.tools : [];
       const chain = data?.project && !data.project.error ? data.project : null;
@@ -703,6 +818,67 @@
         h("p", { style: dim }, "\u5F71\u7247\u5B50\u8FDB\u7A0B\u5B9E\u9645\u80FD\u52A0\u8F7D\u7684\u4E1C\u897F\uFF08\u53EA\u8BFB\uFF09\u3002\u5168\u5C40 skill \u76EE\u5F55\u4E0D\u8FDB\u5F71\u7247\u5BF9\u8BDD\uFF0C\u8BFB\u6587\u4EF6/\u8BFB\u56FE/\u4E22 PDF \u8D70\u4E0B\u9762\u7684\u5F71\u7247\u5DE5\u5177\uFF0C\u4E0D\u53D7\u5F71\u54CD\u3002"),
         loading ? h("p", { style: dim }, "\u6B63\u5728\u8BFB\u53D6\u2026 Loading\u2026") : null,
         error ? h("p", { style: dim }, `\u8BFB\u53D6\u5931\u8D25 Load failed\uFF1A${error}`) : null,
+        wbAuth ? h(
+          "div",
+          null,
+          h("p", { style: sub }, "\u4E0D\u52A0\u73ED\u8D26\u53F7\u4E0E\u6A21\u578B \xB7 no996/auto"),
+          h("p", { style: dim }, isFormalUser ? `\u5DF2\u767B\u5F55\uFF1A${wbAuth.displayName || wbAuth.account || "\u6B63\u5F0F\u8D26\u53F7"}\uFF08\u4E0D\u52A0\u73ED Auto \u4E0E\u751F\u56FE/\u914D\u97F3/\u8054\u7F51\u5DF2\u5C31\u7EEA\uFF09` : wbAuth.guest ? "\u5F53\u524D\u4E3A\u6E38\u5BA2\u6A21\u5F0F\uFF08\u6A21\u578B\u5217\u8868\u663E\u793A\u300C\u4E0D\u52A0\u73ED Auto (\u9700\u5148\u767B\u5F55)\u300D\uFF0C\u4EC5\u767B\u5F55\u6B63\u5F0F\u8D26\u53F7\u540E\u53EF\u8C03\u7528\uFF09" : "\u672A\u767B\u5F55\uFF08\u6A21\u578B\u5217\u8868\u663E\u793A\u300C\u4E0D\u52A0\u73ED Auto (\u9700\u5148\u767B\u5F55)\u300D\uFF0C\u767B\u5F55\u540E\u81EA\u52A8\u542F\u7528\u5E76\u5237\u65B0\uFF09"),
+          h(
+            "div",
+            { style: row },
+            isFormalUser ? h("button", { style: { ...button, marginTop: 0 }, disabled: authBusy, onClick: handleLogout }, authBusy ? "\u9000\u51FA\u4E2D\u2026" : "\u9000\u51FA\u4E0D\u52A0\u73ED\u8D26\u53F7") : h("button", {
+              style: { ...button, marginTop: 0 },
+              disabled: authBusy,
+              onClick: () => {
+                const next = !authOpen;
+                setAuthOpen(next);
+                if (next && !captcha) void fetchCaptcha();
+              }
+            }, authOpen ? "\u6536\u8D77\u767B\u5F55" : "\u767B\u5F55\u4E0D\u52A0\u73ED\u8D26\u53F7")
+          ),
+          !isFormalUser && authOpen ? h(
+            "div",
+            { style: { marginTop: 8 } },
+            h("input", {
+              style: input,
+              type: "text",
+              value: authAccount,
+              placeholder: "\u90AE\u7BB1\u6216\u624B\u673A\u53F7",
+              onChange: (event) => setAuthAccount(event.target.value)
+            }),
+            h("input", {
+              style: input,
+              type: "password",
+              value: authPassword,
+              placeholder: "\u5BC6\u7801\uFF08\u81F3\u5C11 6 \u4F4D\uFF09",
+              onChange: (event) => setAuthPassword(event.target.value)
+            }),
+            h(
+              "div",
+              { style: row },
+              h("button", {
+                style: { ...button, marginTop: 0 },
+                disabled: authBusy || !authAccount.trim() || authPassword.length < 6,
+                onClick: () => void fetchCaptcha()
+              }, captcha ? "\u5237\u65B0\u4EBA\u673A\u9A8C\u8BC1" : "\u83B7\u53D6\u4EBA\u673A\u9A8C\u8BC1"),
+              captcha?.id ? h("span", { style: dim }, `${captchaHint(captcha.prompt, captcha.icon_target)}${clicks.length ? `\uFF08\u5DF2\u70B9 ${clicks.length}\uFF09` : ""}`) : null
+            ),
+            captcha?.svg ? h("div", {
+              style: {
+                marginTop: 8,
+                border: "1px solid var(--dsw-alias-border-l1)",
+                borderRadius: 8,
+                overflow: "hidden",
+                cursor: "pointer",
+                maxWidth: 360,
+                background: "var(--dsw-alias-bg-base)"
+              },
+              onClick: handleCaptchaClick,
+              dangerouslySetInnerHTML: { __html: captcha.svg }
+            }) : null,
+            authMsg ? h("p", { style: { ...dim, marginTop: 6 } }, authMsg) : null
+          ) : null
+        ) : null,
         preset ? h(
           "div",
           null,

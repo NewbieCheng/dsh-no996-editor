@@ -8,30 +8,31 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。148 个模块、26056 行。
-> 没有测试直接 import 的模块：18 个（待补清单，不是失败项）；另有 1 个已登记排除。
+> 生成命令：`npm run docs:gen`。148 个模块、26375 行。
+> 没有测试直接 import 的模块：17 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
-| `src/native/dsh-native-agent-service.mjs` | 1456 | createDshNativeAgentService | `diag-logs-route.test.mjs`、`dsh-native-agent-service.test.mjs`、`work-mode.test.mjs` |
-| `src/studio/studio-controller.mjs` | 1419 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/native/dsh-native-agent-service.mjs` | 1476 | createDshNativeAgentService | `diag-logs-route.test.mjs`、`dsh-native-agent-service.test.mjs`、`work-mode.test.mjs` |
+| `src/studio/studio-controller.mjs` | 1431 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
 | `src/studio/studio-proxy.mjs` | 1159 | startStudioProxy | `dev-hmr-proxy.test.mjs`、`diag-logs-route.test.mjs`、`editor-fullscreen.test.mjs`、`proxy-error-sanitize.test.mjs`、`session-renewal.test.mjs`、`studio-proxy-files.test.mjs`、`theme-injection.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1132 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
-| `src/official/official-facade.mjs` | 709 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
+| `src/official/official-facade.mjs` | 715 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
+| `src/native/no996-llm-provider.mjs` | 579 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
 | `src/audio/rhythm-analyzer.mjs` | 576 | DEFAULT_SAMPLE_RATE, MAX_ANALYSIS_SECONDS, analyzeAudioSamples, extractMonoFloat32, fftRadix2, hashFileSha256… | `rhythm-analyzer.test.mjs` |
-| `src/native/no996-llm-provider.mjs` | 543 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
 | `src/studio/studio-panel.mjs` | 497 | createStudioPanel, templateProjectUrl | `panel-session-renewal.test.mjs`、`template-bridge.test.mjs`、`template-panel.test.mjs` |
 | `src/auth/workbench-auth.mjs` | 461 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth-jwt-session.test.mjs`、`workbench-auth.test.mjs` |
 | `src/tools/clip-tool.mjs` | 459 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/audio/sfx-synth.mjs` | 385 | SFX_CATALOG, SFX_KINDS, SFX_SAMPLE_RATE, encodeWav16Stereo, packCuesToLanes, renderSfxStem… | `sfx-synth.test.mjs` |
+| `src/media/no996-studio-bridge.mjs` | 378 | VOICE_BRIDGE, createNo996StudioBridge | `no996-studio-bridge.test.mjs` |
 | `src/dev/dev-browser-portal.mjs` | 353 | startDevBrowserPortal | `dev-browser-portal.test.mjs` |
 | `src/voice/voice-bridge.mjs` | 351 | VOICE_BRIDGE, createVoiceBridge, installVoiceBridgeGlobal | `voice-bridge.test.mjs` |
 | `src/host/diagnostic-log.mjs` | 350 | DEFAULT_MAX_DAY_BYTES, DEFAULT_MAX_TOTAL_BYTES, DEFAULT_RETENTION_DAYS, MAX_RETENTION_DAYS, MIN_RETENTION_DAYS, clampRetentionDays… | `diag-logs-route.test.mjs`、`diagnostic-log.test.mjs` |
 | `src/studio/studio-controller/routes/editing.mjs` | 322 | createEditingRoutes | `editing-routes.test.mjs` |
+| `src/ui/env-section.mjs` | 306 | createEnvSection | **无** |
 | `src/tools/tool-installer.mjs` | 296 | TOOL_SOURCES, createToolInstaller, readTarMember | `tool-installer.test.mjs` |
-| `src/media/no996-studio-bridge.mjs` | 293 | VOICE_BRIDGE, createNo996StudioBridge | `no996-studio-bridge.test.mjs` |
 | `src/host/preferences.mjs` | 279 | balanceCachePatch, balanceFromPrefs, clearBalanceCachePatch, createPreferencesStore, onboardingCopy, productMeta | `preferences-custom.test.mjs`、`preferences.test.mjs` |
 | `src/host/url-assets.mjs` | 273 | assertSafePublicUrl, fetchWebImageBytes, inspectWebImages, isBlockedIp | `assets-url.test.mjs` |
 | `src/tools/library-tool.mjs` | 260 | LIBRARY_KINDS, createLibraryTool | `library-inspect.test.mjs`、`library-transition.test.mjs`、`studio-tools.test.mjs`、`template-prompts.test.mjs`、`tool-schema.test.mjs` |
@@ -69,17 +70,16 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/asr/asr-pipeline.mjs` | 156 | TRANSCRIBE_LIMITS, assembleTranscript, createTranscribePipeline | `asr-pipeline.test.mjs` |
 | `src/voice/no996-voice-settings.mjs` | 155 | __testing, createNo996VoiceSettings | `no996-voice-settings.test.mjs` |
 | `src/tools/storyboard-tool.mjs` | 153 | createStoryboardTool | `storyboard.test.mjs` |
-| `src/ui/env-section.mjs` | 153 | createEnvSection | **无** |
 | `src/tools/assets-tool.mjs` | 150 | createAssetsTool, flattenFiles | `assets-tool.test.mjs`、`assets-url.test.mjs`、`tool-schema.test.mjs` |
+| `src/studio/studio-controller/routes/environment.mjs` | 148 | createEnvironmentRoute | `environment-route.test.mjs` |
 | `src/film/template-prompts.mjs` | 145 | BLOCK_BEGIN, BLOCK_END, BLOCK_MAX, PROMPT_MAX, TEMPLATES_FILE, readActiveTemplates… | `template-prompts.test.mjs` |
+| `src/auth/auth-bridge.mjs` | 144 | dispatchAuthAction, registerAuthBridge | `workbench-auth.test.mjs` |
 | `src/film/timeline-operations.mjs` | 142 | TimelineEditError, applyTimelineOperations | `timeline-operations.test.mjs` |
-| `src/auth/auth-bridge.mjs` | 141 | dispatchAuthAction, registerAuthBridge | `workbench-auth.test.mjs` |
 | `src/asr/asr-audio.mjs` | 140 | TARGET, extractPcm, parseProbeOutput, probeMedia, resolveFfmpeg, runFfmpeg | `asr-audio.test.mjs`、`asr-media.test.mjs` |
 | `src/tools/rhythm-tool.mjs` | 140 | createRhythmTool, formatRhythmSummary | `rhythm-analyzer.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/vision-browser.mjs` | 139 | withVisionBrowser | **无** |
 | `src/dev/index.mjs` | 137 | createDevExtensions, devFlags | `dev-browser-portal.test.mjs` |
 | `src/project/workspace-archive.mjs` | 131 | createArchiveWatcher | `workspace-archive.test.mjs` |
-| `src/studio/studio-controller/routes/environment.mjs` | 130 | createEnvironmentRoute | `environment-route.test.mjs` |
 | `src/tools/export-tool.mjs` | 128 | blockedBy, createExportTool, exportAsk | `export-cli-tool.test.mjs`、`export-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/fonts-tool.mjs` | 127 | buildFontStack, createFontsTool | `fonts-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/auth/login-remember.mjs` | 124 | createLoginRememberStore | `login-remember.test.mjs` |
@@ -91,6 +91,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/film/film-draft.mjs` | 116 | draftFilm | `draft-session.test.mjs`、`film-draft.test.mjs` |
 | `src/host/download-sources.mjs` | 116 | BGM_SOURCES, MODEL_BASES, MODEL_REPO, TOOL_SOURCES, augmentPath, bgmSourceUrls… | `audio-tool.test.mjs`、`download-sources.test.mjs` |
 | `src/host/plugin-log.mjs` | 116 | createPluginLog, redact | `plugin-log.test.mjs` |
+| `src/tools/get-tool.mjs` | 115 | createGetTool | `get-tool.test.mjs`、`studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/dev/dev-live-sse.mjs` | 114 | createDevLiveSse | `dev-browser-portal.test.mjs` |
 | `src/official/official-event-stream.mjs` | 113 | attachOfficialEventStream | `official-event-stream.test.mjs` |
 | `src/studio/studio-controller/routes/bootstrap.mjs` | 113 | createBootstrapRoute | `bootstrap-route.test.mjs` |
@@ -112,12 +113,10 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/ui/brand.mjs` | 96 | brandCssVars, brandVersion, getBrand, replaceTitle, validateBrand | `brand.test.mjs` |
 | `src/asr/asr-segments.mjs` | 95 | SEGMENT_LIMITS, normalizeSegments, planSegments | `asr-segments.test.mjs` |
 | `src/dev/dev-routes.mjs` | 91 | registerDevRoutes | **无** |
-| `src/native/dsh-event-map.mjs` | 90 | convertToolContent, mapToolCallForUi, parseToolArgs | **无** |
+| `src/native/dsh-event-map.mjs` | 91 | convertToolContent, mapToolCallForUi, parseToolArgs | **无** |
 | `src/asr/asr-sensevoice.mjs` | 89 | createSenseVoiceRecognizer, loadSherpa | **无** |
-| `src/tools/get-tool.mjs` | 89 | createGetTool | `studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/studio/studio-controller/turns.mjs` | 84 | createTurnLog | `turn-log.test.mjs` |
 | `src/film/template-catalog.mjs` | 82 | catalogText, scoreTemplate, searchTemplates, templateCatalog | `storyboard.test.mjs` |
-| `src/tools/image-gen-tool.mjs` | 82 | createImageGenTool | **无** |
 | `src/ui/theme.mjs` | 82 | THEME_SURFACES, createTheme, theme, themeSurfaceFor | `theme.test.mjs` |
 | `src/host/preset-report.mjs` | 80 | reportPresetStatus | `preset-report.test.mjs` |
 | `src/official/official-event-hub.mjs` | 79 | createOfficialEventHub | `official-event-stream.test.mjs` |
@@ -125,7 +124,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-controller/routes/diagnostics.mjs` | 79 | createDiagnosticsRoutes | `client-log-route.test.mjs`、`drag-probe-route.test.mjs` |
 | `src/host/area-bus.mjs` | 74 | areaBus, createAreaBus | **无** |
 | `src/film/timeline-layout.mjs` | 71 | layoutTimeline | `timeline-layout.test.mjs` |
-| `src/native/work-mode.mjs` | 69 | EFFECTIVE_PHASES, WORK_MODES, WORK_MODE_META, normalizeWorkModeState, promptPrefixForWorkMode | `work-mode.test.mjs` |
+| `src/native/work-mode.mjs` | 68 | EFFECTIVE_PHASES, WORK_MODES, WORK_MODE_META, normalizeWorkModeState, promptPrefixForWorkMode | `work-mode.test.mjs` |
 | `src/tools/mode-tool.mjs` | 66 | createModeTool | `tool-schema.test.mjs`、`work-mode.test.mjs` |
 | `src/asr/asr-refine.mjs` | 65 | REFINE_REASONS, buildRefinePrompt, parseRefineReply, refineTranscript | `asr-refine.test.mjs` |
 | `src/film/film-summary.mjs` | 65 | summarizeFilm | `film-summary.test.mjs`、`timeline-layout.test.mjs` |
@@ -137,13 +136,14 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/project/archive-bridge.mjs` | 59 | registerArchiveBridge | **无** |
 | `src/studio/studio-proxy/plugin-surface.mjs` | 58 | createPluginSurfaceProxy | `plugin-surface.test.mjs` |
 | `src/studio/studio-proxy/websocket.mjs` | 58 | MAX_FRAME, WS_GUID, frames, wsFrame | **无** |
-| `src/native/openfilm-skills.mjs` | 55 | apply, inject | `openfilm-skills-plugin.test.mjs` |
+| `src/native/openfilm-skills.mjs` | 54 | apply, bundledFilmSkills, inject | `openfilm-skills-plugin.test.mjs` |
 | `src/studio/drag-probe.mjs` | 54 | installDragProbe | `drag-probe.test.mjs` |
 | `index.js` | 53 | apply, inject | 读源码：`lint.test.mjs`、`release-check.test.mjs` |
 | `src/ui/shell-extras.mjs` | 52 | shellUiInjection, shellUiVersion | `shell-extras.test.mjs`、`shell-ui-asi.test.mjs` |
 | `src/film/template-bridge.mjs` | 50 | registerTemplateBridge | `template-bridge.test.mjs` |
 | `src/studio/studio-controller/router.mjs` | 47 | createRouter | `route-registration-order.test.mjs` |
 | `src/project/editing-project-delete.mjs` | 44 | createEditingProjectDelete | `editing-project-delete.test.mjs` |
+| `src/native/film-skill-selection.mjs` | 43 | filmSkillCatalog, selectedSkillContext, skillListing | `film-skill-selection.test.mjs` |
 | `src/official/official-shell.mjs` | 40 | resolveOfficialShell | **无** |
 | `src/tools/draft-tool.mjs` | 38 | createDraftTool | `draft-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/studio/studio-controller/routes/assets.mjs` | 37 | createAssetRoutes | **无** |
@@ -166,16 +166,15 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 ## 没有测试直接 import 的模块
 
+- `src/ui/env-section.mjs`（306 行）
 - `src/asr/transcribe-service.mjs`（255 行）
-- `src/ui/env-section.mjs`（153 行）
 - `src/tools/vision-browser.mjs`（139 行）
 - `src/official/official-approvals.mjs`（118 行）
 - `src/studio/desktop-loopback.mjs`（102 行）
 - `src/dev/dev-badge-client.js`（98 行）
 - `src/dev/dev-routes.mjs`（91 行）
-- `src/native/dsh-event-map.mjs`（90 行）
+- `src/native/dsh-event-map.mjs`（91 行）
 - `src/asr/asr-sensevoice.mjs`（89 行）
-- `src/tools/image-gen-tool.mjs`（82 行）
 - `src/host/area-bus.mjs`（74 行）
 - `src/project/archive-bridge.mjs`（59 行）
 - `src/studio/studio-proxy/websocket.mjs`（58 行）

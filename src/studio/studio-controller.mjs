@@ -1,3 +1,4 @@
+import { filmSkillCatalog, skillListing } from '../native/film-skill-selection.mjs';
 import { createElevationProbe } from '../host/elevation.mjs';
 import { createStudioRuntime } from './studio-runtime.mjs';
 import { createHostComponentDetector } from '../host/host-components.mjs';
@@ -48,7 +49,7 @@ import { createFontsTool } from '../tools/fonts-tool.mjs';
 import { createLibraryTool } from '../tools/library-tool.mjs';
 import { createVisionTools } from '../tools/vision-tool.mjs';
 import { createGetTool } from '../tools/get-tool.mjs';
-import { createImageGenTool } from '../tools/image-gen-tool.mjs';
+
 import { createClipTool } from '../tools/clip-tool.mjs';
 import { createAssetsTool } from '../tools/assets-tool.mjs';
 import { createAudioTool } from '../tools/audio-tool.mjs';
@@ -357,13 +358,18 @@ export function createStudioController(ctx, createProxy, {
   const safeDetail = error => String(error?.message ?? '').replace(/[A-Za-z]:[\\/][^\s"']*/g, '[path]').slice(0, 160);
   const officialRpc = async (channel, payload) => {
     if (disposed) throw new Error('Studio disposed');
+    if (channel === 'skills:list') {
+      if (!agentService) throw new Error('Agent bridge unavailable');
+      const project = await verifyOfficialProject(payload?.projectId);
+      return skillListing(await filmSkillCatalog(project.path));
+    }
     if (channel === 'agent:prompt') {
       if (!agentService) throw new Error('Agent bridge unavailable');
       // The conversation is what the page's chat is: without it the Host would send
       // every project's turns into one DSH Session (the "new chat continues the old
       // one" bug). '' is the project's default conversation.
       const conversation = typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '';
-      return agentService.send(payload?.projectId, { conversation, key: payload?.key, turnId: payload?.turnId, text: payload?.text, images: payload?.images });
+      return agentService.send(payload?.projectId, { conversation, key: payload?.key, turnId: payload?.turnId, text: payload?.text, images: payload?.images, skillIds: payload?.skillIds });
     }
     if (channel === 'agent:session') {
       // Read-only: never opens a Session just to answer a question about one.
@@ -1000,7 +1006,7 @@ export function createStudioController(ctx, createProxy, {
     // "from-script" turns a transcript into shots on sentence boundaries.
     createStoryboardTool({ isProjectAgent, projectOf: projectOfAgent }),
     createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, prepareVoice: voiceSettings.prepare }),
-    createImageGenTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, studioBridge: voiceBridge }),
+
     createClipTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createAssetsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createExportTool({
@@ -1146,6 +1152,11 @@ export function createStudioController(ctx, createProxy, {
     webOrigin,
     auth: workbenchAuth,
     isDisposed: () => disposed,
+    onAuthChanged: () => {
+      void refreshVoiceChoice();
+      onAuthChanged?.();
+      void nativeAgentService?.refreshDefaultModels?.().catch(() => {});
+    },
   }));
   unregisterArchiveBridge = trackRoute(registerArchiveBridge(ctx, {
     webOrigin,
@@ -1226,6 +1237,7 @@ export function createStudioController(ctx, createProxy, {
     instructions: describeInstructions,
     projectPathOf,
     activeTemplatesOf: async path => readActiveTemplates(path),
+    authStatus: () => workbenchAuth.status(),
   });
   const [unregisterEnvironment] = environment.disposers;
 

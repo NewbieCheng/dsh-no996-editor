@@ -14,7 +14,18 @@ function bridge() {
   return instance;
 }
 
-export default {
+const DEFAULT_IMAGE_MODELS = [{
+  id: 'auto',
+  name: '不加班默认生图 (Auto)',
+  spec: {
+    ratios: ['16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '1:1', '21:9'],
+    sizes: ['1k', '2k'],
+    qualities: ['low', 'medium', 'high', 'xhigh', 'max'],
+    refs: 3,
+  },
+}];
+
+const provider = {
   id: 'no996',
   name: '不加班',
   env: 'NO996_WORKBENCH',
@@ -23,14 +34,7 @@ export default {
   verbs: ['voice', 'tts', 'image', 'web-search', 'video'],
   models: {
     tts: [{ id: 'workbench-tts', name: '不加班配音' }],
-    image: [{
-      id: 'auto',
-      name: '不加班默认生图 (Auto)',
-      spec: {
-        ratios: ['16:9', '9:16', '3:2', '2:3', '4:3', '3:4', '1:1', '21:9'],
-        sizes: ['1k', '2k'],
-      },
-    }],
+    image: [...DEFAULT_IMAGE_MODELS],
     'web-search': [{ id: 'auto', name: '不加班联网搜索' }],
     video: [{
       id: 'auto',
@@ -45,7 +49,21 @@ export default {
       return false;
     }
   },
+  async refresh() {
+    try {
+      const fn = globalThis[BRIDGE]?.listImageModels;
+      if (typeof fn !== 'function') return;
+      const list = await fn();
+      if (Array.isArray(list) && list.length > 0) {
+        provider.models.image = list;
+      }
+    } catch {
+      // Keep default auto entry on offline or signed-out states.
+    }
+  },
   async run(verb, args, ctx) {
     return bridge().run(verb, args, ctx);
   },
 };
+
+export default provider;

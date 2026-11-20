@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.18.0
+checked: 0.19.0
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.18.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.19.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -25,6 +25,10 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 ## 待真机验（源码完成 ≠ 可以用）
 
+- **2026-11-20 剪辑聊天（0.19.0，已发布源码与包，真机验收仍待做）。** 已核对本机 desktop profile 指向本工作区 `link:`，固定版 OpenFilm 壳已重建，补丁重放和测试通过。此证据不等于正在运行的桌面已加载新 Host，也不等于真实模型、搜索或安装技能已验收。
+- **源码变更**：模式/当前模型独立于用户正文；支持手动切换、切回 Auto 归初始阶段和模型动态更新实际阶段。活动行收口，窄栏容纳失败状态及可展开的网页/命令详情；推理切换使用实际档位并保留默认。`/` 与「＋ → 技能」共用选择入口，分剪辑预设与 OpenFilm 已安装两组。实现与限制见[架构](ARCHITECTURE.md#23-聊天桥实时模式和显式技能)，原始排障见[聊天修复记录](topics/chat-work-mode-search-and-model-fix-plan.md)与[技能方案](topics/chat-slash-skills-plan.md)。
+- **验收**：在 DSH `0.2.2-rc.5` 完整重启后用临时项目：① 窄栏触发搜索失败并展开原因、结束后重开历史，确认无覆盖/残留思考；② 切换不同档位的模型、手动→Auto→阶段变化，确认模式与模型不进入用户气泡；③ 验证两组同名技能互不覆盖、OpenFilm 停用后不可选/不可发、未引入全局 DSH 技能。
+
 - 已发布的 0.16.1 在项目页会调用嵌入桥未实现的 `takeLink()`，导致编辑器白屏；本工作区已补齐 0.4.0 的桌面深链兼容接口（嵌入模式不接收 OS 深链），并补回「从示例开始」的翻译。修复纳入 0.16.2；隔离浏览器已验证编辑器渲染与示例引用，DSH 桌面待验。
 
 | 项 | 怎么算验过 |
@@ -37,8 +41,8 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 | 免费转场整链 | 在一个真实临时项目里：搜「渐变/故障」→ 取用 → 放到相邻切点 → 抽帧看到覆盖 → 导出 MP4；锁轨/版本冲突应被拒绝并说明 |
 | 表面收敛与更新提示 | 设置→服务商只留 OpenFilm/No996/本地；语音抽屉默认精选；顶栏无社区入口；升级后不自动弹更新说明，About 仍可查 |
 | 拖放附件可发送 | 从资源管理器拖一段 mp4 进对话：附件 pill 为 ready（无 `describePaths` 失败）、可发送；松手后「松手即可附上」遮罩消失 |
-| 技能隔离（preset 直引） | 同项目新开对话问“你有哪些 skill”：只见到 `openfilm-director/editing/motion` 3 个，无 Office/imagegen 等全局 skill；`/diagnose` 应显示影片预设的技能根及注入情况 |
-| 环境查看页 | 打开插件详情页：看到「剪辑环境」区（预设状态、3 个隔离技能、11 个影片工具）；填项目 ID 能查到该片的指令链与预算 |
+| 技能隔离 | 剪辑预设组与包内注册目录一致，不列 Office/imagegen 等全局技能；另行显示启用的 OpenFilm 技能。`/diagnose` 显示预设技能根与注入情况。 |
+| 环境查看页 | 打开插件详情页「剪辑环境」，核对预设、技能和影片工具；填写项目 ID 能查询指令链与预算，不以历史固定数量验收。 |
 
 ## 下一步
 

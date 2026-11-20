@@ -29,24 +29,23 @@ function parseSkillMarkdown(raw, fallbackName) {
  * @param {object} ctx - Preset-scoped Cordis context with `ctx.skills`
  * @param {{ skillsDir?: string }} [config]
  */
-export function apply(ctx, config = {}) {
-  const dir = typeof config?.skillsDir === 'string' && config.skillsDir ? config.skillsDir : defaultSkillsDir();
-  if (!existsSync(dir)) return;
+export function bundledFilmSkills(dir = defaultSkillsDir()) {
+  if (!existsSync(dir)) return [];
   const entries = readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
-  const disposers = [];
+  const skills = [];
   for (const entry of entries) {
     const skillDir = join(dir, entry.name);
     const file = join(skillDir, 'SKILL.md');
     if (!existsSync(file)) continue;
     const raw = readFileSync(file, 'utf8');
     const parsed = parseSkillMarkdown(raw, entry.name);
-    disposers.push(ctx.skills.register({
-      ...parsed,
-      path: file,
-      source: 'bundled',
-      resourceBase: { kind: 'directory', path: skillDir },
-    }));
+    skills.push({ ...parsed, path: file, source: 'bundled', resourceBase: { kind: 'directory', path: skillDir } });
   }
+  return skills;
+}
+
+export function apply(ctx, config = {}) {
+  const disposers = bundledFilmSkills(config.skillsDir || undefined).map(skill => ctx.skills.register(skill));
   return () => {
     for (const dispose of disposers) {
       try { dispose?.(); } catch { /* already disposed */ }

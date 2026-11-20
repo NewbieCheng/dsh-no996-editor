@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/components/ModelPopover.tsx b/apps/desktop/chat/src/components/ModelPopover.tsx
-index a72d3ce..504dfe6 100644
+index a72d3ce..a746972 100644
 --- a/apps/desktop/chat/src/components/ModelPopover.tsx
 +++ b/apps/desktop/chat/src/components/ModelPopover.tsx
 @@ -4,16 +4,11 @@
@@ -77,9 +77,23 @@ index a72d3ce..504dfe6 100644
  /** Why the agent could not be started for its settings, as it said, on a few lines; none when it started and offered none. */
  function failureReason(error: { text: string } | undefined): string | null {
    if (!error || error.text === 'no options') return null;
-@@ -94,30 +110,11 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -83,7 +99,7 @@ export function canvasWritingModel() {
+  * The composer's agent menu. In a conversation, `agent` and `prefs` are the ones it goes on with (lib/conversation-agent),
+  * and `onPick` and `onPref` keep a change on it too; without them, the agent and options picked last.
+  */
+-export function ModelPopover({ placement = 'bottom', align = 'start', agent: conversationAgent, prefs: conversationPrefs, onPick, onPref, triggerClassName }: {
++export function ModelPopover({ placement = 'bottom', align = 'start', agent: conversationAgent, prefs: conversationPrefs, onPick, onPref, onSessionOption, triggerClassName }: {
+   placement?: 'top' | 'bottom';
+   align?: 'start' | 'end';
+   triggerClassName?: string;
+@@ -91,33 +107,16 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+   prefs?: Partial<Record<LocalAgentId, Record<string, unknown>>>;
+   onPick?: (agent: LocalAgentId) => void;
+   onPref?: (agent: LocalAgentId, configId: string, value: unknown) => void;
++  onSessionOption?: (agent: LocalAgentId, configId: string, value: unknown) => Promise<boolean>;
  } = {}) {
    const t = useT();
++  const [selectionRejected, setSelectionRejected] = React.useState(false);
    const [open, setOpen] = React.useState(false);
 -  /** the option whose side menu is open */
 +  /** the row whose choices are shown: the menu holds one level at a time */
@@ -110,7 +124,21 @@ index a72d3ce..504dfe6 100644
  
    const la = useLocalAgents();
    const { hydrate, refresh, ensureOptions } = la;
-@@ -147,8 +144,10 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -135,20 +134,22 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+     if (useLocalAgents.getState().roster?.some((a) => a.id === agent && a.shown && a.status === 'ready')) void ensureOptions(agent, { retry: true });
+   }, [open, agent, refresh, ensureOptions]);
+ 
+-  const picked = conversationPrefs ?? la.prefs;
++  const picked = agent === 'deepseek' && onSessionOption ? la.prefs : conversationPrefs ?? la.prefs;
+   const options = agentOptions({ ...la, prefs: picked }, agent);
+   const prefs = effectivePrefs(picked, agent, la.roster, options);
+   const catalog = la.roster?.find((a) => a.id === agent)?.catalog;
+   const selectedModel = options?.find((o) => o.category === 'model')?.currentValue;
+   const unknownParameters = catalog && typeof selectedModel === 'string' && !catalog.byModel[selectedModel];
+   const defaultOption = unknownParameters ? t(catalog.refreshing ? 'composer.optionUpdating' : 'composer.optionUnavailable') : t('composer.optionDefault');
+-  const optionsError: { text: string; code?: string } | undefined = la.optionsError[agent] ?? (catalog?.error ? { text: catalog.error } : undefined);
++  const optionsError: { text: string; code?: string } | undefined = selectionRejected ? { text: t('agent.settingRejected') } : la.optionsError[agent] ?? (catalog?.error ? { text: catalog.error } : undefined);
+   const rows = options?.length ? menuOptions(options, defaultOption).filter((o) => offeredOption(agent, la.roster, o)) : [];
    const summary = agentModelSummary(options, prefs);
    const triggerModel = summary.model;
    const triggerEffort = rows.some((o) => o.category === 'thought_level' && !o.fixed) ? summary.effort : null;
@@ -123,9 +151,24 @@ index a72d3ce..504dfe6 100644
    const rowLabel = (o: Option) => (o.category === 'model' ? t('composer.model') : o.category === 'thought_level' ? t('composer.effort') : isSpeed(o) ? t('composer.speed') : o.name);
    const nameOf = (a: RosterAgent) => (a.id === 'byok' ? t('composer.agentOwnKey') : a.name);
  
-@@ -175,81 +174,28 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -173,83 +174,42 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+   const choosing = side ? rows.find((o) => o.id === side) : undefined;
+   const chosenValue = (o: Option) => (o.fixed ? o.options![0]!.value : optionValue(options, prefs, o.id));
    /* a fixed row's one value is already the one in use */
-   const pickChoice = (o: Option, value: unknown) => { if (!o.fixed) { la.setPref(agent, o.id, value); onPref?.(agent, o.id, value); } };
+-  const pickChoice = (o: Option, value: unknown) => { if (!o.fixed) { la.setPref(agent, o.id, value); onPref?.(agent, o.id, value); } };
++  const selecting = React.useRef(false);
++  const pickChoice = (o: Option, value: unknown) => {
++    if (o.fixed) return;
++    if (agent === 'deepseek' && onSessionOption) {
++      if (selecting.current) return;
++      selecting.current = true;
++      setSelectionRejected(false);
++      void onSessionOption(agent, o.id, value).then(ok => setSelectionRejected(!ok), () => setSelectionRejected(true))
++        .finally(() => { selecting.current = false; });
++      return;
++    }
++    la.setPref(agent, o.id, value); onPref?.(agent, o.id, value);
++  };
  
 -  /* Keep the side menu beside its row and inside the window, including when an agent adds choices while it is open
 -     or the window's height changes. Measure again after width/height constraints change the rendered menu. */
@@ -226,7 +269,7 @@ index a72d3ce..504dfe6 100644
  
    return (
      <>
-@@ -259,7 +205,6 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -259,7 +219,6 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
        placement={placement}
        align={align}
        bare
@@ -234,7 +277,7 @@ index a72d3ce..504dfe6 100644
        trigger={
          <Tooltip label={t('composer.model')}>
            <button type="button" onMouseDown={keepFocus}
-@@ -276,8 +221,64 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -276,8 +235,64 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
          </Tooltip>
        }
      >
@@ -301,7 +344,7 @@ index a72d3ce..504dfe6 100644
            <div className="px-2.5 py-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
              {t('composer.agentNoneShown')}{' '}
              <button type="button" onMouseDown={keepFocus} onClick={openSettings} className="text-[var(--text)] underline underline-offset-2">{t('composer.openSettings')}</button>
-@@ -288,7 +289,7 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -288,7 +303,7 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
              <div className="flex items-center gap-2 pb-0.5 pl-2.5 pr-0.5 pt-0.5">
                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-faint)]">{shown.length > 1 ? t('composer.agentSection') : current ? nameOf(current) : t('composer.agentSection')}</span>
                <Tooltip label={t('composer.openSettings')}>
@@ -310,7 +353,7 @@ index a72d3ce..504dfe6 100644
                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-[var(--text-faint)] outline-none transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)] focus-visible:bg-[var(--bg-hover)]">
                    <Settings size={13} />
                  </button>
-@@ -299,7 +300,7 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -299,7 +314,7 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
                  {shown.map((a) => {
                    const status = statusOf(a);
                    return (
@@ -319,7 +362,7 @@ index a72d3ce..504dfe6 100644
                        <span className={`flex w-4 shrink-0 justify-center ${status ? 'text-[var(--text-faint)]' : 'text-[var(--text)]'}`}><ChatAgentIcon id={a.id} /></span>
                        <span className={`min-w-0 flex-1 truncate ${status ? 'text-[var(--text-muted)]' : 'text-[var(--text)]'}`}>{nameOf(a)}</span>
                        {agent === a.id && !status ? <Check size={13} className="shrink-0 text-[var(--text)]" />
-@@ -331,8 +332,8 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -331,8 +346,8 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
                <React.Fragment key={o.id}>
                  {i > 0 ? <div className="mx-1 my-0.5 h-px bg-[var(--border)]" /> : null}
                  <button type="button" data-agent-option={o.id} ref={(el) => { rowRefs.current[o.id] = el; }} aria-haspopup="menu" aria-expanded={side === o.id}
@@ -330,7 +373,7 @@ index a72d3ce..504dfe6 100644
                    className={`${ROW_BASE} ${side === o.id ? 'bg-[var(--bg-hover)]' : 'hover:bg-[var(--bg-hover)]'}`}>
                    <span className="shrink-0 text-[var(--text)]">{rowLabel(o)}</span>
                    <span className="min-w-0 flex-1 truncate text-right text-[var(--text-muted)]">{valueOf(o)}</span>
-@@ -344,7 +345,6 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
+@@ -344,7 +359,6 @@ export function ModelPopover({ placement = 'bottom', align = 'start', agent: con
          )}
        </div>
      </Popover>

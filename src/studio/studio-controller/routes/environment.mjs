@@ -46,6 +46,7 @@ export function createEnvironmentRoute({
   instructions = null,
   projectPathOf = null,
   activeTemplatesOf = null,
+  authStatus = null,
 }) {
   const unregister = track(register({
     kind: 'exact', path: '/api/no996-openfilm/environment',
@@ -107,9 +108,26 @@ export function createEnvironmentRoute({
           return { available: Boolean(service) };
         } catch { return { available: false }; }
       })();
+      const workbenchAuth = await (async () => {
+        if (typeof authStatus !== 'function') return null;
+        try {
+          const s = await authStatus();
+          if (!s || typeof s !== 'object') return null;
+          return {
+            loggedIn: s.loggedIn === true,
+            guest: s.guest === true,
+            dev: s.dev === true,
+            account: typeof s.account === 'string' ? s.account : '',
+            displayName: typeof s.displayName === 'string' ? s.displayName : '',
+          };
+        } catch {
+          return null;
+        }
+      })();
       const body = JSON.stringify({
         preset,
         web,
+        ...(workbenchAuth ? { workbenchAuth } : {}),
         // What the ACP child boots with: identity, instruction boundary, skill gate,
         // and the preset's prompt module reused verbatim (never a copy).
         child: {

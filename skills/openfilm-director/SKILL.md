@@ -42,7 +42,7 @@ description: 用户要给一支片"定方案"——说了一句需求、丢来�
 2. **对话 / 访谈音频或文本**：`no996_audio(action="extract")` 分析说话分段与静音切点，用 `VibeKit.drawDialogueTheater` 做双角色交锋气泡、反驳退暗压迫与声纹联动推镜。
 3. **起/中/终关键帧图片或网页链接**：
    - 若用户贴了网页链接（官网/Steam/文章）：用 `web_fetch` 读文案 + `no996_assets(inspectUrl=...)` 提取页面图片并 `fromUrl` 安全入库；
-   - 若有起/中/终关键帧（或用 `no996_generate_image` 生成）：用 `VibeKit.drawImageAnchorStage` + 遮罩过渡/放大镜特写/粒子光效串联。
+   - 若有起/中/终关键帧（或用 `no996_get(verb="image", ...)` 生成）：用 `VibeKit.drawImageAnchorStage` + 遮罩过渡/放大镜特写/粒子光效串联。
 4. **用户附带已有动效规范 / Skill 文档**：先完整读取文档规则并在分镜与代码实现中严格复用。
 5. **从零开始（仅一句话需求）**：`no996_film` + `no996_fonts` 读结构与字体 → `no996_library(kind="template")` 首推连续生长标杆 `vibe-explainer`（按需 `no996_kit(action="inspire")` 找新隐喻，并用 `no996_library(kind="wordart", inspect=...)` 参考花字质感，**禁止机械抄袭旧主题**）→ `no996_audio(action="bgm-install", id="vibe-we-never")` 装入实测拍点 → 写分镜后进 G2。
 

@@ -63,7 +63,7 @@ function officialFacadeFactory(bridge) {
       options,
     };
   };
-  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'skills:list', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -523,7 +523,8 @@ function officialFacadeFactory(bridge) {
       const stills = Array.isArray(images) ? images.filter(image => image && typeof image === 'object' &&
         typeof image.data === 'string' && typeof image.mediaType === 'string' && image.mediaType.startsWith('image/')).slice(0, 4)
         .map(image => ({ mediaType: image.mediaType, data: image.data, ...(typeof image.name === 'string' ? { name: image.name.slice(0, 120) } : {}) })) : [];
-      if (!text.trim() && stills.length === 0) throw unavailable('localAgents.prompt');
+      const skillIds = Array.isArray(meta?.filmSkillIds) ? meta.filmSkillIds : undefined;
+      if (!text.trim() && stills.length === 0 && !skillIds?.length) throw unavailable('localAgents.prompt');
       const turnId = typeof meta?.turnId === 'string' ? meta.turnId : '';
       if (pendingAgentPrompts.has(key)) throw unavailable('localAgents.prompt.busy');
       let cancelWait;
@@ -549,7 +550,7 @@ function officialFacadeFactory(bridge) {
         pending.dispatched = true;
         // RPC completion is not an ordering barrier for SSE. Only the matching
         // terminal on this exact stream can finish the visible turn.
-        const request = rpc('agent:prompt', { projectId: id, conversation: scope.conversation, key, turnId, text: text || '（参考图）', ...(stills.length ? { images: stills } : {}) });
+        const request = rpc('agent:prompt', { projectId: id, conversation: scope.conversation, key, turnId, text: text.trim() ? text : (skillIds?.length ? '请应用我选中的技能。' : '（参考图）'), ...(stills.length ? { images: stills } : {}), ...(skillIds?.length ? { skillIds } : {}) });
         const rpcFailure = request.then(() => new Promise((_, reject) => {
           if (!settled) terminalTimer = setTimeout(() => reject(unavailable('agent.events: terminal missing; output may be incomplete')), 15000);
         }));
@@ -664,7 +665,12 @@ function officialFacadeFactory(bridge) {
     archive: async project => archiveChat(project, 'chat:archive'),
     unarchive: async project => archiveChat(project, 'chat:unarchive'),
   };
-  const skills = methods('skills', ['list', 'texts', 'allow', 'changed', 'preview', 'previewFolder', 'commit', 'discard', 'reveal']);
+  const skills = {
+    ...methods('skills', ['allow', 'preview', 'previewFolder', 'commit', 'discard', 'reveal']),
+    listFilm: async (path) => rpc('skills:list', { projectId: await projectId(path) }),
+    list: async (path) => rpc('skills:list', { projectId: await projectId(path) }),
+    changed: async () => ({ ok: true }),
+  };
   return {
     platform: ['darwin', 'win32', 'linux'].includes(bridge.platform) ? bridge.platform : 'unknown',
     hello: async () => ({ flavor: 'dsh', version: '0.3.1', ffmpeg: null, update: null, ...layout, chatMin: 340, studioMin: 640, fullScreen: false }),

@@ -1,8 +1,16 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..fea59c7 100644
+index cef5071..d08dfcb 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
-@@ -13,9 +13,9 @@ export const es: Words = {
+@@ -5,6 +5,7 @@ const TRASH = typeof navigator !== 'undefined' && /^win/i.test(navigator.platfor
+   : typeof navigator !== 'undefined' && /^mac/i.test(navigator.platform) ? 'la Papelera' : 'la papelera';
+ 
+ export const es: Words = {
++  no996: { webDetails: 'Ver detalles', webNoResult: 'No se recibió ningún resultado', webFailed: 'Falló', webInterrupted: 'Interrumpido' },
+   /* a turn of the app's own agent stopped: the service its model runs on has no balance left (BalanceNotice) */
+   balance: {
+     title: '{provider}: saldo insuficiente',
+@@ -13,9 +14,9 @@ export const es: Words = {
    },
    banner: {
      studioFailed: 'Studio no se inició: {error}',
@@ -14,7 +22,7 @@ index cef5071..fea59c7 100644
      browserDownloading: 'Descargando el navegador en el que Studio dibuja las páginas (unos 100 MB, una sola vez)…',
      browserFailed: 'El navegador en el que Studio dibuja las páginas no se descargó: {error}',
    },
-@@ -130,14 +130,19 @@ export const es: Words = {
+@@ -130,14 +131,19 @@ export const es: Words = {
      previewFailed: 'No se pudo leer este archivo',
    },
    composer: {
@@ -35,7 +43,7 @@ index cef5071..fea59c7 100644
      agentOwnKey: 'Tu propia clave',
      agentPermissionDeny: 'No permitir',
      agentPermissionTitle: '{name} quiere hacer esto',
-@@ -161,7 +166,7 @@ export const es: Words = {
+@@ -161,7 +167,7 @@ export const es: Words = {
      queued: 'En cola: se envía cuando termine este turno.',
      queuedCancel: 'No enviar',
      copyDiagnostics: 'Copiar informe de diagnóstico',
@@ -44,7 +52,7 @@ index cef5071..fea59c7 100644
      diagnosticsCopied: 'Copiado',
      switchAccount: 'Cambiar de cuenta',
      signedInAs: 'Sesión iniciada como {account}.',
-@@ -251,6 +256,8 @@ export const es: Words = {
+@@ -251,6 +257,8 @@ export const es: Words = {
      untitledSession: 'Nuevo chat',
    },
    projectMenu: {
@@ -53,7 +61,7 @@ index cef5071..fea59c7 100644
      archive: 'Archivar',
      archived: 'Archivados',
      asking: 'Esperando tu respuesta',
-@@ -264,6 +271,7 @@ export const es: Words = {
+@@ -264,6 +272,7 @@ export const es: Words = {
      unpin: 'Dejar de fijar',
    },
    starter: {
@@ -61,7 +69,7 @@ index cef5071..fea59c7 100644
      subtitle: 'Describe la película que quieres y tu agente la hace, o empieza con tu material.',
      communityName: 'Comunidad',
      communityNote: 'Añade plugins, habilidades y material',
-@@ -303,7 +311,7 @@ export const es: Words = {
+@@ -303,7 +312,7 @@ export const es: Words = {
      folderDialog: 'Importar desde una carpeta',
      make: 'Hacer una con el agente',
      makeHint: 'Pone por escrito cómo se hizo algo, en Tuyas.',
@@ -70,7 +78,7 @@ index cef5071..fea59c7 100644
      fromFolderTitle: 'Desde una carpeta',
      dropHere: 'Suelta una carpeta aquí',
      orPick: 'o haz clic para elegirla',
-@@ -313,7 +321,7 @@ export const es: Words = {
+@@ -313,7 +322,7 @@ export const es: Words = {
    turnLog: {
      thoughtNotKept: 'no se guarda en el registro del agente',
      skills: 'Skills y MCP',
@@ -79,7 +87,7 @@ index cef5071..fea59c7 100644
      skillsHidden: 'Tus skills, desactivadas',
      skillsUnfiltered: 'Este agente usa todas tus skills, como en su propia app',
      mcpHidden: 'Tus servidores MCP, desactivados',
-@@ -417,7 +425,29 @@ export const es: Words = {
+@@ -417,7 +426,29 @@ export const es: Words = {
      description: 'Los archivos del proyecto vuelven a como estaban antes de él, también lo cambiado después en Studio. El turno sale del chat y su mensaje vuelve al cuadro de abajo, para enviarlo de nuevo.',
      confirm: 'Deshacer',
      cancel: 'Cancelar',

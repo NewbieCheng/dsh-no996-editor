@@ -14,7 +14,7 @@ import { createVoiceBridge, VOICE_BRIDGE } from '../voice/voice-bridge.mjs';
 const MAX_TEXT = 4000;
 const MEDIA_TIMEOUT_MS = 180_000;
 
-const RATIO_SIZES = Object.freeze({
+const RATIO_SIZES_1K = Object.freeze({
   '16:9': '1536x864',
   '9:16': '864x1536',
   '3:2': '1536x1024',
@@ -24,6 +24,42 @@ const RATIO_SIZES = Object.freeze({
   '1:1': '1024x1024',
   '21:9': '1680x720',
 });
+
+const RATIO_SIZES_2K = Object.freeze({
+  '16:9': '2048x1152',
+  '9:16': '1152x2048',
+  '3:2': '2048x1360',
+  '2:3': '1360x2048',
+  '4:3': '2048x1536',
+  '3:4': '1536x2048',
+  '1:1': '2048x2048',
+  '21:9': '2520x1080',
+});
+
+const IMAGE_MODEL_SPEC = Object.freeze({
+  ratios: Object.keys(RATIO_SIZES_1K),
+  sizes: ['1k', '2k'],
+  qualities: ['low', 'medium', 'high', 'xhigh', 'max'],
+  refs: 3,
+});
+
+function resolveImageDimensions({ ratio = '3:2', size, quality } = {}) {
+  const cleanSize = text(size);
+  if (/^\d{2,4}x\d{2,4}$/i.test(cleanSize)) return cleanSize.toLowerCase();
+  const cleanRatio = text(ratio) || '3:2';
+  const tier = cleanSize.toLowerCase();
+  const use2k = tier === '2k' || tier === '4k' || (!tier && text(quality).toLowerCase() === 'max');
+  const table = use2k ? RATIO_SIZES_2K : RATIO_SIZES_1K;
+  return table[cleanRatio] || (use2k ? '2048x1360' : '1536x1024');
+}
+
+function mimeFromPath(path) {
+  const lower = String(path || '').toLowerCase();
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return 'image/png';
+}
 
 function text(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
@@ -152,19 +188,34 @@ export function createNo996StudioBridge({ auth, fetchImpl = globalThis.fetch, on
     return buf;
   }
 
-  async function generateImage({ prompt, ratio = '3:2', size, model = 'auto', out } = {}, ctx) {
-    const cleanPrompt = text(prompt);
+  async function generateImage(args = {}, ctx) {
+    const cleanPrompt = text(args?.prompt);
     if (!cleanPrompt) throw new Error('--prompt is required.');
-    const resolvedSize = text(size) || RATIO_SIZES[text(ratio)] || '1536x1024';
-    const path = landing('image', out, 'png');
+    const ratio = text(args?.ratio) || '3:2';
+    const quality = text(args?.quality);
+    const resolvedSize = resolveImageDimensions({ ratio, size: args?.size, quality });
+    const requestedModel = text(ctx?.model) || text(args?.model) || 'auto';
+    const path = landing('image', args?.out, 'png');
+    const refs = list(args?.ref).slice(0, 3);
+    const encodedRefs = [];
+    if (refs.length && typeof ctx?.read === 'function') {
+      for (const refPath of refs) {
+        const refBytes = await ctx.read(refPath);
+        const mime = mimeFromPath(refPath);
+        encodedRefs.push(`data:${mime};base64,${Buffer.from(refBytes).toString('base64')}`);
+      }
+    }
     ctx?.say?.('正在通过不加班网关生成图片…');
     const body = await authedV1('/v1/images/generations', {
       method: 'POST',
       body: {
-        model: text(model) || 'auto',
+        model: requestedModel,
         prompt: cleanPrompt.slice(0, MAX_TEXT),
         n: 1,
         size: resolvedSize,
+        aspect_ratio: ratio,
+        ...(quality ? { quality } : {}),
+        ...(encodedRefs.length === 1 ? { image: encodedRefs[0] } : encodedRefs.length > 1 ? { images: encodedRefs } : {}),
         response_format: 'b64_json',
       },
       signal: ctx?.signal ?? AbortSignal.timeout(MEDIA_TIMEOUT_MS),
@@ -181,7 +232,7 @@ export function createNo996StudioBridge({ auth, fetchImpl = globalThis.fetch, on
     }
 
     onWalletDirty?.('image');
-    const usedModel = text(body?.model) || text(model) || 'auto';
+    const usedModel = text(body?.model) || requestedModel;
     return {
       files: [{ path, bytes }],
       index: [{
@@ -197,6 +248,39 @@ export function createNo996StudioBridge({ auth, fetchImpl = globalThis.fetch, on
       },
       cost: { note: 'Billed by 不加班 workbench' },
     };
+  }
+
+  async function listImageModels(signal) {
+    const autoEntry = {
+      id: 'auto',
+      name: '不加班默认生图 (Auto)',
+      spec: { ...IMAGE_MODEL_SPEC },
+    };
+    if (!(await isReady())) return [autoEntry];
+    try {
+      const catalog = await authedV1('/api/v1/pricing/catalog', {
+        method: 'GET',
+        signal: signal ?? AbortSignal.timeout(5000),
+      });
+      const items = Array.isArray(catalog?.items) ? catalog.items : [];
+      const seen = new Set(['auto']);
+      const extras = [];
+      for (const item of items) {
+        if (!item || item.category !== 'model' || item.ready === false) continue;
+        if (item.task_type !== 'image-generation' && item.modality !== 2) continue;
+        const id = text(item.code);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        extras.push({
+          id,
+          name: text(item.display_name) || id,
+          spec: { ...IMAGE_MODEL_SPEC },
+        });
+      }
+      return [autoEntry, ...extras];
+    } catch {
+      return [autoEntry];
+    }
   }
 
   async function runWebSearch(args, ctx) {
@@ -272,6 +356,7 @@ export function createNo996StudioBridge({ auth, fetchImpl = globalThis.fetch, on
       return out;
     },
     generateImage,
+    listImageModels,
     async run(verb, args, ctx) {
       if (!(await isReady())) throw publicError('AUTH_REQUIRED', '请先登录不加班账号后再调用平台能力', 401);
       if (verb === 'voice') return voiceBridge.run('voice', args, ctx);

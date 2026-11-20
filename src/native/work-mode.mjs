@@ -3,9 +3,8 @@
  *
  * Keeps ONE stable DSH agent preset (`openfilm-video-editing`) so tool/skill isolation
  * and conversation context are never torn down across mode transitions. The Host
- * owns mode state per `(projectId, conversation)`, injects a concise turn directive,
- * and pushes live `mode_update` SSE frames to the left chat composer pill whenever
- * either the user or the AI (via `openfilm_mode`) switches mode/phase.
+ * owns mode state per `(projectId, conversation)`, renders a scoped model context,
+ * and pushes live `mode_update` SSE frames when the user or `no996_mode` changes phase.
  */
 
 export const WORK_MODES = Object.freeze(['auto', 'chat', 'design', 'produce']);

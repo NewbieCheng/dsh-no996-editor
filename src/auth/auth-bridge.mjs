@@ -95,7 +95,7 @@ export async function dispatchAuthAction(auth, value) {
   }
 }
 
-export function registerAuthBridge(ctx, { webOrigin, auth, isDisposed }) {
+export function registerAuthBridge(ctx, { webOrigin, auth, isDisposed, onAuthChanged } = {}) {
   const web = new URL(webOrigin);
   return ctx.webServer.register({
     kind: 'exact',
@@ -129,6 +129,9 @@ export function registerAuthBridge(ctx, { webOrigin, auth, isDisposed }) {
         const value = parseAuthActionBody(Buffer.concat(chunks).toString('utf8'));
         const result = await dispatchAuthAction(auth, value);
         if (isDisposed()) return reply(res, 503, { error: 'UNAVAILABLE' });
+        if (['login', 'register', 'logout', 'guest'].includes(value.action)) {
+          try { onAuthChanged?.(value.action, result); } catch { /* ignore */ }
+        }
         return reply(res, 200, result);
       } catch (error) {
         if (error?.code === 'BODY_LIMIT') return reply(res, 413, { error: 'BODY_LIMIT' });

@@ -131,8 +131,15 @@ test('auth bridge admits browser peer and never echoes tokens', async () => {
   };
   const auth = {
     async status() { return { loggedIn: true, account: 'a@b.com', accessToken: 'leak', refreshToken: 'leak' }; },
+    async login() { return { loggedIn: true, account: 'a@b.com' }; },
   };
-  registerAuthBridge(ctx, { webOrigin: 'http://127.0.0.1:1234', auth, isDisposed: () => false });
+  const authEvents = [];
+  registerAuthBridge(ctx, {
+    webOrigin: 'http://127.0.0.1:1234',
+    auth,
+    isDisposed: () => false,
+    onAuthChanged: (action) => { authEvents.push(action); },
+  });
   const req = Readable.from([Buffer.from(JSON.stringify({ action: 'status' }))]);
   req.method = 'POST';
   req.headers = { host: '127.0.0.1:1234', origin: 'http://127.0.0.1:1234', cookie: 'valid', 'content-type': 'application/json' };
@@ -144,6 +151,15 @@ test('auth bridge admits browser peer and never echoes tokens', async () => {
   assert.equal(body.account, 'a@b.com');
   assert.equal(body.accessToken, undefined);
   assert.equal(body.refreshToken, undefined);
+  assert.deepEqual(authEvents, []);
+
+  const loginReq = Readable.from([Buffer.from(JSON.stringify({ action: 'login', account: 'a@b.com', password: 'StrongPass!9' }))]);
+  loginReq.method = 'POST';
+  loginReq.headers = { host: '127.0.0.1:1234', origin: 'http://127.0.0.1:1234', cookie: 'valid', 'content-type': 'application/json' };
+  const loginRes = { writeHead(status, headers) { this.status = status; this.headers = headers; return this; }, end(value) { this.body = value; return this; } };
+  await handler(loginReq, loginRes);
+  assert.equal(loginRes.status, 200);
+  assert.deepEqual(authEvents, ['login']);
 });
 
 test('dispatchAuthAction routes register and verification', async () => {

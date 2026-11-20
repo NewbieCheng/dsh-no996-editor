@@ -76,6 +76,15 @@ test('saving a list without a conversation drops that conversation\'s turns', as
   assert.deepEqual(persisted.turns.map(e => e.turn.id), ['t2'], 'and the record on disk was rewritten');
 });
 
+test('a saved web search retains its query, outcome and result on load', async () => {
+  const { store } = await open();
+  const items = [{ id: 'act:search-1', kind: 'act', act: 'research.search', tool: 'web_search',
+    query: '今日资讯', pending: false, toolOutcome: 'completed', toolOutput: '示例结果 https://example.com/news' }];
+  await store.saveTurn('proj123', { ...turn('t3', 's1'), items, expectedRevision: 3 });
+  const loaded = await store.load('proj123');
+  assert.deepEqual(loaded.turns.find(entry => entry.turn.id === 't3')?.items, items);
+});
+
 async function projectFixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'openfilm-chat-rename-'));
   t.after(() => rm(root, { recursive: true, force: true }));

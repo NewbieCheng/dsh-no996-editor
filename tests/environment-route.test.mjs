@@ -91,3 +91,20 @@ test('environment is GET-only and refuses a foreign peer', async () => {
   await foreignRoute.handler(get(), foreign);
   assert.equal(foreign.status, 403);
 });
+
+test('environment includes sanitized workbenchAuth when authStatus is supplied', async () => {
+  const route = mount({
+    authStatus: async () => ({ loggedIn: true, account: 'u@example.com', displayName: 'Tester', accessToken: 'secret' }),
+  });
+  const res = fakeRes();
+  await route.handler(get(), res);
+  assert.equal(res.status, 200);
+  const body = JSON.parse(res.body);
+  assert.deepEqual(body.workbenchAuth, {
+    loggedIn: true,
+    guest: false,
+    dev: false,
+    account: 'u@example.com',
+    displayName: 'Tester',
+  });
+});

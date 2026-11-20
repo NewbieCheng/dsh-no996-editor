@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..79693c7 100644
+index 0ef8753..c52d79a 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -81,9 +81,17 @@ index 0ef8753..79693c7 100644
  }
  
  /**
-@@ -161,7 +217,20 @@ export function localToolActivity(
+@@ -160,8 +216,28 @@ export function localToolActivity(
+   /* How Codex reports an MCP call: title `mcp.openfilm.check`, kind execute, the real input wrapped in
       rawInput.arguments (next to server / tool). Recognize that first. */
    const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown> & { server?: unknown; tool?: unknown; arguments?: unknown };
++  if (/^web[_ ]search$/i.test(name)) {
++    const query = typeof input.query === 'string' ? input.query : searchedFor(name, input);
++    return { act: 'research.search', ...(query ? { query: query.slice(0, 600) } : {}) };
++  }
++  if (/^web[_ ]fetch$/i.test(name)) {
++    return { act: 'research.read', ...(typeof input.url === 'string' ? { query: input.url.slice(0, 600) } : {}) };
++  }
    const tool = ourToolName(name, rawInput);
 -  if (tool) return publicActivity(tool, input.arguments ?? (input.server === 'openfilm' ? {} : rawInput)) ?? null;
 +  if (tool) {
@@ -103,7 +111,7 @@ index 0ef8753..79693c7 100644
    /* Other MCP tools (Codex's own browser, computer use…): not film work, not drawn */
    if (typeof input.server === 'string' || /^mcp[._]/.test(name)) return null;
    const files = touchedFiles(extra, input);
-@@ -230,11 +299,25 @@ export function acpUpdateToEvent(
+@@ -230,11 +306,25 @@ export function acpUpdateToEvent(
        if (content?.type !== 'text' || !content.text) return null;
        return { type: 'agent-text', turnNo: ctx.turnNo, partId: `${ctx.turnNo}:${ctx.part}`, text: content.text };
      }
@@ -132,7 +140,7 @@ index 0ef8753..79693c7 100644
          update.kind as string | undefined,
          update.rawInput,
          { locations: (update as { locations?: unknown }).locations, content: (update as { content?: unknown }).content },
-@@ -246,6 +329,9 @@ export function acpUpdateToEvent(
+@@ -246,6 +336,9 @@ export function acpUpdateToEvent(
          turnNo: ctx.turnNo,
          act: activity.act,
          ...(activity.query ? { query: activity.query } : {}),
@@ -142,7 +150,7 @@ index 0ef8753..79693c7 100644
        };
      }
      case 'tool_call_update': {
-@@ -295,6 +381,17 @@ export class LocalAgentTurn {
+@@ -295,6 +388,19 @@ export class LocalAgentTurn {
       snapshots and drops a chunk already present in the text as a repeat, so a lone space in ACP's small
       deltas could vanish ("the5-second"). Handing over the whole paragraph, it is taken as is. */
    private partText = new Map<number, string>();
@@ -154,13 +162,15 @@ index 0ef8753..79693c7 100644
 +  private attempts = new Map<string | number, string>();
 +  /* The newest DSH turn this turn's frames came from: an older turn's frame is stale. */
 +  private streamTurn: number | undefined;
++  private finished = false;
++  private closedThoughtAttempts = new Set<string | number>();
 +  /* One store notification per animation frame: the network delivers a frame every ~30 ms, and a long
 +     transcript re-renders its Markdown per notification, so per-frame updates read as bursts. */
 +  private emitScheduled = false;
  
    constructor(readonly turnId: string, readonly agent: LocalAgentId, readonly turnNo: number) {}
  
-@@ -304,7 +401,14 @@ export class LocalAgentTurn {
+@@ -304,7 +410,14 @@ export class LocalAgentTurn {
    };
  
    private emit(): void {
@@ -176,7 +186,7 @@ index 0ef8753..79693c7 100644
    }
  
    patch(next: Partial<LocalRunState>): void {
-@@ -363,6 +467,9 @@ export class LocalAgentTurn {
+@@ -363,6 +476,9 @@ export class LocalAgentTurn {
      if (event.type === 'agent-text') {
        const full = (this.partText.get(this.part) ?? '') + event.text;
        this.partText.set(this.part, full);
@@ -186,7 +196,19 @@ index 0ef8753..79693c7 100644
        event = { ...event, text: full };
      }
      this.items = reduceTranscript(this.items, event);
-@@ -389,7 +496,6 @@ export class LocalAgentTurn {
+@@ -370,6 +486,11 @@ export class LocalAgentTurn {
+       const detail = this.pendingDetail;
+       this.pendingDetail = undefined;
+       if (detail) this.patchItem(`act:${event.callId}`, { detail });
++      if (event.act === 'command.run') {
++        const input = (update as { rawInput?: { command?: unknown; script?: unknown; script_path?: unknown } }).rawInput;
++        const command = input?.command ?? input?.script ?? input?.script_path;
++        if (typeof command === 'string' && command) this.patchItem(`act:${event.callId}`, { toolInput: command.slice(0, 8000) });
++      }
+       const ask = this.pendingAsk;
+       this.pendingAsk = undefined;
+       if (ask) this.patchItem(`act:${event.callId}`, { ask });
+@@ -389,7 +510,6 @@ export class LocalAgentTurn {
    private pendingAsk: TranscriptItem['ask'];
    /** Each call's first title, kind and input: later updates often carry only the fields that changed. */
    private calls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; tool?: string }>();
@@ -194,7 +216,7 @@ index 0ef8753..79693c7 100644
    private openThought: string | null = null;
  
    private patchItem(id: string, patch: Partial<TranscriptItem>): void {
-@@ -400,18 +506,38 @@ export class LocalAgentTurn {
+@@ -400,18 +520,38 @@ export class LocalAgentTurn {
      this.items = next;
    }
  
@@ -241,7 +263,7 @@ index 0ef8753..79693c7 100644
      if (!this.state.thinking) this.state = { ...this.state, thinking: true };
      this.emit();
    }
-@@ -423,6 +549,91 @@ export class LocalAgentTurn {
+@@ -423,6 +563,90 @@ export class LocalAgentTurn {
      return true;
    }
  
@@ -262,7 +284,7 @@ index 0ef8753..79693c7 100644
 +   */
 +  stream(frame: { kind?: string; text?: string; seal?: boolean; sync?: boolean; attempt?: string | number; turn?: number }): void {
 +    const text = typeof frame?.text === 'string' ? frame.text : '';
-+    if (text === '') return;
++    if (this.finished) return;
 +    // A frame from an older turn belongs to the row that turn already drew. Writing it into
 +    // this turn is what made a previous turn's reasoning show up under a new message.
 +    if (typeof frame?.turn === 'number') {
@@ -270,29 +292,28 @@ index 0ef8753..79693c7 100644
 +      this.streamTurn = frame.turn;
 +    }
 +    const thought = frame?.kind === 'thought';
-+    const whole = frame?.seal === true || frame?.sync === true;
++    const settled = frame?.seal === true;
++    if (thought && frame.attempt !== undefined) {
++      if (this.closedThoughtAttempts.has(frame.attempt)) return;
++      if (settled) this.closedThoughtAttempts.add(frame.attempt);
++    }
++    if (!text) {
++      if (thought && settled && this.closeThought()) this.emit();
++      return;
++    }
++    if (!thought) this.closeThought();
++    const whole = settled || frame?.sync === true;
 +    const id = thought ? `thought:${this.turnNo}` : this.rowForAttempt(frame?.attempt);
 +    const at = this.items.findIndex((item) => item.id === id);
 +    if (at < 0) {
-+      this.items = [...this.items, {
-+        id,
-+        kind: thought ? 'thought' : 'text',
-+        text,
-+        turnNo: this.turnNo,
-+        pending: true,
-+        startedAt: Date.now(),
-+      }];
++      this.items = [...this.items, { id, kind: thought ? 'thought' : 'text', text, turnNo: this.turnNo,
++        pending: !settled, startedAt: Date.now(), ...(settled ? { endedAt: Date.now() } : {}) }];
 +    } else {
 +      const row = this.items[at]!;
-+      const next = [...this.items];
-+      next[at] = {
-+        ...row,
-+        text: whole ? preferLonger(row.text ?? '', text) : (row.text ?? '') + text,
-+        pending: true,
-+      };
-+      this.items = next;
++      this.patchItem(id, { text: whole ? preferLonger(row.text ?? '', text) : (row.text ?? '') + text,
++        pending: !settled, endedAt: settled ? (row.endedAt ?? Date.now()) : undefined });
 +    }
-+    if (thought) this.openThought = id;
++    if (thought) this.openThought = settled ? null : id;
 +    this.emit();
 +  }
 +
@@ -333,7 +354,37 @@ index 0ef8753..79693c7 100644
    /** A plan always arrives whole: one per turn, replaced in place where it first appeared. */
    private plan(update: AcpUpdate): void {
      const raw = (update as { entries?: Array<{ content?: unknown; status?: unknown }> }).entries ?? [];
-@@ -543,9 +754,13 @@ interface LiveSession {
+@@ -460,10 +684,17 @@ export class LocalAgentTurn {
+   /** Later fields make the row clearer (Codex sends an edit's diff later, and the title may change). */
+   private refineAct(update: AcpUpdate): void {
+     const u = update as { toolCallId?: unknown; title?: unknown; kind?: unknown; rawInput?: unknown; locations?: unknown; content?: unknown };
+-    if (u.title == null && u.locations == null && u.content == null && u.rawInput == null && (update as { rawOutput?: unknown }).rawOutput == null) return;
+     const id = `act:${String(u.toolCallId)}`;
+     const item = this.items.find((entry) => entry.id === id);
+     if (!item) return;
++    if (item.tool === 'web_search' || item.tool === 'web_fetch' || item.act === 'command.run') {
++      const { status, errorCode, rawOutput } = update as { status?: string; errorCode?: string; rawOutput?: unknown };
++      const result = typeof rawOutput === 'string' ? rawOutput : toolResultText(u.content, rawOutput);
++      if (status === 'failed' || status === 'completed') this.patchItem(id, {
++        toolOutcome: status, ...(errorCode ? { toolErrorCode: errorCode } : {}),
++        ...(result ? { toolOutput: result.slice(0, 8000) } : {}),
++      });
++    }
+     /* A question asked through our MCP (ask_user): the answer is on the first line of the tool result */
+     if (item.ask && !item.ask.status) {
+       const outcome = askOutcome(toolResultText(u.content, (update as { rawOutput?: unknown }).rawOutput));
+@@ -493,8 +724,9 @@ export class LocalAgentTurn {
+ 
+   /** Ends the turn: finalizes any text and acts still open. */
+   seal(): void {
++    this.finished = true;
+     this.closeThought();
+-    this.items = this.items.map((item) => (item.pending ? { ...item, pending: false } : item));
++    this.items = restingItems(this.items);
+     this.state = { ...this.state, thinking: false, permission: null, question: null };
+     this.emit();
+   }
+@@ -543,9 +775,13 @@ interface LiveSession {
    /** the project and the conversation it is the session of */
    projectId: string;
    conversation: string;
@@ -347,7 +398,7 @@ index 0ef8753..79693c7 100644
  
  /**
   * Forget this agent's sessions here (the shell closes its side): the next turn starts a new one, signed
-@@ -553,6 +768,104 @@ const sessions = new Map<string, LiveSession>();
+@@ -553,6 +789,106 @@ const sessions = new Map<string, LiveSession>();
   */
  export function forgetLocalAgentSessions(agent: LocalAgentId): void {
    for (const [k, s] of sessions) if (s.agent === agent) sessions.delete(k);
@@ -431,17 +482,19 @@ index 0ef8753..79693c7 100644
 +  agent: LocalAgentId,
 +  configId: string,
 +  value: unknown,
++  scope: { projectId: string; conversation: string },
 +): Promise<LocalAgentSessionInfo['configOptions'] | null> {
 +  const bridge = desktopBridge()?.localAgents;
 +  if (!bridge?.setOption) return null;
-+  const preferredKey = lastAttachedSessionKey.get(agent);
++  const preferredKey = `${scope.projectId}:${scope.conversation}:${agent}`;
 +  if (preferredKey) {
 +    const inflight = attaching.get(preferredKey);
 +    if (inflight) await inflight.catch(() => null);
 +  }
-+  const target = (preferredKey ? sessions.get(preferredKey) : undefined)
-+    ?? [...sessions.values()].reverse().find((s) => s.agent === agent);
++  const target = sessions.get(preferredKey);
 +  if (!target) return null;
++  const option = target.info.configOptions?.find(o => o.id === configId);
++  if (!option?.options?.some(o => o.value === value)) return null;
 +  const res = await bridge.setOption(target.key, configId, value).catch(() => null);
 +  const updated = res?.ok ? res.result?.configOptions : undefined;
 +  if (Array.isArray(updated) && updated.length) {
@@ -452,7 +505,7 @@ index 0ef8753..79693c7 100644
  }
  /* ── how full the agent's context is (ACP usage_update): tokens in the conversation now, of its context window, as
     the agent's own chat shows it. By session: each conversation has its own. ── */
-@@ -575,6 +888,106 @@ export function useAgentContext(projectId: string, conversation: string, agent:
+@@ -575,6 +911,106 @@ export function useAgentContext(projectId: string, conversation: string, agent:
    );
  }
  
@@ -559,7 +612,7 @@ index 0ef8753..79693c7 100644
  /* ── the agent working with nobody having written: a background task of its own that ended after its turn (a
     command it ran in the background, a subagent), which it takes up by itself, as in its own chat. Its work is shown
     as a turn of its own in its conversation (`onUnpromptedTurn`, from the page showing the project), which ends with
-@@ -649,6 +1062,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
+@@ -649,6 +1085,7 @@ const turnByKey = new Map<string, LocalAgentTurn>();
  /** One event from the shell into its turn (live, or replayed after a reload). */
  function dispatch(turn: LocalAgentTurn, event: Record<string, unknown> & { kind: string }): void {
    if (event.kind === 'update') turn.apply(event.update as Parameters<LocalAgentTurn['apply']>[0]);
@@ -567,7 +620,7 @@ index 0ef8753..79693c7 100644
    else if (event.kind === 'question') turn.ask(event.requestId as string, event.toolCallId as string | null, event.questions as never);
    else if (event.kind === 'permission') {
      const params = event.params as { toolCall?: { title?: string }; options?: Array<{ optionId: string; name: string; kind: string }> };
-@@ -681,6 +1095,10 @@ function listen(): void {
+@@ -681,6 +1118,10 @@ function listen(): void {
        }
        return;
      }
@@ -578,7 +631,7 @@ index 0ef8753..79693c7 100644
      if (event.kind === 'update' && event.update.sessionUpdate === 'usage_update') {
        const { used, size, _meta } = event.update as { used?: unknown; size?: unknown; _meta?: Record<string, unknown> };
        if (typeof used === 'number' && typeof size === 'number' && size > 0) { contextByKey.set(event.key, { used, size }); tellContext(); }
-@@ -807,6 +1225,9 @@ export async function runLocalAgentTurn({
+@@ -807,6 +1248,9 @@ export async function runLocalAgentTurn({
    if (onStarted) startedHooks.set(turn, onStarted);
  
    const sessionKey = `${projectId}:${conversation}:${agent}`;
@@ -588,7 +641,7 @@ index 0ef8753..79693c7 100644
    let session = sessions.get(sessionKey);
    if (!session || session.cwd !== cwd) {
      const started = await bridge.start(agent, cwd, resume, meta);
-@@ -815,6 +1236,14 @@ export async function runLocalAgentTurn({
+@@ -815,6 +1259,14 @@ export async function runLocalAgentTurn({
      }
      session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
      sessions.set(sessionKey, session);
@@ -603,7 +656,7 @@ index 0ef8753..79693c7 100644
      tellContext();
      onSessionInfo?.(started.info);
      /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
-@@ -822,6 +1251,13 @@ export async function runLocalAgentTurn({
+@@ -822,6 +1274,13 @@ export async function runLocalAgentTurn({
        text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
        turn.notice('agent.sessionNotResumed');
      }
@@ -617,3 +670,31 @@ index 0ef8753..79693c7 100644
    }
    /* a turn the agent was working on by itself ends as the person writes */
    endUnprompted(session.key);
+@@ -840,6 +1299,7 @@ export async function runLocalAgentTurn({
+       const option = live.info.configOptions?.find((o) => o.id === configId);
+       if (!option) return;
+       const model = option.category === 'model';
++      if (agent === 'deepseek' && (model || option.category === 'thought_level')) return;
+       // Cursor can restore a different model when reusing a session. Reassert the selection and read its parameters.
+       if (option.currentValue === value && !(agent === 'cursor' && model)) return;
+       if (option.options?.length && !option.options.some((choice) => choice.value === value)) {
+@@ -1055,7 +1515,7 @@ const undoneTurn = (turn: Turn) => (turn as Turn & { undone?: unknown }).undone
+ 
+ /** A running turn's rows as they are kept while it runs: as read back after the app closed on it, nothing still going. */
+ export function restingItems(items: TranscriptItem[]): TranscriptItem[] {
+-  return items.some((item) => item.pending) ? items.map((item) => (item.pending ? { ...item, pending: false } : item)) : items;
++  return items.some((item) => item.pending) ? items.map((item) => (item.pending ? { ...item, pending: false, ...(item.kind === 'thought' ? { endedAt: item.endedAt ?? Date.now() } : {}), ...(item.tool === 'web_search' || item.tool === 'web_fetch' || item.act === 'command.run' ? { toolOutcome: 'interrupted' as const } : {}) } : item)) : items;
+ }
+ 
+ /** what a turn the app closed on (or crashed in) says, kept while it ran and read back with it not running */
+@@ -1073,8 +1533,8 @@ export function loadLocalAgentTurns(projectId: string, sessionId: string | null)
+   return readSaved(projectId)
+     .filter((x) => (!sessionId || x.turn.sessionId === sessionId) && !isEmptyBackgroundTurn(x.turn, x.items) && !undoneTurn(x.turn))
+     .map((x) => (ACTIVE_STATUSES.has(x.turn.status) && !runningTurns.has(x.turn.id)
+-      ? { ...x, turn: { ...x.turn, status: 'error' as const, error: INTERRUPTED } }
+-      : x));
++      ? { ...x, items: restingItems(x.items), turn: { ...x.turn, status: 'error' as const, error: INTERRUPTED } }
++      : { ...x, items: restingItems(x.items) }));
+ }
+ 
+ /**

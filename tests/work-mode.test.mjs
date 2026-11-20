@@ -28,14 +28,18 @@ test('normalizeWorkModeState and promptPrefixForWorkMode enforce phase and autoE
   assert.match(promptPrefixForWorkMode({ mode: 'produce' }), /制片执行（produce）/);
 });
 
-test('dshSessionStore and nativeAgentService persist workMode, emit mode_update, and prepend prompt directive', async t => {
+test('dshSessionStore and nativeAgentService persist workMode and emit mode_update without changing user content', async t => {
   const root = mkdtempSync(join(tmpdir(), 'openfilm-workmode-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storeFile = join(root, 'sessions.json');
   const store = createDshSessionStore({ file: storeFile });
 
   const prompts = [];
+  let modeContext;
+  const scopedAgent = { id: 'sess-1', session: { header: { agentPreset: 'openfilm-video-editing' } },
+    ctx: { get: key => key === 'systemPrompt' ? { context: entry => { modeContext = entry; return () => { modeContext = null; }; } } : undefined } };
   const ctx = {
+    agents: { list: () => [scopedAgent], get: id => id === scopedAgent.id ? scopedAgent : undefined },
     sessionController: {
       async create() { return { sessionId: 'sess-1' }; },
       async *follow() { /* idle stream */ },
@@ -83,8 +87,10 @@ test('dshSessionStore and nativeAgentService persist workMode, emit mode_update,
 
     await service.send(project.projectId, { conversation: 'tab-a', key: 'k-tab-a', turnId: 't1', text: '做个知识大赏' });
     assert.equal(prompts.length, 1);
-    assert.match(prompts[0].content[0].text, /^\[会话模式：导演设计（design）/);
-    assert.ok(prompts[0].content[0].text.endsWith('做个知识大赏'));
+    assert.deepEqual(prompts[0].content, [{ type: 'text', text: '做个知识大赏' }]);
+    assert.match(modeContext.text(), /会话模式：导演设计/);
+    await service.send(project.projectId, { conversation: 'tab-a', turnId: 't2', text: '', images: [{ mediaType: 'image/png', data: 'mock' }] });
+    assert.deepEqual(prompts[1].content, [{ type: 'image', mediaType: 'image/png', data: 'mock' }]);
 
     const modeTool = createModeTool({
       isProjectAgent: () => true,
@@ -95,7 +101,13 @@ test('dshSessionStore and nativeAgentService persist workMode, emit mode_update,
     const toolOut = await modeTool.execute({ mode: 'produce', phase: 'produce', reason: '用户已确认分镜' }, { agent: { session: { id: 'sess-1' } } });
     assert.match(toolOut.text, /制片执行/);
     assert.equal(service.getWorkMode(project.projectId, 'tab-a').mode, 'produce');
+    assert.match(modeContext.text(), /会话模式：制片执行/);
+    const auto = service.setWorkMode(project.projectId, 'tab-a', { mode: 'auto' });
+    assert.deepEqual([auto.mode, auto.effective, auto.reason], ['auto', 'chat', '']);
+    service.setWorkMode(project.projectId, 'tab-a', { effective: 'design' });
+    assert.match(modeContext.text(), /当前阶段 design/);
   } finally {
     await service.close();
   }
+  assert.equal(modeContext, null);
 });
