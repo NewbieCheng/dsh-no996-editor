@@ -33,6 +33,7 @@ async function boot(handler, options = {}) {
   else process.env.NO996_OPENFILM_EDITOR_PORT = previous;
   return {
     origin: proxy.bootstrapData().editorOrigin,
+    proxy,
     async close() {
       await proxy.close();
       await Promise.all([new Promise((r) => editorUp.close(r)), new Promise((r) => filmUp.close(r))]);
@@ -149,4 +150,37 @@ test('an unrecognized failure keeps the code-only body', async (t) => {
   assert.equal(response.status, 503);
   const body = await response.text();
   assert.equal(body, 'OFFICIAL_AGENT_NEW_CASE (agent:models)');
+});
+
+test('template RPC receives its own proxy even after a different surface fails to listen', async (t) => {
+  const dispatch = async (channel, payload, { proxy }) => {
+    assert.equal(channel, 'template:create');
+    return await proxy.createProject(payload.folder);
+  };
+  const host = await boot((req, res) => {
+    assert.equal(req.url, '/api/projects');
+    res.end(JSON.stringify({ project: { id: 'healthy123' } }));
+  }, { officialRpc: dispatch });
+  t.after(() => host.close());
+  const entries = [];
+  const previous = process.env.NO996_OPENFILM_EDITOR_PORT;
+  process.env.NO996_OPENFILM_EDITOR_PORT = 'invalid';
+  try {
+    await assert.rejects(startStudioProxy({
+      upstream: { origin: 'http://127.0.0.1:9', filmOrigin: 'http://localhost:9', key: KEY },
+      webOrigin: 'dsh-app://app', desktop: true, authenticateBrowser: () => false,
+      diagLog: { record: entry => entries.push(entry) }, officialRpc: dispatch,
+    }), { code: 'STUDIO_PROXY_LISTEN_FAILED' });
+  } finally {
+    if (previous === undefined) delete process.env.NO996_OPENFILM_EDITOR_PORT;
+    else process.env.NO996_OPENFILM_EDITOR_PORT = previous;
+  }
+  assert.equal(entries[0].detail.systemCode, 'ERR_SOCKET_BAD_PORT');
+  assert.equal(entries[0].detail.listener, 'editor');
+  const response = await fetch(host.origin + '/__dsh/official-rpc', {
+    method: 'POST', headers: { 'content-type': 'application/json', origin: host.origin, 'sec-fetch-site': 'same-origin' },
+    body: JSON.stringify({ channel: 'template:create', payload: { folder: '/mock/project' } }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).id, 'healthy123');
 });

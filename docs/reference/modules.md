@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。150 个模块、26542 行。
+> 生成命令：`npm run docs:gen`。150 个模块、26629 行。
 > 没有测试直接 import 的模块：17 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -16,8 +16,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | 模块 | 行数 | 导出 | 同名测试 |
 |---|---|---|---|
 | `src/native/dsh-native-agent-service.mjs` | 1488 | createDshNativeAgentService | `diag-logs-route.test.mjs`、`dsh-native-agent-service.test.mjs`、`work-mode.test.mjs` |
-| `src/studio/studio-controller.mjs` | 1449 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
-| `src/studio/studio-proxy.mjs` | 1194 | startStudioProxy | `dev-hmr-proxy.test.mjs`、`diag-logs-route.test.mjs`、`editor-fullscreen.test.mjs`、`proxy-error-sanitize.test.mjs`、`session-renewal.test.mjs`、`studio-proxy-files.test.mjs`、`studio-proxy-film-viewer.test.mjs`、`theme-injection.test.mjs` |
+| `src/studio/studio-controller.mjs` | 1469 | createStudioController | 读源码：`declaration-order.test.mjs`、`route-registration-order.test.mjs`、`sidebar-untouched.test.mjs`、`system-routes.test.mjs` |
+| `src/studio/studio-proxy.mjs` | 1228 | startStudioProxy | `dev-hmr-proxy.test.mjs`、`diag-logs-route.test.mjs`、`editor-fullscreen.test.mjs`、`proxy-error-sanitize.test.mjs`、`session-renewal.test.mjs`、`studio-proxy-files.test.mjs`、`studio-proxy-film-viewer.test.mjs`、`theme-injection.test.mjs` |
 | `src/ui/sidebar-editing.mjs` | 1142 | EDITING_LABEL, installWorkspaceSwitch | `sidebar-editing-rows.test.mjs` |
 | `src/official/official-facade.mjs` | 717 | officialFacadeSource | `facade-page.test.mjs`、`official-attachment.test.mjs`、`official-facade-events.test.mjs` |
 | `src/native/no996-llm-provider.mjs` | 579 | createNo996LlmAdapter, registerNo996LlmProvider | `no996-llm-provider.test.mjs` |
@@ -54,9 +54,9 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/ui/client-entry.js` | 197 | — | 排除：浏览器端打包入口；运行时界面行为需要客户端集成或真机验收 |
 | `src/tools/cli-tool.mjs` | 193 | cliArguments, createCliTool, resolveCli | `export-cli-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/asr/asr-models.mjs` | 192 | SENSE_VOICE, ensureModels, libraryCacheRoot, modelState, modelsRoot, senseVoiceDir… | `asr-models.test.mjs` |
+| `src/official/official-templates.mjs` | 187 | blankFilmHtml, finishTemplateCreation, installTemplate, listTemplates | `official-templates.test.mjs`、`template-discovery.test.mjs`、`template-registration.test.mjs` |
 | `src/film/script-plan.mjs` | 186 | planFromTranscript, sentencesFromSegments, shotsFromScript, storyboardFromPlan, subtitlesFromScript, toSrt… | `storyboard.test.mjs` |
 | `src/host/fallback-prompt.mjs` | 186 | buildFallbackPayload, createFallbackPrompt | `fallback-prompt.test.mjs` |
-| `src/official/official-templates.mjs` | 181 | blankFilmHtml, finishTemplateCreation, installTemplate, listTemplates | `official-templates.test.mjs`、`template-discovery.test.mjs`、`template-registration.test.mjs` |
 | `src/tools/vision-tool.mjs` | 179 | createVisionTools, extractVisionFrame | `tool-schema.test.mjs`、`vision-tool.test.mjs` |
 | `src/native/dsh-session-store.mjs` | 178 | createDshSessionStore | `dsh-native-agent-service.test.mjs`、`dsh-session-store-selection.test.mjs`、`work-mode.test.mjs` |
 | `src/tools/transcribe-tool.mjs` | 176 | createTranscribeTool | `transcribe-tool.test.mjs` |
@@ -80,6 +80,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/tools/vision-browser.mjs` | 139 | withVisionBrowser | **无** |
 | `src/dev/index.mjs` | 137 | createDevExtensions, devFlags | `dev-browser-portal.test.mjs` |
 | `src/project/workspace-archive.mjs` | 131 | createArchiveWatcher | `workspace-archive.test.mjs` |
+| `src/studio/studio-proxy/upstream.mjs` | 128 | COMMAND_FAILURE, RESPONSE_HEADERS, SAFE_HEADERS, ancestorsFor, bindStudioListener, fail… | `plugin-surface.test.mjs`、`studio-listener.test.mjs` |
 | `src/tools/export-tool.mjs` | 128 | blockedBy, createExportTool, exportAsk | `export-cli-tool.test.mjs`、`export-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/fonts-tool.mjs` | 127 | buildFontStack, createFontsTool | `fonts-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/auth/login-remember.mjs` | 124 | createLoginRememberStore | `login-remember.test.mjs` |
@@ -91,10 +92,10 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/film/film-draft.mjs` | 116 | draftFilm | `draft-session.test.mjs`、`film-draft.test.mjs` |
 | `src/host/download-sources.mjs` | 116 | BGM_SOURCES, MODEL_BASES, MODEL_REPO, TOOL_SOURCES, augmentPath, bgmSourceUrls… | `audio-tool.test.mjs`、`download-sources.test.mjs` |
 | `src/host/plugin-log.mjs` | 116 | createPluginLog, redact | `plugin-log.test.mjs` |
+| `src/studio/studio-controller/routes/bootstrap.mjs` | 115 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/tools/get-tool.mjs` | 115 | createGetTool | `get-tool.test.mjs`、`studio-tools.test.mjs`、`tool-schema.test.mjs` |
 | `src/dev/dev-live-sse.mjs` | 114 | createDevLiveSse | `dev-browser-portal.test.mjs` |
 | `src/official/official-event-stream.mjs` | 113 | attachOfficialEventStream | `official-event-stream.test.mjs` |
-| `src/studio/studio-controller/routes/bootstrap.mjs` | 113 | createBootstrapRoute | `bootstrap-route.test.mjs` |
 | `src/voice/install-no996-provider.mjs` | 113 | installNo996Provider, openfilmPresent, preferNo996Defaults, preferNo996ForTts, resolveSharedHome | `no996-studio-bridge.test.mjs`、`voice-bridge.test.mjs` |
 | `src/asr/asr-text.mjs` | 112 | countChars, formatTimecode, ribbonTimes, round3, splitSentences, textWeight… | `asr-text.test.mjs` |
 | `src/studio/studio-controller/routes/diagnose.mjs` | 107 | createDiagnoseRoute | `diagnose-route.test.mjs` |
@@ -102,7 +103,6 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/drop-catcher.mjs` | 106 | installDropCatcher | `drop-catcher.test.mjs` |
 | `src/studio/studio-library-mirror.mjs` | 104 | SENSE_VOICE_PATHS, ensureStudioLibraryMirror | `studio-library-mirror.test.mjs` |
 | `src/host/download-stall.mjs` | 103 | DEFAULT_CONNECT_MS, DEFAULT_IDLE_MS, createStallWatch, linkSignals, stallReason | `download-stall.test.mjs` |
-| `src/studio/studio-proxy/upstream.mjs` | 103 | COMMAND_FAILURE, RESPONSE_HEADERS, SAFE_HEADERS, ancestorsFor, fail, friendlyCommandFailure… | `plugin-surface.test.mjs` |
 | `src/studio/desktop-loopback.mjs` | 102 | startDesktopLoopback | **无** |
 | `src/native/instruction-inventory.mjs` | 100 | headOf, instructionChain, projectRootOf | `agent-overlays.test.mjs` |
 | `src/host/bridge-trace.mjs` | 99 | createBridgeTrace | `bridge-trace.test.mjs` |

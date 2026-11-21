@@ -35,13 +35,14 @@ export function createBootstrapRoute({
       }
       const bootStarted = Date.now();
       let stage = 'validate';
+      let desktop = false;
       try {
         // Desktop serves its UI from a privileged app scheme and forwards this
         // already-authenticated call to the Host. It does not share DSH's
         // browser cookie with loopback frames, so the proxy uses a one-time
         // desktop bootstrap instead. Normal browser mode keeps its own origin.
         const surface = req.headers['x-no996-surface'];
-        const desktop = surface === 'dsh-app://app' || surface === 'app://app';
+        desktop = surface === 'dsh-app://app' || surface === 'app://app';
         const browser = desktop ? null : new URL(req.headers.origin || `http://${req.headers.host}`);
         if (!desktop && (browser.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(browser.hostname) || browser.port !== origin.port)) {
           res.writeHead(403).end('DSH_ORIGIN_REJECTED'); return;
@@ -61,10 +62,11 @@ export function createBootstrapRoute({
         // OFFICIAL_SHELL_UNAVAILABLE belongs here: it is the one failure a person can
         // act on (the bundled shell does not match the pinned OpenFilm kernel), and
         // without it the log only ever said "OTHER".
-        const allowed = ['STUDIO_START', 'STUDIO_CLOSE', 'STUDIO_DEPENDENCY', 'OFFICIAL_SHELL_UNAVAILABLE'];
+        const allowed = ['STUDIO_START', 'STUDIO_CLOSE', 'STUDIO_DEPENDENCY', 'OFFICIAL_SHELL_UNAVAILABLE', 'STUDIO_PROXY_LISTEN_FAILED'];
         const code = allowed.includes(error?.code) ? error.code : 'OTHER';
-        log.warn('bootstrap-failed', { stage, code, ms: Date.now() - bootStarted });
-        if (!res.headersSent) res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8' });
+        const traceId = code === 'STUDIO_PROXY_LISTEN_FAILED' && /^bind-[0-9a-f]{8}$/.test(error.traceId) ? error.traceId : '';
+        log.warn('bootstrap-failed', { stage, code, desktop, ...(traceId ? { traceId } : {}), ms: Date.now() - bootStarted });
+        if (!res.headersSent) res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', ...(traceId ? { 'x-no996-trace-id': traceId } : {}) });
         // The panel shows this body beside the status: naming the code is the
         // difference between "broken" and "the shell and the kernel disagree".
         if (!res.writableEnded) res.end(`Studio is unavailable (${code})`);

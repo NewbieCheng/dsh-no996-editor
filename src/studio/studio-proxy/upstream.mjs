@@ -65,19 +65,44 @@ export function upstreamOrigin(value, hostname) {
   if (url.protocol !== 'http:' || url.hostname !== hostname || !url.port || url.origin !== value || url.username || url.password) throw new TypeError('Invalid upstream origin');
   return url;
 }
-export function listen(server, host, preferred = 0) {
+const SYSTEM_CODES = new Set([
+  'EADDRINUSE', 'EADDRNOTAVAIL', 'EAFNOSUPPORT', 'EACCES', 'EPERM', 'EINVAL', 'ERR_SOCKET_BAD_PORT',
+  'EMFILE', 'ENFILE', 'ENOBUFS', 'ENOMEM', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT',
+  'EPIPE', 'ENOENT', 'ENOTDIR', 'ENOSPC', 'EROFS', 'EEXIST', 'EBUSY', 'ENAMETOOLONG', 'ELOOP', 'EIO',
+]);
+
+export function studioSystemCode(error) {
+  return SYSTEM_CODES.has(error?.code) ? error.code : 'OTHER';
+}
+
+export function listen(server, host, port = 0) {
   return new Promise((resolve, reject) => {
-    const done = () => { server.off('error', fallback); resolve(server.address().port); };
-    // A stable port keeps Studio's own localStorage (workspace layout, panes)
-    // across restarts; a busy port falls back to an ephemeral one.
-    const fallback = () => {
-      server.off('error', fallback);
-      server.once('error', reject);
-      server.listen(0, host, () => { server.off('error', reject); resolve(server.address().port); });
-    };
-    server.once('error', fallback);
-    server.listen(preferred, host, done);
+    const onError = error => { server.off('listening', onReady); reject(error); };
+    const onReady = () => { server.off('error', onError); resolve(server.address().port); };
+    server.once('error', onError);
+    server.once('listening', onReady);
+    try { server.listen(port, host); }
+    catch (error) { server.off('error', onError); server.off('listening', onReady); reject(error); }
   });
+}
+
+// Keep the preferred desktop origin when available. Port conflicts can use an
+// ephemeral port; an unavailable secondary loopback can use the primary one.
+export async function bindStudioListener(server, { listener, host, port = 0, desktop, report, bind = listen }) {
+  for (;;) {
+    try { return { host, port: await bind(server, host, port) }; }
+    catch (cause) {
+      const systemCode = studioSystemCode(cause);
+      const retryPort = port !== 0 && systemCode === 'EADDRINUSE';
+      const retryHost = desktop && listener === 'editor' && host === '127.0.0.2' && systemCode === 'EADDRNOTAVAIL';
+      const detail = { listener, bindHost: host, requestedPort: Number.isInteger(port) && port >= 0 && port < 65536 ? port : null,
+        desktop, platform: process.platform, systemCode, recovery: retryHost ? 'primary-loopback' : retryPort ? 'ephemeral-port' : 'none' };
+      report(detail);
+      if (!retryPort && !retryHost) throw Object.assign(new Error('Studio proxy could not listen'), { code: 'STUDIO_PROXY_LISTEN_FAILED' });
+      if (retryHost) host = '127.0.0.1';
+      port = 0;
+    }
+  }
 }
 export function shutdown(server) {
   return new Promise((resolve) => {

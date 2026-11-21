@@ -39,7 +39,7 @@ export function registerTemplateBridge(ctx, { webOrigin, list, create, isDispose
       if (value.action !== 'create' || Object.keys(value).length !== 2 || typeof value.templateId !== 'string') return reply(res, 400, { error: 'INPUT' });
       const templates = await list();
       if (!templates.some(item => item.id === value.templateId)) return reply(res, 400, { error: 'INPUT' });
-      const result = await create(value.templateId);
+      const result = await create(value.templateId, { origin: desktop ? surface : host.origin, desktop });
       if (isDisposed()) return reply(res, 503, { error: 'UNAVAILABLE' });
       if (!/^[A-Za-z0-9_-]{6,40}$/.test(result?.projectId || '')) return reply(res, 502, { error: 'PROJECT' });
       return reply(res, 200, { projectId: result.projectId, prompt: typeof result.prompt === 'string' ? result.prompt : '' });

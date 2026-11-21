@@ -1,6 +1,7 @@
 import { filmSkillCatalog, skillListing } from '../native/film-skill-selection.mjs';
 import { createElevationProbe } from '../host/elevation.mjs';
 import { createStudioRuntime } from './studio-runtime.mjs';
+import { studioSystemCode } from './studio-proxy/upstream.mjs';
 import { createHostComponentDetector } from '../host/host-components.mjs';
 import { blankFilmHtml, finishTemplateCreation, installTemplate, listTemplates } from '../official/official-templates.mjs';
 import {
@@ -310,7 +311,7 @@ export function createStudioController(ctx, createProxy, {
     if (p?.logRetentionDays) diagLog.setRetentionDays(p.logRetentionDays);
   }).catch(() => {});
   const projectParentDir = async (proxy) => {
-    const projects = await proxy.listProjects().catch(() => []);
+    const projects = await proxy.listProjects();
     if (projects.length) return dirname(projects[0].path);
     // Studio's own library location. It used to be `~/OpenFilm`, which on a
     // developer's machine sat next to a checkout of this plugin — and a film
@@ -321,17 +322,17 @@ export function createStudioController(ctx, createProxy, {
       ? join(homedir(), 'Videos', 'OpenFilm', 'Projects')
       : join(homedir(), 'OpenFilm', 'Projects');
   };
-  const createBlankOfficialProject = async (proxy, ratio) => {
+  const createBlankOfficialProject = async (proxy, ratio, parentDir, setStage) => {
     const film = blankFilmHtml(ratio);
-    const parentDir = await projectParentDir(proxy);
+    setStage('prepare-directory');
     await mkdir(parentDir, { recursive: true });
     const target = join(parentDir, `自定义-${randomBytes(3).toString('hex')}`);
     await mkdir(target);
+    setStage('write-blank');
     await writeFile(join(target, 'film.html'), film, { flag: 'wx' });
+    setStage('register');
     const project = await proxy.createProject(target);
-    if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') {
-      throw Object.assign(new Error('Studio returned an invalid project'), { code: 'TEMPLATE_REGISTRATION_UNCERTAIN' });
-    }
+    if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') throw new Error('Studio returned an invalid project');
     return { projectId: project.id, path: project.path };
   };
   const finishOnboardingProject = async (templateId, created, presets) => {
@@ -361,7 +362,7 @@ export function createStudioController(ctx, createProxy, {
   let nativeAgentService = null;
   // A failure reason for the log, never a filesystem path (the log is shared).
   const safeDetail = error => String(error?.message ?? '').replace(/[A-Za-z]:[\\/][^\s"']*/g, '[path]').slice(0, 160);
-  const officialRpc = async (channel, payload) => {
+  const officialRpc = async (channel, payload, { proxy, traceId } = {}) => {
     if (disposed) throw new Error('Studio disposed');
     if (channel === 'skills:list') {
       if (!agentService) throw new Error('Agent bridge unavailable');
@@ -475,7 +476,6 @@ export function createStudioController(ctx, createProxy, {
     if (channel === 'editor:link') {
       // One-use ticket for the local Studio page, minted only after the Host has
       // authenticated this call. Never cached, never logged.
-      const proxy = await lastProxy;
       if (!proxy || typeof proxy.issueTicket !== 'function') throw Object.assign(new Error('Studio is not ready'), { code: 'EDITOR_LINK_UNAVAILABLE' });
       return proxy.issueTicket();
     }
@@ -774,35 +774,50 @@ export function createStudioController(ctx, createProxy, {
       return { templates: cards, prefs };
     }
     if (channel === 'template:create' || channel === 'project:create-blank') {
-      const proxy = await lastProxy;
-      if (!proxy || typeof proxy.createProject !== 'function') throw Object.assign(new Error('Studio is not ready'), { code: 'TEMPLATE_UNAVAILABLE' });
       const templateId = channel === 'project:create-blank' ? 'custom' : payload?.templateId;
-      if (templateId === 'custom') {
-        const presets = payload && typeof payload === 'object'
+      const kind = templateId === 'custom' ? 'blank' : 'template';
+      let stage = 'proxy';
+      const setStage = next => { stage = next; };
+      try {
+        if (!proxy || typeof proxy.createProject !== 'function') throw new Error('Studio is not ready');
+        const presets = kind === 'blank' && payload && typeof payload === 'object'
           ? { ratio: payload.ratio, seconds: payload.seconds, language: payload.language }
           : undefined;
-        return finishOnboardingProject('custom', await createBlankOfficialProject(proxy, presets?.ratio), presets);
+        stage = 'validate';
+        const chosen = kind === 'template' ? (await listTemplates(templatesRoot)).find(item => item.id === templateId) : null;
+        if (kind === 'template' && !chosen) throw Object.assign(new Error('Unknown template'), { code: 'TEMPLATE_INPUT' });
+        stage = 'list-projects';
+        const parentDir = await projectParentDir(proxy);
+        stage = 'prepare-directory';
+        const created = chosen ? await installTemplate({
+          root: templatesRoot, id: chosen.id, parentDir, createProject: target => proxy.createProject(target),
+          titleFor: () => chosen.title, setStage,
+        }) : await createBlankOfficialProject(proxy, presets?.ratio, parentDir, setStage);
+        // Bookkeeping failures must not hide a project already registered in Studio.
+        const finished = await finishTemplateCreation(created, {
+          activate: chosen ? () => writeActiveTemplates(created.path, [chosen.id]) : () => {},
+          remember: () => finishOnboardingProject(templateId, created, presets),
+        });
+        for (const code of finished.warnings ?? []) {
+          diagLog.warn({ layer: 'host', code, channel, traceId, projectId: created.projectId,
+            summary: 'Project was created; optional bookkeeping failed', detail: { kind, stage: 'bookkeeping' } });
+        }
+        return chosen ? { ...finished, prompt: chosen.prompt } : finished;
+      } catch (error) {
+        const uncertain = stage === 'register';
+        const code = uncertain ? 'TEMPLATE_REGISTRATION_UNCERTAIN'
+          : ['TEMPLATE_INPUT', 'TEMPLATE_TOO_LARGE', 'TEMPLATE_ROOT', 'TEMPLATE_TARGET'].includes(error?.code) ? error.code
+          : ['proxy', 'list-projects'].includes(stage) ? 'TEMPLATE_UNAVAILABLE'
+          : ['copy', 'write-blank'].includes(stage) ? 'TEMPLATE_COPY_FAILED'
+          : stage === 'template-preflight' ? 'TEMPLATE_SOURCE_FAILED' : 'TEMPLATE_PREPARE_FAILED';
+        const cause = error?.cause ?? error;
+        const detail = { kind, stage, systemCode: studioSystemCode(cause),
+          upstreamStatus: Number.isInteger(cause?.upstreamStatus) ? cause.upstreamStatus : null,
+          folderMayRemain: uncertain || stage === 'copy' || stage === 'write-blank', registrationUnknown: uncertain };
+        const location = 'src/studio/studio-controller.mjs:project-create';
+        if (!traceId) diagLog.error({ layer: 'host', code, channel, location, summary: code, detail });
+        throw Object.assign(new Error(code), { code, diag: { ...detail, layer: 'host', location } });
       }
-      const chosen = (await listTemplates(templatesRoot)).find(item => item.id === templateId);
-      if (!chosen) throw Object.assign(new Error('Unknown template'), { code: 'TEMPLATE_INPUT' });
-      // New films live beside the user's existing ones; with no project yet, a
-      // folder under the home directory keeps the same one-project-one-folder shape.
-      const parentDir = await projectParentDir(proxy);
-      const created = await installTemplate({
-        root: templatesRoot,
-        id: chosen.id,
-        parentDir,
-        createProject: target => proxy.createProject(target),
-        titleFor: () => chosen.title,
-      });
-      // Record the template the film was made from. Its prompt is rendered into the
-      // project's AGENTS.md on the next prepare (never here: writing AGENTS.md before
-      // the base protocol exists would make the base look "already present").
-      const finished = await finishTemplateCreation(created, {
-        activate: () => writeActiveTemplates(created.path, [chosen.id]),
-        remember: () => finishOnboardingProject(chosen.id, created),
-      });
-      return { ...finished, prompt: chosen.prompt };
     }
     if (channel === 'diag:list' || channel === 'diag:export' || channel === 'diag:clear' || channel === 'diag:prefs') {
       return diagLogs.handleRpc(channel, payload);
@@ -1080,6 +1095,7 @@ export function createStudioController(ctx, createProxy, {
       }
       const pending = [...proxies.values()];
       proxies.clear();
+      lastProxy = undefined;
       const settled = await Promise.allSettled(pending);
       await Promise.all(settled.filter(item => item.status === 'fulfilled').map(item => item.value.close()));
     };
@@ -1137,10 +1153,10 @@ export function createStudioController(ctx, createProxy, {
         await next?.close?.();
         throw new Error('Studio proxy is unavailable');
       }
+      if (proxies.get(browserOrigin) === pending) lastProxy = pending;
       return next;
     });
     proxies.set(browserOrigin, pending);
-    lastProxy = pending;
     pending.catch(() => { if (proxies.get(browserOrigin) === pending) proxies.delete(browserOrigin); });
     return pending;
   }
@@ -1154,7 +1170,11 @@ export function createStudioController(ctx, createProxy, {
   unregisterTemplateBridge = trackRoute(registerTemplateBridge(ctx, {
     webOrigin,
     list: () => listTemplates(templatesRoot),
-    create: templateId => officialRpc('template:create', { templateId }),
+    create: async (templateId, { origin, desktop }) => {
+      await runtime.ensureStarted();
+      const proxy = await proxyFor(origin, desktop);
+      return officialRpc('template:create', { templateId }, { proxy });
+    },
     isDisposed: () => disposed,
   }));
   unregisterAuthBridge = trackRoute(registerAuthBridge(ctx, {

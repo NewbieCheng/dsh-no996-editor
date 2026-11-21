@@ -23,6 +23,7 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 | 症状 | 先核实什么 | 后续 |
 |---|---|---|
 | 看不到插件或版本区 | profile、registry 包名、安装来源与重启提示 | [安装 / 更新手册](publish.md) |
+| 桌面启动失败、或「复制开工」/「空白开工」失败 | 导出诊断，查 `studio:listen` 的 Trace ID、`listener`、`bindHost`、`requestedPort`、`systemCode`、`recovery`；再按创建请求的 `stage`、`systemCode` 和 `upstreamStatus` 分层 | Mac/Windows 使用相同字段。`registrationUnknown: true` 时先查「我的项目」；不要自动重试或删除遗留文件夹。 |
 | 面板白屏或启动超时 | 页面 origin、bootstrap 请求、Host 日志和 Studio 健康情况 | [开发文档](../DEVELOPMENT.md)；历史案例仅用于提出假设 |
 | 剪辑／放映／画布报 `Failed to fetch dynamically imported module` | 查看浏览器 Network：内置工作台模块应从独立的本地插件页面代理加载，不应直连 Studio 的内部模块端口 | 查 `plugin-surface-http` 的 HTTP 状态与 `s`（模块）或 `f`（项目文件）类别；诊断不记录授权 URL。HTTP 200 但缺少编辑器对应的 `Access-Control-Allow-Origin` 也会加载失败，不能只测端口。开发门户 `47821` 上再对照 [开发门户规律](dev-live-guide.md)。 |
 | 门户 `47821` 预览卡在 Drawing the first frame，DSH 侧栏正常 | 页面 Origin、film iframe URL、`film.html` 里 `const EDITOR =`、带门 Origin 的 `/p/` 是否 403；Console 可几乎无报错 | 同一类 Origin 分裂：`EDITOR` / film CORS 必须认门（`viewerOrigins`）。步骤与表见 [开发门户规律](dev-live-guide.md) |

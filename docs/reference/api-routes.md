@@ -33,7 +33,7 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 | GET | `/api/no996-openfilm/editing-sessions` | exact | `src/studio/studio-controller/routes/editing.mjs:34` |
 | GET | `/api/no996-openfilm/environment` | exact | `src/studio/studio-controller/routes/environment.mjs:52` |
 | POST | `/api/no996-openfilm/logs` | exact | `src/studio/studio-controller/routes/diag-logs.mjs:184` |
-| POST | `/api/no996-openfilm/renew-session` | exact | `src/studio/studio-controller/routes/bootstrap.mjs:81` |
+| POST | `/api/no996-openfilm/renew-session` | exact | `src/studio/studio-controller/routes/bootstrap.mjs:83` |
 | POST | `/api/no996-openfilm/system/check` | exact | `src/studio/studio-controller/routes/system.mjs:71` |
 | POST | `/api/no996-openfilm/system/install` | exact | `src/studio/studio-controller/routes/system.mjs:83` |
 | POST | `/api/no996-openfilm/templates` | exact | `src/film/template-bridge.mjs:8` |

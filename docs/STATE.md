@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.19.11
+checked: 0.19.12
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.19.11**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.19.12**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -24,6 +24,8 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - **本地视觉工具**：`openfilm_cutout` 返回透明单帧 PNG，`openfilm_face_analysis` 返回采样帧的人脸框与关键点；不识别人、不修改时间轴，绑定影片项目的 DSH 会话可用。
 
 ## 待真机验（源码完成 ≠ 可以用）
+
+- **0.19.12 桌面项目创建修复**：代理启动失败不再污染其他入口；桌面回环地址与端口有针对性回退，创建与监听故障统一结构化记录。先在 Apple Silicon Mac（报告中的平台）及 Windows DSH 桌面用临时项目验证「复制开工」「空白开工」和诊断导出；不要以 Windows 自动化代替 macOS 真机。
 
 - **2026-11-20 剪辑聊天（0.19.0，已发布源码与包，真机验收仍待做）。** 已核对本机 desktop profile 指向本工作区 `link:`，固定版 OpenFilm 壳已重建，补丁重放和测试通过。此证据不等于正在运行的桌面已加载新 Host，也不等于真实模型、搜索或安装技能已验收。
 - **源码变更**：模式/当前模型独立于用户正文；支持手动切换、切回 Auto 归初始阶段和模型动态更新实际阶段。活动行收口，窄栏容纳失败状态及可展开的网页/命令详情；推理切换使用实际档位并保留默认。`/` 与「＋ → 技能」共用选择入口，分剪辑预设与 OpenFilm 已安装两组。实现与限制见[架构](ARCHITECTURE.md#23-聊天桥实时模式和显式技能)，原始排障见[聊天修复记录](topics/chat-work-mode-search-and-model-fix-plan.md)与[技能方案](topics/chat-slash-skills-plan.md)。

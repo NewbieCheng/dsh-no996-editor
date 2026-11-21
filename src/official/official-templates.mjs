@@ -65,11 +65,12 @@ const inside = (parent, child) => {
  * No cleanup is attempted: once registration starts even a rejection can mean
  * that Studio committed the project. Errors identify the potentially remaining folder.
  */
-export async function installTemplate({ root, id, parentDir, createProject, titleFor }) {
+export async function installTemplate({ root, id, parentDir, createProject, titleFor, setStage = () => {} }) {
   if (typeof root !== 'string' || !isAbsolute(root) || typeof parentDir !== 'string' || !isAbsolute(parentDir) ||
       typeof id !== 'string' || !TEMPLATE_ID.test(id) || typeof createProject !== 'function' || typeof titleFor !== 'function') {
     throw failure('TEMPLATE_INPUT', 'Invalid template installation arguments');
   }
+  setStage('template-preflight');
   const source = join(resolve(root), id);
   const sourceInfo = await lstat(source).catch(() => null);
   if (!sourceInfo?.isDirectory() || sourceInfo.isSymbolicLink()) throw failure('TEMPLATE_INPUT', 'Template is missing or is a link');
@@ -79,6 +80,7 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw failure('TEMPLATE_INPUT', 'Invalid template root');
   // Resolve the nearest existing ancestor before mkdir, so even a new parent
   // under a symlink alias of the template cannot modify the source tree.
+  setStage('prepare-directory');
   let ancestor = resolve(parentDir);
   const missing = [];
   for (;;) {
@@ -116,8 +118,10 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
       } else throw failure('TEMPLATE_INPUT', 'Template contains a special file');
     }
   };
+  setStage('template-preflight');
   await scan(realSource);
 
+  setStage('prepare-directory');
   const slug = String(titleFor(id) || id).replace(/[^\p{L}\p{N}-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40) || id;
   let target;
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -167,8 +171,10 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
         } else throw failure('TEMPLATE_INPUT', 'Template contains a special file');
       }
     };
+    setStage('copy');
     await copy(realSource, target);
     registering = true;
+    setStage('register');
     const project = await createProject(target);
     if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') throw new Error('Studio returned an invalid project');
     return { projectId: project.id, path: project.path, files, bytes };

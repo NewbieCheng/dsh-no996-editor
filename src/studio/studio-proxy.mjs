@@ -12,11 +12,12 @@ import {
   RESPONSE_HEADERS,
   SAFE_HEADERS,
   ancestorsFor,
+  bindStudioListener,
   fail,
   friendlyCommandFailure,
-  listen,
   recordFailure,
   shutdown,
+  studioSystemCode,
   upstreamOrigin,
 } from './studio-proxy/upstream.mjs';
 
@@ -40,6 +41,12 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_CONVERSATION_ARCHIVED: '这个会话已归档，先恢复再继续',
   OFFICIAL_AGENT_OWNERSHIP: '找不到这个会话',
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
+  TEMPLATE_UNAVAILABLE: '创建服务未就绪，请重新打开视频创作',
+  TEMPLATE_PREPARE_FAILED: '无法准备项目目录，请检查存储权限和可用空间，再查看诊断日志',
+  TEMPLATE_COPY_FAILED: '项目文件写入失败，请查看诊断日志；不会自动重试',
+  TEMPLATE_SOURCE_FAILED: '无法读取模板文件，请查看诊断日志',
+  TEMPLATE_INPUT: '模板或画布选项无效，请重新选择',
+  TEMPLATE_REGISTRATION_UNCERTAIN: '无法确认项目是否登记成功，请先到「我的项目」检查，再决定是否重试',
 });
 
 function normalizeViewerOrigins(value) {
@@ -119,7 +126,8 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
   // test can watch a full rotation without waiting half an hour.
   const sessionLifetime = sessionLifetimeMs;
   const maxCredentials = 128;
-  const cookieName = 'dsh_openfilm_session';
+  let cookieName = 'dsh_openfilm_session';
+  let proxy;
   function prune(map) {
     const now = Date.now();
     for (const [token, expiry] of map) if (expiry <= now) map.delete(token);
@@ -795,7 +803,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           && value.channel !== 'system:check' && value.channel !== 'system:install'
           && value.channel !== 'asr:status' && value.channel !== 'asr:install';
         if (needsProject && await authorizeOfficialProject(req, value.payload?.projectId) !== true) return fail(res);
-        const result = await officialRpc(value.channel, value.payload, { traceId });
+        const result = await officialRpc(value.channel, value.payload, { traceId, proxy });
         if (closed || res.destroyed || res.writableEnded) return;
         const body = Buffer.from(JSON.stringify(result));
         if (body.length > 9 * 1024 * 1024) return fail(res, 502);
@@ -1077,51 +1085,76 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     });
     remote.end();
   });
+  const startupTrace = `bind-${randomBytes(4).toString('hex')}`;
+  const reportBind = detail => {
+    const recoverable = detail.recovery !== 'none';
+    const code = recoverable ? 'STUDIO_PROXY_LISTEN_RETRY' : 'STUDIO_PROXY_LISTEN_FAILED';
+    say.warn('studio-proxy-listen', { traceId: startupTrace, code, ...detail });
+    recordDiag?.record({ level: recoverable ? 'warn' : 'error', layer: 'host', traceId: startupTrace, code,
+      channel: 'studio:listen', summary: 'Studio proxy listener failed', detail });
+  };
+  const bind = (server, listener, host, port) => bindStudioListener(server, { listener, host, port, desktop, report: reportBind });
   try {
-    // The editor must use the DSH page's hostname so its host-only browser
-    // session cookie remains available. Film pages use the other hostname.
-    const editorHost = desktop ? '127.0.0.2' : web.hostname;
-    const filmHost = editorHost === 'localhost' ? '127.0.0.1' : 'localhost';
+    // Browser mode must retain the DSH hostname for its host-only cookie.
     const preferredPort = Number.isInteger(listenPort) && listenPort >= 0 && listenPort < 65536
       ? listenPort
       : Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822);
-    editorOrigin = `http://${editorHost}:${await listen(editor, desktop ? editorHost : '127.0.0.1', preferredPort)}`;
-    filmOrigin = `http://${filmHost}:${await listen(film, '127.0.0.1')}`;
-    if (plugin) pluginOrigin = `http://${filmHost}:${await listen(plugin, '127.0.0.1')}`;
-  } catch {
+    const boundEditor = await bind(editor, 'editor', desktop ? '127.0.0.2' : '127.0.0.1', preferredPort);
+    const editorHost = desktop ? boundEditor.host : web.hostname;
+    const filmHost = editorHost === 'localhost' ? '127.0.0.1' : 'localhost';
+    // Host-only cookies ignore ports. Keep the desktop fallback session separate
+    // from the browser proxy even when both use 127.0.0.1.
+    if (desktop && editorHost === '127.0.0.1') cookieName += `_${boundEditor.port}`;
+    editorOrigin = `http://${editorHost}:${boundEditor.port}`;
+    filmOrigin = `http://${filmHost}:${(await bind(film, 'film', '127.0.0.1')).port}`;
+    if (plugin) pluginOrigin = `http://${filmHost}:${(await bind(plugin, 'plugin', '127.0.0.1')).port}`;
+  } catch (error) {
     await Promise.all([shutdown(editor), shutdown(film), ...(plugin ? [shutdown(plugin)] : [])]);
-    throw new Error('Studio proxy could not start');
+    throw Object.assign(error, { traceId: startupTrace });
   }
   // Two Studio calls the template installer needs. They stay inside this module
   // so the Studio key never leaves it.
   function studioCall(method, path, body) {
     return new Promise((resolve, reject) => {
       const payload = body === undefined ? undefined : Buffer.from(JSON.stringify(body));
-      const req = request({ hostname: editorUpstream.hostname, port: editorUpstream.port, method, path,
+      const signal = AbortSignal.timeout(15_000);
+      const req = request({ hostname: editorUpstream.hostname, port: editorUpstream.port, method, path, signal,
         headers: { host: editorUpstream.host, 'x-studio-key': key, 'accept-encoding': 'identity', origin: editorUpstream.origin,
           ...(payload ? { 'content-type': 'application/json', 'content-length': payload.length } : {}) } }, (reply) => {
         const chunks = [];
-        reply.on('data', chunk => { if (chunks.length < 512) chunks.push(chunk); });
+        let size = 0;
+        reply.on('data', chunk => {
+          size += chunk.length;
+          if (size > 4 * 1024 * 1024) {
+            reject(Object.assign(new Error('Studio project response too large'), { upstreamStatus: reply.statusCode }));
+            reply.destroy();
+          } else chunks.push(chunk);
+        });
+        reply.on('error', error => reject(Object.assign(new Error('Studio response interrupted'), {
+          code: signal.aborted ? 'ETIMEDOUT' : studioSystemCode(error), upstreamStatus: reply.statusCode,
+        })));
         reply.on('end', () => {
           let value;
           try { value = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { value = undefined; }
           resolve({ status: reply.statusCode, value });
         });
       });
-      req.on('error', () => reject(new Error('Studio request failed')));
+      req.on('error', error => reject(Object.assign(new Error('Studio request failed'), {
+        code: signal.aborted ? 'ETIMEDOUT' : studioSystemCode(error),
+      })));
       if (payload) req.write(payload);
       req.end();
     });
   }
 
-  return Object.freeze({
+  proxy = Object.freeze({
     editorOrigin,
     filmOrigin,
     diagnostics: () => ({ ...diag, mode: officialShell ? 'official' : 'dsh' }),
     async listProjects() {
       const reply = await studioCall('GET', '/api/projects');
       const items = Array.isArray(reply.value) ? reply.value : reply.value?.projects;
-      if (reply.status !== 200 || !Array.isArray(items)) throw new Error('Studio project list unavailable');
+      if (reply.status !== 200 || !Array.isArray(items)) throw Object.assign(new Error('Studio project list unavailable'), { upstreamStatus: reply.status });
       return items.map(project => ({ id: String(project.id), path: String(project.path) }));
     },
     async createProject(projectPath) {
@@ -1131,7 +1164,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       // project joins the library list. The reply is unwrapped leniently so a
       // ({project} | project) shape both work.
       const reply = await studioCall('POST', '/api/projects', { path: projectPath });
-      if (reply.status !== 200) throw new Error(`Studio refused the project (HTTP ${reply.status})`);
+      if (reply.status !== 200) throw Object.assign(new Error('Studio refused the project'), { upstreamStatus: reply.status });
       const project = reply.value?.project ?? reply.value;
       const id = project?.id ?? project?.projectId;
       if (typeof id !== 'string' || !id) throw new Error('Studio returned no project id');
@@ -1191,4 +1224,5 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       await Promise.all([shutdown(editor), shutdown(film), ...(plugin ? [shutdown(plugin)] : [])]);
     },
   });
+  return proxy;
 }
