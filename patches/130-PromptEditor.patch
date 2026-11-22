@@ -1,0 +1,107 @@
+diff --git a/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx b/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx
+index 011d900..9f06417 100644
+--- a/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx
++++ b/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx
+@@ -15,6 +15,7 @@ import {
+   $getRoot,
+   $getSelection,
+   $insertNodes,
++  $isParagraphNode,
+   $isRangeSelection,
+   $isTextNode,
+   $nodesOfType,
+@@ -33,7 +34,7 @@ import {
+   PromptReferenceContext,
+   PromptReferenceNode,
+ } from './PromptReferenceNode';
+-import { MentionMenuPlugin, type MentionMenuConfig } from './MentionMenuPlugin';
++import { MentionMenuPlugin, suppressNextMention, type MentionMenuConfig } from './MentionMenuPlugin';
+ import { $edgeCharacter, MovePillsPlugin, placeAtPoint } from './MovePillsPlugin';
+ import { spacesAroundPill } from './pill-spacing';
+ import type { PromptPillCard } from './PromptPill';
+@@ -63,6 +64,13 @@ export interface PromptEditorHandle {
+   removeReference: (id: string) => void;
+   /** Inserts ready-made text at the caret, or at the end if the editor was never focused. */
+   insertText: (text: string) => void;
++  /**
++   * Appends dictated text safely to the end of the live Lexical tree without
++   * altering existing words, pills, or line breaks, waiting for any active IME
++   * composition to finish, adding smart ASCII spacing, and committing as its
++   * own discrete undo step. Never triggers `@`/`/` mention menus.
++   */
++  appendDictation: (text: string) => void;
+   /** Replaces everything with this text (with markers); pass an empty string to clear. */
+   setText: (text: string) => void;
+   clear: () => void;
+@@ -450,6 +458,54 @@ const HandlePlugin = React.forwardRef<
+ >(
+   function HandlePlugin({ lookupRef, autoFocus }, ref) {
+     const [editor] = useLexicalComposerContext();
++    const composingRef = React.useRef(false);
++    const pendingDictationRef = React.useRef<string[]>([]);
++
++    const flushDictation = React.useCallback((raw: string) => {
++      const cleaned = raw.trim();
++      if (!cleaned) return;
++      suppressNextMention(editor);
++      editor.update(() => {
++        const root = $getRoot();
++        let lastChild = root.getLastChild();
++        let paragraph = $isParagraphNode(lastChild) ? lastChild : null;
++        if (!paragraph) {
++          paragraph = $createParagraphNode();
++          root.append(paragraph);
++        }
++        const existingText = paragraph.getTextContent();
++        const prevChar = existingText ? existingText[existingText.length - 1]! : '';
++        const nextChar = cleaned[0]!;
++        const needsSpace = /[A-Za-z0-9]/.test(prevChar) && /[A-Za-z0-9]/.test(nextChar);
++        const textToAppend = needsSpace ? ` ${cleaned}` : cleaned;
++        const lines = textToAppend.split('\n');
++        lines.forEach((line, index) => {
++          if (index > 0) paragraph!.append($createLineBreakNode());
++          if (line) paragraph!.append($createTextNode(line));
++        });
++        paragraph.selectEnd();
++      }, { discrete: true });
++      editor.focus();
++    }, [editor]);
++
++    React.useEffect(() => (
++      editor.registerRootListener((rootElement, prevRootElement) => {
++        const onStart = () => { composingRef.current = true; };
++        const onEnd = () => {
++          composingRef.current = false;
++          const queued = pendingDictationRef.current.splice(0);
++          for (const item of queued) flushDictation(item);
++        };
++        if (prevRootElement) {
++          prevRootElement.removeEventListener('compositionstart', onStart);
++          prevRootElement.removeEventListener('compositionend', onEnd);
++        }
++        if (rootElement) {
++          rootElement.addEventListener('compositionstart', onStart);
++          rootElement.addEventListener('compositionend', onEnd);
++        }
++      })
++    ), [editor, flushDictation]);
+ 
+     React.useImperativeHandle(ref, () => ({
+       focus: () => editor.focus(),
+@@ -487,7 +543,15 @@ const HandlePlugin = React.forwardRef<
+         });
+         editor.focus();
+       },
+-    }), [editor, lookupRef]);
++      appendDictation: (text) => {
++        if (typeof text !== 'string' || !text.trim()) return;
++        if (composingRef.current || editor.isComposing()) {
++          pendingDictationRef.current.push(text);
++          return;
++        }
++        flushDictation(text);
++      },
++    }), [editor, lookupRef, flushDictation]);
+ 
+     React.useEffect(() => {
+       if (autoFocus) editor.focus();

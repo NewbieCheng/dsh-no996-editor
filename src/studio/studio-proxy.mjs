@@ -1,5 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { createServer, request } from 'node:http';
+import { VISION_WEIGHTS } from '../vision/vision-pack.mjs';
 import { isReleasePackage } from '../host/distribution.mjs';
 import { officialFacadeSource } from '../official/official-facade.mjs';
 import { officialUploadSource } from '../official/official-attachment.mjs';
@@ -66,7 +69,7 @@ function normalizeViewerOrigins(value) {
   return [...allowed];
 }
 
-export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, log, diagLog, devHooks, viewerOrigins, sessionLifetimeMs = 30 * 60_000 } = {}) {
+export async function startStudioProxy({ upstream, authenticateBrowser, webOrigin, listenPort, desktop = false, officialShell = false, officialRpc, authorizeOfficialProject, attachOfficialEvents, readProjectFile, openProjectFile, beforeProjectDelete, rewriteLibraryVoices, voiceSettings, visionPack, modelCatalog, log, diagLog, devHooks, viewerOrigins, sessionLifetimeMs = 30 * 60_000 } = {}) {
   // A proxy without a logger is valid (tests, embedders); the calls are no-ops.
   const say = typeof log?.write === 'function' ? log : { write() {}, info() {}, warn() {}, error() {} };
   const recordDiag = typeof diagLog?.record === 'function' ? diagLog : null;
@@ -801,7 +804,14 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           // install/status only. Gating them on a project made the wizard's
           // checks fail with an empty 403.
           && value.channel !== 'system:check' && value.channel !== 'system:install'
-          && value.channel !== 'asr:status' && value.channel !== 'asr:install';
+          && value.channel !== 'asr:status' && value.channel !== 'asr:install' && value.channel !== 'asr:cancel'
+          && value.channel !== 'asr:choice-get' && value.channel !== 'asr:choice-set'
+          && value.channel !== 'dictation:transcribe'
+          && value.channel !== 'search:status' && value.channel !== 'search:choice-set'
+          && value.channel !== 'models:list' && value.channel !== 'models:preview'
+          && value.channel !== 'models:install' && value.channel !== 'models:cancel'
+          && value.channel !== 'models:remove' && value.channel !== 'models:import-local'
+          && value.channel !== 'models:pre-migrate';
         if (needsProject && await authorizeOfficialProject(req, value.payload?.projectId) !== true) return fail(res);
         const result = await officialRpc(value.channel, value.payload, { traceId, proxy });
         if (closed || res.destroyed || res.writableEnded) return;
@@ -980,6 +990,119 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
     })();
     return true;
   }
+  function reconciledStorage(req, res) {
+    if (!modelCatalog || req.method !== 'GET') return false;
+    let url;
+    try { url = new URL(req.url, 'http://proxy.invalid'); } catch { return false; }
+    if (url.pathname.replace(/\/+$/, '') !== '/api/storage') return false;
+    if (!permitted(req, false) || !authenticated(req)) { fail(res); return true; }
+    void (async () => {
+      try {
+        const reply = await studioCall('GET', '/api/storage');
+        if (closed || res.destroyed || res.writableEnded) return;
+        if (reply.status !== 200 || !reply.value || typeof reply.value !== 'object') {
+          const body = Buffer.from(JSON.stringify(reply.value ?? { error: 'unavailable' }));
+          res.writeHead(reply.status || 502, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': body.length });
+          res.end(body);
+          return;
+        }
+        const reconciled = await modelCatalog.reconcileStorage(reply.value);
+        if (closed || res.destroyed || res.writableEnded) return;
+        const body = Buffer.from(JSON.stringify(reconciled));
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-length': body.length });
+        res.end(body);
+      } catch {
+        if (!res.destroyed && !res.writableEnded) fail(res, 502);
+      }
+    })();
+    return true;
+  }
+  const VISION_SPLIT_NAMES = new Set(VISION_WEIGHTS.map(w => w.id));
+  function filmVision(req, res) {
+    if (!visionPack) return false;
+    let url;
+    try { url = new URL(req.url, 'http://proxy.invalid'); } catch { return false; }
+    const path = decodeURIComponent(url.pathname).replace(/\/+$/, '');
+    const m = /^\/p\/[A-Za-z0-9_-]+\/__film\/vision\/([^/?#]+)$/.exec(path);
+    if (!m) return false;
+    const asset = m[1];
+    if (asset !== 'models.json' && !VISION_SPLIT_NAMES.has(asset)) return false;
+    const rejection = rejectionReason(req, true);
+    if (rejection) { fail(res); return true; }
+    const reqOrigin = req.headers.origin;
+    const cors = {
+      'access-control-allow-origin': reqOrigin && isEditorLikeOrigin(reqOrigin) ? reqOrigin : filmEditorOrigin(),
+      'cache-control': 'no-store',
+      'referrer-policy': 'no-referrer',
+      'x-content-type-options': 'nosniff',
+    };
+    void (async () => {
+      let lease = null;
+      try {
+        if (asset === 'models.json') {
+          const packStatus = await visionPack.status();
+          const byId = Object.fromEntries((packStatus.capabilities || []).map(w => [w.id, w]));
+          const map = {};
+          for (const w of VISION_WEIGHTS) {
+            const st = byId[w.id];
+            map[w.id] = {
+              bytes: w.bytes,
+              sha256: w.sha256,
+              ready: Boolean(st?.weightsPresent),
+              state: st?.weightsPresent ? 'ready' : (packStatus.installing ? 'downloading' : 'missing'),
+            };
+          }
+          const body = Buffer.from(JSON.stringify(map));
+          if (closed || res.destroyed || res.writableEnded) return;
+          res.writeHead(200, { ...cors, 'content-type': 'application/json; charset=utf-8', 'content-length': body.length });
+          res.end(req.method === 'HEAD' ? undefined : body);
+          return;
+        }
+        let resolved;
+        try {
+          resolved = await visionPack.resolveAsset(asset);
+        } catch (error) {
+          const body = Buffer.from(JSON.stringify({
+            error: String(error?.message || 'VISION_MODEL_NOT_INSTALLED'),
+            code: error?.code || 'VISION_MODEL_NOT_INSTALLED',
+            model: asset,
+          }));
+          if (!res.destroyed && !res.writableEnded) {
+            res.writeHead(503, { ...cors, 'content-type': 'application/json; charset=utf-8', 'content-length': body.length });
+            res.end(req.method === 'HEAD' ? undefined : body);
+          }
+          return;
+        }
+        lease = visionPack.acquireLease?.(asset) || null;
+        const info = await stat(resolved.path);
+        const releaseLease = () => {
+          if (typeof lease === 'function') {
+            try { lease(); } catch { /* ignore */ }
+            lease = null;
+          }
+        };
+        if (closed || res.destroyed || res.writableEnded) { releaseLease(); return; }
+        res.writeHead(200, { ...cors, 'content-type': 'application/octet-stream', 'content-length': info.size });
+        if (req.method === 'HEAD') { res.end(); releaseLease(); return; }
+        const stream = createReadStream(resolved.path);
+        const done = () => {
+          visionPack.markLoaded?.(asset);
+          releaseLease();
+        };
+        res.once('close', () => { stream.destroy(); releaseLease(); });
+        stream.on('error', () => { releaseLease(); if (!res.destroyed && !res.writableEnded) fail(res, 502); });
+        stream.on('end', done);
+        stream.pipe(res);
+      } catch {
+        if (typeof lease === 'function') {
+          try { lease(); } catch { /* ignore */ }
+          lease = null;
+        }
+        if (!res.destroyed && !res.writableEnded) fail(res, 503);
+      }
+    })();
+    return true;
+  }
   const editor = createServer((req, res) => {
     // A project folder is often also a DSH workspace (the project's own
     // conversation). Its watcher keeps Windows from moving the folder to the
@@ -1011,14 +1134,14 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       const handled = activeDevHooks.handleHttp(req, res, devContext);
       if (handled) return;
     }
-    if (!officialEvents(req, res) && !voiceProviders(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
+    if (!officialEvents(req, res) && !reconciledStorage(req, res) && !voiceProviders(req, res) && !officialUpload(req, res) && !clientDiag(req, res) && !shellVersion(req, res) && !projectFile(req, res) && !openFile(req, res) && !officialBridge(req, res) && !desktopBridge(req, res)) forward(req, res, false);
   });
   const plugin = pluginUpstream && createPluginSurfaceProxy(pluginUpstream, () => ({
     editor: editorOrigin, surface: closed ? null : pluginOrigin, upstreamEditor: editorUpstream.origin, viewers,
   }), (method, lane, status) => {
     say.warn('plugin-surface-http', { method, lane, status });
   });
-  const film = createServer((req, res) => forward(req, res, true));
+  const film = createServer((req, res) => { if (!filmVision(req, res)) forward(req, res, true); });
   film.on('upgrade', (_req, socket) => socket.destroy());
   editor.on('upgrade', (req, socket, head) => {
     socket.on('error', () => socket.destroy());

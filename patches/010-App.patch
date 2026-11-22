@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..3be6e5a 100644
+index 26575ee..08eb89f 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -7,7 +7,7 @@ index 26575ee..3be6e5a 100644
   */
  import React from 'react';
 -import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Shapes, Square } from 'lucide-react';
-+import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Square } from 'lucide-react';
++import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Mic, Paperclip, Plus, Square } from 'lucide-react';
  import { buildPromptDisplay, type Turn } from '@openfilm/shared';
  import { useT, useUiLocale } from '@/i18n';
  import { ConversationBar } from '@/components/ConversationSessionBar';
@@ -22,7 +22,15 @@ index 26575ee..3be6e5a 100644
  import { Popover } from '@/components/Popover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -33,6 +36,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+@@ -25,6 +28,7 @@ import { Tooltip } from '@/components/Tooltip';
+ import { StickToBottomContext, useStickToBottom, useTailSpacer } from '@/components/useStickToBottom';
+ import { PromptEditor, PromptPill, PromptPillHoverContext, PromptPillRevealContext, activatedSkillIds, fileReferenceId, fileReferencePath, promptReferenceToken, resolvePromptReferences, skillReferenceId, skillReferencePackage, splitPromptReferenceText, type MentionProvider, type PromptEditorHandle, type PromptEditorState, type PromptPillHover, type PromptReference } from '@/components/prompt-editor';
+ import { filesFromTransfer, transferHasFiles } from '@/lib/composer-attachments';
++import { startMicRecorder, type DictationRecorder } from '@/lib/dictation';
+ import { PROMPT_PICTURES_MAX, attachedPictures, attachmentBlocker, formatFileSize, turnAttachments, useDesktopAttachments } from '@/lib/desktop-attachments';
+ import { attachmentPill, attachmentsInText, attachmentWords, isAttachmentPill, projectFilePath, sentPill } from '@/lib/attachment-pills';
+ import { deriveProjectTurns } from '@/lib/project-versions';
+@@ -33,6 +37,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -30,7 +38,7 @@ index 26575ee..3be6e5a 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -43,6 +47,7 @@ import {
+@@ -43,6 +48,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -38,7 +46,7 @@ index 26575ee..3be6e5a 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -67,9 +72,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
+@@ -67,9 +73,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
  import { accountModel, accountModelOf, routeWithoutKey } from '@/lib/route-without-key';
  import { keptNote, ProjectFolderContext, readStudioProject } from '@/lib/studio-film';
  import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-transfer';
@@ -51,7 +59,7 @@ index 26575ee..3be6e5a 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -157,6 +164,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -157,6 +165,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -59,7 +67,7 @@ index 26575ee..3be6e5a 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +192,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -184,11 +193,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
    const [sessionId, setSessionId] = React.useState<string>(() => {
@@ -132,7 +140,7 @@ index 26575ee..3be6e5a 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +454,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +455,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -141,7 +149,7 @@ index 26575ee..3be6e5a 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +482,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +483,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -205,7 +213,7 @@ index 26575ee..3be6e5a 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,6 +564,48 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +565,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -234,7 +242,6 @@ index 26575ee..3be6e5a 100644
 +            for (const opt of ordered) {
 +              const wanted = ownAgentPrefs[opt.id];
 +              const current = latest.find((o) => o.id === opt.id)?.currentValue;
-+              if (cancelled) return;
 +              if (wanted === undefined || wanted === current) continue;
 +              const updated = await applyLiveSessionOption(agent, opt.id, wanted, { projectId: projectKey, conversation: sessionId });
 +              if (cancelled) return;
@@ -279,17 +286,116 @@ index 26575ee..3be6e5a 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1035,7 +1209,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-   const onAccountPicked = onAccount ? accountModelOf(agentOptions(la, 'deepseek'), agentPrefs.deepseek?.[onAccount.configId]) : null;
-   const pickAccountModel = () => {
-     if (!onAccount) return;
--    la.setPref('deepseek', onAccount.configId, onAccount.value);
-+    la.setPref('deepseek', onAccount.configId, onAccount.value, { projectId: projectKey, conversation: sessionId });
-     keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, deepseek: { ...s.agentPrefs?.deepseek, [onAccount.configId]: onAccount.value } } }));
-     composerRef.current?.focus();
+@@ -1041,8 +1215,119 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    };
-@@ -1043,6 +1217,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   const wasName = agentWas === 'byok' ? t('composer.agentOwnKey') : agentWas ? la.roster?.find((a) => a.id === agentWas)?.name ?? AGENT_DEFINITIONS[agentWas]?.name ?? agentWas : '';
  
++  const [dictationPhase, setDictationPhase] = React.useState<'idle' | 'recording' | 'transcribing'>('idle');
++  const [dictationNotice, setDictationNotice] = React.useState<{ text: string; action?: 'install' | 'settings' } | null>(null);
++  const recorderRef = React.useRef<DictationRecorder | null>(null);
++
++  React.useEffect(() => () => {
++    recorderRef.current?.abort();
++    recorderRef.current = null;
++  }, []);
++
++  const nativeAsr = (window as unknown as {
++    openfilmNative?: {
++      asr?: {
++        choiceGet?: (purpose?: string) => Promise<{ configured?: string; available?: boolean; reason?: string; message?: string }>;
++        install?: () => Promise<unknown>;
++        transcribeDictation?: (payload: { audioBase64: string; lang?: string }) => Promise<{ ok?: boolean; text?: string; noSpeech?: boolean; message?: string }>;
++      };
++    };
++  }).openfilmNative?.asr;
++
++  const stopAndTranscribeDictation = React.useCallback(async () => {
++    const rec = recorderRef.current;
++    recorderRef.current = null;
++    if (!rec) {
++      setDictationPhase('idle');
++      return;
++    }
++    setDictationPhase('transcribing');
++    try {
++      const { audioBase64, durationMs, rms } = await rec.stop();
++      if (durationMs < 300 || rms < 1e-4) {
++        setDictationNotice({ text: durationMs < 300 ? t('dictation.shortClip') : t('dictation.noSpeech') });
++        return;
++      }
++      if (!nativeAsr?.transcribeDictation) {
++        setDictationNotice({ text: t('dictation.missingModel'), action: 'settings' });
++        return;
++      }
++      const res = await nativeAsr.transcribeDictation({ audioBase64, lang: 'auto' });
++      if (!res?.ok) {
++        setDictationNotice({
++          text: res?.message || t('dictation.failed').replace('{reason}', 'error'),
++          action: 'settings',
++        });
++        return;
++      }
++      if (res.noSpeech || !res.text?.trim()) {
++        setDictationNotice({ text: t('dictation.noSpeech') });
++        return;
++      }
++      setDictationNotice(null);
++      composerRef.current?.appendDictation(res.text);
++    } catch (error) {
++      setDictationNotice({
++        text: t('dictation.failed').replace('{reason}', error instanceof Error ? error.message : String(error)),
++      });
++    } finally {
++      setDictationPhase('idle');
++    }
++  }, [nativeAsr, t]);
++
++  const toggleDictation = React.useCallback(async () => {
++    if (dictationPhase === 'transcribing') return;
++    if (dictationPhase === 'recording') {
++      await stopAndTranscribeDictation();
++      return;
++    }
++    setDictationNotice(null);
++    if (!nativeAsr?.choiceGet || !nativeAsr?.transcribeDictation) {
++      setDictationNotice({ text: t('dictation.missingModel'), action: 'settings' });
++      return;
++    }
++    try {
++      const decision = await nativeAsr.choiceGet('dictation');
++      if (typeof decision?.configured === 'string' && decision.configured.startsWith('remote:')) {
++        setDictationNotice({ text: t('dictation.localOnlyRemoteBlocked'), action: 'settings' });
++        return;
++      }
++      if (decision?.configured === 'off') {
++        setDictationNotice({ text: t('dictation.turnedOff'), action: 'settings' });
++        return;
++      }
++      if (!decision?.available) {
++        setDictationNotice({
++          text: decision?.message || t('dictation.missingModel'),
++          action: decision?.reason === 'MODEL_MISSING' ? 'install' : 'settings',
++        });
++        return;
++      }
++      const rec = await startMicRecorder(() => { void stopAndTranscribeDictation(); });
++      recorderRef.current = rec;
++      setDictationPhase('recording');
++    } catch (error) {
++      recorderRef.current?.abort();
++      recorderRef.current = null;
++      setDictationPhase('idle');
++      setDictationNotice({
++        text: t('dictation.failed').replace('{reason}', error instanceof Error ? error.message : String(error)),
++      });
++    }
++  }, [dictationPhase, nativeAsr, stopAndTranscribeDictation, t]);
++
++  const openModelSettings = () => {
++    try { sessionStorage.setItem('openfilm.settings.card', 'local'); } catch { /* ignore */ }
++    desktopBridge()?.openSettings?.('models');
++  };
++
    const editComposerCard = (
      <div className="flex flex-col gap-1">
 +      {dropping ? (
@@ -300,7 +406,7 @@ index 26575ee..3be6e5a 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1254,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1360,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -313,7 +419,69 @@ index 26575ee..3be6e5a 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1139,6 +1319,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1123,6 +1409,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+               mentions={{ providers: mentionProviders, label: t('mention.menu'), onOpen: loadMentionFiles }}
+             />
+           </div>
++          {/* Local mic dictation button (SenseVoice only, never sends audio to cloud) */}
++          <Tooltip
++            label={
++              dictationPhase === 'recording'
++                ? t('dictation.stop')
++                : dictationPhase === 'transcribing'
++                  ? t('dictation.recognizing')
++                  : t('dictation.start')
++            }
++          >
++            <button
++              type="button"
++              onClick={() => void toggleDictation()}
++              disabled={dictationPhase === 'transcribing'}
++              className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] transition-colors duration-150 ${
++                dictationPhase === 'recording'
++                  ? 'animate-pulse bg-[#ff5a36]/15 text-[#ff5a36]'
++                  : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'
++              } disabled:cursor-not-allowed disabled:opacity-60`}
++              aria-label={dictationPhase === 'recording' ? t('dictation.stop') : t('dictation.start')}
++            >
++              {dictationPhase === 'transcribing' ? <Loader2 size={13} className="animate-spin" /> : dictationPhase === 'recording' ? <Square size={12} /> : <Mic size={14} />}
++            </button>
++          </Tooltip>
+           {/* while it works: Stop, or Send once something is written (it goes into the turn, or after it); Esc stops */}
+           <Tooltip label={stopping ? t('project.stop') : t('project.sendFollowUp')} shortcut={stopping ? 'Esc' : 'Enter'}>
+             <button
+@@ -1136,9 +1446,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+             </button>
+           </Tooltip>
+         </div>
++        {dictationNotice ? (
++          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--text-muted)]">
++            <span>{dictationNotice.text}</span>
++            <div className="flex items-center gap-2">
++              {dictationNotice.action === 'install' ? (
++                <button
++                  type="button"
++                  onClick={() => {
++                    void nativeAsr?.install?.();
++                    setDictationNotice({ text: t('dictation.installNow') + '…' });
++                    openModelSettings();
++                  }}
++                  className="font-medium text-[var(--accent)] hover:underline"
++                >
++                  {t('dictation.installNow')}
++                </button>
++              ) : null}
++              {dictationNotice.action ? (
++                <button type="button" onClick={openModelSettings} className="text-[var(--text)] hover:underline">
++                  {t('dictation.openSettings')}
++                </button>
++              ) : null}
++              <button type="button" onClick={() => setDictationNotice(null)} className="text-[var(--text-faint)] hover:text-[var(--text)]">
++                ×
++              </button>
++            </div>
++          </div>
++        ) : null}
        </div>
        <div className="flex items-center gap-0.5 px-0.5">
          <ModelPopover
@@ -321,7 +489,7 @@ index 26575ee..3be6e5a 100644
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1327,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1485,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -332,7 +500,7 @@ index 26575ee..3be6e5a 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1338,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1496,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -347,7 +515,7 @@ index 26575ee..3be6e5a 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1359,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1183,6 +1517,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -364,7 +532,7 @@ index 26575ee..3be6e5a 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1386,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1544,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}

@@ -132,6 +132,43 @@ if (bundled.length) {
   }
 }
 
+// Strip the split vision weights (~16.99 MB unpacked) from the bundled `openfilm`
+// inside this tarball only (never mutating repo node_modules) and patch its
+// staged `vision-assets.mjs` so it reads from NO996_VISION_MODELS_DIR and
+// never triggers unapproved network downloads when NO996_NO_AUTO_VISION_DOWNLOAD=1.
+const bundledVisionModelsDir = join(modulesDir, 'openfilm', 'models', 'vision')
+const splitVisionWeights = ['portrait.onnx', 'face.task', 'person.tflite']
+if (existsSync(bundledVisionModelsDir)) {
+  for (const weightName of splitVisionWeights) {
+    const weightPath = join(bundledVisionModelsDir, weightName)
+    if (existsSync(weightPath)) rmSync(weightPath, { force: true })
+    if (existsSync(weightPath)) throw new Error(`pack: failed to strip ${weightName}`)
+  }
+}
+const stagedVisionAssetsPath = join(modulesDir, 'openfilm', 'src', 'vision-assets.mjs')
+if (existsSync(stagedVisionAssetsPath)) {
+  let src = readFileSync(stagedVisionAssetsPath, 'utf8')
+  const bundledAnchor = "const bundled = fileURLToPath(new URL('../models/vision/', import.meta.url));"
+  if (!src.includes(bundledAnchor)) {
+    throw new Error('pack: staged openfilm vision-assets.mjs bundled anchor mismatch')
+  }
+  src = src.replace(
+    bundledAnchor,
+    "const defaultBundled = fileURLToPath(new URL('../models/vision/', import.meta.url));\nconst activeVisionDir = () => (typeof process.env.NO996_VISION_MODELS_DIR === 'string' && process.env.NO996_VISION_MODELS_DIR) ? process.env.NO996_VISION_MODELS_DIR : defaultBundled;"
+  )
+  src = src.replaceAll('join(bundled, name)', 'join(activeVisionDir(), name)')
+  src = src.replace('const local = join(bundled, name);', 'const local = join(activeVisionDir(), name);')
+  const loadingAnchor = '  if (!loading.has(file))'
+  if (!src.includes(loadingAnchor)) {
+    throw new Error('pack: staged openfilm vision-assets.mjs loading anchor mismatch')
+  }
+  src = src.replace(
+    loadingAnchor,
+    "  if (process.env.NO996_NO_AUTO_VISION_DOWNLOAD === '1') { const err = new Error('Vision model not installed locally: ' + name); err.code = 'VISION_MODEL_NOT_INSTALLED'; throw err; }\n" + loadingAnchor
+  )
+  writeFileSync(stagedVisionAssetsPath, src, 'utf8')
+}
+
 mkdirSync(outDir, { recursive: true })
 if (existsSync(outFile)) rmSync(outFile)
 

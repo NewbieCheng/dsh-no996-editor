@@ -51,7 +51,8 @@ description: How to cut a No996 Studio (OpenFilm engine) film well — shot gram
 - 配音/对话优先于音乐：先用 `no996_audio(action="extract")` 或 `no996_transcribe` 拿说话区间，再调 `no996_audio(action="duck")` 自动压低人声期配乐 -12 dB；Vibe 科普片可用 `no996_audio(action="bgm-install", id="vibe-we-never")` 装入内置配乐与实测拍点。
 - 音效只在动作/重音点用（可通过 `no996_sfx` 合成 12 类确定性音效并自动分轨），一个动作一个音效，**同轨 `<audio>` 严禁重叠**；轻柔叙事或纯微调时保持克制。
 - 全片响度对齐到 -14 LUFS（短视频）/ -16 LUFS（长片）；**默认交付到预览态，用户开启自动导出或明确要求时再调 `no996_export` 导出成片**。
-- 人像口播加解释浮层时，先用 `no996_face_analysis` 取脸框，再用 `VibeOverlay.safeAnchor` 贴合空白区，严禁压脸或压字幕。
+- **口播与头像授权原则**：口播默认保留原背景，裁切或画中画排版不等于抠像；安装视觉模型、模板人像槽位或检测到人脸都不代表抠像授权。只有用户明确要求去背景并在工作台确认后才预览抠像（`no996_cutout` 仅产单帧透明 PNG 预览，不修改整段原片）；人像口播加解释浮层时，可先用 `no996_face_analysis` 取脸框，再用 `VibeOverlay.safeAnchor` 贴合空白区，严禁压脸或压字幕。
+- **可编辑层保护**：涉及文字/图片微调时优先使用 `no996_clip(op="layer")` 修改对应 `clipId + elementId`，保留已有 `overrides` 与原动画。
 
 ## 导出档位
 

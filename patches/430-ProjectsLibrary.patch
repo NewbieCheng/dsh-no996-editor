@@ -1,0 +1,204 @@
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
+index 7b8de03..145c631 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
+@@ -240,6 +240,88 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
+ const COVER_WAIT_MS = 4000;
+ 
+ 
++type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string; featured?: boolean };
++
++function No996TemplateIcon({ id }: { id: string }) {
++  const common = { width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
++  if (id === 'talking-head' || id === 'talking_head') {
++    return (
++      <svg {...common}>
++        <circle cx="8" cy="5.5" r="2.5" />
++        <path d="M3.5 13.5a4.5 4.5 0 0 1 9 0" />
++      </svg>
++    );
++  }
++  if (id === 'paper-texture' || id === 'paper_texture') {
++    return (
++      <svg {...common}>
++        <path d="M4 2.5h5.5L13 6v7.5H4z" />
++        <path d="M9.5 2.5V6H13" />
++        <path d="M6.2 9h4.6M6.2 11.2h3.2" />
++      </svg>
++    );
++  }
++  if (id === 'feature-explain' || id === 'feature_explain' || id === 'product-demo') {
++    return (
++      <svg {...common}>
++        <rect x="2.5" y="3.5" width="11" height="9" rx="1.8" />
++        <path d="M6.8 6.4 10 8 6.8 9.6z" fill="currentColor" stroke="none" />
++      </svg>
++    );
++  }
++  return (
++    <svg {...common}>
++      <rect x="2.5" y="3.5" width="11" height="9" rx="1.8" />
++      <path d="M5.5 3.5v9M10.5 3.5v9" />
++    </svg>
++  );
++}
++
++/** NO996-UPSTREAM: keep product templates inside the upstream examples gallery. */
++function No996Templates({ onCopy, onBlank, busy }: { onCopy: (id: string) => void; onBlank: () => void; busy: boolean }) {
++  const [cards, setCards] = React.useState<No996Template[]>([]);
++  const [failed, setFailed] = React.useState(false);
++  const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
++  React.useEffect(() => {
++    let live = true;
++    void fetch('/__dsh/official-rpc', {
++      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ channel: 'template:list', payload: {} }),
++    }).then(async (response) => {
++      if (!response.ok) throw new Error('template list unavailable');
++      return response.json() as Promise<{ templates?: No996Template[] }>;
++    }).then((data) => {
++      if (live) setCards((Array.isArray(data.templates) ? data.templates : []).filter((card) => card && card.id !== 'custom'));
++    }).catch(() => { if (live) setFailed(true); });
++    return () => { live = false; };
++  }, []);
++  return (
++    <section className="px-6 pb-4" aria-label={zh ? 'No996 模板' : 'No996 templates'}>
++      <div className="mb-3 flex items-center justify-end gap-3">
++        <button type="button" disabled={busy} onClick={onBlank} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '空白开工' : 'Start blank'}</button>
++      </div>
++      {failed ? <p role="status" className="text-sm text-[var(--text-muted)]">{zh ? '模板暂不可用，仍可浏览示例或新建空白项目。' : 'Templates are unavailable; browse examples or start blank.'}</p> : null}
++      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
++        {cards.map((card) => <article key={card.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
++          <div className="flex items-center justify-between gap-2">
++            <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-[var(--text)]">
++              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--bg-field)] text-[var(--text-muted)]">
++                <No996TemplateIcon id={card.id} />
++              </span>
++              <span className="truncate">{card.productTitle || card.title}</span>
++            </h3>
++            {card.featured ? <span className="shrink-0 rounded-full bg-[rgba(255,194,75,0.16)] px-2 py-0.5 text-[10px] font-medium text-[#e2a32e]">{zh ? '首推' : 'Featured'}</span> : null}
++          </div>
++          <p className="flex-1 text-xs leading-relaxed text-[var(--text-muted)]">{card.productBlurb || card.description}</p>
++          <div className="mt-1 flex justify-end">
++            <button type="button" disabled={busy} onClick={() => onCopy(card.id)} className="self-end rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '复制开工' : 'Copy and start'}</button>
++          </div>
++        </article>)}
++      </div>
++    </section>
++  );
++}
++
+ export function ProjectsPopover({
+   open,
+   currentProjectId,
+@@ -272,6 +354,9 @@ export function ProjectsPopover({
+   const cover = useProjectCover(lib.coverChanged, React.useCallback(() => flash(t('projects.coverFailed')), [flash, t]));
+   /* each time it opens: the projects (the examples are a project tab away), or the examples when asked for */
+   const [view, setView] = React.useState<LauncherView>('projects');
++  /** Inside Examples: No996 templates vs OpenFilm example films. */
++  const [examplesPane, setExamplesPane] = React.useState<'templates' | 'examples'>('templates');
++  const zhExamples = typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('zh');
+   React.useLayoutEffect(() => {
+     if (!open) return;
+     const previous = document.activeElement as HTMLElement | null;
+@@ -282,7 +367,11 @@ export function ProjectsPopover({
+   const navigateProjects = (folderId: string | null = null) => { setProjectNavigation(old => ({ folderId, seq: old.seq + 1 })); setView('projects'); };
+   React.useLayoutEffect(() => {
+     if (!open) return;
+-    if (examples) { setView('examples'); return; }
++    if (examples) {
++      setView('examples');
++      setExamplesPane(examples.example ? 'examples' : 'templates');
++      return;
++    }
+     navigateProjects(null);
+   }, [open, Boolean(examples), examples?.example]);
+   React.useEffect(() => { try { localStorage.setItem(RESOURCE_VIEW_KEY, display); } catch { /* private window */ } }, [display]);
+@@ -374,6 +463,36 @@ export function ProjectsPopover({
+     }
+   }
+ 
++  async function copyNo996Template(templateId: string) {
++    if (busy) return;
++    setBusy('creating');
++    try {
++      const response = await fetch('/__dsh/official-rpc', {
++        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ channel: 'template:create', payload: { templateId } }),
++      });
++      if (!response.ok) throw new Error(`HTTP ${response.status}`);
++      const result = await response.json() as { projectId?: string; error?: string; warnings?: string[] };
++      if (!result.projectId || !/^[A-Za-z0-9_-]{6,40}$/.test(result.projectId)) throw new Error(result.error || 'Missing project ID');
++      // NO996-UPSTREAM: the copy exists even if recording its template/prefs failed.
++      // Warn before navigating rather than encouraging a second copy.
++      if (result.warnings?.length) {
++        const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
++        window.alert(result.warnings.includes('TEMPLATE_ACTIVATION_FAILED')
++          ? (zh ? '项目已创建，但模板说明未能自动启用。请在对话中读取所选模板说明。' : 'The project was created, but its template guidance was not activated. Read the template guidance in chat.')
++          : (zh ? '项目已创建，但未能保存最近使用的偏好。' : 'The project was created, but recent preferences could not be saved.'));
++      }
++      go(result.projectId, 'creating');
++    } catch {
++      setBusy(null);
++      // A lost response may follow successful registration; never imply it is safe
++      // to create again before checking the project list.
++      lib.flash(document.documentElement.lang.toLowerCase().startsWith('zh')
++        ? '无法确认创建结果，请先到「我的项目」检查，再决定是否重试。'
++        : 'Creation could not be confirmed. Check My Projects before trying again.');
++    }
++  }
++
+   async function duplicateProject(project: LibraryProject) {
+     if (busy) return;
+     setBusy('duplicating');
+@@ -481,6 +600,8 @@ export function ProjectsPopover({
+       key={examples?.example ?? ''}
+       heading={null}
+       embedded
++      surface={examplesPane}
++      supplement={<No996Templates busy={busy !== null} onBlank={() => { if (!busy) void newProject(null); }} onCopy={(id) => void copyNo996Template(id)} />}
+       {...(examples?.example ? { initial: examples.example } : {})}
+       onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
+       /* over a film: the example pointed at in its chat, for the agent to follow (as the Community does) */
+@@ -521,7 +642,11 @@ export function ProjectsPopover({
+           <div className={resourceStyles.resourceFrame}>
+             <ProjectsSidebar
+               place={view === 'recycle' ? 'projects' : view}
+-              onPlace={(place) => (place === 'projects' ? navigateProjects(null) : setView(place))}
++              onPlace={(place) => {
++                if (place === 'projects') { navigateProjects(null); return; }
++                setView(place);
++                if (place === 'examples') setExamplesPane('templates');
++              }}
+               onStart={(workbench) => void newProject(null, workbench)}
+               starting={busy !== null}
+             />
+@@ -531,7 +656,27 @@ export function ProjectsPopover({
+             <>
+               {/* the place's name and the way out of the window */}
+               <header className={sideStyles.pageHead}>
+-                <h2>{t(view === 'examples' ? 'projects.sideExamples' : 'projects.sideProjects')}</h2>
++                {view === 'examples' ? (
++                  <div role="tablist" aria-label={zhExamples ? '示例分区' : 'Examples sections'} className="flex min-w-0 flex-1 items-center gap-1">
++                    {([
++                      ['templates', zhExamples ? 'No996 模板' : 'No996 templates'],
++                      ['examples', zhExamples ? '示例' : 'Examples'],
++                    ] as const).map(([id, label]) => (
++                      <button
++                        key={id}
++                        type="button"
++                        role="tab"
++                        id={id === 'examples' ? 'resource-examples-tab' : 'resource-templates-tab'}
++                        aria-selected={examplesPane === id}
++                        aria-controls="resource-examples-panel"
++                        onClick={() => setExamplesPane(id)}
++                        className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${examplesPane === id ? 'bg-[var(--bg-hover)] text-[var(--text)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'}`}
++                      >{label}</button>
++                    ))}
++                  </div>
++                ) : (
++                  <h2>{t('projects.sideProjects')}</h2>
++                )}
+                 <span className={sideStyles.pageTools}>
+                   {onClose ? <button type="button" className={sideStyles.pageClose} aria-label={t('project.close')} onClick={onClose}><X size={17} /></button> : null}
+                 </span>

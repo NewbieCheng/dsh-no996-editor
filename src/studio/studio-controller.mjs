@@ -108,6 +108,12 @@ import { createEditingArchiveBatch } from '../project/editing-archive-batch.mjs'
 import { createSystemRoutes } from './studio-controller/routes/system.mjs';
 import { createTurnLog } from './studio-controller/turns.mjs';
 import { buildFallbackPayload } from '../host/fallback-prompt.mjs';
+import { createVisionPackManager, VISION_PACK_ID } from '../vision/vision-pack.mjs';
+import { createVisionAuthStore, computeSourceRevision } from '../host/vision-auth-store.mjs';
+import { createModelCatalogService } from '../host/model-catalog-service.mjs';
+import { createAsrChoiceResolver } from '../native/asr-choice.mjs';
+import { createWorkbenchSearchRouter } from '../native/search-routing.mjs';
+import { checkEditableDeliverable } from '../film/editable-check.mjs';
 
 /**
  * Host-only route and Studio lifecycle. `createProxy` receives the private
@@ -121,6 +127,7 @@ export function createStudioController(ctx, createProxy, {
   officialShell = false,
   workbenchAuth: providedAuth = null,
   onAuthChanged = undefined,
+  searchProvider = undefined,
   registerWalletDirtyListener = undefined,
 } = {}) {
   const log = createPluginLog();
@@ -310,6 +317,20 @@ export function createStudioController(ctx, createProxy, {
   void preferences.get().then((p) => {
     if (p?.logRetentionDays) diagLog.setRetentionDays(p.logRetentionDays);
   }).catch(() => {});
+  const transcribeService = createTranscribeService({ logger: log });
+  const visionPack = createVisionPackManager({ logger: log });
+  const visionAuthStore = createVisionAuthStore();
+  const asrChoice = createAsrChoiceResolver({ preferences, transcribeService });
+  const modelCatalog = createModelCatalogService({ visionPack, transcribeService });
+  let isProjectAgentRef = () => false;
+  const searchRouter = createWorkbenchSearchRouter({
+    ctx,
+    preferences,
+    searchProvider,
+    workbenchAuth,
+    isProjectAgent: agent => isProjectAgentRef(agent),
+    logger: log,
+  });
   const projectParentDir = async (proxy) => {
     const projects = await proxy.listProjects();
     if (projects.length) return dirname(projects[0].path);
@@ -740,12 +761,153 @@ export function createStudioController(ctx, createProxy, {
       // Same service as /api/no996-openfilm/asr, exposed over the one bridge the
       // overlays are allowed to use. Install starts once and joins the download.
       const state = await transcribeService.status();
-      if (channel === 'asr:install' && !state.ready) void transcribeService.setup().catch(() => undefined);
+      if (channel === 'asr:install' && !state.ready) {
+        void transcribeService.setup().then(async () => {
+          await asrChoice.enableLocalAfterInstall();
+          modelCatalog.bumpRevision();
+        }).catch(() => undefined);
+      }
       return {
         ready: state.ready, dir: state.dir, bytesTotal: state.bytesTotal, bytesOnDisk: state.bytesOnDisk,
         progress: state.progress, installing: state.installing || (channel === 'asr:install' && !state.ready),
         engine: state.engine,
       };
+    }
+    if (channel === 'asr:cancel') {
+      await transcribeService.cancelInstall?.();
+      modelCatalog.bumpRevision();
+      return asrChoice.resolve({ purpose: 'media' });
+    }
+    if (channel === 'asr:choice-get') {
+      const purpose = payload?.purpose === 'dictation' ? 'dictation' : 'media';
+      return asrChoice.resolve({ purpose });
+    }
+    if (channel === 'asr:choice-set') {
+      const next = await asrChoice.setChoice(payload?.choice);
+      modelCatalog.bumpRevision();
+      return next;
+    }
+    if (channel === 'dictation:transcribe') {
+      const decision = await asrChoice.resolve({ purpose: 'dictation' });
+      if (!decision.available) {
+        return {
+          ok: false,
+          error: decision.reason || 'MODEL_MISSING',
+          message: decision.message || '语音听写需要先启用本地模型',
+          choice: decision,
+        };
+      }
+      const b64 = typeof payload?.audioBase64 === 'string' ? payload.audioBase64 : '';
+      if (!b64 || b64.length > 32 * 1024 * 1024) {
+        return { ok: false, error: 'INVALID_AUDIO', message: '录音数据无效或超出长度上限（最长 2 分钟）' };
+      }
+      const wavBuffer = Buffer.from(b64, 'base64');
+      try {
+        const result = await transcribeService.transcribeAudioBuffer({
+          wavBuffer,
+          lang: typeof payload?.lang === 'string' ? payload.lang : 'auto',
+        });
+        return {
+          ok: true,
+          text: String(result?.text || ''),
+          noSpeech: Boolean(result?.noSpeech),
+          durationSec: Number(result?.durationSec) || 0,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          error: String(error?.code || 'DICTATION_FAILED'),
+          message: String(error?.message || '听写识别失败').slice(0, 200),
+        };
+      }
+    }
+    if (channel === 'search:status') {
+      return searchRouter.status();
+    }
+    if (channel === 'search:choice-set') {
+      return searchRouter.setSource(payload?.source);
+    }
+    if (channel === 'models:list' || channel === 'models:preview') {
+      return modelCatalog.snapshot();
+    }
+    if (channel === 'models:install') {
+      const targetId = typeof payload?.id === 'string' ? payload.id : VISION_PACK_ID;
+      if (targetId === VISION_PACK_ID) {
+        void visionPack.startInstall({ force: payload?.force === true }).then(() => {
+          modelCatalog.bumpRevision();
+        }).catch(() => {});
+        return modelCatalog.snapshot();
+      }
+      if (targetId === 'sensevoice-small') {
+        void transcribeService.setup().then(async () => {
+          await asrChoice.enableLocalAfterInstall();
+          modelCatalog.bumpRevision();
+        }).catch(() => {});
+        return modelCatalog.snapshot();
+      }
+      return { ok: false, error: 'UNSUPPORTED_MODEL', message: `不支持在此安装该模型：${targetId}`, catalog: await modelCatalog.snapshot() };
+    }
+    if (channel === 'models:cancel') {
+      const targetId = typeof payload?.id === 'string' ? payload.id : VISION_PACK_ID;
+      if (targetId === VISION_PACK_ID) await visionPack.cancelInstall();
+      else if (targetId === 'sensevoice-small') await transcribeService.cancelInstall?.();
+      modelCatalog.bumpRevision();
+      return modelCatalog.snapshot();
+    }
+    if (channel === 'models:remove') {
+      const targetId = typeof payload?.id === 'string' ? payload.id : VISION_PACK_ID;
+      try {
+        return await modelCatalog.removeModelById(targetId, { cleanResidualsOnly: payload?.cleanResidualsOnly === true });
+      } catch (error) {
+        return {
+          ok: false,
+          code: String(error?.code || 'REMOVE_FAILED'),
+          message: String(error?.message || '删除失败').slice(0, 200),
+          catalog: await modelCatalog.snapshot(),
+        };
+      }
+    }
+    if (channel === 'models:import-local') {
+      try {
+        const res = await visionPack.importFromLocalTarball(typeof payload?.path === 'string' ? payload.path : '');
+        modelCatalog.bumpRevision();
+        return { ok: true, vision: res, catalog: await modelCatalog.snapshot() };
+      } catch (error) {
+        return {
+          ok: false,
+          code: String(error?.code || 'IMPORT_FAILED'),
+          message: String(error?.message || '导入压缩包失败').slice(0, 200),
+          catalog: await modelCatalog.snapshot(),
+        };
+      }
+    }
+    if (channel === 'models:pre-migrate') {
+      const res = await visionPack.preMigrateLegacy();
+      modelCatalog.bumpRevision();
+      return { ok: true, ...res, catalog: await modelCatalog.snapshot() };
+    }
+    if (channel === 'vision:authorize') {
+      const project = await verifyOfficialProject(payload?.projectId);
+      const assetId = typeof payload?.assetId === 'string' ? payload.assetId.trim() : '';
+      const operation = typeof payload?.operation === 'string' ? payload.operation : 'cutout_preview';
+      const conversation = typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '';
+      const sourceRevision = assetId ? await computeSourceRevision(project.path, assetId) : '';
+      const grant = visionAuthStore.authorize({
+        projectId: project.projectId,
+        conversation,
+        assetId,
+        operation,
+        scope: 'single_frame',
+        sourceRevision,
+        grantedBy: 'user_action',
+      });
+      return { ok: true, grant };
+    }
+    if (channel === 'stage:deliverable-check') {
+      const project = await verifyOfficialProject(payload?.projectId);
+      return checkEditableDeliverable(project.path, {
+        requiredObjects: Array.isArray(payload?.requiredObjects) ? payload.requiredObjects : [],
+      });
     }
     if (channel === 'prefs:get') {
       return { prefs: await preferences.get() };
@@ -915,6 +1077,7 @@ export function createStudioController(ctx, createProxy, {
   const chatTrace = createChatTrace();
   if (chatTrace.enabled) void log.info('chat-trace', { enabled: true, dir: tmpdir() + '\\no996-editor\\trace' });
   const isProjectAgent = agent => Boolean(agent && !disposed && nativeAgentService?.isProjectAgent?.(agent));
+  isProjectAgentRef = isProjectAgent;
   // One project-scoped event fan-out feeds the official chat's stream.
   const eventHub = createOfficialEventHub();
   // Every envelope that goes to the panel is also kept, per project and turn, as
@@ -971,6 +1134,7 @@ export function createStudioController(ctx, createProxy, {
     diag: diagLog,
   });
   const agentService = officialShell ? nativeAgentService : null;
+  const disposeSearchRouter = searchRouter.mount();
   const guideTool = createGuideTool(isProjectAgent);
   const unregisterGuide = ctx.tools.register(guideTool, { when: ({ agent }) => isProjectAgent(agent) });
   // One Studio client for every project tool: it resolves the live upstream, adds
@@ -998,7 +1162,15 @@ export function createStudioController(ctx, createProxy, {
   };
   const filmTools = [
     createFrameTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, attachments: () => ctx.get('attachments'), llm: () => ctx.llm }),
-    ...createVisionTools({ isProjectAgent, projectOf: projectOfAgent, attachments: () => ctx.get('attachments') }),
+    ...createVisionTools({
+      isProjectAgent,
+      projectOf: projectOfAgent,
+      attachments: () => ctx.get('attachments'),
+      authStore: visionAuthStore,
+      requireConfirmation: true,
+      visionPack,
+      conversationOf: agent => projectOfAgent(agent)?.conversation || '',
+    }),
     createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createFontsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createKitTool({ isProjectAgent, projectOf: projectOfAgent }),
@@ -1051,11 +1223,11 @@ export function createStudioController(ctx, createProxy, {
   // polishes product names is the session's. Registered here rather than with the
   // other tools because that polish pass needs askAgent, which is built above the
   // Studio runtime and below the tool list.
-  const transcribeService = createTranscribeService({ logger: log });
   const transcribeTool = createTranscribeTool({
     isProjectAgent,
     projectOf: projectOfAgent,
     service: transcribeService,
+    resolveChoice: ({ purpose }) => asrChoice.resolve({ purpose }),
     refine: ({ segments, signal }) => refineTranscript({ ask: askAgent, segments, signal }),
   });
   const unregisterTranscribe = ctx.tools.register(transcribeTool, { when: ({ agent }) => isProjectAgent(agent) });
@@ -1072,6 +1244,80 @@ export function createStudioController(ctx, createProxy, {
   // shared by the Host RPC and the panel routes, defined in its own module.
   const system = createSystemRoutes({ ctx, register: registerRoute, transcribeService, toolInstaller, detectHostComponents });
   const [unregisterTranscribeRoute, unregisterSystemCheck, unregisterSystemInstall] = system.disposers;
+  trackRoute(registerRoute({
+    kind: 'exact',
+    path: '/api/no996-openfilm/models',
+    async handler(req, res) {
+      res.setHeader('cache-control', 'no-store');
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      const admission = ctx.connection.admit({ headers: req.headers });
+      if ('rejection' in admission || admission.peer.id !== ctx.connection.browserPeer.id) {
+        res.writeHead(403).end('{}');
+        return;
+      }
+      if (req.method === 'GET') {
+        try {
+          res.writeHead(200).end(JSON.stringify(await modelCatalog.snapshot()));
+        } catch (error) {
+          res.writeHead(500).end(JSON.stringify({ error: String(error?.message || error).slice(0, 200) }));
+        }
+        return;
+      }
+      if (req.method !== 'POST') {
+        res.writeHead(405, { allow: 'GET, POST' }).end('{}');
+        return;
+      }
+      try {
+        const body = await readJsonBody(req, 16 * 1024);
+        const action = typeof body?.action === 'string' ? body.action : 'status';
+        const targetId = typeof body?.id === 'string' ? body.id : VISION_PACK_ID;
+        if (action === 'install') {
+          if (targetId === VISION_PACK_ID) {
+            void visionPack.startInstall({ force: body?.force === true }).then(() => modelCatalog.bumpRevision()).catch(() => {});
+          } else if (targetId === 'sensevoice-small') {
+            void transcribeService.setup().then(async () => {
+              await asrChoice.enableLocalAfterInstall();
+              modelCatalog.bumpRevision();
+            }).catch(() => {});
+          }
+          res.writeHead(200).end(JSON.stringify(await modelCatalog.snapshot()));
+          return;
+        }
+        if (action === 'cancel') {
+          if (targetId === VISION_PACK_ID) await visionPack.cancelInstall();
+          else if (targetId === 'sensevoice-small') await transcribeService.cancelInstall?.();
+          modelCatalog.bumpRevision();
+          res.writeHead(200).end(JSON.stringify(await modelCatalog.snapshot()));
+          return;
+        }
+        if (action === 'remove') {
+          const result = await modelCatalog.removeModelById(targetId, { cleanResidualsOnly: body?.cleanResidualsOnly === true });
+          res.writeHead(200).end(JSON.stringify(result));
+          return;
+        }
+        if (action === 'migrate') {
+          const result = await visionPack.preMigrateLegacy();
+          modelCatalog.bumpRevision();
+          res.writeHead(200).end(JSON.stringify({ ok: true, ...result, catalog: await modelCatalog.snapshot() }));
+          return;
+        }
+        if (action === 'import-local') {
+          const result = await visionPack.importFromLocalTarball(typeof body?.path === 'string' ? body.path : '');
+          modelCatalog.bumpRevision();
+          res.writeHead(200).end(JSON.stringify({ ok: true, vision: result, catalog: await modelCatalog.snapshot() }));
+          return;
+        }
+        res.writeHead(200).end(JSON.stringify(await modelCatalog.snapshot()));
+      } catch (error) {
+        const status = error?.code === 'MODEL_IN_USE' ? 409 : 400;
+        res.writeHead(status).end(JSON.stringify({
+          ok: false,
+          code: String(error?.code || 'MODELS_ACTION_FAILED'),
+          message: String(error?.message || error).slice(0, 200),
+        }));
+      }
+    },
+  }));
   const devHmrRequested = !releaseBuild && process.env.NO996_OPENFILM_DEV_HMR === '1';
   const resolveShellForRuntime = async () => {
     if (devHmrRequested) {
@@ -1138,6 +1384,8 @@ export function createStudioController(ctx, createProxy, {
       devHooks: ext?.devHooks ?? null,
       beforeProjectDelete,
       voiceSettings,
+      visionPack,
+      modelCatalog,
       rewriteLibraryVoices: async () => {
         try {
           const choice = await voiceSettings.prepare();
@@ -1378,6 +1626,8 @@ export function createStudioController(ctx, createProxy, {
         devHooks: ext?.portalHooks ?? ext?.devHooks ?? { relaxedEmbed: true },
         beforeProjectDelete,
         voiceSettings,
+        visionPack,
+        modelCatalog,
         rewriteLibraryVoices: async () => {
           try {
             const choice = await voiceSettings.prepare();
@@ -1434,6 +1684,7 @@ export function createStudioController(ctx, createProxy, {
     const closingAt = Date.now();
     disposed = true;
     try { disposeVoiceBridge(); } catch { /* already cleared */ }
+    try { disposeSearchRouter(); } catch { /* already cleared */ }
     // Stop the ACP children before the routes go away: a child that outlives the
     // Host keeps holding the project's Session open.
     try { await nativeAgentService?.close?.(); } catch { /* already closed */ }

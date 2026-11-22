@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { isAbsolute } from 'node:path';
 import { ensureStudioLibraryMirror } from './studio-library-mirror.mjs';
+import { visionPackDir } from '../vision/vision-pack.mjs';
 
 const require = createRequire(import.meta.url);
 const dependency = require('../../package.json').dependencies?.openfilm;
@@ -105,6 +106,10 @@ export function createStudioRuntime({ loadStudio = loadPinnedStudio, attach, ask
         // Embedded Studio must not hit npm for "is there a newer openfilm?" — Host pins the
         // version; a registry probe from Settings → About only adds latency on this machine.
         if (process.env.OPENFILM_NO_UPDATE_CHECK == null) process.env.OPENFILM_NO_UPDATE_CHECK = '1';
+        // Never allow OpenFilm's bundled serveVision / visionModel() to silently fetch weights
+        // from upstream URLs; always route vision reads to the Host-managed model store.
+        if (process.env.NO996_NO_AUTO_VISION_DOWNLOAD == null) process.env.NO996_NO_AUTO_VISION_DOWNLOAD = '1';
+        if (process.env.NO996_VISION_MODELS_DIR == null) process.env.NO996_VISION_MODELS_DIR = visionPackDir();
         // No machine-wide persistent key, run.json advertisement or browser launch.
         const result = await startStudio({ port, advertise: false, stays: true, openBrowser: () => {}, ...(askAgent ? { askAgent } : {}), ...(resolvedEditorDir ? { editorDir: resolvedEditorDir } : {}) });
         if (!result || typeof result.close !== 'function') throw new Error();

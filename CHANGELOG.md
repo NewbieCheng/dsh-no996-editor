@@ -2,6 +2,15 @@
 
 > 新版本只记录用户可见变化、兼容性和必要迁移；故障细节见 [排障手册](docs/playbooks/incident.md)。历史条目保留原貌。
 
+## 0.20.0 — 视觉模型拆分按需安装、统一模型与存储账本、工作台独立 ASR/搜索、本地听写与 P0 可编辑成片
+
+- **视觉权重拆分（`@newbiecheng/no996-models-vision@0.2.0`）**：将 `portrait.onnx` / `face.task` / `person.tflite` 从主包剥离至独立数据组件包，由 Host 受控按需拉取至 `$DSH_HOME/no996-openfilm/model-store/vision/`（镜像优先回退 npmjs，SHA-256 校验、单飞锁与 Stall Watchdog、离线 `.tgz` 导入、旧缓存一键迁移、`MODEL_IN_USE` 保护），主包彻底禁止后台静默下载；`onnxruntime-web` 与 `@mediapipe/tasks-vision` 随核心提供。
+- **统一模型与存储账本（`ModelCatalogService`）**：设置 →「扩展包」「存储 → 工作台自用」「存储 → 本地模型」与 DSH 插件环境卡共享同一 Host 账本；物理文件去重与 `places.app` 精确对账，杜绝双倍计算与虚高大小。
+- **工作台独立语音转写与联网搜索**：`asrChoice`（支持 `本地 · SenseVoice` / 云端 / `off`，无权重缺失静默回退）与 `searchSource`（`dsh` / `no996` `no996_web_search` via `tools.restrict/guard`）严格隔离于 `openfilm-video-editing` 工作台偏好，不改 DSH 全局设置且不影响 `web_fetch`。
+- **对话框本地语音听写**：Composer 右下角新增麦克风听写按钮（16 kHz WAV 仅送本机 `SenseVoice`；`appendDictation` 于 IME 组字后增量安全追加入 Lexical 树尾部并独立成撤销步）。
+- **可编辑成片 P0 与抠像授权**：新增 `checkEditableDeliverable`、`no996_clip(op='layer')` 非破坏性层级覆盖、模板图标/右下角按钮统一对齐、消息 `StudioRef(kind='layer')` 回跳选区修复、`VisionAuthStore`（防模型伪造 `confirmed=true` 及源文件陈旧授权）。
+- **兼容性**：升级无需手工迁移；旧 `~/.openfilm/cache/vision/1/` 缓存可直接只读复用或通过面板一键迁入。
+
 ## 0.19.12 — 桌面项目创建修复与跨平台诊断
 
 - 桌面代理遇到次级回环地址不可用时改走主回环地址；首选端口占用时换临时端口。某一入口的启动失败不再阻断其他入口的模板复制和空白开工。

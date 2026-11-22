@@ -38,7 +38,10 @@ export function archiveProblems(output) {
         name === 'package/src/ui/style-lab.mjs' ||
         name === 'package/src/studio/studio-debug.mjs' ||
         name === 'package/src/studio/studio-debug-redirect.mjs' ||
-        name === 'package/src/studio/studio-controller/routes/debug-url.mjs') {
+        name === 'package/src/studio/studio-controller/routes/debug-url.mjs' ||
+        name === 'package/node_modules/openfilm/models/vision/portrait.onnx' ||
+        name === 'package/node_modules/openfilm/models/vision/face.task' ||
+        name === 'package/node_modules/openfilm/models/vision/person.tflite') {
       problems.push(`package contains prohibited entry ${name}`);
     }
   }

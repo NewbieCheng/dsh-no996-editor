@@ -94,6 +94,42 @@ export function createEnvSection(React) {
     const [authMsg, setAuthMsg] = React.useState('');
     const [captcha, setCaptcha] = React.useState(null);
     const [clicks, setClicks] = React.useState([]);
+    const [catalog, setCatalog] = React.useState(null);
+    const [catalogBusy, setCatalogBusy] = React.useState(false);
+    const [catalogMsg, setCatalogMsg] = React.useState('');
+    const [localTarPath, setLocalTarPath] = React.useState('');
+    const [showImportPath, setShowImportPath] = React.useState(false);
+    const [confirmRemove, setConfirmRemove] = React.useState(false);
+
+    const loadCatalog = React.useCallback(async () => {
+      try {
+        const res = await fetch('/api/no996-openfilm/models', { credentials: 'same-origin', headers: { accept: 'application/json' } });
+        if (res.ok) setCatalog(await res.json());
+      } catch { /* ignore */ }
+    }, []);
+    const postModels = React.useCallback(async payload => {
+      setCatalogBusy(true);
+      setCatalogMsg('');
+      try {
+        const res = await fetch('/api/no996-openfilm/models', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.ok === false) {
+          throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+        }
+        if (data?.catalog) setCatalog(data.catalog);
+        else if (data?.items) setCatalog(data);
+        else await loadCatalog();
+      } catch (err) {
+        setCatalogMsg(String(err?.message || err));
+      } finally {
+        setCatalogBusy(false);
+      }
+    }, [loadCatalog]);
     const load = React.useCallback(async project => {
       setLoading(true);
       setError('');
@@ -186,7 +222,14 @@ export function createEnvSection(React) {
       } else {
         load('');
       }
-    }, [load]);
+      void loadCatalog();
+    }, [load, loadCatalog]);
+    const visionInstalling = Boolean(catalog?.vision?.installing);
+    React.useEffect(() => {
+      if (!visionInstalling) return undefined;
+      const timer = window.setInterval(() => { void loadCatalog(); }, 1000);
+      return () => window.clearInterval(timer);
+    }, [visionInstalling, loadCatalog]);
     const save = React.useCallback(() => {
       const value = projectId.trim();
       if (!value) return;
@@ -260,6 +303,66 @@ export function createEnvSection(React) {
           authMsg ? h('p', { style: { ...dim, marginTop: 6 } }, authMsg) : null,
         ) : null,
       ) : null,
+      catalog?.vision ? (() => {
+        const v = catalog.vision;
+        const seen = Number(v.install?.seen) || 0;
+        const total = Number(v.install?.total) || Number(v.downloadBytes) || 15449643;
+        const pct = total > 0 ? Math.min(100, Math.round((seen / total) * 100)) : 0;
+        const fmtMb = n => `${(Math.max(0, Number(n) || 0) / (1024 * 1024)).toFixed(1)} MB`;
+        const corrupt = v.installState === 'corrupt';
+        const statusLabel = v.installing
+          ? `下载中 ${pct}%（${v.install?.sourceLabel || '镜像源'}）`
+          : v.managed
+            ? (v.loadedModels?.length > 0 ? '已安装 · 本次运行已加载' : '已安装')
+            : v.reusableLocal
+              ? '检测到旧缓存可一键复用'
+              : corrupt
+                ? '部分文件缺失或损坏'
+                : '未安装（按需安装）';
+        const rt = v.runtime || {};
+        return h('div', null,
+          h('p', { style: sub }, '可选组件 · 本地视觉 (@newbiecheng/no996-models-vision)'),
+          h('p', { style: dim }, `状态：${statusLabel} · 压缩包约 ${fmtMb(v.downloadBytes || 15449643)} / 解压 ${fmtMb(v.declaredBytes)} · 运行时（onnxruntime-web / MediaPipe）：${rt.ready ? '随核心提供（已就绪）' : `缺少 ${rt.missing?.join(', ') || '核心依赖'}`}`),
+          v.managed ? h('p', { style: dim }, `存放位置：${v.storeDir}`) : null,
+          v.install?.error ? h('p', { style: dim }, `失败说明：${v.install.error}`) : null,
+          catalogMsg ? h('p', { style: dim }, `操作反馈：${catalogMsg}`) : null,
+          h('div', { style: { ...row, flexWrap: 'wrap' } },
+            !v.installing && !v.managed && v.reusableLocal
+              ? h('button', { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: 'migrate', id: 'no996-models-vision' }) }, '一键复用本地缓存（0 流量）')
+              : null,
+            !v.installing && (!v.managed || corrupt)
+              ? h('button', { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: 'install', id: 'no996-models-vision', force: corrupt }) }, corrupt ? '重新下载修复' : '安装本地视觉组件')
+              : null,
+            v.installing
+              ? h('button', { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: 'cancel', id: 'no996-models-vision' }) }, '取消下载')
+              : null,
+            !v.installing && v.managed && !confirmRemove
+              ? h('button', { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => setConfirmRemove(true) }, `卸载组件（可释放 ${fmtMb(v.reclaimableBytes)}）`)
+              : null,
+            !v.installing && confirmRemove
+              ? h('button', { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => { setConfirmRemove(false); void postModels({ action: 'remove', id: 'no996-models-vision' }); } }, '确认卸载')
+              : null,
+            confirmRemove
+              ? h('button', { style: link, onClick: () => setConfirmRemove(false) }, '取消')
+              : null,
+            !v.installing && v.tempBytes > 0
+              ? h('button', { style: link, disabled: catalogBusy, onClick: () => void postModels({ action: 'remove', id: 'no996-models-vision', cleanResidualsOnly: true }) }, '清理残留碎片')
+              : null,
+            h('button', { style: link, onClick: () => setShowImportPath(prev => !prev) }, showImportPath ? '收起离线导入' : '从本地压缩包导入'),
+          ),
+          showImportPath ? h('div', { style: { marginTop: 6 } },
+            h('input', {
+              style: input, type: 'text', value: localTarPath,
+              placeholder: '输入离线 .tgz 文件绝对路径（校验 SHA-256 后导入）',
+              onChange: e => setLocalTarPath(e.target.value),
+            }),
+            h('button', {
+              style: button, disabled: catalogBusy || !localTarPath.trim(),
+              onClick: () => void postModels({ action: 'import-local', path: localTarPath.trim() }),
+            }, '导入离线包'),
+          ) : null,
+        );
+      })() : null,
       preset ? h('div', null,
         h('p', { style: sub }, '预设 Preset'),
         h('p', { style: dim }, h('span', { style: code }, preset.id), ` — ${preset.ok ? '已加载 loaded' : `未加载 not loaded（${preset.detail}）`}`),

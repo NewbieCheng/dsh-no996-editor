@@ -8,6 +8,8 @@
  * Knowing the second before promising "I exported it" is the difference between
  * an honest answer and a lie.
  */
+import { checkEditableDeliverable } from '../film/editable-check.mjs';
+
 const MAX_TRACKS = 12;
 const MAX_CLIPS = 24;
 const MAX_FIELDS = 16;
@@ -80,17 +82,37 @@ export function createFilmTool({ isProjectAgent, projectOf, http }) {
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
-        detail: { type: 'string', enum: ['summary', 'exports'], description: 'summary (default): the film; exports: encoder support and where exports land.' },
+        detail: { type: 'string', enum: ['summary', 'exports', 'editable'], description: 'summary (default): the film; exports: encoder support; editable: verify P0 editable object layers and stable IDs.' },
+        requiredObjects: {
+          type: 'array',
+          description: 'Optional list of { clipId, elementId } objects expected to remain individually selectable/editable.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['clipId'],
+            properties: {
+              clipId: { type: 'string' },
+              elementId: { type: 'string' },
+            },
+          },
+        },
       },
     },
     output: { schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } }, render: (_args, value) => [{ type: 'text', text: value?.text ?? '' }] },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
-      if (typeof isProjectAgent !== 'function' || isProjectAgent(exec?.agent) !== true) {
+      if (typeof isProjectAgent !== 'function' || isProjectAgent(exec.agent) !== true) {
         throw new Error('This tool is available only to a conversation bound to an OpenFilm project.');
       }
       const project = projectOf?.(exec.agent);
       if (!project?.projectId) throw new Error('This conversation is not bound to an OpenFilm project.');
+      if (args?.detail === 'editable') {
+        if (!project.path) throw new Error('editable 检查需要项目磁盘路径。');
+        const report = checkEditableDeliverable(project.path, { requiredObjects: args?.requiredObjects });
+        return {
+          text: `可编辑成片检查（P0 Deliverable Gate）：${report.ok ? '通过' : '未通过'}\n${JSON.stringify(report, null, 1).slice(0, 6000)}`,
+        };
+      }
       const path = `/api/projects/${encodeURIComponent(project.projectId)}`;
       if (args?.detail === 'exports') {
         const result = await http().get(`${path}/exports`);

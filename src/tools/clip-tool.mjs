@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { open, readFile, rename, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { draftFilm } from '../film/film-draft.mjs';
+import { mergeLayerOverride } from '../film/editable-check.mjs';
 import { TimelineEditError } from '../film/timeline-operations.mjs';
 import {
   buildGradeFilterCss,
@@ -299,6 +300,27 @@ async function applyStudioOperations({ project, operations, expect, dryRun, clie
       continue;
     }
 
+    if (op.op === 'layer') {
+      const found = findClipInDoc(film.doc, op.clip);
+      if (!found) throw new Error(`片段不存在：${op.clip}`);
+      if (found.track?.locked) throw new Error(`轨道 ${found.t} 已锁定，拒绝修改 ${op.clip}。`);
+      const selector = cleanText(op.selector)
+        || (cleanText(op.elementId) ? `[data-element-id="${cleanText(op.elementId).replace(/"/g, '\\"')}"]` : '');
+      if (!selector) throw new Error(`op=layer (${op.clip}) 必须提供稳定的 elementId 或 selector。`);
+      const merged = mergeLayerOverride(found.clip.overrides, {
+        at: selector,
+        n: op.n,
+        text: op.text,
+        t: op.t,
+        s: op.s,
+        r: op.r,
+        style: op.layerStyle,
+      });
+      studioOps.push({ op: 'props', edits: [{ clip: op.clip, prop: 'overrides', value: merged }] });
+      notes.push(`layer ${op.clip} (${selector})`);
+      continue;
+    }
+
     throw new Error(`混合批次暂不支持直接与 ${op.op} 混用；trim/split 请单独调用 no996_clip。`);
   }
 
@@ -336,8 +358,15 @@ export function createClipTool({ isProjectAgent, projectOf, http = null }) {
             additionalProperties: false,
             required: ['op'],
             properties: {
-              op: { type: 'string', enum: ['move', 'trim', 'split', 'insert', 'preset', 'remove'] },
-              clip: { type: 'string', description: 'Target clip id (required for move/trim/split/preset/remove).' },
+              op: { type: 'string', enum: ['move', 'trim', 'split', 'insert', 'preset', 'remove', 'layer'] },
+              clip: { type: 'string', description: 'Target clip id (required for move/trim/split/preset/remove/layer).' },
+              elementId: { type: 'string', description: 'layer: stable data-element-id inside a page clip.' },
+              selector: { type: 'string', description: 'layer: explicit CSS selector inside the page clip.' },
+              n: { type: 'integer', minimum: 1, description: 'layer: optional 1-based element match index.' },
+              t: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number' }, description: 'layer: [dx, dy] translation override in px.' },
+              s: { description: 'layer: scale factor (>0) or [sx, sy] pair.' },
+              r: { type: 'number', description: 'layer: rotation override in degrees.' },
+              layerStyle: { type: 'object', description: 'layer: CSS properties object (fontSize, color, etc.) merged non-destructively.' },
               src: { type: 'string', description: 'insert: project path ("assets/...", "saved/...") or built-in library ID ("openfilm/...").' },
               at: { type: 'number', minimum: 0, description: 'Timeline start in film seconds.' },
               duration: { type: 'number', minimum: 0.05, maximum: 3600, description: 'insert: clip duration in seconds.' },
@@ -387,7 +416,7 @@ export function createClipTool({ isProjectAgent, projectOf, http = null }) {
       if (operations.length === 0) throw new Error('At least one operation is required.');
       if (operations.length > MAX_CLIP_OPERATIONS) throw new Error(`At most ${MAX_CLIP_OPERATIONS} operations in one call.`);
 
-      const usesStudioOps = operations.some(op => op && ['insert', 'preset', 'remove'].includes(op.op));
+      const usesStudioOps = operations.some(op => op && ['insert', 'preset', 'remove', 'layer'].includes(op.op));
       if (usesStudioOps) {
         if (typeof http !== 'function') {
           throw new Error('insert / preset / remove 操作需要 Studio 服务连接（未提供 http 客户端）。');

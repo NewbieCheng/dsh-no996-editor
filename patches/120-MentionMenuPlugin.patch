@@ -1,0 +1,35 @@
+diff --git a/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx b/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx
+index c853f75..8949b87 100644
+--- a/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx
++++ b/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx
+@@ -64,6 +64,12 @@ class MentionMenuOption extends MenuOption {
+   }
+ }
+ 
++export const MENTIONS_SUPPRESS_UNTIL = new WeakMap<LexicalEditor, number>();
++
++export function suppressNextMention(editor: LexicalEditor, durationMs = 80): void {
++  MENTIONS_SUPPRESS_UNTIL.set(editor, Date.now() + durationMs);
++}
++
+ export function MentionMenuPlugin({ providers, label, onOpen }: MentionMenuConfig) {
+   const [editor] = useLexicalComposerContext();
+   const [query, setQuery] = React.useState('');
+@@ -91,6 +97,8 @@ export function MentionMenuPlugin({ providers, label, onOpen }: MentionMenuConfi
+   const handleQueryChange = React.useCallback((value: string | null) => setQuery(value ?? ''), []);
+ 
+   const triggerFn = React.useCallback((text: string): MenuTextMatch | null => {
++    const until = MENTIONS_SUPPRESS_UNTIL.get(editor) ?? 0;
++    if (until > Date.now()) return null;
+     const trigger = matchMentionTrigger(text, charsRef.current);
+     if (!trigger) return null;
+     /* No matches, no menu: an open menu takes the arrow keys, so an empty one would lock
+@@ -102,7 +110,7 @@ export function MentionMenuPlugin({ providers, label, onOpen }: MentionMenuConfi
+       matchingString: trigger.query,
+       replaceableString: trigger.replaceableString,
+     };
+-  }, []);
++  }, [editor]);
+ 
+   const onSelectOption = React.useCallback(
+     (option: MentionMenuOption, nodeToReplace: TextNode | null, closeMenu: () => void) => {

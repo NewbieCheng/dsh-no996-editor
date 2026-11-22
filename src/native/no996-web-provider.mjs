@@ -159,6 +159,8 @@ export function registerNo996WebProvider(ctx, { auth, onWalletDirty, fetchImpl }
     }
   });
   return {
+    searchProvider,
+    fetchProvider,
     refreshReady,
     dispose: () => {
       try { stop?.(); } catch { /* already stopped */ }

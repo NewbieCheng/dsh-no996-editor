@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { pathToFileURL } from 'node:url';
+import { resolveVisionAsset, VISION_WEIGHTS } from '../vision/vision-pack.mjs';
 
 const require = createRequire(import.meta.url);
 const origin = 'http://127.0.0.1:58137';
@@ -90,16 +90,29 @@ async function analyzeFrame({ encoded, face }) {
   } finally { img.close(); }
 }
 
-export async function withVisionBrowser(mode, callback, { signal, launch = launchVisionBrowser } = {}) {
+export async function withVisionBrowser(mode, callback, { signal, launch = launchVisionBrowser, env = process.env, visionPack = null } = {}) {
   signal?.throwIfAborted();
   const model = mode === 'face' ? 'face.task' : 'portrait.onnx';
   const pkgRoot = dirname(require.resolve('openfilm/package.json'));
   const fromStudio = createRequire(join(pkgRoot, 'package.json'));
   const inFaceMode = mode === 'face';
-  const runtimeRoot = dirname(fromStudio.resolve(inFaceMode ? '@mediapipe/tasks-vision' : 'onnxruntime-web'));
-  const { VISION_MODELS } = await import(pathToFileURL(join(pkgRoot, 'src/vision-models.mjs')).href);
-  const data = await readFile(join(pkgRoot, 'models/vision', model));
-  if (createHash('sha256').update(data).digest('hex') !== VISION_MODELS[model]?.sha256) throw new Error('内置视觉模型校验失败；请重新安装插件。');
+  let runtimeRoot;
+  try {
+    runtimeRoot = dirname(fromStudio.resolve(inFaceMode ? '@mediapipe/tasks-vision' : 'onnxruntime-web'));
+  } catch (error) {
+    throw Object.assign(
+      new Error(`缺少本地视觉运行时依赖（${inFaceMode ? '@mediapipe/tasks-vision' : 'onnxruntime-web'}），请检查插件安装完整性。`),
+      { code: 'VISION_RUNTIME_MISSING', cause: error },
+    );
+  }
+  const spec = VISION_WEIGHTS.find(w => w.id === model);
+  const resolved = await resolveVisionAsset(model, { env, openfilmPkgRoot: pkgRoot });
+  const data = await readFile(resolved.path);
+  if (!spec || createHash('sha256').update(data).digest('hex') !== spec.sha256) {
+    throw Object.assign(new Error('本地视觉模型校验失败；请在「设置 → 扩展包」或「存储 → 本地模型」修复或重新安装。'), { code: 'VISION_CHECKSUM_FAILED' });
+  }
+  const releaseLease = visionPack?.acquireLease?.(model) || (() => {});
+  visionPack?.markLoaded?.(model, true);
   signal?.throwIfAborted();
   const browser = await launch(signal);
   const close = () => { void browser.close().catch(() => {}); };
@@ -135,5 +148,6 @@ export async function withVisionBrowser(mode, callback, { signal, launch = launc
   } finally {
     signal?.removeEventListener('abort', close);
     await browser.close().catch(() => {});
+    releaseLease();
   }
 }

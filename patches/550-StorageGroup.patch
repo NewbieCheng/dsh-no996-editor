@@ -1,0 +1,63 @@
+diff --git a/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx b/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx
+index f4d089e..df5f800 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx
+@@ -126,6 +126,44 @@ function StorageRow({ icon, name, note, bytes, action, children }: {
+   );
+ }
+ 
++interface AppBreakdown {
++  localModelsBytes: number;
++  resourcesBytes: number;
++  otherAppBytes: number;
++  reclaimableBytes: number;
++  partialStats?: boolean;
++  scanWarnings?: Array<{ path: string; code: string }>;
++}
++
++function AppBreakdownList({ breakdown }: { breakdown: AppBreakdown }) {
++  const rows = [
++    { label: '本地模型（视觉 / 语音 / 抠像）', bytes: breakdown.localModelsBytes },
++    { label: '已下载素材与资源', bytes: breakdown.resourcesBytes },
++    { label: '其他工作台数据与日志', bytes: breakdown.otherAppBytes },
++  ];
++  return (
++    <div className="space-y-1.5 text-[13px] text-[var(--text-muted)]">
++      {rows.map((r) => (
++        <div key={r.label} className="flex items-center justify-between gap-3 py-0.5">
++          <span>{r.label}</span>
++          <span className="tabular-nums">{amount(r.bytes)}</span>
++        </div>
++      ))}
++      {breakdown.reclaimableBytes > 0 ? (
++        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-1 text-[12px] text-[var(--text-faint)]">
++          <span>卸载可选模型可释放</span>
++          <span className="tabular-nums">{amount(breakdown.reclaimableBytes)}</span>
++        </div>
++      ) : null}
++      {breakdown.partialStats ? (
++        <p className="text-[12px] text-[var(--warn,var(--text-muted))]">
++          部分目录权限受限，统计为可读目录合计（跳过 {breakdown.scanWarnings?.length ?? 1} 处）。
++        </p>
++      ) : null}
++    </div>
++  );
++}
++
+ /** Projects as a list under their row: each one's name, its size, its cache; where it is, to the pointer. */
+ function ProjectList({ projects }: { projects: ProjectUsage[] }) {
+   const t = useT();
+@@ -280,11 +318,12 @@ export function StorageGroup({ titled = true }: { titled?: boolean }) {
+             {/* measured, an area that takes nothing is left out (the projects and the cache stay) */}
+             {KINDS.filter((k) => !kinds || k.key === 'projects' || k.key === 'cache' || kinds[k.key] >= SHOWN).map((k) => {
+               const list = k.key === 'projects' ? of(false) : k.key === 'linked' ? of(true) : null;
++              const breakdown = k.key === 'app' ? (usage as (StorageUsage & { no996Breakdown?: AppBreakdown }) | null)?.no996Breakdown : undefined;
+               return (
+                 <StorageRow key={k.key} icon={<Swatch color={k.color} />} name={t(`settings.storage.area.${k.key}`)} note={note(k.key)}
+                   bytes={kinds ? kinds[k.key] : null}
+                   action={k.key === 'cache' ? <SettingsButton disabled={!usage || clearing || usage.clearable < 1e6} onClick={() => void clear()}>{t('settings.storage.clear')}</SettingsButton> : undefined}>
+-                  {list?.length ? <ProjectList projects={list} /> : null}
++                  {list?.length ? <ProjectList projects={list} /> : breakdown ? <AppBreakdownList breakdown={breakdown} /> : null}
+                 </StorageRow>
+               );
+             })}

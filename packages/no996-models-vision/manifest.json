@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "packId": "no996-models-vision",
+  "packVersion": "0.2.0",
+  "packageName": "@newbiecheng/no996-models-vision",
+  "license": "Apache-2.0",
+  "unpackedBytes": 16993554,
+  "runnerCompat": {
+    "onnxruntimeWeb": "1.31.1",
+    "mediapipeTasksVision": "1.2.2"
+  },
+  "models": [
+    {
+      "id": "portrait.onnx",
+      "file": "models/portrait.onnx",
+      "bytes": 12984781,
+      "sha256": "25f165da9bfd30830a575f1f0490f1acd995975cb349bc02f3d79332e1fe5cf6",
+      "capability": "cutout",
+      "label": "MODNet 人像抠像",
+      "format": "onnx",
+      "license": "Apache-2.0",
+      "sourceUrl": "https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model_fp16.onnx"
+    },
+    {
+      "id": "face.task",
+      "file": "models/face.task",
+      "bytes": 3758596,
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "capability": "face",
+      "label": "MediaPipe 人脸关键点定位",
+      "format": "mediapipe-task",
+      "license": "Apache-2.0",
+      "sourceUrl": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+    },
+    {
+      "id": "person.tflite",
+      "file": "models/person.tflite",
+      "bytes": 250177,
+      "sha256": "490e9ea734313e0de10fa0cd9e3c6133e36ea4db2b7a49bde9ef019f72796b8e",
+      "capability": "person",
+      "label": "MediaPipe 人物分割",
+      "format": "tflite",
+      "license": "Apache-2.0",
+      "sourceUrl": "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/1/selfie_segmenter_landscape.tflite"
+    }
+  ]
+}

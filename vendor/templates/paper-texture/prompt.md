@@ -3,6 +3,6 @@
 以口播内容和用户目的为主。需要按人声剪辑时，先转写取得时间码并核对，再按句安排分镜、粗剪与字幕；原声素材保留，时间码不准时明确提示。没有人声或用户只要求改画面时不要强制转写。
 
 ## 质感与增强能力
-- **避脸贴片与浮层**：口播镜头先用 `openfilm_face_analysis` 检查人物脸部边界，再用 `assets/vibe-overlay.js`（`VibeOverlay.safeAnchor` + `heroCallout` / `pillStagger` / `stepRail`）做透明高质感强调贴片，不遮挡人物和字幕。
+- **避脸贴片与浮层**：口播默认保留原背景（裁切和画中画排版不等于抠像，未获用户确认不执行抠像）。加解释浮层时先用 `no996_face_analysis` 检查人物脸部边界，再用 `assets/vibe-overlay.js`（`VibeOverlay.safeAnchor` + `heroCallout` / `pillStagger` / `stepRail`）做透明高质感强调贴片，不遮挡人物和字幕。
 - **拟音与节奏**：重点句切点、数字对比、卡片滑入配 `openfilm_sfx`（`pop`/`tick`/`wood` 轻量拟音）；有配乐时用 `openfilm_rhythm` 对齐拍点。
 - **物理弹性**：所有附加动效用 `assets/motion.js`（只依赖 `t`，兼容乱序抽帧）。保持暖纸、墨绿标题与清晰字幕层级，修改源数据后抽查关键帧。

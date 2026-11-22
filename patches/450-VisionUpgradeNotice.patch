@@ -1,0 +1,90 @@
+diff --git a/packages/openfilm/studio/ui/src/components/VisionUpgradeNotice.tsx b/packages/openfilm/studio/ui/src/components/VisionUpgradeNotice.tsx
+new file mode 100644
+index 0000000..a154918
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/VisionUpgradeNotice.tsx
+@@ -0,0 +1,84 @@
++import React from 'react';
++import { getNativeBridge, openWorkbenchSettings, useModelCatalog } from '@/lib/no996-native-models';
++
++export function VisionUpgradeNotice() {
++  const { catalog, busy, runAction } = useModelCatalog();
++  const [dismissed, setDismissed] = React.useState<boolean | null>(null);
++
++  React.useEffect(() => {
++    let live = true;
++    const bridge = getNativeBridge();
++    if (!bridge?.hostPrefs?.get) {
++      setDismissed(true);
++      return;
++    }
++    void bridge.hostPrefs.get().then((res) => {
++      if (live) setDismissed(Boolean(res?.prefs?.visionUpgradeNoticeDismissed));
++    }).catch(() => {
++      if (live) setDismissed(false);
++    });
++    return () => { live = false; };
++  }, []);
++
++  if (dismissed !== false || !catalog?.vision) return null;
++  const v = catalog.vision;
++  if (v.managed || v.installing) return null;
++
++  const dismiss = () => {
++    setDismissed(true);
++    void getNativeBridge()?.hostPrefs?.set?.({ visionUpgradeNoticeDismissed: true }).catch(() => {});
++  };
++
++  return (
++    <div
++      role="region"
++      aria-label="本地视觉组件升级提示"
++      className="fixed bottom-4 right-4 z-[10040] flex max-w-[440px] flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--bg-raised)] px-4 py-3 text-[13px] text-[var(--text)] shadow-[var(--shadow-lg)]"
++    >
++      <div className="flex items-start justify-between gap-2">
++        <strong className="font-semibold">
++          {v.reusableLocal ? '检测到旧版本地的视觉模型缓存' : '本地视觉能力已拆分为按需扩展包'}
++        </strong>
++        <button
++          type="button"
++          onClick={dismiss}
++          aria-label="关闭通知"
++          className="text-[var(--text-faint)] hover:text-[var(--text)]"
++        >
++          ×
++        </button>
++      </div>
++      <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">
++        {v.reusableLocal
++          ? '主包已减重。可直接把旧缓存一键迁入新扩展存储目录（0 流量、瞬间就绪），人像抠像与人脸追踪即可使用。'
++          : '主包已轻量化瘦身；普通文字与剪辑可直接使用。如需人像抠像或人脸特效，可前往「扩展包」按需下载。'}
++      </p>
++      <div className="flex flex-wrap items-center gap-2 pt-0.5">
++        {v.reusableLocal ? (
++          <button
++            type="button"
++            disabled={busy}
++            onClick={() => void runAction(() => getNativeBridge()!.models!.preMigrate())}
++            className="rounded-md bg-[var(--primary)] px-2.5 py-1 text-[12px] font-medium text-[var(--on-primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50"
++          >
++            一键复用本地缓存
++          </button>
++        ) : null}
++        <button
++          type="button"
++          onClick={() => openWorkbenchSettings('extensions')}
++          className="rounded-md border border-[var(--border)] px-2.5 py-1 text-[12px] font-medium text-[var(--text)] hover:bg-[var(--bg-hover)]"
++        >
++          打开「扩展包」
++        </button>
++        <button
++          type="button"
++          onClick={dismiss}
++          className="ml-auto text-[12px] text-[var(--text-faint)] hover:text-[var(--text)]"
++        >
++          不再提醒
++        </button>
++      </div>
++    </div>
++  );
++}

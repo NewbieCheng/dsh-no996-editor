@@ -1,0 +1,18 @@
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectView.tsx b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
+index cdae14b..265c104 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectView.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
+@@ -3030,6 +3030,13 @@ export function ProjectView({ projectId, onProject }: {
+       return;
+     }
+     if (command.type === 'show-box' && Number.isFinite(command.time) && command.box) {
++      if (command.clipId || command.loc) {
++        const block = blocksRef.current.find((b) => (command.clipId && b.clipId === command.clipId) || (command.loc && b.loc === command.loc));
++        if (block) {
++          setStageElement(null);
++          setSelectedKeys([block.clipId ?? block.id]);
++        }
++      }
+       pause();
+       seek(command.time * 1000);
+       setFlashBox((cur) => ({ box: command.box, seq: (cur?.seq ?? 0) + 1 }));

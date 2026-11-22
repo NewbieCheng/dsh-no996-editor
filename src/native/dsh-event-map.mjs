@@ -56,13 +56,13 @@ export function mapToolCallForUi(name, rawInput) {
       rawInput: { ...input, ...(typeof p === 'string' && p ? { path: p } : {}) },
     };
   }
-  if (lower === 'web_search' || lower === 'web_fetch') {
+  if (lower === 'web_search' || lower === 'no996_web_search' || lower === 'web_fetch') {
     const queries = Array.isArray(input.queries) ? input.queries.filter(value => typeof value === 'string').slice(0, 8) : [];
     const q = String(input.query ?? input.url ?? queries.join(' · ')).slice(0, 600);
     return {
       title: name,
       toolName: name,
-      kind: lower === 'web_search' ? 'search' : 'fetch',
+      kind: lower === 'web_fetch' ? 'fetch' : 'search',
       rawInput: { ...input, ...(typeof q === 'string' && q ? { query: q } : {}) },
     };
   }

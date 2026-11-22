@@ -46,6 +46,7 @@ export function apply(ctx) {
         void webReg.refreshReady().catch(() => {});
         llmReg.refresh?.();
       },
+      searchProvider: webReg.searchProvider,
       registerWalletDirtyListener: (fn) => { notifyControllerWalletDirty = fn; },
     }),
     'openfilm: Studio',

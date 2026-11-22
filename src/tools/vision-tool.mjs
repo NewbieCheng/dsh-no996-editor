@@ -3,6 +3,7 @@ import { lstat, mkdir, mkdtemp, open, readFile, realpath, rm, stat } from 'node:
 import { tmpdir } from 'node:os';
 import { extname, isAbsolute, join, relative, sep } from 'node:path';
 import { resolveFfmpeg, runFfmpeg } from '../asr/asr-audio.mjs';
+import { computeSourceRevision } from '../host/vision-auth-store.mjs';
 import { withVisionBrowser } from './vision-browser.mjs';
 
 const maxSamples = 8;
@@ -90,7 +91,17 @@ const faceSchema = {
   },
 };
 
-export function createVisionTools({ isProjectAgent, projectOf, attachments, extract = extractVisionFrame, browser = withVisionBrowser } = {}) {
+export function createVisionTools({
+  isProjectAgent,
+  projectOf,
+  conversationOf = null,
+  attachments,
+  extract = extractVisionFrame,
+  browser = withVisionBrowser,
+  authStore = null,
+  requireConfirmation = false,
+  visionPack = null,
+} = {}) {
   async function run(args, exec, mode, times, callback) {
     const signal = exec?.signal;
     signal?.throwIfAborted();
@@ -98,6 +109,24 @@ export function createVisionTools({ isProjectAgent, projectOf, attachments, extr
     if (!project?.projectId || !project?.path) throw new Error('此工具仅对已绑定影片项目的对话开放。');
     const file = await localMedia(project.path, args?.source);
     signal?.throwIfAborted();
+    if (mode === 'cutout' && requireConfirmation && authStore) {
+      const conversation = conversationOf?.(exec.agent) ?? project.conversation ?? '';
+      const sourceRevision = await computeSourceRevision(project.path, args.source);
+      const check = authStore.verify({
+        projectId: project.projectId,
+        conversation,
+        assetId: args.source,
+        operation: 'cutout_preview',
+        requiredScope: 'single_frame',
+        sourceRevision,
+      });
+      if (!check.ok) {
+        const msg = check.reason === 'STALE_SOURCE_REVISION'
+          ? `素材「${args.source}」已更新，请让用户重新确认后再执行抠像预览。`
+          : `未收到用户对「${args.source}」抠像的明确确认（${check.reason}）。请先向用户确认是否需要抠像并经工作台确认，不要在未授权时自动抠像或由模型自行传入 confirmed=true。`;
+        throw Object.assign(new Error(msg), { code: 'CUTOUT_CONFIRMATION_REQUIRED' });
+      }
+    }
     const workDir = await mkdtemp(join(tmpdir(), 'no996-vision-'));
     try {
       return await browser(mode, async analyze => {
@@ -112,7 +141,7 @@ export function createVisionTools({ isProjectAgent, projectOf, attachments, extr
         const current = projectOf?.(exec.agent);
         if (current?.projectId !== project.projectId || current?.path !== project.path) throw new Error('对话的影片项目已切换；视觉结果未提交。');
         return await callback(results, project);
-      }, { signal });
+      }, { signal, visionPack });
     } finally {
       await rm(workDir, { recursive: true, force: true, maxRetries: 3 }).catch(() => {});
     }
@@ -121,14 +150,26 @@ export function createVisionTools({ isProjectAgent, projectOf, attachments, extr
   return [
     {
       name: 'no996_cutout',
-      description: 'Preview local person cutout on one frame of a project asset: create a new transparent PNG in assets/vision, without modifying the source or timeline. Use source media seconds (not film seconds).',
-      parameters: { type: 'object', additionalProperties: false, required: ['source'], properties: { source: parameter, at: seconds } },
+      description: 'Preview local person cutout on one frame of a project asset: create a new transparent PNG in assets/vision, without modifying the source or timeline. Requires explicit user cutout intent/confirmation; never applies whole-video cutout.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['source'],
+        properties: {
+          source: parameter,
+          at: seconds,
+          scope: { type: 'string', enum: ['single_frame', 'whole_clip'], description: 'Optional requested scope; only single_frame preview is supported by this tool.' },
+        },
+      },
       output: {
         schema: { type: 'object', required: ['text', 'path'], additionalProperties: false, properties: { text: { type: 'string' }, path: { type: 'string' }, image: attachmentSchema } },
         render: (_args, value) => [{ type: 'text', text: value.text }, ...(value.image ? [{ type: 'image', attachment: { ...value.image } }] : [])],
       },
       timeoutMs: 60_000,
       async execute(args, exec) {
+        if (args?.scope === 'whole_clip') {
+          throw Object.assign(new Error('no996_cutout 仅支持单帧透明预览，不支持整段视频实时自动抠像；如需整段去背景请在时间轴/片段效果中由用户显式启用并确认。'), { code: 'WHOLE_CLIP_UNSUPPORTED' });
+        }
         const at = args?.at ?? 0;
         if (!numericTime(at)) throw new Error('at 必须是 0–43200 的素材秒数。');
         return run(args, exec, 'cutout', [at], async ([result], project) => {

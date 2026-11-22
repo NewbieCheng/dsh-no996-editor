@@ -427,7 +427,7 @@ export function createStudioPanel(React) {
         // inside this frame, and a cross-origin frame without the delegation is
         // refused by permissions policy (the button did nothing and the refusal
         // surfaced as an unhandled rejection). Only this validated frame is granted.
-        allow: 'clipboard-read; clipboard-write; fullscreen',
+        allow: 'clipboard-read; clipboard-write; fullscreen; microphone',
         allowFullScreen: true,
         referrerPolicy: 'no-referrer',
         style: { display: 'block', width: '100%', height: '100%', border: 0, background: 'var(--dsw-alias-bg-base)' },

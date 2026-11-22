@@ -22,6 +22,9 @@ test('preferences default, persist, and sanitize', async () => {
     cachedPeriodExpiresAt: '',
     cachedBalanceAt: '',
     logRetentionDays: 14,
+    asrChoice: 'unset',
+    searchSource: 'dsh',
+    visionUpgradeNoticeDismissed: '',
   });
   const saved = await store.set({
     onboardingCompleted: true,

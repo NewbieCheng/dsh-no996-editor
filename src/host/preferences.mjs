@@ -40,6 +40,8 @@ function dshHome() {
 const RATIOS = new Set(['16:9', '9:16', '1:1']);
 const SECONDS = new Set([15, 30, 60]);
 const LANGUAGES = new Set(['中文', 'English']);
+const SEARCH_SOURCES = new Set(['dsh', 'no996']);
+const ASR_CHOICE_RE = /^(?:unset|off|local:sensevoice-small|remote:[a-z0-9._:-]{1,64})$/;
 
 function finitePoints(value) {
   const n = Number(value);
@@ -63,6 +65,9 @@ function defaults() {
     cachedPeriodExpiresAt: '',
     cachedBalanceAt: '',
     logRetentionDays: 14,
+    asrChoice: 'unset',
+    searchSource: 'dsh',
+    visionUpgradeNoticeDismissed: '',
   };
 }
 
@@ -89,6 +94,11 @@ function sanitize(raw) {
     logRetentionDays: Number.isFinite(Number(raw.logRetentionDays))
       ? Math.max(1, Math.min(90, Math.round(Number(raw.logRetentionDays))))
       : 14,
+    asrChoice: typeof raw.asrChoice === 'string' && ASR_CHOICE_RE.test(raw.asrChoice) ? raw.asrChoice : 'unset',
+    searchSource: SEARCH_SOURCES.has(raw.searchSource) ? raw.searchSource : 'dsh',
+    visionUpgradeNoticeDismissed: typeof raw.visionUpgradeNoticeDismissed === 'string'
+      ? raw.visionUpgradeNoticeDismissed.slice(0, 32)
+      : '',
   };
 }
 
@@ -265,6 +275,24 @@ export function createPreferencesStore({ home = dshHome() } = {}) {
           throw Object.assign(new Error('无效日志保留天数'), { code: 'PREFS_INPUT', status: 400 });
         }
         next.logRetentionDays = Math.round(days);
+      }
+      if ('asrChoice' in patch) {
+        const value = typeof patch.asrChoice === 'string' ? patch.asrChoice.trim() : '';
+        if (!ASR_CHOICE_RE.test(value)) {
+          throw Object.assign(new Error('无效转写引擎选择'), { code: 'PREFS_INPUT', status: 400 });
+        }
+        next.asrChoice = value;
+      }
+      if ('searchSource' in patch) {
+        if (!SEARCH_SOURCES.has(patch.searchSource)) {
+          throw Object.assign(new Error('无效搜索来源选择'), { code: 'PREFS_INPUT', status: 400 });
+        }
+        next.searchSource = patch.searchSource;
+      }
+      if ('visionUpgradeNoticeDismissed' in patch) {
+        next.visionUpgradeNoticeDismissed = typeof patch.visionUpgradeNoticeDismissed === 'string'
+          ? patch.visionUpgradeNoticeDismissed.slice(0, 32)
+          : '';
       }
       return write(next);
     },

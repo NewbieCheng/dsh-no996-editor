@@ -507,7 +507,7 @@
           // inside this frame, and a cross-origin frame without the delegation is
           // refused by permissions policy (the button did nothing and the refusal
           // surfaced as an unhandled rejection). Only this validated frame is granted.
-          allow: "clipboard-read; clipboard-write; fullscreen",
+          allow: "clipboard-read; clipboard-write; fullscreen; microphone",
           allowFullScreen: true,
           referrerPolicy: "no-referrer",
           style: { display: "block", width: "100%", height: "100%", border: 0, background: "var(--dsw-alias-bg-base)" }
@@ -713,6 +713,42 @@
       const [authMsg, setAuthMsg] = React.useState("");
       const [captcha, setCaptcha] = React.useState(null);
       const [clicks, setClicks] = React.useState([]);
+      const [catalog, setCatalog] = React.useState(null);
+      const [catalogBusy, setCatalogBusy] = React.useState(false);
+      const [catalogMsg, setCatalogMsg] = React.useState("");
+      const [localTarPath, setLocalTarPath] = React.useState("");
+      const [showImportPath, setShowImportPath] = React.useState(false);
+      const [confirmRemove, setConfirmRemove] = React.useState(false);
+      const loadCatalog = React.useCallback(async () => {
+        try {
+          const res = await fetch("/api/no996-openfilm/models", { credentials: "same-origin", headers: { accept: "application/json" } });
+          if (res.ok) setCatalog(await res.json());
+        } catch {
+        }
+      }, []);
+      const postModels = React.useCallback(async (payload) => {
+        setCatalogBusy(true);
+        setCatalogMsg("");
+        try {
+          const res = await fetch("/api/no996-openfilm/models", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data2 = await res.json().catch(() => ({}));
+          if (!res.ok || data2?.ok === false) {
+            throw new Error(data2?.message || data2?.error || `HTTP ${res.status}`);
+          }
+          if (data2?.catalog) setCatalog(data2.catalog);
+          else if (data2?.items) setCatalog(data2);
+          else await loadCatalog();
+        } catch (err) {
+          setCatalogMsg(String(err?.message || err));
+        } finally {
+          setCatalogBusy(false);
+        }
+      }, [loadCatalog]);
       const load = React.useCallback(async (project) => {
         setLoading(true);
         setError("");
@@ -803,7 +839,16 @@
         } else {
           load("");
         }
-      }, [load]);
+        void loadCatalog();
+      }, [load, loadCatalog]);
+      const visionInstalling = Boolean(catalog?.vision?.installing);
+      React.useEffect(() => {
+        if (!visionInstalling) return void 0;
+        const timer = window.setInterval(() => {
+          void loadCatalog();
+        }, 1e3);
+        return () => window.clearInterval(timer);
+      }, [visionInstalling, loadCatalog]);
       const save = React.useCallback(() => {
         const value = projectId.trim();
         if (!value) return;
@@ -896,6 +941,56 @@
             authMsg ? h("p", { style: { ...dim, marginTop: 6 } }, authMsg) : null
           ) : null
         ) : null,
+        catalog?.vision ? (() => {
+          const v = catalog.vision;
+          const seen = Number(v.install?.seen) || 0;
+          const total = Number(v.install?.total) || Number(v.downloadBytes) || 15449643;
+          const pct = total > 0 ? Math.min(100, Math.round(seen / total * 100)) : 0;
+          const fmtMb = (n) => `${(Math.max(0, Number(n) || 0) / (1024 * 1024)).toFixed(1)} MB`;
+          const corrupt = v.installState === "corrupt";
+          const statusLabel = v.installing ? `\u4E0B\u8F7D\u4E2D ${pct}%\uFF08${v.install?.sourceLabel || "\u955C\u50CF\u6E90"}\uFF09` : v.managed ? v.loadedModels?.length > 0 ? "\u5DF2\u5B89\u88C5 \xB7 \u672C\u6B21\u8FD0\u884C\u5DF2\u52A0\u8F7D" : "\u5DF2\u5B89\u88C5" : v.reusableLocal ? "\u68C0\u6D4B\u5230\u65E7\u7F13\u5B58\u53EF\u4E00\u952E\u590D\u7528" : corrupt ? "\u90E8\u5206\u6587\u4EF6\u7F3A\u5931\u6216\u635F\u574F" : "\u672A\u5B89\u88C5\uFF08\u6309\u9700\u5B89\u88C5\uFF09";
+          const rt = v.runtime || {};
+          return h(
+            "div",
+            null,
+            h("p", { style: sub }, "\u53EF\u9009\u7EC4\u4EF6 \xB7 \u672C\u5730\u89C6\u89C9 (@newbiecheng/no996-models-vision)"),
+            h("p", { style: dim }, `\u72B6\u6001\uFF1A${statusLabel} \xB7 \u538B\u7F29\u5305\u7EA6 ${fmtMb(v.downloadBytes || 15449643)} / \u89E3\u538B ${fmtMb(v.declaredBytes)} \xB7 \u8FD0\u884C\u65F6\uFF08onnxruntime-web / MediaPipe\uFF09\uFF1A${rt.ready ? "\u968F\u6838\u5FC3\u63D0\u4F9B\uFF08\u5DF2\u5C31\u7EEA\uFF09" : `\u7F3A\u5C11 ${rt.missing?.join(", ") || "\u6838\u5FC3\u4F9D\u8D56"}`}`),
+            v.managed ? h("p", { style: dim }, `\u5B58\u653E\u4F4D\u7F6E\uFF1A${v.storeDir}`) : null,
+            v.install?.error ? h("p", { style: dim }, `\u5931\u8D25\u8BF4\u660E\uFF1A${v.install.error}`) : null,
+            catalogMsg ? h("p", { style: dim }, `\u64CD\u4F5C\u53CD\u9988\uFF1A${catalogMsg}`) : null,
+            h(
+              "div",
+              { style: { ...row, flexWrap: "wrap" } },
+              !v.installing && !v.managed && v.reusableLocal ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: "migrate", id: "no996-models-vision" }) }, "\u4E00\u952E\u590D\u7528\u672C\u5730\u7F13\u5B58\uFF080 \u6D41\u91CF\uFF09") : null,
+              !v.installing && (!v.managed || corrupt) ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: "install", id: "no996-models-vision", force: corrupt }) }, corrupt ? "\u91CD\u65B0\u4E0B\u8F7D\u4FEE\u590D" : "\u5B89\u88C5\u672C\u5730\u89C6\u89C9\u7EC4\u4EF6") : null,
+              v.installing ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: "cancel", id: "no996-models-vision" }) }, "\u53D6\u6D88\u4E0B\u8F7D") : null,
+              !v.installing && v.managed && !confirmRemove ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => setConfirmRemove(true) }, `\u5378\u8F7D\u7EC4\u4EF6\uFF08\u53EF\u91CA\u653E ${fmtMb(v.reclaimableBytes)}\uFF09`) : null,
+              !v.installing && confirmRemove ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => {
+                setConfirmRemove(false);
+                void postModels({ action: "remove", id: "no996-models-vision" });
+              } }, "\u786E\u8BA4\u5378\u8F7D") : null,
+              confirmRemove ? h("button", { style: link, onClick: () => setConfirmRemove(false) }, "\u53D6\u6D88") : null,
+              !v.installing && v.tempBytes > 0 ? h("button", { style: link, disabled: catalogBusy, onClick: () => void postModels({ action: "remove", id: "no996-models-vision", cleanResidualsOnly: true }) }, "\u6E05\u7406\u6B8B\u7559\u788E\u7247") : null,
+              h("button", { style: link, onClick: () => setShowImportPath((prev) => !prev) }, showImportPath ? "\u6536\u8D77\u79BB\u7EBF\u5BFC\u5165" : "\u4ECE\u672C\u5730\u538B\u7F29\u5305\u5BFC\u5165")
+            ),
+            showImportPath ? h(
+              "div",
+              { style: { marginTop: 6 } },
+              h("input", {
+                style: input,
+                type: "text",
+                value: localTarPath,
+                placeholder: "\u8F93\u5165\u79BB\u7EBF .tgz \u6587\u4EF6\u7EDD\u5BF9\u8DEF\u5F84\uFF08\u6821\u9A8C SHA-256 \u540E\u5BFC\u5165\uFF09",
+                onChange: (e) => setLocalTarPath(e.target.value)
+              }),
+              h("button", {
+                style: button,
+                disabled: catalogBusy || !localTarPath.trim(),
+                onClick: () => void postModels({ action: "import-local", path: localTarPath.trim() })
+              }, "\u5BFC\u5165\u79BB\u7EBF\u5305")
+            ) : null
+          );
+        })() : null,
         preset ? h(
           "div",
           null,

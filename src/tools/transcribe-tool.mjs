@@ -70,7 +70,7 @@ function renderTranscript(record, { transcriptPath = null, maxChars = MAX_DEFAUL
 
 const absolute = value => typeof value === 'string' && (/^[A-Za-z]:[\\/]/.test(value) || value.startsWith('/'));
 
-export function createTranscribeTool({ isProjectAgent, projectOf, service, refine = null }) {
+export function createTranscribeTool({ isProjectAgent, projectOf, service, resolveChoice = null, refine = null }) {
   return {
     name: 'no996_transcribe',
     description: 'Transcribe speech in a local video or audio file with timecodes. Recognition runs locally; optional refinement sends transcript text to the session model, and returned text enters the conversation. Use when speech matters, not for every video. The first use downloads a local speech model (~228 MB); status shows readiness and setup starts the download.',
@@ -99,6 +99,16 @@ export function createTranscribeTool({ isProjectAgent, projectOf, service, refin
       }
       if (!service || typeof service.transcribe !== 'function') throw new Error('本地转写服务没有装配');
 
+      if (resolveChoice) {
+        const choice = await resolveChoice({ purpose: 'media' }).catch(() => null);
+        if (choice?.configured === 'off') {
+          return { text: '工作台语音转写当前已关闭（off）。如需使用，请先在「设置 → 模型 → 语音转写」开启「本地 · SenseVoice」。' };
+        }
+        if (typeof choice?.configured === 'string' && choice.configured.startsWith('remote:')) {
+          return { text: `当前工作台已选择云端语音转写（${choice.configured}），不会在未授权时使用或下载本地 SenseVoice。` };
+        }
+      }
+
       if (args?.status === true) return { text: renderStatus(await service.status()) };
 
       if (args?.setup === true) {
@@ -126,6 +136,12 @@ export function createTranscribeTool({ isProjectAgent, projectOf, service, refin
         record = await service.transcribe({ source: source.trim(), lang: args?.lang ?? 'auto', cacheDir });
       } catch (error) {
         if (error?.code === 'MODEL_NOT_READY') {
+          if (resolveChoice) {
+            return {
+              text: String(error.message)
+                + '\n当前本地 SenseVoice 模型权重缺失或未下载（不会在后台静默自动下载）。请前往「设置 → 模型 → 语音转写」或「存储 → 本地模型」下载并启用，或明确指示使用 setup 开始下载。',
+            };
+          }
           // A normal first-run state, not a failure: start it and say so.
           void service.setup().catch(() => undefined);
           return {

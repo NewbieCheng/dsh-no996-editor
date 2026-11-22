@@ -1,0 +1,31 @@
+{
+  "name": "@newbiecheng/no996-models-vision",
+  "version": "0.2.0",
+  "description": "Offline local vision model weights for No996 Studio (MODNet portrait matting, MediaPipe face landmarks, MediaPipe selfie segmentation).",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NewbieCheng/dsh-no996-editor.git",
+    "directory": "packages/no996-models-vision"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "no996",
+    "openfilm",
+    "vision",
+    "onnx",
+    "mediapipe",
+    "models"
+  ],
+  "files": [
+    "manifest.json",
+    "models",
+    "licenses",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ]
+}

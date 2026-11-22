@@ -26,9 +26,13 @@ import { createSilenceSegmenter } from './asr-silence.mjs';
 import { createSenseVoiceRecognizer, loadSherpa } from './asr-sensevoice.mjs';
 import { modelState, ensureModels, senseVoiceDir, SENSE_VOICE } from './asr-models.mjs';
 import { createTranscribePipeline } from './asr-pipeline.mjs';
+import { parseWavHeader } from './asr-wav.mjs';
 
-export const CACHE_VERSION = 1;
+export const CACHE_VERSION = 2;
+export const RUNNER_VERSION = 'sensevoice-small-int8@1';
 const HEAD_BYTES = 256 * 1024;
+const MAX_DICTATION_BYTES = 16 * 1024 * 1024;
+const MAX_DICTATION_SEC = 120;
 
 const fail = (message, code) => Object.assign(new Error(message), { code });
 
@@ -66,7 +70,10 @@ export function createTranscribeService({
 } = {}) {
   let chain = Promise.resolve();
   let install = null;
+  let installAbort = null;
   let recognizer = null;
+  let recognizerLang = null;
+  let busyJobs = 0;
   // What the last install attempt is doing, for the wizard: "connecting" is a
   // different user experience from "downloading", and a failure names its source.
   let installState = { phase: 'idle', source: '', file: '', seen: 0, total: 0, speed: 0, error: '', startedAt: 0 };
@@ -77,15 +84,20 @@ export function createTranscribeService({
 
   /** Serialise every job: one model, one CPU, one queue. */
   const enqueue = task => {
-    const started = chain.then(task, task);
+    const wrapped = async () => {
+      busyJobs += 1;
+      try { return await task(); } finally { busyJobs -= 1; }
+    };
+    const started = chain.then(wrapped, wrapped);
     chain = started.then(() => undefined, () => undefined);
     return started;
   };
 
   const makeRecognizer = (lang) => {
-    if (recognizer) return recognizer;
+    if (recognizer && recognizerLang === lang) return recognizer;
     if (typeof recognizerFactory === 'function') {
       recognizer = recognizerFactory({ dir: senseVoiceDir({ env }), lang });
+      recognizerLang = lang;
       return recognizer;
     }
     const dir = senseVoiceDir({ env });
@@ -94,6 +106,7 @@ export function createTranscribeService({
       tokens: join(dir, 'tokens.txt'),
       language: lang,
     });
+    recognizerLang = lang;
     return recognizer;
   };
 
@@ -101,12 +114,15 @@ export function createTranscribeService({
   function startInstall() {
     if (!install) {
       const startedAt = now();
+      const controller = new AbortController();
+      installAbort = controller;
       installState = { phase: 'connecting', source: '', file: '', seen: 0, total: 0, speed: 0, error: '', startedAt };
       let lastAt = startedAt;
       let lastSeen = 0;
       install = ensureModels({
         env,
         fetchImpl,
+        signal: controller.signal,
         onEvent: event => {
           if (!event) return;
           if (event.phase === 'downloading') {
@@ -130,17 +146,32 @@ export function createTranscribeService({
       })
         .then(state => { note('asr-install-done', { ready: state.ready }); installState = { ...installState, phase: 'done' }; return state; })
         .catch(error => {
-          note('asr-install-failed', { code: error?.code ?? 'UNKNOWN' });
-          installState = { ...installState, phase: 'failed', error: String(error?.message || error).slice(0, 300) };
+          const cancelled = controller.signal.aborted || error?.code === 'ABORTED';
+          note(cancelled ? 'asr-install-cancelled' : 'asr-install-failed', { code: error?.code ?? 'UNKNOWN' });
+          installState = {
+            ...installState,
+            phase: cancelled ? 'idle' : 'failed',
+            error: cancelled ? '' : String(error?.message || error).slice(0, 300),
+          };
           throw error;
         })
-        .finally(() => { install = null; });
+        .finally(() => {
+          install = null;
+          if (installAbort === controller) installAbort = null;
+        });
       // Nobody is awaiting this promise at the moment it is created: swallow the
       // rejection here so a failed download cannot surface as an unhandled one.
       install.catch(() => undefined);
       note('asr-install-started', { bytes: SENSE_VOICE.bytes, dir: senseVoiceDir({ env }) });
     }
     return install;
+  }
+
+  async function cancelInstall() {
+    if (!installAbort) return status();
+    installAbort.abort(Object.assign(new Error('已取消'), { code: 'ABORTED' }));
+    try { await install; } catch { /* expected abort */ }
+    return status();
   }
 
   async function bytesOnDisk(dir) {
@@ -190,12 +221,17 @@ export function createTranscribeService({
         if (error?.code === 'ENOENT') throw fail('找不到这个文件：' + source, 'NOT_FOUND');
         throw error;
       });
-      const cachePath = cacheDir ? join(cacheDir, print.key + '.json') : null;
-      if (cachePath) {
+      const cacheKey = `${print.key}.${lang}.${RUNNER_VERSION.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const cachePath = cacheDir ? join(cacheDir, `${cacheKey}.json`) : null;
+      const legacyCachePath = cacheDir && lang === 'auto' ? join(cacheDir, `${print.key}.json`) : null;
+      for (const candidatePath of [cachePath, legacyCachePath].filter(Boolean)) {
         try {
-          const cached = JSON.parse(await readFile(cachePath, 'utf8'));
-          if (cached?.v === CACHE_VERSION && Array.isArray(cached.segments) && typeof cached.text === 'string') {
-            note('asr-cache-hit', { key: print.key });
+          const cached = JSON.parse(await readFile(candidatePath, 'utf8'));
+          const vOk = cached?.v === CACHE_VERSION || (cached?.v === 1 && candidatePath === legacyCachePath);
+          const runnerOk = cached?.v === 1 || cached?.runnerVersion === RUNNER_VERSION;
+          const langOk = cached?.v === 1 || cached?.lang === lang;
+          if (vOk && runnerOk && langOk && Array.isArray(cached.segments) && typeof cached.text === 'string') {
+            note('asr-cache-hit', { key: print.key, lang });
             return { ...cached, cached: true };
           }
         } catch { /* a corrupt cache entry is a miss, not a failure */ }
@@ -224,6 +260,8 @@ export function createTranscribeService({
         const result = await pipeline.run({ source, workDir, signal, onProgress });
         const record = {
           v: CACHE_VERSION,
+          runnerVersion: RUNNER_VERSION,
+          lang,
           model: active.name ?? 'sensevoice-small-int8',
           source: basename(source),
           sourceBytes: print.bytes,
@@ -245,10 +283,96 @@ export function createTranscribeService({
     });
   }
 
+  /**
+   * Direct bounded in-memory dictation recognition (WAV 16 kHz mono/stereo -> mono Float32).
+   * Shares the same SenseVoice recognizer and single-flight queue; never triggers
+   * background model download and never touches project media or cloud APIs.
+   */
+  async function transcribeAudioBuffer({ wavBuffer, lang = 'auto', signal } = {}) {
+    signal?.throwIfAborted?.();
+    const buf = Buffer.isBuffer(wavBuffer) ? wavBuffer : Buffer.from(wavBuffer || []);
+    if (buf.length < 44 || buf.length > MAX_DICTATION_BYTES) {
+      throw fail('录音数据为空或超出 16 MB 长度限制', 'DICTATION_SIZE');
+    }
+    const header = parseWavHeader(buf);
+    if (header.sampleRate !== 16000) {
+      throw fail(`听写只支持 16 kHz 采样率，收到 ${header.sampleRate} Hz`, 'BAD_SAMPLE_RATE');
+    }
+    if (header.durationSec > MAX_DICTATION_SEC) {
+      throw fail(`单次听写最长 ${MAX_DICTATION_SEC} 秒`, 'DICTATION_TOO_LONG');
+    }
+    const state = await modelState({ env });
+    if (!state.ready) {
+      throw fail(
+        `未安装本地语音模型（${SENSE_VOICE.label}，约 ${Math.round(SENSE_VOICE.bytes / 1024 / 1024)} MB）。请先下载并启用后再使用语音听写。`,
+        'MODEL_NOT_READY',
+      );
+    }
+
+    const bytesPerSample = header.bitsPerSample / 8;
+    const frameBytes = bytesPerSample * header.channels;
+    const frames = Math.min(
+      header.sampleCount,
+      Math.floor((buf.length - header.dataOffset) / frameBytes),
+    );
+    const samples = new Float32Array(frames);
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    const isFloat = header.format === 3;
+    for (let i = 0; i < frames; i += 1) {
+      let sum = 0;
+      for (let c = 0; c < header.channels; c += 1) {
+        const at = header.dataOffset + (i * header.channels + c) * bytesPerSample;
+        sum += isFloat ? view.getFloat32(at, true) : view.getInt16(at, true) / 32768;
+      }
+      samples[i] = sum / header.channels;
+    }
+
+    // Check RMS energy quickly to avoid decoding pure digital zero
+    let sumSq = 0;
+    for (let i = 0; i < samples.length; i += 1) sumSq += samples[i] * samples[i];
+    const rms = samples.length ? Math.sqrt(sumSq / samples.length) : 0;
+    if (rms < 1e-4) {
+      return {
+        text: '',
+        empty: true,
+        modelId: SENSE_VOICE.id,
+        runnerVersion: RUNNER_VERSION,
+        format: 'wav-16khz',
+        durationSec: Math.round(header.durationSec * 100) / 100,
+        supportedLanguages: ['auto', 'zh', 'en', 'ja', 'ko', 'yue'],
+      };
+    }
+
+    return enqueue(async () => {
+      signal?.throwIfAborted?.();
+      const active = makeRecognizer(lang);
+      try {
+        active.warm?.();
+      } catch (error) {
+        throw fail('语音识别引擎没有加载成功：' + String(error?.message || error).slice(0, 200), error?.code ?? 'ENGINE_FAILED');
+      }
+      const decoded = await active.transcribe(samples, { sampleRate: 16000 });
+      const text = String(decoded?.text ?? '').trim();
+      return {
+        text,
+        empty: !text,
+        modelId: active.name ?? SENSE_VOICE.id,
+        runnerVersion: RUNNER_VERSION,
+        format: 'wav-16khz',
+        durationSec: Math.round(header.durationSec * 100) / 100,
+        supportedLanguages: ['auto', 'zh', 'en', 'ja', 'ko', 'yue'],
+      };
+    });
+  }
+
   return {
     transcribe,
+    transcribeAudioBuffer,
     status,
     setup: () => startInstall(),
+    cancelInstall,
+    isBusy: () => busyJobs > 0,
+    resetRecognizer: () => { recognizer = null; recognizerLang = null; },
     /** Test seam: wait for the queue to drain. */
     drain: () => chain,
   };

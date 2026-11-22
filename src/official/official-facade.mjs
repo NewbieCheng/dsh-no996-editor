@@ -65,7 +65,7 @@ function officialFacadeFactory(bridge) {
       options,
     };
   };
-  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'skills:list', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs']);
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'skills:list', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs', 'asr:status', 'asr:install', 'asr:cancel', 'asr:choice-get', 'asr:choice-set', 'dictation:transcribe', 'search:status', 'search:choice-set', 'models:list', 'models:preview', 'models:install', 'models:cancel', 'models:remove', 'models:import-local', 'models:pre-migrate', 'vision:authorize', 'stage:deliverable-check']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -709,6 +709,37 @@ function officialFacadeFactory(bridge) {
     restartToUpdate: denied('restartToUpdate'),
     updateState: async () => ({ status: 'disabled', availableVersion: null, error: null }),
     checkForUpdate: denied('checkForUpdate'),
+    hostPrefs: {
+      get: () => rpc('prefs:get', {}),
+      set: (patch) => rpc('prefs:set', patch && typeof patch === 'object' ? patch : {}),
+    },
+    models: {
+      list: () => rpc('models:list', {}),
+      preview: (id) => rpc('models:preview', { id }),
+      install: (id, opts) => rpc('models:install', { id, ...(opts && typeof opts === 'object' ? opts : {}) }),
+      cancel: (id) => rpc('models:cancel', { id }),
+      remove: (id, opts) => rpc('models:remove', { id, ...(opts && typeof opts === 'object' ? opts : {}) }),
+      importLocal: (path) => rpc('models:import-local', { path }),
+      preMigrate: () => rpc('models:pre-migrate', {}),
+    },
+    asr: {
+      status: () => rpc('asr:status', {}),
+      install: () => rpc('asr:install', {}),
+      cancel: () => rpc('asr:cancel', {}),
+      choiceGet: (purpose = 'media') => rpc('asr:choice-get', { purpose }),
+      choiceSet: (choice) => rpc('asr:choice-set', { choice }),
+      transcribeDictation: (payload) => rpc('dictation:transcribe', payload),
+    },
+    search: {
+      status: () => rpc('search:status', {}),
+      choiceSet: (source) => rpc('search:choice-set', { source }),
+    },
+    visionAuth: {
+      authorize: (payload) => rpc('vision:authorize', payload),
+    },
+    deliverable: {
+      check: (payload) => rpc('stage:deliverable-check', payload),
+    },
   };
 }
 

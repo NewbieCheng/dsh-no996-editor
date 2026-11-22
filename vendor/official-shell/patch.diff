@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..3be6e5a 100644
+index 26575ee..08eb89f 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -7,7 +7,7 @@ index 26575ee..3be6e5a 100644
   */
  import React from 'react';
 -import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Shapes, Square } from 'lucide-react';
-+import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Paperclip, Plus, Square } from 'lucide-react';
++import { ArrowDown, AtSign, Blocks, ChevronLeft, Coins, CornerDownLeft, Folder, LibraryBig, Loader2, Mic, Paperclip, Plus, Square } from 'lucide-react';
  import { buildPromptDisplay, type Turn } from '@openfilm/shared';
  import { useT, useUiLocale } from '@/i18n';
  import { ConversationBar } from '@/components/ConversationSessionBar';
@@ -22,7 +22,15 @@ index 26575ee..3be6e5a 100644
  import { Popover } from '@/components/Popover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -33,6 +36,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+@@ -25,6 +28,7 @@ import { Tooltip } from '@/components/Tooltip';
+ import { StickToBottomContext, useStickToBottom, useTailSpacer } from '@/components/useStickToBottom';
+ import { PromptEditor, PromptPill, PromptPillHoverContext, PromptPillRevealContext, activatedSkillIds, fileReferenceId, fileReferencePath, promptReferenceToken, resolvePromptReferences, skillReferenceId, skillReferencePackage, splitPromptReferenceText, type MentionProvider, type PromptEditorHandle, type PromptEditorState, type PromptPillHover, type PromptReference } from '@/components/prompt-editor';
+ import { filesFromTransfer, transferHasFiles } from '@/lib/composer-attachments';
++import { startMicRecorder, type DictationRecorder } from '@/lib/dictation';
+ import { PROMPT_PICTURES_MAX, attachedPictures, attachmentBlocker, formatFileSize, turnAttachments, useDesktopAttachments } from '@/lib/desktop-attachments';
+ import { attachmentPill, attachmentsInText, attachmentWords, isAttachmentPill, projectFilePath, sentPill } from '@/lib/attachment-pills';
+ import { deriveProjectTurns } from '@/lib/project-versions';
+@@ -33,6 +37,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -30,7 +38,7 @@ index 26575ee..3be6e5a 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -43,6 +47,7 @@ import {
+@@ -43,6 +48,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -38,7 +46,7 @@ index 26575ee..3be6e5a 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -67,9 +72,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
+@@ -67,9 +73,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
  import { accountModel, accountModelOf, routeWithoutKey } from '@/lib/route-without-key';
  import { keptNote, ProjectFolderContext, readStudioProject } from '@/lib/studio-film';
  import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-transfer';
@@ -51,7 +59,7 @@ index 26575ee..3be6e5a 100644
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -157,6 +164,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -157,6 +165,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -59,7 +67,7 @@ index 26575ee..3be6e5a 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +192,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -184,11 +193,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
    const [sessionId, setSessionId] = React.useState<string>(() => {
@@ -132,7 +140,7 @@ index 26575ee..3be6e5a 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +454,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +455,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -141,7 +149,7 @@ index 26575ee..3be6e5a 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +482,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +483,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -205,7 +213,7 @@ index 26575ee..3be6e5a 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,6 +564,48 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +565,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -234,7 +242,6 @@ index 26575ee..3be6e5a 100644
 +            for (const opt of ordered) {
 +              const wanted = ownAgentPrefs[opt.id];
 +              const current = latest.find((o) => o.id === opt.id)?.currentValue;
-+              if (cancelled) return;
 +              if (wanted === undefined || wanted === current) continue;
 +              const updated = await applyLiveSessionOption(agent, opt.id, wanted, { projectId: projectKey, conversation: sessionId });
 +              if (cancelled) return;
@@ -279,17 +286,116 @@ index 26575ee..3be6e5a 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1035,7 +1209,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
-   const onAccountPicked = onAccount ? accountModelOf(agentOptions(la, 'deepseek'), agentPrefs.deepseek?.[onAccount.configId]) : null;
-   const pickAccountModel = () => {
-     if (!onAccount) return;
--    la.setPref('deepseek', onAccount.configId, onAccount.value);
-+    la.setPref('deepseek', onAccount.configId, onAccount.value, { projectId: projectKey, conversation: sessionId });
-     keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, deepseek: { ...s.agentPrefs?.deepseek, [onAccount.configId]: onAccount.value } } }));
-     composerRef.current?.focus();
+@@ -1041,8 +1215,119 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    };
-@@ -1043,6 +1217,11 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   const wasName = agentWas === 'byok' ? t('composer.agentOwnKey') : agentWas ? la.roster?.find((a) => a.id === agentWas)?.name ?? AGENT_DEFINITIONS[agentWas]?.name ?? agentWas : '';
  
++  const [dictationPhase, setDictationPhase] = React.useState<'idle' | 'recording' | 'transcribing'>('idle');
++  const [dictationNotice, setDictationNotice] = React.useState<{ text: string; action?: 'install' | 'settings' } | null>(null);
++  const recorderRef = React.useRef<DictationRecorder | null>(null);
++
++  React.useEffect(() => () => {
++    recorderRef.current?.abort();
++    recorderRef.current = null;
++  }, []);
++
++  const nativeAsr = (window as unknown as {
++    openfilmNative?: {
++      asr?: {
++        choiceGet?: (purpose?: string) => Promise<{ configured?: string; available?: boolean; reason?: string; message?: string }>;
++        install?: () => Promise<unknown>;
++        transcribeDictation?: (payload: { audioBase64: string; lang?: string }) => Promise<{ ok?: boolean; text?: string; noSpeech?: boolean; message?: string }>;
++      };
++    };
++  }).openfilmNative?.asr;
++
++  const stopAndTranscribeDictation = React.useCallback(async () => {
++    const rec = recorderRef.current;
++    recorderRef.current = null;
++    if (!rec) {
++      setDictationPhase('idle');
++      return;
++    }
++    setDictationPhase('transcribing');
++    try {
++      const { audioBase64, durationMs, rms } = await rec.stop();
++      if (durationMs < 300 || rms < 1e-4) {
++        setDictationNotice({ text: durationMs < 300 ? t('dictation.shortClip') : t('dictation.noSpeech') });
++        return;
++      }
++      if (!nativeAsr?.transcribeDictation) {
++        setDictationNotice({ text: t('dictation.missingModel'), action: 'settings' });
++        return;
++      }
++      const res = await nativeAsr.transcribeDictation({ audioBase64, lang: 'auto' });
++      if (!res?.ok) {
++        setDictationNotice({
++          text: res?.message || t('dictation.failed').replace('{reason}', 'error'),
++          action: 'settings',
++        });
++        return;
++      }
++      if (res.noSpeech || !res.text?.trim()) {
++        setDictationNotice({ text: t('dictation.noSpeech') });
++        return;
++      }
++      setDictationNotice(null);
++      composerRef.current?.appendDictation(res.text);
++    } catch (error) {
++      setDictationNotice({
++        text: t('dictation.failed').replace('{reason}', error instanceof Error ? error.message : String(error)),
++      });
++    } finally {
++      setDictationPhase('idle');
++    }
++  }, [nativeAsr, t]);
++
++  const toggleDictation = React.useCallback(async () => {
++    if (dictationPhase === 'transcribing') return;
++    if (dictationPhase === 'recording') {
++      await stopAndTranscribeDictation();
++      return;
++    }
++    setDictationNotice(null);
++    if (!nativeAsr?.choiceGet || !nativeAsr?.transcribeDictation) {
++      setDictationNotice({ text: t('dictation.missingModel'), action: 'settings' });
++      return;
++    }
++    try {
++      const decision = await nativeAsr.choiceGet('dictation');
++      if (typeof decision?.configured === 'string' && decision.configured.startsWith('remote:')) {
++        setDictationNotice({ text: t('dictation.localOnlyRemoteBlocked'), action: 'settings' });
++        return;
++      }
++      if (decision?.configured === 'off') {
++        setDictationNotice({ text: t('dictation.turnedOff'), action: 'settings' });
++        return;
++      }
++      if (!decision?.available) {
++        setDictationNotice({
++          text: decision?.message || t('dictation.missingModel'),
++          action: decision?.reason === 'MODEL_MISSING' ? 'install' : 'settings',
++        });
++        return;
++      }
++      const rec = await startMicRecorder(() => { void stopAndTranscribeDictation(); });
++      recorderRef.current = rec;
++      setDictationPhase('recording');
++    } catch (error) {
++      recorderRef.current?.abort();
++      recorderRef.current = null;
++      setDictationPhase('idle');
++      setDictationNotice({
++        text: t('dictation.failed').replace('{reason}', error instanceof Error ? error.message : String(error)),
++      });
++    }
++  }, [dictationPhase, nativeAsr, stopAndTranscribeDictation, t]);
++
++  const openModelSettings = () => {
++    try { sessionStorage.setItem('openfilm.settings.card', 'local'); } catch { /* ignore */ }
++    desktopBridge()?.openSettings?.('models');
++  };
++
    const editComposerCard = (
      <div className="flex flex-col gap-1">
 +      {dropping ? (
@@ -300,7 +406,7 @@ index 26575ee..3be6e5a 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1254,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1360,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -313,7 +419,69 @@ index 26575ee..3be6e5a 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1139,6 +1319,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1123,6 +1409,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+               mentions={{ providers: mentionProviders, label: t('mention.menu'), onOpen: loadMentionFiles }}
+             />
+           </div>
++          {/* Local mic dictation button (SenseVoice only, never sends audio to cloud) */}
++          <Tooltip
++            label={
++              dictationPhase === 'recording'
++                ? t('dictation.stop')
++                : dictationPhase === 'transcribing'
++                  ? t('dictation.recognizing')
++                  : t('dictation.start')
++            }
++          >
++            <button
++              type="button"
++              onClick={() => void toggleDictation()}
++              disabled={dictationPhase === 'transcribing'}
++              className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] transition-colors duration-150 ${
++                dictationPhase === 'recording'
++                  ? 'animate-pulse bg-[#ff5a36]/15 text-[#ff5a36]'
++                  : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'
++              } disabled:cursor-not-allowed disabled:opacity-60`}
++              aria-label={dictationPhase === 'recording' ? t('dictation.stop') : t('dictation.start')}
++            >
++              {dictationPhase === 'transcribing' ? <Loader2 size={13} className="animate-spin" /> : dictationPhase === 'recording' ? <Square size={12} /> : <Mic size={14} />}
++            </button>
++          </Tooltip>
+           {/* while it works: Stop, or Send once something is written (it goes into the turn, or after it); Esc stops */}
+           <Tooltip label={stopping ? t('project.stop') : t('project.sendFollowUp')} shortcut={stopping ? 'Esc' : 'Enter'}>
+             <button
+@@ -1136,9 +1446,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+             </button>
+           </Tooltip>
+         </div>
++        {dictationNotice ? (
++          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--text-muted)]">
++            <span>{dictationNotice.text}</span>
++            <div className="flex items-center gap-2">
++              {dictationNotice.action === 'install' ? (
++                <button
++                  type="button"
++                  onClick={() => {
++                    void nativeAsr?.install?.();
++                    setDictationNotice({ text: t('dictation.installNow') + '…' });
++                    openModelSettings();
++                  }}
++                  className="font-medium text-[var(--accent)] hover:underline"
++                >
++                  {t('dictation.installNow')}
++                </button>
++              ) : null}
++              {dictationNotice.action ? (
++                <button type="button" onClick={openModelSettings} className="text-[var(--text)] hover:underline">
++                  {t('dictation.openSettings')}
++                </button>
++              ) : null}
++              <button type="button" onClick={() => setDictationNotice(null)} className="text-[var(--text-faint)] hover:text-[var(--text)]">
++                ×
++              </button>
++            </div>
++          </div>
++        ) : null}
        </div>
        <div className="flex items-center gap-0.5 px-0.5">
          <ModelPopover
@@ -321,7 +489,7 @@ index 26575ee..3be6e5a 100644
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1327,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1485,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -332,7 +500,7 @@ index 26575ee..3be6e5a 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1338,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1496,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -347,7 +515,7 @@ index 26575ee..3be6e5a 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1359,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1183,6 +1517,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -364,7 +532,7 @@ index 26575ee..3be6e5a 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1386,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1544,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -1996,8 +2164,150 @@ index 0000000..aaa1f6f
 +    </Popover>
 +  );
 +}
+diff --git a/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx b/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx
+index c853f75..8949b87 100644
+--- a/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx
++++ b/apps/desktop/chat/src/components/prompt-editor/MentionMenuPlugin.tsx
+@@ -64,6 +64,12 @@ class MentionMenuOption extends MenuOption {
+   }
+ }
+ 
++export const MENTIONS_SUPPRESS_UNTIL = new WeakMap<LexicalEditor, number>();
++
++export function suppressNextMention(editor: LexicalEditor, durationMs = 80): void {
++  MENTIONS_SUPPRESS_UNTIL.set(editor, Date.now() + durationMs);
++}
++
+ export function MentionMenuPlugin({ providers, label, onOpen }: MentionMenuConfig) {
+   const [editor] = useLexicalComposerContext();
+   const [query, setQuery] = React.useState('');
+@@ -91,6 +97,8 @@ export function MentionMenuPlugin({ providers, label, onOpen }: MentionMenuConfi
+   const handleQueryChange = React.useCallback((value: string | null) => setQuery(value ?? ''), []);
+ 
+   const triggerFn = React.useCallback((text: string): MenuTextMatch | null => {
++    const until = MENTIONS_SUPPRESS_UNTIL.get(editor) ?? 0;
++    if (until > Date.now()) return null;
+     const trigger = matchMentionTrigger(text, charsRef.current);
+     if (!trigger) return null;
+     /* No matches, no menu: an open menu takes the arrow keys, so an empty one would lock
+@@ -102,7 +110,7 @@ export function MentionMenuPlugin({ providers, label, onOpen }: MentionMenuConfi
+       matchingString: trigger.query,
+       replaceableString: trigger.replaceableString,
+     };
+-  }, []);
++  }, [editor]);
+ 
+   const onSelectOption = React.useCallback(
+     (option: MentionMenuOption, nodeToReplace: TextNode | null, closeMenu: () => void) => {
+diff --git a/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx b/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx
+index 011d900..9f06417 100644
+--- a/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx
++++ b/apps/desktop/chat/src/components/prompt-editor/PromptEditor.tsx
+@@ -15,6 +15,7 @@ import {
+   $getRoot,
+   $getSelection,
+   $insertNodes,
++  $isParagraphNode,
+   $isRangeSelection,
+   $isTextNode,
+   $nodesOfType,
+@@ -33,7 +34,7 @@ import {
+   PromptReferenceContext,
+   PromptReferenceNode,
+ } from './PromptReferenceNode';
+-import { MentionMenuPlugin, type MentionMenuConfig } from './MentionMenuPlugin';
++import { MentionMenuPlugin, suppressNextMention, type MentionMenuConfig } from './MentionMenuPlugin';
+ import { $edgeCharacter, MovePillsPlugin, placeAtPoint } from './MovePillsPlugin';
+ import { spacesAroundPill } from './pill-spacing';
+ import type { PromptPillCard } from './PromptPill';
+@@ -63,6 +64,13 @@ export interface PromptEditorHandle {
+   removeReference: (id: string) => void;
+   /** Inserts ready-made text at the caret, or at the end if the editor was never focused. */
+   insertText: (text: string) => void;
++  /**
++   * Appends dictated text safely to the end of the live Lexical tree without
++   * altering existing words, pills, or line breaks, waiting for any active IME
++   * composition to finish, adding smart ASCII spacing, and committing as its
++   * own discrete undo step. Never triggers `@`/`/` mention menus.
++   */
++  appendDictation: (text: string) => void;
+   /** Replaces everything with this text (with markers); pass an empty string to clear. */
+   setText: (text: string) => void;
+   clear: () => void;
+@@ -450,6 +458,54 @@ const HandlePlugin = React.forwardRef<
+ >(
+   function HandlePlugin({ lookupRef, autoFocus }, ref) {
+     const [editor] = useLexicalComposerContext();
++    const composingRef = React.useRef(false);
++    const pendingDictationRef = React.useRef<string[]>([]);
++
++    const flushDictation = React.useCallback((raw: string) => {
++      const cleaned = raw.trim();
++      if (!cleaned) return;
++      suppressNextMention(editor);
++      editor.update(() => {
++        const root = $getRoot();
++        let lastChild = root.getLastChild();
++        let paragraph = $isParagraphNode(lastChild) ? lastChild : null;
++        if (!paragraph) {
++          paragraph = $createParagraphNode();
++          root.append(paragraph);
++        }
++        const existingText = paragraph.getTextContent();
++        const prevChar = existingText ? existingText[existingText.length - 1]! : '';
++        const nextChar = cleaned[0]!;
++        const needsSpace = /[A-Za-z0-9]/.test(prevChar) && /[A-Za-z0-9]/.test(nextChar);
++        const textToAppend = needsSpace ? ` ${cleaned}` : cleaned;
++        const lines = textToAppend.split('\n');
++        lines.forEach((line, index) => {
++          if (index > 0) paragraph!.append($createLineBreakNode());
++          if (line) paragraph!.append($createTextNode(line));
++        });
++        paragraph.selectEnd();
++      }, { discrete: true });
++      editor.focus();
++    }, [editor]);
++
++    React.useEffect(() => (
++      editor.registerRootListener((rootElement, prevRootElement) => {
++        const onStart = () => { composingRef.current = true; };
++        const onEnd = () => {
++          composingRef.current = false;
++          const queued = pendingDictationRef.current.splice(0);
++          for (const item of queued) flushDictation(item);
++        };
++        if (prevRootElement) {
++          prevRootElement.removeEventListener('compositionstart', onStart);
++          prevRootElement.removeEventListener('compositionend', onEnd);
++        }
++        if (rootElement) {
++          rootElement.addEventListener('compositionstart', onStart);
++          rootElement.addEventListener('compositionend', onEnd);
++        }
++      })
++    ), [editor, flushDictation]);
+ 
+     React.useImperativeHandle(ref, () => ({
+       focus: () => editor.focus(),
+@@ -487,7 +543,15 @@ const HandlePlugin = React.forwardRef<
+         });
+         editor.focus();
+       },
+-    }), [editor, lookupRef]);
++      appendDictation: (text) => {
++        if (typeof text !== 'string' || !text.trim()) return;
++        if (composingRef.current || editor.isComposing()) {
++          pendingDictationRef.current.push(text);
++          return;
++        }
++        flushDictation(text);
++      },
++    }), [editor, lookupRef, flushDictation]);
+ 
+     React.useEffect(() => {
+       if (autoFocus) editor.focus();
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..908a37e 100644
+index b41b3f8..0d9428c 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -13,13 +13,43 @@ export const enUS = {
@@ -2142,7 +2452,7 @@ index b41b3f8..908a37e 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +471,30 @@ export const enUS = {
+@@ -418,7 +471,43 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -2172,10 +2482,23 @@ index b41b3f8..908a37e 100644
 +    autoExportLabel: 'Auto-export when done',
 +    autoExportDesc: 'Off by default: stop at verified preview so you can export manually',
 +  },
++  dictation: {
++    start: 'Voice dictation (local)',
++    stop: 'Click to finish and transcribe',
++    recognizing: 'Transcribing locally…',
++    shortClip: 'Recording was too short. Speak for a bit longer.',
++    noSpeech: 'No clear speech detected.',
++    localOnlyRemoteBlocked: 'Voice dictation runs locally only and will never upload mic audio to remote providers.',
++    missingModel: 'Voice dictation requires local SenseVoice weights (~228 MB, never auto-downloaded silently).',
++    turnedOff: 'Speech transcription is turned off. Switch to Local SenseVoice first.',
++    installNow: 'Download & Enable SenseVoice',
++    openSettings: 'Open Model Settings',
++    failed: 'Dictation failed: {reason}',
++  },
  };
 +
 diff --git a/apps/desktop/chat/src/i18n/locales/es.ts b/apps/desktop/chat/src/i18n/locales/es.ts
-index cef5071..8dd4b0d 100644
+index cef5071..e7f1a22 100644
 --- a/apps/desktop/chat/src/i18n/locales/es.ts
 +++ b/apps/desktop/chat/src/i18n/locales/es.ts
 @@ -13,13 +13,17 @@ export const es: Words = {
@@ -2285,7 +2608,7 @@ index cef5071..8dd4b0d 100644
      skillsHidden: 'Tus skills, desactivadas',
      skillsUnfiltered: 'Este agente usa todas tus skills, como en su propia app',
      mcpHidden: 'Tus servidores MCP, desactivados',
-@@ -417,7 +444,30 @@ export const es: Words = {
+@@ -417,7 +444,43 @@ export const es: Words = {
      description: 'Los archivos del proyecto vuelven a como estaban antes de él, también lo cambiado después en Studio. El turno sale del chat y su mensaje vuelve al cuadro de abajo, para enviarlo de nuevo.',
      confirm: 'Deshacer',
      cancel: 'Cancelar',
@@ -2315,10 +2638,23 @@ index cef5071..8dd4b0d 100644
 +    autoExportLabel: 'Autoexportar al terminar',
 +    autoExportDesc: 'Desactivado por defecto: entrega en vista previa para exportar manualmente',
 +  },
++  dictation: {
++    start: 'Dictado por voz (local)',
++    stop: 'Pulsa para detener y transcribir',
++    recognizing: 'Transcribiendo localmente…',
++    shortClip: 'Grabación demasiado corta.',
++    noSpeech: 'No se detectó voz clara.',
++    localOnlyRemoteBlocked: 'El dictado solo usa el modelo local.',
++    missingModel: 'El dictado requiere el modelo local SenseVoice (~228 MB).',
++    turnedOff: 'Transcripción desactivada. Activa SenseVoice local.',
++    installNow: 'Descargar SenseVoice',
++    openSettings: 'Abrir ajustes de modelos',
++    failed: 'Error al transcribir: {reason}',
++  },
  };
 +
 diff --git a/apps/desktop/chat/src/i18n/locales/ja.ts b/apps/desktop/chat/src/i18n/locales/ja.ts
-index 09e13c3..5219f09 100644
+index 09e13c3..78e2b3c 100644
 --- a/apps/desktop/chat/src/i18n/locales/ja.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ja.ts
 @@ -13,13 +13,17 @@ export const ja: Words = {
@@ -2428,7 +2764,7 @@ index 09e13c3..5219f09 100644
      skillsHidden: '自分のスキル（オフ）',
      skillsUnfiltered: 'このエージェントは本来のアプリと同じく、自分のスキルをすべて使います',
      mcpHidden: '自分の MCP サーバー（オフ）',
-@@ -417,7 +444,30 @@ export const ja: Words = {
+@@ -417,7 +444,43 @@ export const ja: Words = {
      description: 'プロジェクトのファイルはこのターンの前の状態に戻ります。その後 Studio で変えたところも戻ります。このターンはチャットから消え、メッセージは下の入力欄に戻るので、もう一度送れます。',
      confirm: '元に戻す',
      cancel: 'キャンセル',
@@ -2458,10 +2794,23 @@ index 09e13c3..5219f09 100644
 +    autoExportLabel: '完了後に自動書き出し',
 +    autoExportDesc: '初期値オフ：プレビューで止め、確認後に手動で書き出せます',
 +  },
++  dictation: {
++    start: '音声入力（ローカル）',
++    stop: 'クリックして終了し文字起こし',
++    recognizing: 'ローカル文字起こし中…',
++    shortClip: '録音が短すぎます。もう少し話してください。',
++    noSpeech: '音声が検出されませんでした。',
++    localOnlyRemoteBlocked: '音声入力はローカルモデルのみ対応しています。',
++    missingModel: 'ローカル SenseVoice モデル（約 228 MB）が必要です。',
++    turnedOff: '文字起こしがオフです。「ローカル SenseVoice」を有効にしてください。',
++    installNow: 'SenseVoice をダウンロード',
++    openSettings: 'モデル設定を開く',
++    failed: '文字起こし失敗：{reason}',
++  },
  };
 +
 diff --git a/apps/desktop/chat/src/i18n/locales/ko.ts b/apps/desktop/chat/src/i18n/locales/ko.ts
-index 07ac398..ed6ddd3 100644
+index 07ac398..5900ba6 100644
 --- a/apps/desktop/chat/src/i18n/locales/ko.ts
 +++ b/apps/desktop/chat/src/i18n/locales/ko.ts
 @@ -9,13 +9,17 @@ export const ko: Words = {
@@ -2571,7 +2920,7 @@ index 07ac398..ed6ddd3 100644
      skillsHidden: '내 스킬(꺼짐)',
      skillsUnfiltered: '이 에이전트는 자체 앱에서처럼 내 스킬을 모두 사용합니다',
      mcpHidden: '내 MCP 서버(꺼짐)',
-@@ -413,7 +440,30 @@ export const ko: Words = {
+@@ -413,7 +440,43 @@ export const ko: Words = {
      description: '프로젝트 파일이 이번 턴 이전 상태로 돌아가고, 그 뒤 Studio에서 바꾼 내용도 함께 되돌아갑니다. 이번 턴은 대화에서 빠지고 메시지는 아래 입력창으로 돌아와 다시 보낼 수 있습니다.',
      confirm: '실행 취소',
      cancel: '취소',
@@ -2601,10 +2950,23 @@ index 07ac398..ed6ddd3 100644
 +    autoExportLabel: '완료 후 자동 내보내기',
 +    autoExportDesc: '기본 꺼짐: 미리보기 상태에서 멈추며 확인 후 직접 내보낼 수 있습니다',
 +  },
++  dictation: {
++    start: '음성 입력(로컬)',
++    stop: '눌러서 녹음 종료 및 변환',
++    recognizing: '로컬 변환 중…',
++    shortClip: '녹음이 너무 짧습니다.',
++    noSpeech: '음성이 감지되지 않았습니다.',
++    localOnlyRemoteBlocked: '음성 입력은 로컬 모델만 지원합니다.',
++    missingModel: '로컬 SenseVoice 모델(약 228 MB)이 필요합니다.',
++    turnedOff: '음성 변환이 꺼져 있습니다. 로컬 SenseVoice를 켜세요.',
++    installNow: 'SenseVoice 다운로드',
++    openSettings: '모델 설정 열기',
++    failed: '음성 입력 실패: {reason}',
++  },
  };
 +
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..7ce30c1 100644
+index 92e929a..8d86765 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,13 +13,43 @@ export const zhCN: Words = {
@@ -2749,7 +3111,7 @@ index 92e929a..7ce30c1 100644
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
-@@ -417,7 +470,30 @@ export const zhCN: Words = {
+@@ -417,7 +470,43 @@ export const zhCN: Words = {
      description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
      confirm: '撤销',
      cancel: '取消',
@@ -2778,6 +3140,19 @@ index 92e929a..7ce30c1 100644
 +    shortExport: '导出',
 +    autoExportLabel: '完成后自动导出',
 +    autoExportDesc: '默认关闭：停在预览态，满意后在左侧手动导出成片',
++  },
++  dictation: {
++    start: '语音输入（本地听写）',
++    stop: '点击结束录音并转写',
++    recognizing: '本地转写中…',
++    shortClip: '录音过短，请长按或说话超过 0.3 秒后再试。',
++    noSpeech: '未检测到清晰语音。',
++    localOnlyRemoteBlocked: '语音听写仅支持本地模型；当前媒体转写已选云端，不会将麦克风录音发送到云端。',
++    missingModel: '语音听写需要本地 SenseVoice 模型（约 228 MB，不会后台自动下载）。',
++    turnedOff: '语音转写已关闭，请先开启「本地 · SenseVoice」。',
++    installNow: '下载并启用 SenseVoice',
++    openSettings: '打开模型设置',
++    failed: '听写失败：{reason}',
 +  },
  };
 +
@@ -3159,6 +3534,153 @@ index eb12f7b..b24ab24 100644
      return items.map(({ item }) => item);
    }, [project, thumbnail]);
  
+diff --git a/apps/desktop/chat/src/lib/dictation.ts b/apps/desktop/chat/src/lib/dictation.ts
+new file mode 100644
+index 0000000..3bdcbdb
+--- /dev/null
++++ b/apps/desktop/chat/src/lib/dictation.ts
+@@ -0,0 +1,141 @@
++/**
++ * Local microphone dictation helper (16 kHz mono Int16 PCM WAV, capped at 120 s / 16 MB).
++ *
++ * Strictly routes audio to Host's local SenseVoice recognizer via
++ * `openfilmNative.asr.transcribeDictation`, never uploading microphone audio to cloud endpoints.
++ */
++
++export const MAX_DICTATION_SECONDS = 120;
++export const TARGET_SAMPLE_RATE = 16_000;
++
++export function downsampleTo16k(samples: Float32Array, fromRate: number): Int16Array {
++  if (!fromRate || fromRate <= TARGET_SAMPLE_RATE) {
++    const out = new Int16Array(samples.length);
++    for (let i = 0; i < samples.length; i += 1) {
++      const s = Math.max(-1, Math.min(1, samples[i] ?? 0));
++      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
++    }
++    return out;
++  }
++  const ratio = fromRate / TARGET_SAMPLE_RATE;
++  const targetLen = Math.max(1, Math.floor(samples.length / ratio));
++  const out = new Int16Array(targetLen);
++  for (let i = 0; i < targetLen; i += 1) {
++    const start = Math.floor(i * ratio);
++    const end = Math.min(samples.length, Math.floor((i + 1) * ratio));
++    let sum = 0;
++    let count = 0;
++    for (let j = start; j < end; j += 1) {
++      sum += samples[j] ?? 0;
++      count += 1;
++    }
++    const avg = count > 0 ? sum / count : 0;
++    const clamped = Math.max(-1, Math.min(1, avg));
++    out[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
++  }
++  return out;
++}
++
++export function encodePcmWavBase64(pcm: Int16Array, sampleRate = TARGET_SAMPLE_RATE): string {
++  const dataBytes = pcm.byteLength;
++  const buf = new ArrayBuffer(44 + dataBytes);
++  const view = new DataView(buf);
++  const writeStr = (offset: number, s: string) => {
++    for (let i = 0; i < s.length; i += 1) view.setUint8(offset + i, s.charCodeAt(i));
++  };
++  writeStr(0, 'RIFF');
++  view.setUint32(4, 36 + dataBytes, true);
++  writeStr(8, 'WAVE');
++  writeStr(12, 'fmt ');
++  view.setUint32(16, 16, true);
++  view.setUint16(20, 1, true);
++  view.setUint16(22, 1, true);
++  view.setUint32(24, sampleRate, true);
++  view.setUint32(28, sampleRate * 2, true);
++  view.setUint16(32, 2, true);
++  view.setUint16(34, 16, true);
++  writeStr(36, 'data');
++  view.setUint32(40, dataBytes, true);
++  new Int16Array(buf, 44).set(pcm);
++
++  const bytes = new Uint8Array(buf);
++  let binary = '';
++  const chunk = 0x8000;
++  for (let i = 0; i < bytes.length; i += chunk) {
++    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
++  }
++  return btoa(binary);
++}
++
++export interface DictationRecorder {
++  stop: () => Promise<{ audioBase64: string; durationMs: number; rms: number }>;
++  abort: () => void;
++}
++
++export async function startMicRecorder(onLimit?: () => void): Promise<DictationRecorder> {
++  if (!navigator?.mediaDevices?.getUserMedia) {
++    throw Object.assign(new Error('当前环境不支持麦克风录音'), { code: 'MIC_UNSUPPORTED' });
++  }
++  const stream = await navigator.mediaDevices.getUserMedia({
++    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
++  });
++  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
++  const ctx = new AudioCtx();
++  const source = ctx.createMediaStreamSource(stream);
++  const processor = ctx.createScriptProcessor(4096, 1, 1);
++  const chunks: Float32Array[] = [];
++  let totalSamples = 0;
++  let stopped = false;
++  const startedAt = Date.now();
++  const maxSamples = Math.round(ctx.sampleRate * MAX_DICTATION_SECONDS);
++
++  const cleanup = () => {
++    try { processor.disconnect(); } catch { /* ignore */ }
++    try { source.disconnect(); } catch { /* ignore */ }
++    for (const track of stream.getTracks()) {
++      try { track.stop(); } catch { /* ignore */ }
++    }
++    void ctx.close().catch(() => {});
++  };
++
++  processor.onaudioprocess = (event) => {
++    if (stopped) return;
++    const input = event.inputBuffer.getChannelData(0);
++    chunks.push(new Float32Array(input));
++    totalSamples += input.length;
++    if (totalSamples >= maxSamples) {
++      stopped = true;
++      onLimit?.();
++    }
++  };
++  source.connect(processor);
++  processor.connect(ctx.destination);
++
++  return {
++    abort() {
++      stopped = true;
++      cleanup();
++    },
++    async stop() {
++      stopped = true;
++      const sampleRate = ctx.sampleRate || 48_000;
++      const durationMs = Date.now() - startedAt;
++      cleanup();
++      const merged = new Float32Array(totalSamples);
++      let offset = 0;
++      let sumSq = 0;
++      for (const part of chunks) {
++        merged.set(part, offset);
++        for (let i = 0; i < part.length; i += 1) sumSq += (part[i] ?? 0) * (part[i] ?? 0);
++        offset += part.length;
++      }
++      const rms = totalSamples > 0 ? Math.sqrt(sumSq / totalSamples) : 0;
++      const pcm = downsampleTo16k(merged, sampleRate);
++      return {
++        audioBase64: encodePcmWavBase64(pcm, TARGET_SAMPLE_RATE),
++        durationMs,
++        rms,
++      };
++    },
++  };
++}
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
 index 0ef8753..7dcaa9d 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
@@ -5114,7 +5636,7 @@ index 0000000..1dab891
 +// Copied verbatim from the old injection so the drawing does not drift.
 +export const BRAND_WHITE = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-8.22 0 1039.44 983\" role=\"img\" aria-label=\"今天不加班AI 深色模式Logo\">\n<title>今天不加班AI 标志（dark 白橙）</title>\n  <path fill=\"#FFFFFF\" fill-rule=\"evenodd\" d=\"M 239 262 L 239 345 L 450 346 L 171 625 L 295 625 L 443 478 L 445 723 L 541 723 L 543 479 L 689 635 L 761 577 L 751 563 L 609 408 L 509 407 L 569 345 L 775 345 L 775 262 Z M 601 16 L 530 8 L 470 9 L 422 15 L 381 24 L 337 38 L 303 52 L 273 67 L 241 86 L 208 109 L 170 141 L 143 168 L 105 214 L 77 256 L 58 291 L 38 338 L 24 382 L 14 427 L 9 467 L 8 530 L 12 573 L 18 606 L 31 652 L 46 690 L 68 733 L 93 772 L 123 811 L 166 856 L 191 878 L 226 904 L 268 929 L 302 945 L 348 961 L 407 973 L 443 974 L 319 846 L 286 831 L 257 813 L 220 783 L 187 748 L 153 700 L 127 650 L 109 600 L 100 554 L 97 510 L 99 467 L 107 417 L 122 367 L 148 310 L 171 272 L 208 226 L 244 191 L 290 157 L 334 133 L 365 120 L 421 104 L 477 96 L 522 95 L 567 99 L 622 111 L 674 130 L 725 158 L 768 190 L 811 232 L 841 269 L 861 300 L 876 328 L 891 364 L 900 391 L 910 435 L 993 409 L 987 381 L 974 340 L 954 293 L 935 258 L 907 215 L 867 166 L 831 130 L 810 112 L 786 94 L 745 68 L 712 51 L 678 37 L 651 28 Z\"/>\n  <path fill=\"#FF7200\" fill-rule=\"evenodd\" d=\"M 1014 452 L 801 510 L 851 548 L 510 847 L 408 744 L 337 808 L 337 810 L 505 971 L 507 971 L 924 612 L 967 662 Z\"/>\n</svg>";
 diff --git a/apps/desktop/shell/bridge.ts b/apps/desktop/shell/bridge.ts
-index d7ae66d..68ede83 100644
+index d7ae66d..566f440 100644
 --- a/apps/desktop/shell/bridge.ts
 +++ b/apps/desktop/shell/bridge.ts
 @@ -310,10 +310,7 @@ export const host: StudioHost = {
@@ -5129,6 +5651,15 @@ index d7ae66d..68ede83 100644
    },
    settings: { onOpen: (listener) => native.onOpenSettings(listener) },
    /* read live: Studio may read the panel before or after the kept layout arrives */
+@@ -374,7 +371,7 @@ function commandFor(ref: StudioRef): StudioCommand {
+   switch (ref.kind) {
+     case 'clip': return { type: 'select-clip', id: ref.id, loc: ref.loc, seek: true };
+     case 'layer': return ref.box && typeof ref.time === 'number'
+-      ? { type: 'show-box', time: ref.time, box: ref.box }
++      ? { type: 'show-box', time: ref.time, box: ref.box, clipId: ref.clipId ?? null, loc: ref.loc ?? null }
+       : { type: 'select-clip', id: ref.clipId, loc: ref.loc, seek: true };
+     case 'region': return { type: 'show-box', time: ref.time, box: ref.box };
+     case 'time': return { type: 'seek', time: ref.time };
 @@ -434,7 +431,9 @@ function commandFor(ref: StudioRef): StudioCommand {
      return body.folder;
    },
@@ -6053,10 +6584,18 @@ index bb5a8ea..744f249 100644
 +createRoot(document.getElementById('root')!).render(<StrictMode><FocusNav /><App /><RecoveryGate /><EnvironmentNotice /><LoginGate /><DiagnosticLogsHost /></StrictMode>);
  void mountChat(document.getElementById('of-chat')!);
 diff --git a/packages/openfilm/studio/ui/src/App.tsx b/packages/openfilm/studio/ui/src/App.tsx
-index 1d3117d..ce06a4a 100644
+index 1d3117d..101e998 100644
 --- a/packages/openfilm/studio/ui/src/App.tsx
 +++ b/packages/openfilm/studio/ui/src/App.tsx
-@@ -29,18 +29,21 @@ export function App() {
+@@ -18,6 +18,7 @@ import { Launcher } from './components/Launcher';
+ import { studioHost } from './lib/host';
+ import { go, openProject } from './lib/navigate';
+ import { WhatsNew } from './components/WhatsNew';
++import { VisionUpgradeNotice } from './components/VisionUpgradeNotice';
+ import { sourcesApi } from './lib/project-sources';
+ import { LIST_WAIT_MS, within } from './lib/projects-page';
+ import { afterPaintIdle } from './lib/after-paint-idle';
+@@ -29,18 +30,21 @@ export function App() {
    /* the app's tabs, when Studio is a tab of an app's window */
    const tabs = studioHost?.tabs ?? null;
    /* the address is told by `popstate`, the browser's own and lib/navigate's `go` */
@@ -6080,7 +6619,7 @@ index 1d3117d..ce06a4a 100644
      window.addEventListener('popstate', onPop);
      /* `openfilm open` while this page is open: show the project it opened (with tabs, the app says which tab does) */
      const stop = listen('events', (event) => {
-@@ -51,10 +54,11 @@ export function App() {
+@@ -51,10 +55,11 @@ export function App() {
    }, []);
  
    /* no project in the address: the one opened last that is still there, else the Projects window (`none`); with
@@ -6093,7 +6632,7 @@ index 1d3117d..ce06a4a 100644
      let alive = true;
      /* the list not read (refused, or no answer in time): the Projects window, which says so and tries again */
      void within(api.projects(), LIST_WAIT_MS).then((projects) => {
-@@ -64,14 +68,14 @@ export function App() {
+@@ -64,17 +69,17 @@ export function App() {
        else setNone(true);
      }, () => { if (alive) setNone(true); });
      return () => { alive = false; setNone(false); };
@@ -6109,7 +6648,11 @@ index 1d3117d..ce06a4a 100644
 +          <ProjectsPopover open currentProjectId="" examples={{}} onOpen={(next) => go(`/projects/${next}`)} onCurrentRemoved={() => {}} />
          </div>
        );
-   return <>{page}<ConnectionNotice /><WhatsNew /></>;
+-  return <>{page}<ConnectionNotice /><WhatsNew /></>;
++  return <>{page}<ConnectionNotice /><WhatsNew /><VisionUpgradeNotice /></>;
+ }
+ 
+ /**
 diff --git a/packages/openfilm/studio/ui/src/components/AppMenu.tsx b/packages/openfilm/studio/ui/src/components/AppMenu.tsx
 index ba24621..37ecc3f 100644
 --- a/packages/openfilm/studio/ui/src/components/AppMenu.tsx
@@ -7115,15 +7658,68 @@ index bd3b623..7919a9c 100644
          </>
        )}>
        <PluginsPane line={line} query={query} projectId={projectId} opened={page} onOpen={showPluginsPage}
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectView.tsx b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
+index cdae14b..265c104 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectView.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
+@@ -3030,6 +3030,13 @@ export function ProjectView({ projectId, onProject }: {
+       return;
+     }
+     if (command.type === 'show-box' && Number.isFinite(command.time) && command.box) {
++      if (command.clipId || command.loc) {
++        const block = blocksRef.current.find((b) => (command.clipId && b.clipId === command.clipId) || (command.loc && b.loc === command.loc));
++        if (block) {
++          setStageElement(null);
++          setSelectedKeys([block.clipId ?? block.id]);
++        }
++      }
+       pause();
+       seek(command.time * 1000);
+       setFlashBox((cur) => ({ box: command.box, seq: (cur?.seq ?? 0) + 1 }));
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
-index 7b8de03..e16e7db 100644
+index 7b8de03..145c631 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
 +++ b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
-@@ -240,6 +240,46 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
+@@ -240,6 +240,88 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
  const COVER_WAIT_MS = 4000;
  
  
 +type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string; featured?: boolean };
++
++function No996TemplateIcon({ id }: { id: string }) {
++  const common = { width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
++  if (id === 'talking-head' || id === 'talking_head') {
++    return (
++      <svg {...common}>
++        <circle cx="8" cy="5.5" r="2.5" />
++        <path d="M3.5 13.5a4.5 4.5 0 0 1 9 0" />
++      </svg>
++    );
++  }
++  if (id === 'paper-texture' || id === 'paper_texture') {
++    return (
++      <svg {...common}>
++        <path d="M4 2.5h5.5L13 6v7.5H4z" />
++        <path d="M9.5 2.5V6H13" />
++        <path d="M6.2 9h4.6M6.2 11.2h3.2" />
++      </svg>
++    );
++  }
++  if (id === 'feature-explain' || id === 'feature_explain' || id === 'product-demo') {
++    return (
++      <svg {...common}>
++        <rect x="2.5" y="3.5" width="11" height="9" rx="1.8" />
++        <path d="M6.8 6.4 10 8 6.8 9.6z" fill="currentColor" stroke="none" />
++      </svg>
++    );
++  }
++  return (
++    <svg {...common}>
++      <rect x="2.5" y="3.5" width="11" height="9" rx="1.8" />
++      <path d="M5.5 3.5v9M10.5 3.5v9" />
++    </svg>
++  );
++}
 +
 +/** NO996-UPSTREAM: keep product templates inside the upstream examples gallery. */
 +function No996Templates({ onCopy, onBlank, busy }: { onCopy: (id: string) => void; onBlank: () => void; busy: boolean }) {
@@ -7152,11 +7748,18 @@ index 7b8de03..e16e7db 100644
 +      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
 +        {cards.map((card) => <article key={card.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
 +          <div className="flex items-center justify-between gap-2">
-+            <h3 className="text-sm font-semibold text-[var(--text)]">{card.productTitle || card.title}</h3>
++            <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-[var(--text)]">
++              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--bg-field)] text-[var(--text-muted)]">
++                <No996TemplateIcon id={card.id} />
++              </span>
++              <span className="truncate">{card.productTitle || card.title}</span>
++            </h3>
 +            {card.featured ? <span className="shrink-0 rounded-full bg-[rgba(255,194,75,0.16)] px-2 py-0.5 text-[10px] font-medium text-[#e2a32e]">{zh ? '首推' : 'Featured'}</span> : null}
 +          </div>
 +          <p className="flex-1 text-xs leading-relaxed text-[var(--text-muted)]">{card.productBlurb || card.description}</p>
-+          <button type="button" disabled={busy} onClick={() => onCopy(card.id)} className="self-start rounded-md px-2 py-1 text-sm text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '复制开工' : 'Copy and start'}</button>
++          <div className="mt-1 flex justify-end">
++            <button type="button" disabled={busy} onClick={() => onCopy(card.id)} className="self-end rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '复制开工' : 'Copy and start'}</button>
++          </div>
 +        </article>)}
 +      </div>
 +    </section>
@@ -7166,7 +7769,7 @@ index 7b8de03..e16e7db 100644
  export function ProjectsPopover({
    open,
    currentProjectId,
-@@ -272,6 +312,9 @@ export function ProjectsPopover({
+@@ -272,6 +354,9 @@ export function ProjectsPopover({
    const cover = useProjectCover(lib.coverChanged, React.useCallback(() => flash(t('projects.coverFailed')), [flash, t]));
    /* each time it opens: the projects (the examples are a project tab away), or the examples when asked for */
    const [view, setView] = React.useState<LauncherView>('projects');
@@ -7176,7 +7779,7 @@ index 7b8de03..e16e7db 100644
    React.useLayoutEffect(() => {
      if (!open) return;
      const previous = document.activeElement as HTMLElement | null;
-@@ -282,7 +325,11 @@ export function ProjectsPopover({
+@@ -282,7 +367,11 @@ export function ProjectsPopover({
    const navigateProjects = (folderId: string | null = null) => { setProjectNavigation(old => ({ folderId, seq: old.seq + 1 })); setView('projects'); };
    React.useLayoutEffect(() => {
      if (!open) return;
@@ -7189,7 +7792,7 @@ index 7b8de03..e16e7db 100644
      navigateProjects(null);
    }, [open, Boolean(examples), examples?.example]);
    React.useEffect(() => { try { localStorage.setItem(RESOURCE_VIEW_KEY, display); } catch { /* private window */ } }, [display]);
-@@ -374,6 +421,36 @@ export function ProjectsPopover({
+@@ -374,6 +463,36 @@ export function ProjectsPopover({
      }
    }
  
@@ -7226,7 +7829,7 @@ index 7b8de03..e16e7db 100644
    async function duplicateProject(project: LibraryProject) {
      if (busy) return;
      setBusy('duplicating');
-@@ -481,6 +558,8 @@ export function ProjectsPopover({
+@@ -481,6 +600,8 @@ export function ProjectsPopover({
        key={examples?.example ?? ''}
        heading={null}
        embedded
@@ -7235,7 +7838,7 @@ index 7b8de03..e16e7db 100644
        {...(examples?.example ? { initial: examples.example } : {})}
        onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
        /* over a film: the example pointed at in its chat, for the agent to follow (as the Community does) */
-@@ -521,7 +600,11 @@ export function ProjectsPopover({
+@@ -521,7 +642,11 @@ export function ProjectsPopover({
            <div className={resourceStyles.resourceFrame}>
              <ProjectsSidebar
                place={view === 'recycle' ? 'projects' : view}
@@ -7248,7 +7851,7 @@ index 7b8de03..e16e7db 100644
                onStart={(workbench) => void newProject(null, workbench)}
                starting={busy !== null}
              />
-@@ -531,7 +614,27 @@ export function ProjectsPopover({
+@@ -531,7 +656,27 @@ export function ProjectsPopover({
              <>
                {/* the place's name and the way out of the window */}
                <header className={sideStyles.pageHead}>
@@ -7420,6 +8023,96 @@ index 4d98c5d..381df8c 100644
 -    </div>
 -  );
 -}
+diff --git a/packages/openfilm/studio/ui/src/components/VisionUpgradeNotice.tsx b/packages/openfilm/studio/ui/src/components/VisionUpgradeNotice.tsx
+new file mode 100644
+index 0000000..a154918
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/VisionUpgradeNotice.tsx
+@@ -0,0 +1,84 @@
++import React from 'react';
++import { getNativeBridge, openWorkbenchSettings, useModelCatalog } from '@/lib/no996-native-models';
++
++export function VisionUpgradeNotice() {
++  const { catalog, busy, runAction } = useModelCatalog();
++  const [dismissed, setDismissed] = React.useState<boolean | null>(null);
++
++  React.useEffect(() => {
++    let live = true;
++    const bridge = getNativeBridge();
++    if (!bridge?.hostPrefs?.get) {
++      setDismissed(true);
++      return;
++    }
++    void bridge.hostPrefs.get().then((res) => {
++      if (live) setDismissed(Boolean(res?.prefs?.visionUpgradeNoticeDismissed));
++    }).catch(() => {
++      if (live) setDismissed(false);
++    });
++    return () => { live = false; };
++  }, []);
++
++  if (dismissed !== false || !catalog?.vision) return null;
++  const v = catalog.vision;
++  if (v.managed || v.installing) return null;
++
++  const dismiss = () => {
++    setDismissed(true);
++    void getNativeBridge()?.hostPrefs?.set?.({ visionUpgradeNoticeDismissed: true }).catch(() => {});
++  };
++
++  return (
++    <div
++      role="region"
++      aria-label="本地视觉组件升级提示"
++      className="fixed bottom-4 right-4 z-[10040] flex max-w-[440px] flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--bg-raised)] px-4 py-3 text-[13px] text-[var(--text)] shadow-[var(--shadow-lg)]"
++    >
++      <div className="flex items-start justify-between gap-2">
++        <strong className="font-semibold">
++          {v.reusableLocal ? '检测到旧版本地的视觉模型缓存' : '本地视觉能力已拆分为按需扩展包'}
++        </strong>
++        <button
++          type="button"
++          onClick={dismiss}
++          aria-label="关闭通知"
++          className="text-[var(--text-faint)] hover:text-[var(--text)]"
++        >
++          ×
++        </button>
++      </div>
++      <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">
++        {v.reusableLocal
++          ? '主包已减重。可直接把旧缓存一键迁入新扩展存储目录（0 流量、瞬间就绪），人像抠像与人脸追踪即可使用。'
++          : '主包已轻量化瘦身；普通文字与剪辑可直接使用。如需人像抠像或人脸特效，可前往「扩展包」按需下载。'}
++      </p>
++      <div className="flex flex-wrap items-center gap-2 pt-0.5">
++        {v.reusableLocal ? (
++          <button
++            type="button"
++            disabled={busy}
++            onClick={() => void runAction(() => getNativeBridge()!.models!.preMigrate())}
++            className="rounded-md bg-[var(--primary)] px-2.5 py-1 text-[12px] font-medium text-[var(--on-primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50"
++          >
++            一键复用本地缓存
++          </button>
++        ) : null}
++        <button
++          type="button"
++          onClick={() => openWorkbenchSettings('extensions')}
++          className="rounded-md border border-[var(--border)] px-2.5 py-1 text-[12px] font-medium text-[var(--text)] hover:bg-[var(--bg-hover)]"
++        >
++          打开「扩展包」
++        </button>
++        <button
++          type="button"
++          onClick={dismiss}
++          className="ml-auto text-[12px] text-[var(--text-faint)] hover:text-[var(--text)]"
++        >
++          不再提醒
++        </button>
++      </div>
++    </div>
++  );
++}
 diff --git a/packages/openfilm/studio/ui/src/components/WhatsNew.tsx b/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
 index e54deab..a26795f 100644
 --- a/packages/openfilm/studio/ui/src/components/WhatsNew.tsx
@@ -8443,20 +9136,418 @@ index 666b798..53ba676 100644
        <SettingsItem
          title={t('settings.report.title')}
          description={copying.state === 'failed' ? t('settings.report.failed') : copying.shown ? t('settings.report.select') : t('settings.report.hint')}
+diff --git a/packages/openfilm/studio/ui/src/components/settings/ExtensionsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ExtensionsSection.tsx
+new file mode 100644
+index 0000000..19b063b
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/settings/ExtensionsSection.tsx
+@@ -0,0 +1,230 @@
++import React from 'react';
++import { Blocks, CheckCircle2, Download, FolderInput, HardDrive, Loader2, RefreshCw, Scissors, Trash2 } from 'lucide-react';
++import { ConfirmDialog } from '../ConfirmDialog';
++import { SettingsButton, SettingsField, SettingsGroup, SettingsItem, SettingsPage, settingsError } from './ui';
++import { formatSizeMb, getNativeBridge, openWorkbenchSettings, useModelCatalog } from '@/lib/no996-native-models';
++
++export function ExtensionsSection() {
++  const { catalog, busy, error, refresh, runAction } = useModelCatalog();
++  const [confirmPreview, setConfirmPreview] = React.useState(false);
++  const [confirmRemove, setConfirmRemove] = React.useState(false);
++  const [showImport, setShowImport] = React.useState(false);
++  const [tarPath, setTarPath] = React.useState('');
++
++  const api = getNativeBridge()?.models;
++  const v = catalog?.vision ?? null;
++
++  if (!api) {
++    return (
++      <SettingsPage note="可扩展本地能力组件与模型管理。">
++        <SettingsGroup title="扩展包">
++          <p className="py-3 text-[13.5px] text-[var(--text-muted)]">仅在完整桌面工作台环境中可管理本地扩展组件。</p>
++        </SettingsGroup>
++      </SettingsPage>
++    );
++  }
++
++  const seen = Number(v?.install?.seen) || 0;
++  const total = Number(v?.install?.total) || Number(v?.downloadBytes) || 15449643;
++  const pct = total > 0 ? Math.min(100, Math.round((seen / total) * 100)) : 0;
++  const corrupt = v?.installState === 'corrupt';
++  const loadedThisRun = Boolean(v?.loadedModels?.length);
++
++  return (
++    <SettingsPage note="核心剪辑与对话开箱即用；本地视觉抠像与人脸分析拆分为按需安装的可选扩展组件，卸载不影响项目文本编辑与基础播放。">
++      <SettingsGroup
++        title="推荐：本地视觉（人像抠像 · 人脸关键点 · 人物分割）"
++        footnote="下载与解压均在 Host 内完成并做 SHA-256 校验，不会静默拉取网络权重。"
++      >
++        <SettingsItem
++          mark={<Scissors size={18} strokeWidth={1.75} />}
++          title="@newbiecheng/no996-models-vision"
++          badge={
++            v ? (
++              <span className="rounded-full bg-[var(--bg-field)] px-2 py-0.5 text-[11.5px] font-medium text-[var(--text-muted)]">
++                {v.installing
++                  ? `下载中 ${pct}%`
++                  : v.managed
++                    ? (loadedThisRun ? '已安装 · 本次运行已加载' : '已安装')
++                    : v.reusableLocal
++                      ? '检测到旧缓存可复用'
++                      : corrupt
++                        ? '权重受损或缺失'
++                        : '未安装'}
++              </span>
++            ) : null
++          }
++          description={
++            v
++              ? `包含 portrait.onnx / face.task / person.tflite（下载约 ${formatSizeMb(v.downloadBytes || 15449643)}，解压后 ${formatSizeMb(v.declaredBytes)}）。`
++              : '正在读取组件状态…'
++          }
++          control={
++            v ? (
++              <div className="flex flex-wrap items-center gap-2">
++                {!v.installing && !v.managed && v.reusableLocal ? (
++                  <SettingsButton
++                    variant="primary"
++                    disabled={busy}
++                    onClick={() => void runAction(() => api.preMigrate())}
++                  >
++                    <RefreshCw size={14} />一键复用本地缓存（0 流量）
++                  </SettingsButton>
++                ) : null}
++                {!v.installing && (!v.managed || corrupt) ? (
++                  <SettingsButton
++                    variant={v.reusableLocal ? 'default' : 'primary'}
++                    disabled={busy}
++                    onClick={() => setConfirmPreview(true)}
++                  >
++                    <Download size={14} />{corrupt ? '修复组件' : '安装组件'}
++                  </SettingsButton>
++                ) : null}
++                {v.installing ? (
++                  <SettingsButton disabled={busy} onClick={() => void runAction(() => api.cancel(v.packId))}>
++                    <Loader2 size={14} className="animate-spin" />取消下载
++                  </SettingsButton>
++                ) : null}
++                {!v.installing && v.managed ? (
++                  <SettingsButton disabled={busy} onClick={() => setConfirmRemove(true)}>
++                    <Trash2 size={14} />卸载组件
++                  </SettingsButton>
++                ) : null}
++              </div>
++            ) : null
++          }
++        >
++          {v ? (
++            <div className="space-y-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-field)]/50 p-3.5 text-[13px]">
++              {v.installing ? (
++                <div>
++                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-pressed)]">
++                    <div className="h-full rounded-full bg-[var(--accent)] transition-[width]" style={{ width: `${pct}%` }} />
++                  </div>
++                  <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
++                    {`正在从 ${v.install?.sourceLabel || '镜像源'} 下载：${formatSizeMb(seen)} / ${formatSizeMb(total)} (${pct}%)`}
++                  </p>
++                </div>
++              ) : null}
++
++              <div className="grid gap-1.5">
++                {v.capabilities.map((w) => (
++                  <div key={w.id} className="flex items-center justify-between gap-2 text-[12.5px]">
++                    <span className="flex items-center gap-1.5 text-[var(--text)]">
++                      {w.weightsPresent ? <CheckCircle2 size={13} className="text-[var(--ok)]" /> : <Blocks size={13} className="text-[var(--text-faint)]" />}
++                      <span className="font-mono text-[12px]">{w.id}</span>
++                      <span className="text-[var(--text-muted)]">· {w.label}</span>
++                    </span>
++                    <span className="tabular-nums text-[var(--text-faint)]">
++                      {formatSizeMb(w.bytes)} · {w.weightsPresent ? '已就绪' : '未就绪'}
++                    </span>
++                  </div>
++                ))}
++              </div>
++
++              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5 text-[12px] text-[var(--text-muted)]">
++                <span>
++                  本地视觉运行时（onnxruntime-web / MediaPipe）：
++                  <strong className="ml-1 font-medium text-[var(--text)]">
++                    {v.runtime.ready ? '随核心提供（已就绪）' : `缺少 ${v.runtime.missing.join(', ')}`}
++                  </strong>
++                </span>
++                <span className="truncate font-mono text-[11.5px] text-[var(--text-faint)]" title={v.storeDir}>
++                  存放路径：{v.storeDir}
++                </span>
++              </div>
++
++              {v.install?.error ? <p role="alert" className={settingsError}>{v.install.error}</p> : null}
++              {error ? <p role="alert" className={settingsError}>{error}</p> : null}
++
++              <div className="flex flex-wrap items-center gap-3 pt-1 text-[12.5px]">
++                <button
++                  type="button"
++                  onClick={() => openWorkbenchSettings('general', 'storage')}
++                  className="inline-flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
++                >
++                  <HardDrive size={13} />前往「存储与本地模型」
++                </button>
++                <button
++                  type="button"
++                  onClick={() => setShowImport((prev) => !prev)}
++                  className="inline-flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
++                >
++                  <FolderInput size={13} />{showImport ? '收起离线导入' : '从本地 .tgz 导入'}
++                </button>
++                {!v.installing && v.tempBytes > 0 ? (
++                  <button
++                    type="button"
++                    disabled={busy}
++                    onClick={() => void runAction(() => api.remove(v.packId, { cleanResidualsOnly: true }))}
++                    className="text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
++                  >
++                    清理下载碎片
++                  </button>
++                ) : null}
++                <button
++                  type="button"
++                  onClick={() => void refresh()}
++                  className="ml-auto text-[var(--text-faint)] hover:text-[var(--text)]"
++                >
++                  刷新状态
++                </button>
++              </div>
++
++              {showImport ? (
++                <div className="flex items-center gap-2 pt-1">
++                  <SettingsField
++                    value={tarPath}
++                    onChange={(e) => setTarPath(e.target.value)}
++                    placeholder="输入本地 @newbiecheng/no996-models-vision-*.tgz 绝对路径"
++                    className="flex-1"
++                  />
++                  <SettingsButton
++                    disabled={busy || !tarPath.trim()}
++                    onClick={() => void runAction(() => api.importLocal(tarPath.trim()))}
++                  >
++                    校验并导入
++                  </SettingsButton>
++                </div>
++              ) : null}
++            </div>
++          ) : null}
++        </SettingsItem>
++      </SettingsGroup>
++
++      <ConfirmDialog
++        open={confirmPreview}
++        title="安装「本地视觉」可选组件"
++        message={
++          v
++            ? `将下载 ${v.packageName}@${v.version}（压缩包约 ${formatSizeMb(v.downloadBytes || 15449643)}，解压占磁盘 ${formatSizeMb(v.declaredBytes)}），默认优先使用国内镜像并在异常时回退官方源。`
++            : ''
++        }
++        confirmLabel="确认下载并安装"
++        cancelLabel="取消"
++        onConfirm={() => {
++          setConfirmPreview(false);
++          if (v) void runAction(() => api.install(v.packId, { force: corrupt }));
++        }}
++        onCancel={() => setConfirmPreview(false)}
++      />
++
++      <ConfirmDialog
++        open={confirmRemove}
++        title="卸载「本地视觉」组件？"
++        message={
++          v
++            ? `将移除 ${v.storeDir} 下的 3 个视觉模型权重并释放约 ${formatSizeMb(v.reclaimableBytes || v.declaredBytes)} 空间。若当前有导出/抠像任务使用中，系统会阻止卸载以保护任务安全。`
++            : ''
++        }
++        confirmLabel="确认卸载"
++        cancelLabel="取消"
++        onConfirm={() => {
++          setConfirmRemove(false);
++          if (v) void runAction(() => api.remove(v.packId));
++        }}
++        onCancel={() => setConfirmRemove(false)}
++      />
++    </SettingsPage>
++  );
++}
+diff --git a/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx b/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx
+index d52a20d..72b6705 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx
+@@ -10,6 +10,8 @@ import React from 'react';
+ import { ArrowLeft, Captions, ChevronRight, Cpu, ExternalLink, Scissors } from 'lucide-react';
+ import { useT } from '@/i18n';
+ import { LOCAL_KINDS, sizeText, type LocalKind, type LocalModel, type LocalModelsHook } from '@/lib/local-models';
++import { formatSizeMb, getNativeBridge, useModelCatalog, type CatalogModelItem } from '@/lib/no996-native-models';
++import { ConfirmDialog } from '../ConfirmDialog';
+ import { Card } from './ProvidersSection';
+ import { SettingsButton, SettingsSwitch, settingsError } from './ui';
+ 
+@@ -56,10 +58,25 @@ function Status({ model }: { model: LocalModel }) {
+ export function LocalModelsDialog({ hook, onClose }: { hook: LocalModelsHook; onClose: () => void }) {
+   const t = useT();
+   const [opened, setOpened] = React.useState<string | null>(null);
++  const [sourceFilter, setSourceFilter] = React.useState<'all' | 'managed_download' | 'openfilm_library'>('all');
++  const [confirmTarget, setConfirmTarget] = React.useState<CatalogModelItem | null>(null);
++  const { catalog, busy: catalogBusy, error: catalogError, runAction } = useModelCatalog();
++  const nativeModelsApi = getNativeBridge()?.models;
+   const models = hook.models ?? [];
+   const page = models.find((m) => m.id === opened);
+   if (page) return <Card label={page.name} onClose={onClose}><ModelPage model={page} hook={hook} onBack={() => setOpened(null)} /></Card>;
+   const installed = models.filter((m) => m.installed).length;
++  const catalogItems = (catalog?.items ?? []).filter((item) => {
++    if (sourceFilter === 'all') return true;
++    if (sourceFilter === 'openfilm_library') {
++      return item.sourceKind === 'openfilm_library' || item.sourceKind === 'external_shared';
++    }
++    return item.sourceKind === 'managed_download' || item.sourceKind === 'bundled';
++  });
++  const groupLabel = (cat: CatalogModelItem['category']) => (
++    cat === 'asr' ? '语音识别（本地）' : (cat === 'cutout' || cat === 'face') ? '本地视觉与抠像' : '运行时与其他缓存'
++  );
++  const capabilityGroups = [...new Set(catalogItems.map((i) => groupLabel(i.category)))];
+   return (
+     <Card label={t('settings.local.name')} onClose={onClose}>
+       <div className="flex items-start gap-4 pr-8">
+@@ -97,6 +114,113 @@ export function LocalModelsDialog({ hook, onClose }: { hook: LocalModelsHook; on
+         );
+       })}
+       {hook.problem ? <p className={settingsError}>{hook.problem}</p> : null}
++      {catalog ? (
++        <section className="mt-7 border-t border-[var(--border)] pt-5">
++          <div className="flex flex-wrap items-center justify-between gap-2">
++            <div>
++              <h3 className="text-[14px] font-semibold text-[var(--text)]">统一本地模型与扩展组件账本</h3>
++              <p className="text-[12px] text-[var(--text-faint)]">
++                实际占用 {formatSizeMb(catalog.totals.modelsBytes)} · 卸载可释放 {formatSizeMb(catalog.totals.reclaimableBytes)}
++              </p>
++            </div>
++            <div className="flex items-center gap-1 rounded-lg bg-[var(--bg-field)] p-0.5 text-[12px]">
++              {([
++                ['all', '全部'],
++                ['managed_download', '工作台管理'],
++                ['openfilm_library', 'OpenFilm 缓存'],
++              ] as const).map(([key, label]) => (
++                <button
++                  key={key}
++                  type="button"
++                  onClick={() => setSourceFilter(key)}
++                  className={`rounded-md px-2 py-1 transition ${
++                    sourceFilter === key ? 'bg-[var(--bg-raised)] font-medium text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
++                  }`}
++                >
++                  {label}
++                </button>
++              ))}
++            </div>
++          </div>
++          {catalog.partialStats ? (
++            <p className="mt-2 text-[12px] text-[var(--warn,var(--text-muted))]">
++              部分模型目录权限受限，统计为可读目录合计（跳过 {catalog.scanWarnings.length} 处）。
++            </p>
++          ) : null}
++          {capabilityGroups.map((groupName) => (
++            <div key={groupName} className="mt-4">
++              <h4 className="mb-1.5 text-[12px] font-medium text-[var(--text-faint)]">{groupName}</h4>
++              <div className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
++                {catalogItems.filter((item) => groupLabel(item.category) === groupName).map((item) => (
++                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[12.5px]">
++                    <div className="min-w-0 flex-1">
++                      <div className="flex flex-wrap items-center gap-1.5">
++                        <span className="font-medium text-[var(--text)]">{item.label}</span>
++                        <span className="rounded bg-[var(--bg-field)] px-1.5 py-0.5 text-[11px] text-[var(--text-muted)]">{item.sourceLabel}</span>
++                        <span className="text-[11.5px] text-[var(--text-faint)]">
++                          {item.enabledState === 'bundled'
++                            ? '随核心提供'
++                            : item.installState === 'installed'
++                              ? '已安装'
++                              : item.installState === 'downloading'
++                                ? '下载中'
++                                : item.installState === 'corrupt'
++                                  ? '校验失败'
++                                  : item.installState === 'incomplete'
++                                    ? '存在残留碎片'
++                                    : '未安装'}
++                        </span>
++                      </div>
++                      <div className="mt-0.5 truncate text-[11.5px] text-[var(--text-faint)]" title={item.dir}>
++                        声明 {formatSizeMb(item.declaredBytes)} · 实际占用 {formatSizeMb(item.bytesOnDisk)}
++                        {item.reclaimableBytes > 0 ? ` · 可释放 ${formatSizeMb(item.reclaimableBytes)}` : ''}
++                        {item.dir ? ` · ${item.dir}` : ''}
++                      </div>
++                    </div>
++                    {nativeModelsApi ? (
++                      <div className="flex shrink-0 items-center gap-1.5">
++                        {item.visionPack?.reusableLocal && item.installState !== 'installed' ? (
++                          <SettingsButton disabled={catalogBusy} onClick={() => void runAction(() => nativeModelsApi.preMigrate())}>
++                            一键复用
++                          </SettingsButton>
++                        ) : null}
++                        {item.canDelete ? (
++                          <SettingsButton disabled={catalogBusy} onClick={() => setConfirmTarget(item)}>
++                            卸载
++                          </SettingsButton>
++                        ) : null}
++                        {item.canCleanResiduals ? (
++                          <SettingsButton disabled={catalogBusy} onClick={() => void runAction(() => nativeModelsApi.remove(item.id, { cleanResidualsOnly: true }))}>
++                            清理残留
++                          </SettingsButton>
++                        ) : null}
++                      </div>
++                    ) : null}
++                  </div>
++                ))}
++              </div>
++            </div>
++          ))}
++          {catalogError ? <p role="alert" className={`${settingsError} mt-2`}>{catalogError}</p> : null}
++          <ConfirmDialog
++            open={Boolean(confirmTarget)}
++            title={confirmTarget ? `卸载 ${confirmTarget.label}？` : ''}
++            message={
++              confirmTarget
++                ? `将从 ${confirmTarget.dir} 删除并释放约 ${formatSizeMb(confirmTarget.reclaimableBytes)} 空间。若正在被导出或转写任务使用，系统会拒绝卸载。`
++                : ''
++            }
++            confirmLabel="确认卸载"
++            cancelLabel="取消"
++            onConfirm={() => {
++              const target = confirmTarget;
++              setConfirmTarget(null);
++              if (target && nativeModelsApi) void runAction(() => nativeModelsApi.remove(target.id));
++            }}
++            onCancel={() => setConfirmTarget(null)}
++          />
++        </section>
++      ) : null}
+     </Card>
+   );
+ }
 diff --git a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
-index 4c99bb2..3ba7a4f 100644
+index 4c99bb2..eb1fac7 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/ModelsSection.tsx
-@@ -13,7 +13,7 @@
+@@ -11,13 +11,14 @@
+  * Under them, the person's custom services, which their agent calls itself (CustomServices).
+  */
  import React from 'react';
- import { Check, ChevronDown, FolderSearch } from 'lucide-react';
+-import { Check, ChevronDown, FolderSearch } from 'lucide-react';
++import { Check, ChevronDown, FolderSearch, Globe, Mic } from 'lucide-react';
  import { useT } from '@/i18n';
 -import { SERVICE_VERBS, offered, providerOrder, useProviders, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
 +import { SERVICE_VERBS, no996VoiceStatus, offered, providerOrder, useProviders, type OwnProvider, type ProviderVerb, type ProvidersHook } from '@/lib/providers';
++import { getNativeBridge, type AsrChoiceState, type SearchChoiceState } from '@/lib/no996-native-models';
  import { Popover } from '@/components/Popover';
  import { ProviderMark } from './ProviderMark';
  import { AddProviderDialog, KIND_ICON, ProviderDialog, ServicesBar } from './ProvidersSection';
-@@ -28,6 +28,7 @@ interface Choice {
+-import { SettingsGroup, SettingsItem, SettingsPage } from './ui';
++import { SettingsButton, SettingsGroup, SettingsItem, SettingsPage, SettingsSegmented } from './ui';
+ import { CustomServices } from './CustomServices';
+ import { LocalModelsChip, LocalModelsDialog } from './LocalModels';
+ import { useLocalModels } from '@/lib/local-models';
+@@ -28,6 +29,7 @@ interface Choice {
    provider: string;
    name: string;
    model: string;
@@ -8464,7 +9555,7 @@ index 4c99bb2..3ba7a4f 100644
  }
  
  export function ModelsSection() {
-@@ -44,6 +45,14 @@ export function ModelsSection() {
+@@ -44,6 +46,14 @@ export function ModelsSection() {
    const [card, setCard] = React.useState<string | null>(null);
    /* asks the custom services to open their form (counted, so asking again opens it again) */
    const [addCustom, setAddCustom] = React.useState(0);
@@ -8479,7 +9570,136 @@ index 4c99bb2..3ba7a4f 100644
    /* Local services opens its own card (LocalModelsDialog), not a service's */
    const shown = card === 'local' ? null : state?.providers.find((p) => p.id === card) ?? null;
    const row = (verb: ProviderVerb) => <ModelRow key={verb} verb={verb} hook={hook} onConnect={setCard} />;
-@@ -105,14 +114,18 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+@@ -56,6 +66,8 @@ export function ModelsSection() {
+           <SettingsGroup>
+             {SERVICE_VERBS.filter((verb) => offered(state, verb)).map(row)}
+             <LibraryRow hook={hook} />
++            <WorkbenchAsrRow />
++            <WorkbenchSearchRow />
+           </SettingsGroup>
+         </>
+       ) : null}
+@@ -99,20 +111,138 @@ function LibraryRow({ hook }: { hook: ProvidersHook }) {
+   );
+ }
+ 
++function WorkbenchAsrRow() {
++  const asrApi = getNativeBridge()?.asr;
++  const [state, setState] = React.useState<AsrChoiceState | null>(null);
++  const [busy, setBusy] = React.useState(false);
++
++  const load = React.useCallback(async () => {
++    if (!asrApi) return;
++    try { setState(await asrApi.choiceGet('media')); } catch { /* ignore */ }
++  }, [asrApi]);
++
++  React.useEffect(() => { void load(); }, [load]);
++  React.useEffect(() => {
++    if (!state?.local?.installing) return undefined;
++    const timer = window.setInterval(() => { void load(); }, 1000);
++    return () => window.clearInterval(timer);
++  }, [state?.local?.installing, load]);
++
++  if (!asrApi || !state) return null;
++
++  const isLocal = state.configured === 'local:sensevoice-small' || (state.configured === 'unset' && state.local.ready);
++  const segValue = state.configured === 'off' ? 'off' : 'local:sensevoice-small';
++  const pct = Math.round((state.local.progress || 0) * 100);
++
++  return (
++    <SettingsItem
++      mark={<Mic size={17} strokeWidth={1.75} />}
++      title="语音转写（工作台独立设置）"
++      description={
++        <span>
++          {state.message}
++          {state.configured.startsWith('remote:') ? ' · 听写按钮始终仅走本地模型' : ''}
++        </span>
++      }
++      control={
++        <div className="flex items-center gap-2">
++          {!state.local.weightsReady && !state.local.installing ? (
++            <SettingsButton
++              disabled={busy}
++              onClick={() => {
++                setBusy(true);
++                void asrApi.install().then(() => load(), () => {}).finally(() => setBusy(false));
++              }}
++            >
++              下载 SenseVoice (~228 MB)
++            </SettingsButton>
++          ) : null}
++          {state.local.installing ? (
++            <SettingsButton
++              disabled={busy}
++              onClick={() => {
++                setBusy(true);
++                void asrApi.cancel().then(setState, () => {}).finally(() => setBusy(false));
++              }}
++            >
++              取消下载 ({pct}%)
++            </SettingsButton>
++          ) : null}
++          <SettingsSegmented
++            label="工作台语音转写来源"
++            value={segValue}
++            options={[
++              { value: 'local:sensevoice-small', label: isLocal && !state.local.ready ? '本地·不可用' : '本地 · SenseVoice' },
++              { value: 'off', label: '关闭' },
++            ]}
++            onChange={(next) => {
++              setBusy(true);
++              void asrApi.choiceSet(next).then(setState, () => {}).finally(() => setBusy(false));
++            }}
++          />
++        </div>
++      }
++    />
++  );
++}
++
++function WorkbenchSearchRow() {
++  const searchApi = getNativeBridge()?.search;
++  const [state, setState] = React.useState<SearchChoiceState | null>(null);
++  const [busy, setBusy] = React.useState(false);
++
++  React.useEffect(() => {
++    if (!searchApi) return;
++    void searchApi.status().then(setState, () => {});
++  }, [searchApi]);
++
++  if (!searchApi || !state) return null;
++  const no996Opt = state.options.find((o) => o.id === 'no996');
++  const dshOpt = state.options.find((o) => o.id === 'dsh');
++  const currentOpt = state.source === 'no996' ? no996Opt : dshOpt;
++
++  return (
++    <SettingsItem
++      mark={<Globe size={17} strokeWidth={1.75} />}
++      title="工作台联网搜索来源"
++      description={`${currentOpt?.statusText || ''}（仅控制本工作台搜索工具；不影响网页抓取 web_fetch 与 DSH 普通对话）`}
++      control={
++        <SettingsSegmented
++          label="工作台联网搜索来源"
++          value={state.source}
++          options={[
++            { value: 'dsh', label: '跟随 DSH（默认）' },
++            { value: 'no996', label: '不加班联网搜索' },
++          ]}
++          onChange={(next) => {
++            if (busy || next === state.source) return;
++            setBusy(true);
++            void searchApi.choiceSet(next).then(setState, () => {}).finally(() => setBusy(false));
++          }}
++        />
++      }
++    />
++  );
++}
++
+ /** One kind of media and what makes it: a model of a connected provider; the others are connected from its menu. */
+ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: ProvidersHook; onConnect: (provider: string) => void }) {
+   const t = useT();
    const state = hook.state!;
    const label = t(`settings.providers.verbs.${verb}`);
    const chosen = state.use[verb] ?? '';
@@ -8500,7 +9720,7 @@ index 4c99bb2..3ba7a4f 100644
    const Icon = KIND_ICON[verb];
  
    return (
-@@ -127,8 +140,9 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+@@ -127,8 +257,9 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
            waiting={[...order.recommended, ...order.more]}
            choicesOf={choicesOf}
            current={current}
@@ -8511,7 +9731,7 @@ index 4c99bb2..3ba7a4f 100644
            onConnect={onConnect}
          />
        )}
-@@ -141,7 +155,7 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
+@@ -141,7 +272,7 @@ function ModelRow({ verb, hook, onConnect }: { verb: ProviderVerb; hook: Provide
   * The connected ones first, to choose from (and None); then the others, their models shown as what connecting brings,
   * each opening its card to connect it.
   */
@@ -8520,7 +9740,7 @@ index 4c99bb2..3ba7a4f 100644
    label: string;
    connected: OwnProvider[];
    waiting: OwnProvider[];
-@@ -150,6 +164,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+@@ -150,6 +281,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
    busy: boolean;
    /** what the button says when nothing is chosen (else "Choose a model") */
    empty?: string;
@@ -8528,7 +9748,7 @@ index 4c99bb2..3ba7a4f 100644
    onPick: (choice: Choice | null) => void;
    onConnect: (provider: string) => void;
  }) {
-@@ -171,7 +186,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+@@ -171,7 +303,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
      const at = options.indexOf(document.activeElement as HTMLElement);
      options[(at + (e.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus();
    };
@@ -8537,7 +9757,7 @@ index 4c99bb2..3ba7a4f 100644
    const connect = (id: string) => { setOpen(false); onConnect(id); };
  
    const rowClass = 'flex w-full items-center gap-2.5 rounded-[7px] px-2.5 text-left outline-none hover:bg-[var(--bg-hover)] focus-visible:bg-[var(--bg-hover)]';
-@@ -191,7 +206,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+@@ -191,7 +323,7 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
        <>
          <span className="flex w-4 justify-center"><ProviderMark id={p.id} size={15} /></span>
          <span className="min-w-0 flex-1 truncate">{p.name}</span>
@@ -8546,7 +9766,7 @@ index 4c99bb2..3ba7a4f 100644
        </>
      );
      return connectable ? (
-@@ -216,13 +231,14 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
+@@ -216,13 +348,14 @@ function ModelPicker({ label, connected, waiting, choicesOf, current, busy, empt
        <Popover open={open} onOpenChange={setOpen} placement="auto" align="end" layer={10060} trigger={trigger}>
          <div ref={list} role="listbox" aria-label={label} onKeyDown={onKeyDown}
            className="max-h-[min(480px,var(--popover-max-h))] w-[340px] overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-raised)] p-1.5 shadow-[var(--shadow-lg)]">
@@ -8684,10 +9904,10 @@ index 2bc2346..58bbeb1 100644
    );
  }
 diff --git a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
-index 1e72831..356b504 100644
+index 1e72831..cee81ce 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
-@@ -3,25 +3,26 @@
+@@ -3,50 +3,49 @@
   * right as a page of titled groups. General (the account, the theme and the language), Agents (in an app with a chat: the agents
   * it can use), Services (which model makes each kind of media, and the services connected for it), the keyboard
   * shortcuts, Advanced and Developer; the search finds a section by any phrase on it. At the
@@ -8696,7 +9916,8 @@ index 1e72831..356b504 100644
 + * GitHub / examples / site links — those pointed at the wrong product).
   */
  import React from 'react';
- import { Settings2, Keyboard, Sun, Moon, Monitor, Boxes, Bot, SquareTerminal, Loader2, SlidersHorizontal, ChevronLeft } from 'lucide-react';
+-import { Settings2, Keyboard, Sun, Moon, Monitor, Boxes, Bot, SquareTerminal, Loader2, SlidersHorizontal, ChevronLeft } from 'lucide-react';
++import { Settings2, Keyboard, Sun, Moon, Monitor, Boxes, Blocks, Bot, SquareTerminal, Loader2, SlidersHorizontal, ChevronLeft } from 'lucide-react';
  import { LANGUAGES, phrasesUnder, useLanguage, useLanguageChoice, useT, type LanguageChoice } from '@/i18n';
 -import { studioHost, type HostDeveloper, type HostUpdateState } from '@/lib/host';
 +import { studioHost, type HostDeveloper } from '@/lib/host';
@@ -8707,6 +9928,7 @@ index 1e72831..356b504 100644
  import { api, type StudioPrefs, type StudioVersion } from '@/api';
  import { AgentsSection } from './AgentsSection';
  import { DiagnosticsGroup } from './DiagnosticsGroup';
++import { ExtensionsSection } from './ExtensionsSection';
  import { ModelsSection } from './ModelsSection';
  import { SettingsSelect } from './SettingsSelect';
  import { ShortcutsSection } from './ShortcutsSection';
@@ -8719,7 +9941,16 @@ index 1e72831..356b504 100644
  import { StorageGroup, StorageEntry } from './StorageGroup';
  import { LargeDialog, LargeDialogGroup, LargeDialogPage, LargeDialogPlace, LargeDialogSearch } from '../LargeDialog';
  import { LibraryCategoriesGroup } from './LibraryCategoriesGroup';
-@@ -36,12 +37,8 @@ const navNow = (): Array<{ group: 'settings' | 'help'; sections: SettingsSection
+ 
+-export type SettingsSection = 'general' | 'agents' | 'models' | 'developer' | 'shortcuts' | 'advanced';
++export type SettingsSection = 'general' | 'agents' | 'models' | 'extensions' | 'developer' | 'shortcuts' | 'advanced';
+ 
+ /* the nav, in groups: what OpenFilm does, then help (Agents only inside an app with a chat: lib/host.ts `agents`;
+    Advanced for what is already set for the best experience; Developer always, for its diagnostics). Read as it is
+    shown: the app may give Studio its host after this module has run (a build split into several files) */
+ const navNow = (): Array<{ group: 'settings' | 'help'; sections: SettingsSection[] }> => [
+-  { group: 'settings', sections: ['general', ...(studioHost?.agents ? ['agents' as const] : []), 'models'] },
++  { group: 'settings', sections: ['general', ...(studioHost?.agents ? ['agents' as const] : []), 'models', 'extensions'] },
    { group: 'help', sections: ['shortcuts', 'advanced', 'developer'] },
  ];
  
@@ -8734,7 +9965,39 @@ index 1e72831..356b504 100644
  
  const SECTION_ICON: Record<SettingsSection, React.ReactNode> = {
    general: <Settings2 size={18} strokeWidth={1.75} />,
-@@ -110,11 +107,6 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+   agents: <Bot size={18} strokeWidth={1.75} />,
+   models: <Boxes size={18} strokeWidth={1.75} />,
++  extensions: <Blocks size={18} strokeWidth={1.75} />,
+   developer: <SquareTerminal size={18} strokeWidth={1.75} />,
+   shortcuts: <Keyboard size={18} strokeWidth={1.75} />,
+   advanced: <SlidersHorizontal size={18} strokeWidth={1.75} />,
+@@ -58,6 +57,7 @@ const SECTION_WORDS: Record<SettingsSection, string | string[]> = {
+   general: ['settings.account', 'settings.appearance'],
+   agents: 'settings.agents',
+   models: ['settings.models', 'settings.providers'],
++  extensions: ['settings.sections.extensions', 'settings.local'],
+   developer: ['settings.developer', 'settings.report'],
+   shortcuts: 'settings.shortcuts',
+   advanced: ['settings.advanced', ...(studioHost?.notifications ? ['settings.notifications'] : []), 'settings.versions', 'settings.playback', 'settings.libraryCategories'],
+@@ -82,6 +82,17 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+   const search = React.useRef<HTMLInputElement>(null);
+ 
+   React.useEffect(() => { if (open) { setSectionNow(opening ?? 'general'); setSub(null); setQuery(''); } }, [open, opening]);
++  React.useEffect(() => {
++    const onNavigate = (event: Event) => {
++      const detail = (event as CustomEvent<{ section?: SettingsSection; sub?: 'storage' | null }>).detail;
++      if (!detail?.section) return;
++      setSectionNow(detail.section);
++      setSub(detail.sub ?? null);
++      setQuery('');
++    };
++    window.addEventListener('no996:navigate-settings', onNavigate);
++    return () => window.removeEventListener('no996:navigate-settings', onNavigate);
++  }, []);
+ 
+   /* the sections a search finds: by their names and by every phrase on them */
+   const words = React.useMemo(() => Object.fromEntries((Object.keys(SECTION_WORDS) as SettingsSection[]).map((id) => [
+@@ -110,11 +121,6 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
              </LargeDialogGroup>
            ))}
            {found.length === 0 ? <p className="px-2.5 pt-4 text-[14px] text-[var(--text-faint)]">{t('settings.noResults')}</p> : null}
@@ -8746,7 +10009,15 @@ index 1e72831..356b504 100644
          </>
        )}>
        {/* one column in the middle of whatever room the window gives */}
-@@ -148,7 +140,9 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
+@@ -133,6 +139,7 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+         {showing === 'general' && (sub === 'storage' ? <StorageGroup titled={false} /> : <GeneralSection onStorage={() => setSub('storage')} />)}
+         {showing === 'agents' && <AgentsSection />}
+         {showing === 'models' && <ModelsSection />}
++        {showing === 'extensions' && <ExtensionsSection />}
+         {showing === 'developer' && <DeveloperSection />}
+         {showing === 'shortcuts' && <ShortcutsSection />}
+         {showing === 'advanced' && <AdvancedSection />}
+@@ -148,7 +155,9 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
  
    return (
      <SettingsPage>
@@ -8757,7 +10028,7 @@ index 1e72831..356b504 100644
        <SettingsGroup title={t('settings.appearance.group')}>
          <SettingsItem
            title={t('settings.appearance.theme')}
-@@ -187,11 +181,28 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
+@@ -187,11 +196,28 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
        <SettingsGroup title={t('settings.storage.group')}>
          <StorageEntry onOpen={onStorage} />
        </SettingsGroup>
@@ -8787,7 +10058,7 @@ index 1e72831..356b504 100644
  /** In the app: the system's notification of a chat's turn done, stopped or waiting, while its window is not in front. */
  function NotificationsGroup() {
    const t = useT();
-@@ -302,66 +313,6 @@ function AdvancedSection() {
+@@ -302,66 +328,6 @@ function AdvancedSection() {
    );
  }
  
@@ -8854,7 +10125,7 @@ index 1e72831..356b504 100644
  /** This release's notes again (components/WhatsNew). */
  function WhatsNewLink() {
    const t = useT();
-@@ -373,79 +324,6 @@ function WhatsNewLink() {
+@@ -373,79 +339,6 @@ function WhatsNewLink() {
    );
  }
  
@@ -8934,8 +10205,89 @@ index 1e72831..356b504 100644
  /**
   * Diagnostics (DiagnosticsGroup), for when something does not work; how playing goes, in the viewer's corner
   * (lib/preview-prefs `stats`); in the app, what its chat shows of each turn: what it changed in the files, and its
+diff --git a/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx b/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx
+index f4d089e..df5f800 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/StorageGroup.tsx
+@@ -126,6 +126,44 @@ function StorageRow({ icon, name, note, bytes, action, children }: {
+   );
+ }
+ 
++interface AppBreakdown {
++  localModelsBytes: number;
++  resourcesBytes: number;
++  otherAppBytes: number;
++  reclaimableBytes: number;
++  partialStats?: boolean;
++  scanWarnings?: Array<{ path: string; code: string }>;
++}
++
++function AppBreakdownList({ breakdown }: { breakdown: AppBreakdown }) {
++  const rows = [
++    { label: '本地模型（视觉 / 语音 / 抠像）', bytes: breakdown.localModelsBytes },
++    { label: '已下载素材与资源', bytes: breakdown.resourcesBytes },
++    { label: '其他工作台数据与日志', bytes: breakdown.otherAppBytes },
++  ];
++  return (
++    <div className="space-y-1.5 text-[13px] text-[var(--text-muted)]">
++      {rows.map((r) => (
++        <div key={r.label} className="flex items-center justify-between gap-3 py-0.5">
++          <span>{r.label}</span>
++          <span className="tabular-nums">{amount(r.bytes)}</span>
++        </div>
++      ))}
++      {breakdown.reclaimableBytes > 0 ? (
++        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-1 text-[12px] text-[var(--text-faint)]">
++          <span>卸载可选模型可释放</span>
++          <span className="tabular-nums">{amount(breakdown.reclaimableBytes)}</span>
++        </div>
++      ) : null}
++      {breakdown.partialStats ? (
++        <p className="text-[12px] text-[var(--warn,var(--text-muted))]">
++          部分目录权限受限，统计为可读目录合计（跳过 {breakdown.scanWarnings?.length ?? 1} 处）。
++        </p>
++      ) : null}
++    </div>
++  );
++}
++
+ /** Projects as a list under their row: each one's name, its size, its cache; where it is, to the pointer. */
+ function ProjectList({ projects }: { projects: ProjectUsage[] }) {
+   const t = useT();
+@@ -280,11 +318,12 @@ export function StorageGroup({ titled = true }: { titled?: boolean }) {
+             {/* measured, an area that takes nothing is left out (the projects and the cache stay) */}
+             {KINDS.filter((k) => !kinds || k.key === 'projects' || k.key === 'cache' || kinds[k.key] >= SHOWN).map((k) => {
+               const list = k.key === 'projects' ? of(false) : k.key === 'linked' ? of(true) : null;
++              const breakdown = k.key === 'app' ? (usage as (StorageUsage & { no996Breakdown?: AppBreakdown }) | null)?.no996Breakdown : undefined;
+               return (
+                 <StorageRow key={k.key} icon={<Swatch color={k.color} />} name={t(`settings.storage.area.${k.key}`)} note={note(k.key)}
+                   bytes={kinds ? kinds[k.key] : null}
+                   action={k.key === 'cache' ? <SettingsButton disabled={!usage || clearing || usage.clearable < 1e6} onClick={() => void clear()}>{t('settings.storage.clear')}</SettingsButton> : undefined}>
+-                  {list?.length ? <ProjectList projects={list} /> : null}
++                  {list?.length ? <ProjectList projects={list} /> : breakdown ? <AppBreakdownList breakdown={breakdown} /> : null}
+                 </StorageRow>
+               );
+             })}
+diff --git a/packages/openfilm/studio/ui/src/components/settings/use-settings.ts b/packages/openfilm/studio/ui/src/components/settings/use-settings.ts
+index 59a6cb9..ec0dc93 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/use-settings.ts
++++ b/packages/openfilm/studio/ui/src/components/settings/use-settings.ts
+@@ -6,5 +6,13 @@ import type { SettingsSection } from './SettingsModal';
+ export function useSettings() {
+   const [section, setSection] = React.useState<SettingsSection | null>(null);
+   React.useEffect(() => studioHost?.settings?.onOpen(() => setSection('general')), []);
++  React.useEffect(() => {
++    const onNavigate = (event: Event) => {
++      const detail = (event as CustomEvent<{ section?: SettingsSection }>).detail;
++      if (detail?.section) setSection(detail.section);
++    };
++    window.addEventListener('no996:navigate-settings', onNavigate);
++    return () => window.removeEventListener('no996:navigate-settings', onNavigate);
++  }, []);
+   return [section, setSection] as const;
+ }
 diff --git a/packages/openfilm/studio/ui/src/i18n/en.ts b/packages/openfilm/studio/ui/src/i18n/en.ts
-index 4be139f..635cabb 100644
+index 4be139f..dea02fb 100644
 --- a/packages/openfilm/studio/ui/src/i18n/en.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/en.ts
 @@ -133,7 +133,7 @@ export const en = {
@@ -9052,7 +10404,7 @@ index 4be139f..635cabb 100644
      removeBlock: 'Delete',
      rippleRemove: 'Ripple delete',
      menuSplitHere: 'Split at playhead',
-@@ -3470,6 +3470,7 @@ export const en = {
+@@ -3470,10 +3470,12 @@ export const en = {
        github: 'GitHub',
        examples: 'Examples',
        site: 'Website',
@@ -9060,7 +10412,12 @@ index 4be139f..635cabb 100644
      },
      sections: {
        agents: 'Agents',
-@@ -3482,7 +3483,7 @@ export const en = {
+       models: 'Services',
++      extensions: 'Extensions',
+       developer: 'Developer',
+       general: 'General',
+       shortcuts: 'Keyboard shortcuts',
+@@ -3482,7 +3484,7 @@ export const en = {
      notifications: {
        group: 'Notifications',
        turns: 'When the agent finishes',
@@ -9069,7 +10426,7 @@ index 4be139f..635cabb 100644
      },
      account: {
        group: 'Account',
-@@ -3505,7 +3506,7 @@ export const en = {
+@@ -3505,7 +3507,7 @@ export const en = {
        language: 'Language',
        languageSystem: 'Same as the system',
        themeHint: 'Light, dark, or the same as your system.',
@@ -9078,7 +10435,7 @@ index 4be139f..635cabb 100644
      },
      storage: {
        group: "Storage",
-@@ -3529,8 +3530,8 @@ export const en = {
+@@ -3529,8 +3531,8 @@ export const en = {
        clear: "Clear cache",
        cleared: "Cleared {size}.",
        projectLine: "{size}, {clearable} cache",
@@ -9089,7 +10446,7 @@ index 4be139f..635cabb 100644
        areaNote: {projects: "{count} projects in the projects folder", linked: "{count} projects in folders elsewhere, opened in place", saved: "your media, for every film", skills: "skills you added or wrote", exports: "finished videos", cache: "made while previewing and exporting; made again when needed", app: "models, the downloaded library, logs" },
        parts: "media {media} · versions {history} · conversations {talk} · files {files}",
      },
-@@ -3556,6 +3557,7 @@ export const en = {
+@@ -3556,6 +3558,7 @@ export const en = {
      },
      about: {
        group: 'About',
@@ -9097,7 +10454,7 @@ index 4be139f..635cabb 100644
        check: 'Check for updates',
        checking: 'Checking…',
        failed: 'Couldn’t reach npm. Try again later.',
-@@ -3962,6 +3964,18 @@ export const en = {
+@@ -3962,6 +3965,18 @@ export const en = {
        about: { 'whisper-small': 'OpenAI\'s speech recognition model, small size: good accuracy in about 100 languages, each word timed for subtitles.', 'whisper-large-v3-turbo': 'The most accurate Whisper: fewer mistakes in names and mixed languages, and steadier in Chinese, but larger and about as slow as real time.', 'birefnet-lite': 'Finds what a picture is of — people, objects, animals — and cuts it out with clean edges, hair included.' },
      },
      providers: {
@@ -9116,7 +10473,7 @@ index 4be139f..635cabb 100644
        included: 'Available',
        about: {
          openfilm: 'OpenFilm\'s own service. Connect your OpenFilm account once and make voice-over, music, sound, transcripts, pictures and video with leading models, paid from your OpenFilm balance: no other accounts or keys.',
-@@ -4067,4 +4081,185 @@ export const en = {
+@@ -4067,4 +4082,185 @@ export const en = {
        },
      },
    },
@@ -9303,7 +10660,7 @@ index 4be139f..635cabb 100644
 +  },
  };
 diff --git a/packages/openfilm/studio/ui/src/i18n/es.ts b/packages/openfilm/studio/ui/src/i18n/es.ts
-index cd10a7b..e67580e 100644
+index cd10a7b..0d58507 100644
 --- a/packages/openfilm/studio/ui/src/i18n/es.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/es.ts
 @@ -126,7 +126,7 @@ export const es: Words = {
@@ -9420,7 +10777,7 @@ index cd10a7b..e67580e 100644
      removeBlock: 'Eliminar',
      rippleRemove: 'Eliminar con desplazamiento',
      menuSplitHere: 'Dividir en el cabezal de reproducción',
-@@ -3435,6 +3435,7 @@ export const es: Words = {
+@@ -3435,10 +3435,12 @@ export const es: Words = {
        github: 'GitHub',
        examples: 'Ejemplos',
        site: 'Sitio web',
@@ -9428,7 +10785,12 @@ index cd10a7b..e67580e 100644
      },
      sections: {
        agents: 'Agentes',
-@@ -3447,7 +3448,7 @@ export const es: Words = {
+       models: 'Servicios',
++      extensions: 'Extensiones',
+       developer: 'Desarrollador',
+       general: 'General',
+       shortcuts: 'Atajos de teclado',
+@@ -3447,7 +3449,7 @@ export const es: Words = {
      notifications: {
        group: 'Notificaciones',
        turns: 'Avisar cuando el agente termine',
@@ -9437,7 +10799,7 @@ index cd10a7b..e67580e 100644
      },
      account: {
        group: 'Cuenta',
-@@ -3470,7 +3471,7 @@ export const es: Words = {
+@@ -3470,7 +3472,7 @@ export const es: Words = {
        language: 'Idioma',
        languageSystem: 'Igual que el sistema',
        themeHint: 'Claro, oscuro o igual que el sistema.',
@@ -9446,7 +10808,7 @@ index cd10a7b..e67580e 100644
      },
      storage: {
        group: "Almacenamiento",
-@@ -3494,8 +3495,8 @@ export const es: Words = {
+@@ -3494,8 +3496,8 @@ export const es: Words = {
        clear: "Borrar caché",
        cleared: "Se borraron {size}.",
        projectLine: "{size}, caché {clearable}",
@@ -9457,7 +10819,7 @@ index cd10a7b..e67580e 100644
        areaNote: {projects: "{count} proyectos en la carpeta de proyectos", linked: "{count} proyectos en carpetas de otro lugar", saved: "tus medios, para todas las películas", skills: "habilidades que añadiste o escribiste", exports: "vídeos terminados", cache: "creada al previsualizar y exportar; se vuelve a crear", app: "modelos, biblioteca descargada, registros" },
        parts: "medios {media} · versiones {history} · conversaciones {talk} · archivos {files}",
      },
-@@ -3521,6 +3522,7 @@ export const es: Words = {
+@@ -3521,6 +3523,7 @@ export const es: Words = {
      },
      about: {
        group: 'Acerca de',
@@ -9465,7 +10827,7 @@ index cd10a7b..e67580e 100644
        check: 'Buscar actualizaciones',
        checking: 'Comprobando…',
        failed: 'No se pudo contactar con npm. Inténtalo más tarde.',
-@@ -3927,6 +3929,18 @@ export const es: Words = {
+@@ -3927,6 +3930,18 @@ export const es: Words = {
        about: { 'whisper-small': 'El modelo de reconocimiento de voz de OpenAI, tamaño pequeño: buena precisión en unos 100 idiomas, cada palabra con su tiempo para subtítulos.', 'whisper-large-v3-turbo': 'El Whisper más preciso: menos errores en nombres y en idiomas mezclados, y más estable en chino, pero más grande y casi tan lento como el tiempo real.', 'birefnet-lite': 'Encuentra el sujeto de una imagen (personas, objetos, animales) y lo recorta con bordes limpios, cabello incluido.' },
      },
      providers: {
@@ -9485,7 +10847,7 @@ index cd10a7b..e67580e 100644
        about: {
          openfilm: 'El servicio propio de OpenFilm. Conecta tu cuenta de OpenFilm una vez y crea voz en off, música, sonido, transcripciones, imágenes y vídeo con modelos de primera, pagando con tu saldo de OpenFilm: sin otras cuentas ni claves.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ja.ts b/packages/openfilm/studio/ui/src/i18n/ja.ts
-index bebc8ac..61f6a3c 100644
+index bebc8ac..97b7f34 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ja.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ja.ts
 @@ -126,7 +126,7 @@ export const ja: Words = {
@@ -9602,7 +10964,7 @@ index bebc8ac..61f6a3c 100644
      removeBlock: '削除',
      rippleRemove: 'リップル削除',
      menuSplitHere: '再生ヘッドで分割',
-@@ -3435,6 +3435,7 @@ export const ja: Words = {
+@@ -3435,10 +3435,12 @@ export const ja: Words = {
        github: 'GitHub',
        examples: 'サンプル',
        site: 'ウェブサイト',
@@ -9610,7 +10972,12 @@ index bebc8ac..61f6a3c 100644
      },
      sections: {
        agents: 'エージェント',
-@@ -3447,7 +3448,7 @@ export const ja: Words = {
+       models: 'サービス',
++      extensions: '拡張機能',
+       developer: '開発者',
+       general: '一般',
+       shortcuts: 'キーボードショートカット',
+@@ -3447,7 +3449,7 @@ export const ja: Words = {
      notifications: {
        group: '通知',
        turns: 'エージェントの完了を通知',
@@ -9619,7 +10986,7 @@ index bebc8ac..61f6a3c 100644
      },
      account: {
        group: 'アカウント',
-@@ -3470,7 +3471,7 @@ export const ja: Words = {
+@@ -3470,7 +3472,7 @@ export const ja: Words = {
        language: '言語',
        languageSystem: 'システムに合わせる',
        themeHint: 'ライト、ダーク、またはシステムに合わせる。',
@@ -9628,7 +10995,7 @@ index bebc8ac..61f6a3c 100644
      },
      storage: {
        group: "ストレージ",
-@@ -3494,8 +3495,8 @@ export const ja: Words = {
+@@ -3494,8 +3496,8 @@ export const ja: Words = {
        clear: "キャッシュを消去",
        cleared: "{size} を消去しました。",
        projectLine: "{size}（キャッシュ {clearable}）",
@@ -9639,7 +11006,7 @@ index bebc8ac..61f6a3c 100644
        areaNote: {projects: "プロジェクトの場所にある {count} 個", linked: "別の場所のフォルダにある {count} 個", saved: "自分の素材（全作品共通）", skills: "追加した・自作のスキル", exports: "書き出した作品", cache: "プレビューと書き出しで作成、必要なら作り直し", app: "モデル、ダウンロードした素材ライブラリ、ログ" },
        parts: "素材 {media} · バージョン {history} · 会話 {talk} · ファイル {files}",
      },
-@@ -3521,6 +3522,7 @@ export const ja: Words = {
+@@ -3521,6 +3523,7 @@ export const ja: Words = {
      },
      about: {
        group: 'このアプリについて',
@@ -9647,7 +11014,7 @@ index bebc8ac..61f6a3c 100644
        check: 'アップデートを確認',
        checking: '確認中…',
        failed: 'npm に接続できません。しばらくしてからもう一度お試しください。',
-@@ -3927,6 +3929,18 @@ export const ja: Words = {
+@@ -3927,6 +3930,18 @@ export const ja: Words = {
        about: { 'whisper-small': 'OpenAI の音声認識モデル（小サイズ）：約 100 言語で十分な精度、各単語に時刻が付くので字幕にそのまま使えます。', 'whisper-large-v3-turbo': '最も正確な Whisper：人名や言語の混在に強く、中国語も安定しますが、サイズが大きく速度はほぼ実時間です。', 'birefnet-lite': '画像の被写体（人・物・動物）を見つけ、髪の毛まできれいな輪郭で切り抜きます。' },
      },
      providers: {
@@ -9667,7 +11034,7 @@ index bebc8ac..61f6a3c 100644
        about: {
          openfilm: 'OpenFilm 自身のサービス。OpenFilm アカウントを一度接続するだけで、ナレーション、音楽、効果音、書き起こし、画像、ビデオを主要なモデルで作れます。支払いは OpenFilm の残高から。ほかのアカウントやキーは不要です。',
 diff --git a/packages/openfilm/studio/ui/src/i18n/ko.ts b/packages/openfilm/studio/ui/src/i18n/ko.ts
-index f5955a6..47e936f 100644
+index f5955a6..ea6288c 100644
 --- a/packages/openfilm/studio/ui/src/i18n/ko.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/ko.ts
 @@ -124,7 +124,7 @@ export const ko: Words = {
@@ -9784,7 +11151,7 @@ index f5955a6..47e936f 100644
      removeBlock: '삭제',
      rippleRemove: '리플 삭제',
      menuSplitHere: '재생 헤드에서 분할',
-@@ -3432,6 +3432,7 @@ export const ko: Words = {
+@@ -3432,10 +3432,12 @@ export const ko: Words = {
        github: 'GitHub',
        examples: '예제',
        site: '웹사이트',
@@ -9792,7 +11159,12 @@ index f5955a6..47e936f 100644
      },
      sections: {
        agents: '에이전트',
-@@ -3444,7 +3445,7 @@ export const ko: Words = {
+       models: '서비스',
++      extensions: '확장 기능',
+       developer: '개발자',
+       general: '일반',
+       shortcuts: '키보드 단축키',
+@@ -3444,7 +3446,7 @@ export const ko: Words = {
      notifications: {
        group: '알림',
        turns: '에이전트가 끝나면 알림',
@@ -9801,7 +11173,7 @@ index f5955a6..47e936f 100644
      },
      account: {
        group: '계정',
-@@ -3467,7 +3468,7 @@ export const ko: Words = {
+@@ -3467,7 +3469,7 @@ export const ko: Words = {
        language: '언어',
        languageSystem: '시스템 설정 따르기',
        themeHint: '라이트, 다크 또는 시스템 설정을 따릅니다.',
@@ -9810,7 +11182,7 @@ index f5955a6..47e936f 100644
      },
      storage: {
        group: "저장 공간",
-@@ -3491,8 +3492,8 @@ export const ko: Words = {
+@@ -3491,8 +3493,8 @@ export const ko: Words = {
        clear: "캐시 지우기",
        cleared: "{size}를 지웠습니다.",
        projectLine: "{size}, 캐시 {clearable}",
@@ -9821,7 +11193,7 @@ index f5955a6..47e936f 100644
        areaNote: {projects: "프로젝트 위치의 프로젝트 {count}개", linked: "다른 위치 폴더의 프로젝트 {count}개", saved: "내 미디어 (모든 영상 공용)", skills: "추가하거나 직접 만든 스킬", exports: "완성 영상", cache: "미리보기와 내보내기 중 생성; 필요하면 다시 생성", app: "모델, 내려받은 라이브러리, 로그" },
        parts: "미디어 {media} · 버전 {history} · 대화 {talk} · 파일 {files}",
      },
-@@ -3518,6 +3519,7 @@ export const ko: Words = {
+@@ -3518,6 +3520,7 @@ export const ko: Words = {
      },
      about: {
        group: '정보',
@@ -9829,7 +11201,7 @@ index f5955a6..47e936f 100644
        check: '업데이트 확인',
        checking: '확인 중…',
        failed: 'npm에 연결할 수 없습니다. 잠시 후 다시 시도하세요.',
-@@ -3924,6 +3926,18 @@ export const ko: Words = {
+@@ -3924,6 +3927,18 @@ export const ko: Words = {
        about: { 'whisper-small': 'OpenAI의 음성 인식 모델(작은 크기): 약 100개 언어에서 정확도가 좋고, 단어마다 시간이 있어 바로 자막에 씁니다.', 'whisper-large-v3-turbo': '가장 정확한 Whisper: 이름과 여러 언어가 섞인 말에 덜 틀리고 중국어도 안정적이지만, 크고 속도는 실시간과 비슷합니다.', 'birefnet-lite': '이미지의 주체(사람, 물건, 동물)를 찾아 머리카락까지 깔끔한 경계로 오려 냅니다.' },
      },
      providers: {
@@ -9849,7 +11221,7 @@ index f5955a6..47e936f 100644
        about: {
          openfilm: 'OpenFilm 자체 서비스입니다. OpenFilm 계정을 한 번 연결하면 선도적인 모델로 내레이션, 음악, 효과음, 대본, 이미지, 비디오를 만들고 OpenFilm 잔액에서 결제합니다. 다른 계정이나 키가 필요 없습니다.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
-index debd95b..7890472 100644
+index debd95b..2b19795 100644
 --- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 @@ -132,7 +132,7 @@ export const zhCN: Words = {
@@ -9966,7 +11338,7 @@ index debd95b..7890472 100644
      removeBlock: '删除',
      rippleRemove: '波纹删除',
      menuSplitHere: '在播放头处分割',
-@@ -3469,6 +3469,7 @@ export const zhCN: Words = {
+@@ -3469,10 +3469,12 @@ export const zhCN: Words = {
        github: 'GitHub',
        examples: '示例',
        site: '官网',
@@ -9974,7 +11346,12 @@ index debd95b..7890472 100644
      },
      sections: {
        agents: '智能体',
-@@ -3481,7 +3482,7 @@ export const zhCN: Words = {
+       models: '服务',
++      extensions: '扩展包',
+       developer: '开发者',
+       general: '通用',
+       shortcuts: '键盘快捷键',
+@@ -3481,7 +3483,7 @@ export const zhCN: Words = {
      notifications: {
        group: '通知',
        turns: '智能体做完时提醒',
@@ -9983,7 +11360,7 @@ index debd95b..7890472 100644
      },
      account: {
        group: '账号',
-@@ -3504,7 +3505,7 @@ export const zhCN: Words = {
+@@ -3504,7 +3506,7 @@ export const zhCN: Words = {
        language: '语言',
        languageSystem: '跟随系统',
        themeHint: '浅色、深色，或跟随系统。',
@@ -9992,7 +11369,7 @@ index debd95b..7890472 100644
      },
      storage: {
        group: "存储",
-@@ -3528,8 +3529,8 @@ export const zhCN: Words = {
+@@ -3528,8 +3530,8 @@ export const zhCN: Words = {
        clear: "清理缓存",
        cleared: "已清理 {size}。",
        projectLine: "{size}，缓存 {clearable}",
@@ -10003,7 +11380,7 @@ index debd95b..7890472 100644
        areaNote: {projects: "项目位置里的 {count} 个项目", linked: "{count} 个项目，在其他位置的文件夹，原地打开", saved: "你的素材，所有影片共用", skills: "你添加或自己写的技能", exports: "导出的成片", cache: "预览和导出时生成，清理后用到时会重新生成", app: "模型、下载的素材库、日志" },
        parts: "素材 {media} · 版本 {history} · 对话 {talk} · 文件 {files}",
      },
-@@ -3555,6 +3556,7 @@ export const zhCN: Words = {
+@@ -3555,6 +3557,7 @@ export const zhCN: Words = {
      },
      about: {
        group: '关于',
@@ -10011,7 +11388,7 @@ index debd95b..7890472 100644
        check: '检查更新',
        checking: '正在检查…',
        failed: '连不上 npm，请稍后再试。',
-@@ -3961,6 +3963,18 @@ export const zhCN: Words = {
+@@ -3961,6 +3964,18 @@ export const zhCN: Words = {
        about: { 'whisper-small': 'OpenAI 的语音识别模型（小号）：约 100 种语言准确率都不错，每个词都有时间，可直接做字幕。', 'whisper-large-v3-turbo': '最准的 Whisper：人名、中英混说更少出错，中文也更稳定；但体积更大，速度约等于实时。', 'birefnet-lite': '找出图片的主体（人、物、动物），干净地抠出来，头发边缘也能保留。' },
      },
      providers: {
@@ -10030,7 +11407,7 @@ index debd95b..7890472 100644
        included: '支持',
        about: {
          openfilm: 'OpenFilm 自己的服务。连接一次 OpenFilm 账号，就能用领先的模型生成配音、音乐、音效、文字稿、图片和视频，从 OpenFilm 余额扣费，不需要别的账号或 key。',
-@@ -4066,4 +4080,185 @@ export const zhCN: Words = {
+@@ -4066,4 +4081,185 @@ export const zhCN: Words = {
        },
      },
    },
@@ -10216,6 +11593,19 @@ index debd95b..7890472 100644
 +    day_off: '下班',
 +  },
  };
+diff --git a/packages/openfilm/studio/ui/src/lib/host.ts b/packages/openfilm/studio/ui/src/lib/host.ts
+index 77b1ea5..c59b56d 100644
+--- a/packages/openfilm/studio/ui/src/lib/host.ts
++++ b/packages/openfilm/studio/ui/src/lib/host.ts
+@@ -470,7 +470,7 @@ export type StudioCommand =
+   | { type: 'select-clip'; id?: string | null; loc?: string | null; seek?: boolean }
+   | { type: 'seek'; time: number }
+   | { type: 'show-range'; start: number; end: number }
+-  | { type: 'show-box'; time: number; box: StageBox }
++  | { type: 'show-box'; time: number; box: StageBox; clipId?: string | null; loc?: string | null }
+   | { type: 'show-track'; track: number }
+   | { type: 'show-file'; path: string }
+   /* a node of the canvas: the canvas opened, the node selected and in view */
 diff --git a/packages/openfilm/studio/ui/src/lib/navigate.ts b/packages/openfilm/studio/ui/src/lib/navigate.ts
 index 3b2c70b..024066f 100644
 --- a/packages/openfilm/studio/ui/src/lib/navigate.ts
@@ -10248,6 +11638,225 @@ index 3b2c70b..024066f 100644
  /** Show a project: here, or (with tabs) in its own tab. */
  export function openProject(projectId: string): void {
    const tabs = studioHost?.tabs ?? null;
+diff --git a/packages/openfilm/studio/ui/src/lib/no996-native-models.ts b/packages/openfilm/studio/ui/src/lib/no996-native-models.ts
+new file mode 100644
+index 0000000..6112e54
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/lib/no996-native-models.ts
+@@ -0,0 +1,213 @@
++import React from 'react';
++
++export interface VisionCapabilityInfo {
++  id: string;
++  capability: string;
++  label: string;
++  bytes: number;
++  sha256: string;
++  license: string;
++  ready: boolean;
++  weightsPresent: boolean;
++  loaded: boolean;
++}
++
++export interface VisionPackStatus {
++  packId: string;
++  packageName: string;
++  version: string;
++  digest: string;
++  storeDir: string;
++  effectiveDir: string;
++  sourceKind: 'missing' | 'managed_download' | 'legacy_cache' | 'legacy_bundled';
++  installState: 'missing' | 'downloading' | 'verifying' | 'installed' | 'corrupt' | 'incomplete' | 'error';
++  overallStatus: string;
++  weightsInstalled: boolean;
++  managed: boolean;
++  reusableLocal: boolean;
++  canImportLocal?: boolean;
++  inUse: boolean;
++  declaredBytes: number;
++  downloadBytes: number;
++  bytesOnDisk: number;
++  tempBytes: number;
++  reclaimableBytes: number;
++  installing: boolean;
++  install: {
++    phase: string;
++    source: string;
++    sourceLabel: string;
++    seen: number;
++    total: number;
++    error: string;
++    cancelled: boolean;
++  };
++  runtime: {
++    ready: boolean;
++    state: string;
++    providedByCore: boolean;
++    missing: string[];
++  };
++  loadedModels: string[];
++  capabilities: VisionCapabilityInfo[];
++}
++
++export interface CatalogModelItem {
++  id: string;
++  version?: string;
++  label: string;
++  category: 'asr' | 'cutout' | 'face' | 'other';
++  sourceKind: 'managed_download' | 'bundled' | 'external_shared' | 'openfilm_library';
++  sourceLabel: string;
++  installState: 'installed' | 'downloading' | 'missing' | 'corrupt' | 'incomplete' | 'error';
++  runtimeState?: string;
++  enabledState?: string;
++  declaredBytes: number;
++  downloadBytes?: number;
++  bytesOnDisk: number;
++  tempBytes?: number;
++  reclaimableBytes: number;
++  dir: string;
++  canDelete: boolean;
++  canCleanResiduals?: boolean;
++  deleteBlockedReason?: string;
++  usedBy: string[];
++  visionPack?: VisionPackStatus;
++}
++
++export interface ModelCatalogSnapshot {
++  revision: number;
++  partialStats: boolean;
++  scanWarnings: Array<{ path: string; code: string }>;
++  items: CatalogModelItem[];
++  vision: VisionPackStatus;
++  totals: {
++    modelsBytes: number;
++    inHomeModelsBytes: number;
++    externalModelsBytes: number;
++    resourcesBytes: number;
++    inHomeResourcesBytes: number;
++    reclaimableBytes: number;
++  };
++}
++
++export interface AsrChoiceState {
++  configured: string;
++  effective: string;
++  available: boolean;
++  reason?: string;
++  message: string;
++  local: {
++    ready: boolean;
++    weightsReady: boolean;
++    engine: string;
++    ffmpegOk: boolean;
++    installing: boolean;
++    bytesTotal: number;
++    bytesOnDisk: number;
++    progress: number;
++    error?: string;
++    dir?: string;
++  };
++}
++
++export interface SearchChoiceState {
++  source: 'dsh' | 'no996';
++  options: Array<{
++    id: 'dsh' | 'no996';
++    label: string;
++    supported?: boolean;
++    available: boolean;
++    statusText: string;
++  }>;
++  webFetchIndependent: boolean;
++}
++
++interface NativeModelsBridge {
++  models?: {
++    list: () => Promise<ModelCatalogSnapshot>;
++    install: (id: string, opts?: { force?: boolean }) => Promise<ModelCatalogSnapshot>;
++    cancel: (id: string) => Promise<ModelCatalogSnapshot>;
++    remove: (id: string, opts?: { cleanResidualsOnly?: boolean }) => Promise<{ ok: boolean; code?: string; message?: string; catalog?: ModelCatalogSnapshot }>;
++    importLocal: (path: string) => Promise<{ ok: boolean; code?: string; message?: string; catalog?: ModelCatalogSnapshot }>;
++    preMigrate: () => Promise<{ ok: boolean; migrated?: boolean; catalog?: ModelCatalogSnapshot }>;
++  };
++  asr?: {
++    choiceGet: (purpose?: 'media' | 'dictation') => Promise<AsrChoiceState>;
++    choiceSet: (choice: string) => Promise<AsrChoiceState>;
++    install: () => Promise<unknown>;
++    cancel: () => Promise<AsrChoiceState>;
++  };
++  search?: {
++    status: () => Promise<SearchChoiceState>;
++    choiceSet: (source: 'dsh' | 'no996') => Promise<SearchChoiceState>;
++  };
++  hostPrefs?: {
++    get: () => Promise<{ prefs?: Record<string, unknown> }>;
++    set: (patch: Record<string, unknown>) => Promise<{ prefs?: Record<string, unknown> }>;
++  };
++}
++
++export function getNativeBridge(): NativeModelsBridge | null {
++  return (window as unknown as { openfilmNative?: NativeModelsBridge }).openfilmNative ?? null;
++}
++
++export function openWorkbenchSettings(section: string, sub?: 'storage' | null): void {
++  window.dispatchEvent(new CustomEvent('no996:navigate-settings', { detail: { section, sub: sub ?? null } }));
++}
++
++export function formatSizeMb(bytes: number): string {
++  const n = Math.max(0, Number(bytes) || 0);
++  if (n >= 1e9) return `${(n / 1e9).toFixed(2)} GB`;
++  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
++}
++
++export function useModelCatalog() {
++  const [catalog, setCatalog] = React.useState<ModelCatalogSnapshot | null>(null);
++  const [busy, setBusy] = React.useState(false);
++  const [error, setError] = React.useState('');
++
++  const refresh = React.useCallback(async () => {
++    const api = getNativeBridge()?.models;
++    if (!api) return;
++    try {
++      setCatalog(await api.list());
++    } catch (e) {
++      setError(e instanceof Error ? e.message : String(e));
++    }
++  }, []);
++
++  React.useEffect(() => {
++    void refresh();
++  }, [refresh]);
++
++  const downloading = Boolean(
++    catalog?.vision?.installing || catalog?.items?.some((item) => item.installState === 'downloading'),
++  );
++
++  React.useEffect(() => {
++    if (!downloading) return undefined;
++    const timer = window.setInterval(() => { void refresh(); }, 1000);
++    return () => window.clearInterval(timer);
++  }, [downloading, refresh]);
++
++  const runAction = React.useCallback(async (fn: () => Promise<unknown>) => {
++    setBusy(true);
++    setError('');
++    try {
++      const res = (await fn()) as { ok?: boolean; message?: string; catalog?: ModelCatalogSnapshot; items?: CatalogModelItem[] } | undefined;
++      if (res && res.ok === false) {
++        setError(res.message || '操作失败');
++      }
++      if (res?.catalog) setCatalog(res.catalog);
++      else if (res && Array.isArray(res.items)) setCatalog(res as ModelCatalogSnapshot);
++      else await refresh();
++    } catch (e) {
++      setError(e instanceof Error ? e.message : String(e));
++    } finally {
++      setBusy(false);
++    }
++  }, [refresh]);
++
++  return { catalog, busy, error, setError, refresh, runAction };
++}
 diff --git a/packages/openfilm/studio/ui/src/lib/plugins-window.ts b/packages/openfilm/studio/ui/src/lib/plugins-window.ts
 index df44764..c78139d 100644
 --- a/packages/openfilm/studio/ui/src/lib/plugins-window.ts

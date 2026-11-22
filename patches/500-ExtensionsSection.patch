@@ -1,0 +1,236 @@
+diff --git a/packages/openfilm/studio/ui/src/components/settings/ExtensionsSection.tsx b/packages/openfilm/studio/ui/src/components/settings/ExtensionsSection.tsx
+new file mode 100644
+index 0000000..19b063b
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/settings/ExtensionsSection.tsx
+@@ -0,0 +1,230 @@
++import React from 'react';
++import { Blocks, CheckCircle2, Download, FolderInput, HardDrive, Loader2, RefreshCw, Scissors, Trash2 } from 'lucide-react';
++import { ConfirmDialog } from '../ConfirmDialog';
++import { SettingsButton, SettingsField, SettingsGroup, SettingsItem, SettingsPage, settingsError } from './ui';
++import { formatSizeMb, getNativeBridge, openWorkbenchSettings, useModelCatalog } from '@/lib/no996-native-models';
++
++export function ExtensionsSection() {
++  const { catalog, busy, error, refresh, runAction } = useModelCatalog();
++  const [confirmPreview, setConfirmPreview] = React.useState(false);
++  const [confirmRemove, setConfirmRemove] = React.useState(false);
++  const [showImport, setShowImport] = React.useState(false);
++  const [tarPath, setTarPath] = React.useState('');
++
++  const api = getNativeBridge()?.models;
++  const v = catalog?.vision ?? null;
++
++  if (!api) {
++    return (
++      <SettingsPage note="可扩展本地能力组件与模型管理。">
++        <SettingsGroup title="扩展包">
++          <p className="py-3 text-[13.5px] text-[var(--text-muted)]">仅在完整桌面工作台环境中可管理本地扩展组件。</p>
++        </SettingsGroup>
++      </SettingsPage>
++    );
++  }
++
++  const seen = Number(v?.install?.seen) || 0;
++  const total = Number(v?.install?.total) || Number(v?.downloadBytes) || 15449643;
++  const pct = total > 0 ? Math.min(100, Math.round((seen / total) * 100)) : 0;
++  const corrupt = v?.installState === 'corrupt';
++  const loadedThisRun = Boolean(v?.loadedModels?.length);
++
++  return (
++    <SettingsPage note="核心剪辑与对话开箱即用；本地视觉抠像与人脸分析拆分为按需安装的可选扩展组件，卸载不影响项目文本编辑与基础播放。">
++      <SettingsGroup
++        title="推荐：本地视觉（人像抠像 · 人脸关键点 · 人物分割）"
++        footnote="下载与解压均在 Host 内完成并做 SHA-256 校验，不会静默拉取网络权重。"
++      >
++        <SettingsItem
++          mark={<Scissors size={18} strokeWidth={1.75} />}
++          title="@newbiecheng/no996-models-vision"
++          badge={
++            v ? (
++              <span className="rounded-full bg-[var(--bg-field)] px-2 py-0.5 text-[11.5px] font-medium text-[var(--text-muted)]">
++                {v.installing
++                  ? `下载中 ${pct}%`
++                  : v.managed
++                    ? (loadedThisRun ? '已安装 · 本次运行已加载' : '已安装')
++                    : v.reusableLocal
++                      ? '检测到旧缓存可复用'
++                      : corrupt
++                        ? '权重受损或缺失'
++                        : '未安装'}
++              </span>
++            ) : null
++          }
++          description={
++            v
++              ? `包含 portrait.onnx / face.task / person.tflite（下载约 ${formatSizeMb(v.downloadBytes || 15449643)}，解压后 ${formatSizeMb(v.declaredBytes)}）。`
++              : '正在读取组件状态…'
++          }
++          control={
++            v ? (
++              <div className="flex flex-wrap items-center gap-2">
++                {!v.installing && !v.managed && v.reusableLocal ? (
++                  <SettingsButton
++                    variant="primary"
++                    disabled={busy}
++                    onClick={() => void runAction(() => api.preMigrate())}
++                  >
++                    <RefreshCw size={14} />一键复用本地缓存（0 流量）
++                  </SettingsButton>
++                ) : null}
++                {!v.installing && (!v.managed || corrupt) ? (
++                  <SettingsButton
++                    variant={v.reusableLocal ? 'default' : 'primary'}
++                    disabled={busy}
++                    onClick={() => setConfirmPreview(true)}
++                  >
++                    <Download size={14} />{corrupt ? '修复组件' : '安装组件'}
++                  </SettingsButton>
++                ) : null}
++                {v.installing ? (
++                  <SettingsButton disabled={busy} onClick={() => void runAction(() => api.cancel(v.packId))}>
++                    <Loader2 size={14} className="animate-spin" />取消下载
++                  </SettingsButton>
++                ) : null}
++                {!v.installing && v.managed ? (
++                  <SettingsButton disabled={busy} onClick={() => setConfirmRemove(true)}>
++                    <Trash2 size={14} />卸载组件
++                  </SettingsButton>
++                ) : null}
++              </div>
++            ) : null
++          }
++        >
++          {v ? (
++            <div className="space-y-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-field)]/50 p-3.5 text-[13px]">
++              {v.installing ? (
++                <div>
++                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-pressed)]">
++                    <div className="h-full rounded-full bg-[var(--accent)] transition-[width]" style={{ width: `${pct}%` }} />
++                  </div>
++                  <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
++                    {`正在从 ${v.install?.sourceLabel || '镜像源'} 下载：${formatSizeMb(seen)} / ${formatSizeMb(total)} (${pct}%)`}
++                  </p>
++                </div>
++              ) : null}
++
++              <div className="grid gap-1.5">
++                {v.capabilities.map((w) => (
++                  <div key={w.id} className="flex items-center justify-between gap-2 text-[12.5px]">
++                    <span className="flex items-center gap-1.5 text-[var(--text)]">
++                      {w.weightsPresent ? <CheckCircle2 size={13} className="text-[var(--ok)]" /> : <Blocks size={13} className="text-[var(--text-faint)]" />}
++                      <span className="font-mono text-[12px]">{w.id}</span>
++                      <span className="text-[var(--text-muted)]">· {w.label}</span>
++                    </span>
++                    <span className="tabular-nums text-[var(--text-faint)]">
++                      {formatSizeMb(w.bytes)} · {w.weightsPresent ? '已就绪' : '未就绪'}
++                    </span>
++                  </div>
++                ))}
++              </div>
++
++              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5 text-[12px] text-[var(--text-muted)]">
++                <span>
++                  本地视觉运行时（onnxruntime-web / MediaPipe）：
++                  <strong className="ml-1 font-medium text-[var(--text)]">
++                    {v.runtime.ready ? '随核心提供（已就绪）' : `缺少 ${v.runtime.missing.join(', ')}`}
++                  </strong>
++                </span>
++                <span className="truncate font-mono text-[11.5px] text-[var(--text-faint)]" title={v.storeDir}>
++                  存放路径：{v.storeDir}
++                </span>
++              </div>
++
++              {v.install?.error ? <p role="alert" className={settingsError}>{v.install.error}</p> : null}
++              {error ? <p role="alert" className={settingsError}>{error}</p> : null}
++
++              <div className="flex flex-wrap items-center gap-3 pt-1 text-[12.5px]">
++                <button
++                  type="button"
++                  onClick={() => openWorkbenchSettings('general', 'storage')}
++                  className="inline-flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
++                >
++                  <HardDrive size={13} />前往「存储与本地模型」
++                </button>
++                <button
++                  type="button"
++                  onClick={() => setShowImport((prev) => !prev)}
++                  className="inline-flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
++                >
++                  <FolderInput size={13} />{showImport ? '收起离线导入' : '从本地 .tgz 导入'}
++                </button>
++                {!v.installing && v.tempBytes > 0 ? (
++                  <button
++                    type="button"
++                    disabled={busy}
++                    onClick={() => void runAction(() => api.remove(v.packId, { cleanResidualsOnly: true }))}
++                    className="text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
++                  >
++                    清理下载碎片
++                  </button>
++                ) : null}
++                <button
++                  type="button"
++                  onClick={() => void refresh()}
++                  className="ml-auto text-[var(--text-faint)] hover:text-[var(--text)]"
++                >
++                  刷新状态
++                </button>
++              </div>
++
++              {showImport ? (
++                <div className="flex items-center gap-2 pt-1">
++                  <SettingsField
++                    value={tarPath}
++                    onChange={(e) => setTarPath(e.target.value)}
++                    placeholder="输入本地 @newbiecheng/no996-models-vision-*.tgz 绝对路径"
++                    className="flex-1"
++                  />
++                  <SettingsButton
++                    disabled={busy || !tarPath.trim()}
++                    onClick={() => void runAction(() => api.importLocal(tarPath.trim()))}
++                  >
++                    校验并导入
++                  </SettingsButton>
++                </div>
++              ) : null}
++            </div>
++          ) : null}
++        </SettingsItem>
++      </SettingsGroup>
++
++      <ConfirmDialog
++        open={confirmPreview}
++        title="安装「本地视觉」可选组件"
++        message={
++          v
++            ? `将下载 ${v.packageName}@${v.version}（压缩包约 ${formatSizeMb(v.downloadBytes || 15449643)}，解压占磁盘 ${formatSizeMb(v.declaredBytes)}），默认优先使用国内镜像并在异常时回退官方源。`
++            : ''
++        }
++        confirmLabel="确认下载并安装"
++        cancelLabel="取消"
++        onConfirm={() => {
++          setConfirmPreview(false);
++          if (v) void runAction(() => api.install(v.packId, { force: corrupt }));
++        }}
++        onCancel={() => setConfirmPreview(false)}
++      />
++
++      <ConfirmDialog
++        open={confirmRemove}
++        title="卸载「本地视觉」组件？"
++        message={
++          v
++            ? `将移除 ${v.storeDir} 下的 3 个视觉模型权重并释放约 ${formatSizeMb(v.reclaimableBytes || v.declaredBytes)} 空间。若当前有导出/抠像任务使用中，系统会阻止卸载以保护任务安全。`
++            : ''
++        }
++        confirmLabel="确认卸载"
++        cancelLabel="取消"
++        onConfirm={() => {
++          setConfirmRemove(false);
++          if (v) void runAction(() => api.remove(v.packId));
++        }}
++        onCancel={() => setConfirmRemove(false)}
++      />
++    </SettingsPage>
++  );
++}
