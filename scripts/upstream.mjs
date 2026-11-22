@@ -161,6 +161,18 @@ async function main() {
   if (command === 'verify' || command === 'bump') {
     const dir = checkoutDir(args);
     requireCheckout(dir, state);
+    // Verify replays the series over a *clean* checkout. A working tree that already
+    // carries the patches fails every one of them, which reads as a regression when it
+    // is only the wrong tree: say that, with the flag that fixes it.
+    const dirty = git(dir, 'status', '--porcelain');
+    if (dirty) {
+      console.error(`verify needs a clean checkout, but ${dir} has local changes (${dirty.split(/\r?\n/).length} paths).`);
+      console.error('That tree already carries the patches; replay them somewhere clean instead:');
+      console.error(`  git -C .upstream/openfilm worktree add --detach .dev/verify-checkout ${state.manifest.commit}`);
+      console.error('  npm run upstream:verify -- --dir .dev/verify-checkout');
+      process.exitCode = 1;
+      return;
+    }
     const patches = patchFiles();
     const failed = [];
     for (const patch of patches) {

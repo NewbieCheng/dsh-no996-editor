@@ -35,6 +35,29 @@ test('a long shot and a long caption are warnings, not refusals', () => {
   assert.ok(warnings.some(warning => warning.includes('屏上字')));
 });
 
+test('an emotion arc and audience beats survive the round trip and stay optional', () => {
+  const shots = [
+    { id: 'a', from: 0, to: 3, kind: 'broll', motion: 'none' },
+    { id: 'b', from: 3, to: 6, kind: 'broll', motion: 'none' },
+    { id: 'c', from: 6, to: 9, kind: 'broll', motion: 'none' },
+    { id: 'd', from: 9, to: 12, kind: 'broll', motion: 'none' },
+  ];
+  const bare = normalizeStoryboard({ shots });
+  assert.equal(bare.emotionArc, undefined, 'an older storyboard is not given one');
+  assert.ok(validateStoryboard(bare).warnings.some(w => w.includes('emotionArc')), 'and the writer is told to write one');
+
+  const arc = { audience: '爱看科普的普通人', opening: '两条轨迹几乎重合', hook: '它们最后为什么分开', turn: '差异来自第一帧', payoff: 'c2 回到同一构图', closing: '一点分叉就够了' };
+  const planned = normalizeStoryboard({
+    shots: shots.map((shot, index) => (index === 1 ? { ...shot, audienceBeat: '观众以为差异来自大事件', hook: '这点差异是什么' } : shot)),
+    emotionArc: { ...arc, extra: 'not kept' },
+  });
+  assert.deepEqual(planned.emotionArc, arc);
+  assert.equal(planned.shots[1].audienceBeat, '观众以为差异来自大事件');
+  assert.equal(planned.shots[1].hook, '这点差异是什么');
+  assert.match(storyboardSummary(planned), /情绪线/);
+  assert.deepEqual(validateStoryboard(planned).warnings.filter(w => w.includes('emotionArc')), [], 'a written arc is not warned about');
+});
+
 test('normalising fills the defaults the timeline needs', () => {
   const storyboard = normalizeStoryboard({ shots: [{ from: 0, to: 2.3456 }] });
   assert.equal(storyboard.version, 1);

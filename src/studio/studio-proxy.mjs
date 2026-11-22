@@ -30,7 +30,7 @@ const MAX_RESPONSE = 32 * 1024 * 1024;
 
 const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_FAILED: '对话请求未能完成，请重试',
-  OFFICIAL_AGENT_BUSY: '上一条还在进行中，等它结束或先取消',
+  OFFICIAL_AGENT_BUSY: '这一轮还在后台运行，正在接回；不要重复发送',
   OFFICIAL_AGENT_NOT_RUNNING: '当前没有可取消的回合',
   OFFICIAL_AGENT_MODEL_UNAVAILABLE: '当前拿不到模型列表，稍后再试',
   OFFICIAL_AGENT_UNAVAILABLE: '项目或对话服务暂时不可用',
@@ -852,7 +852,10 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
           },
         });
         if (!res.destroyed && !res.writableEnded) {
-          res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-no996-trace-id': traceId });
+          // A busy conversation is a state conflict, not a server fault: a 409 keeps
+          // the global red bar away and lets the page ask which turn is running.
+          const status = code === 'OFFICIAL_AGENT_BUSY' ? 409 : 503;
+          res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-no996-trace-id': traceId });
           res.end(match ? `${code}: ${match[1]} (${channel})` : hint ? `${code}: ${hint} (${channel})` : `${code} (${channel})`);
         }
       } finally {

@@ -651,17 +651,41 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     const input = doc.createElement('input');
     input.value = session ? (session.title || '新对话') : (project.title || project.name || project.projectId);
     input.style.cssText = 'box-sizing:border-box;width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle, rgba(255,255,255,.16));background:transparent;color:inherit;font:inherit;';
-    const { overlay } = openModal(session ? '重命名对话' : '重命名项目', input, [
+    const field = doc.createElement('div');
+    const errorLine = doc.createElement('div');
+    errorLine.setAttribute('role', 'alert');
+    errorLine.style.cssText = 'display:none;margin-top:8px;font-size:12px;line-height:1.5;color:var(--dsw-alias-state-error-primary, #e5484d);';
+    field.append(input, errorLine);
+    const fail = message => {
+      errorLine.textContent = message;
+      errorLine.style.display = 'block';
+      input.focus();
+    };
+    const { overlay } = openModal(session ? '重命名对话' : '重命名项目', field, [
       ['取消', () => overlay.remove(), null],
-      ['保存', async () => {
+      ['保存', async button => {
         const title = input.value.trim();
-        overlay.remove();
+        button.disabled = true;
+        errorLine.style.display = 'none';
         try {
-          await postJson('/api/no996-openfilm/editing-prefs', {
+          const result = await postJson('/api/no996-openfilm/editing-prefs', {
             projectId: project.projectId, ...(session ? { sessionId: session.sessionId } : {}), title,
           });
+          if (result?.persisted === false) {
+            // The list shows the new name, but it did not reach the file: say so
+            // instead of closing as if it had been saved for good.
+            overlay.remove();
+            toast('已改名，但写入磁盘失败（权限不足或目录不可写），重开工作台后可能恢复原名。');
+            refresh();
+            return;
+          }
+          overlay.remove();
           refresh();
-        } catch { /* leave the row */ }
+        } catch (failure) {
+          button.disabled = false;
+          const code = String(failure?.message || `HTTP ${failure?.status ?? '?'}`).trim().slice(0, 60);
+          fail(`改名失败（${code}），已保留这次输入。`);
+        }
       }, 'primary'],
     ]);
     input.focus();

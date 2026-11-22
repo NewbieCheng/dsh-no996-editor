@@ -21,7 +21,18 @@ export function createDiagnoseRoute({
   // src/instruction-inventory.mjs). Optional so older callers keep working.
   instructions = null,
   projectPathOf = null,
+  // What the kernel CLI is being told on its default port: `held` means a shell-run
+  // `openfilm open` cannot start a second Studio; `occupied` means a real (or
+  // leftover) Studio owns the port and the CLI would use that one. A function keeps
+  // the guard's construction order free (see studio-controller assembly).
+  cliGuard = null,
 }) {
+  const guardStatus = () => {
+    try {
+      const guard = typeof cliGuard === 'function' ? cliGuard() : cliGuard;
+      return guard?.status?.() ?? null;
+    } catch { return null; }
+  };
   let lastHealthRunning;
   const unregisterDiagnose = track(register({
     kind: 'exact', path: '/api/no996-openfilm/diagnose',
@@ -62,6 +73,8 @@ export function createDiagnoseRoute({
       const body = JSON.stringify({
         mode: officialShell ? 'official' : 'dsh',
         studio,
+        // Whether a shell-run OpenFilm CLI is kept from starting a second Studio.
+        cli: guardStatus(),
         preset,
         proxy: proxy?.diagnostics?.() ?? null,
         // Whether this Host can see DSH's archive set, and how many Sessions it

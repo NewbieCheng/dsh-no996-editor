@@ -240,6 +240,32 @@ export function createDshNativeAgentService({
     }
   }
 
+  /**
+   * The page's own record of a turn, kept small enough to hold in memory while it
+   * runs. A reloaded page asks for the running turn back and rebuilds its row from
+   * this; anything missing or oversized is dropped rather than stored half.
+   */
+  function turnMeta(meta, session, projectId, turnId) {
+    if (!meta || typeof meta !== 'object' || typeof meta.turnId !== 'string' || meta.turnId !== turnId) return null;
+    const pick = (value, max) => (typeof value === 'string' && value ? value.slice(0, max) : '');
+    let turn = null;
+    try {
+      const encoded = JSON.stringify(meta.turn);
+      if (typeof encoded === 'string' && encoded.length <= 64 * 1024) turn = JSON.parse(encoded);
+    } catch { turn = null; }
+    return {
+      turnId,
+      projectId,
+      projectTitle: pick(meta.projectTitle, 200),
+      sessionId: session.conversation,
+      agent: pick(meta.agent, 40) || 'deepseek',
+      prompt: pick(meta.prompt, 8000),
+      turnNo: Number.isSafeInteger(meta.turnNo) ? meta.turnNo : 0,
+      startedAt: Number.isFinite(meta.startedAt) ? meta.startedAt : Date.now(),
+      ...(turn ? { turn } : {}),
+    };
+  }
+
   function emitUsage(projectId, session, used, size) {
     if (typeof used !== 'number' || !Number.isFinite(used) || used < 0 ||
         typeof size !== 'number' || !Number.isFinite(size) || size <= 0) return false;
@@ -1011,7 +1037,7 @@ export function createDshNativeAgentService({
       return typeof sid === 'string' ? sessionProjects.get(sid) : undefined;
     },
 
-    async send(projectId, { conversation, key, turnId, text: promptText, images, skillIds } = {}) {
+    async send(projectId, { conversation, key, turnId, text: promptText, images, skillIds, meta } = {}) {
       if (typeof promptText !== 'string' || promptText.length > 200000) {
         throw failure('OFFICIAL_AGENT_INPUT', 'bad prompt', {
           location: 'src/native/dsh-native-agent-service.mjs:send',
@@ -1063,7 +1089,9 @@ export function createDshNativeAgentService({
       }
       const requestId = randomUUID();
       const turnDone = new Promise((resolve, reject) => {
-        session.inflight = { turnId, cancelled: false, resolve, reject, skillContext };
+        // The key and the page's turn meta ride with the turn: a page reloaded
+        // mid-turn asks for it back and must get the same key its events carry.
+        session.inflight = { turnId, cancelled: false, resolve, reject, skillContext, key: session.key ?? null, meta: turnMeta(meta, session, projectId, turnId), startedAt: Date.now() };
       });
 
       try {
@@ -1289,7 +1317,11 @@ export function createDshNativeAgentService({
 
       if (known?.sessionId && await sessionExists(known.sessionId)) {
         await ensure(projectId, conversation);
-        if (text(key)) session.key = key;
+        // A turn still running keeps its key: a reloaded page must receive the same
+        // events it would have received before, and must not mint a key nobody
+        // publishes under. The next send binds the page's fresh key.
+        if (session.inflight?.key) session.key = session.inflight.key;
+        else if (text(key)) session.key = key;
         await hydrateSelection(projectId, session);
         await syncUsage(projectId, session);
       } else {
@@ -1341,6 +1373,16 @@ export function createDshNativeAgentService({
         sessionId: session.sessionId ?? null,
         resumed: session.reopened === true,
         key: session.key ?? null,
+        // A reloaded page adopts this instead of sending again: the turn is still
+        // running in this Host, so a new prompt would only be answered OFFICIAL_AGENT_BUSY.
+        activeTurn: session.inflight
+          ? {
+            turnId: session.inflight.turnId ?? null,
+            key: session.key ?? null,
+            startedAt: session.inflight.startedAt ?? null,
+            sessionId: session.sessionId ?? null,
+          }
+          : null,
         model: session.model ? `${session.model.provider}/${session.model.model}` : null,
         effort: session.reasoningEffort ?? null,
         modelSource: session.modelSource ?? null,
@@ -1378,6 +1420,42 @@ export function createDshNativeAgentService({
 
     answerPermission() {
       return { ok: false };
+    },
+
+    /**
+     * Turns this project is still running, in the shape the page uses to put one
+     * back after a reload. Only the terminal event and the events after this point
+     * are live; the page already saved what it saw before reloading.
+     */
+    running(projectId) {
+      if (closed) return [];
+      const projectState = projects.get(projectId);
+      if (!projectState) return [];
+      const out = [];
+      for (const session of projectState.sessions.values()) {
+        const inflight = session.inflight;
+        if (!inflight?.meta) continue;
+        out.push({
+          key: inflight.key ?? session.key ?? null,
+          agent: inflight.meta.agent,
+          cwd: projectState.projectPath ?? '',
+          meta: inflight.meta,
+          done: null,
+          events: [],
+        });
+      }
+      return out;
+    },
+
+    async resetConversation(projectId, conversation) {
+      const projectState = projects.get(projectId);
+      const session = projectState?.sessions.get(conversation);
+      if (!session) return { ok: true };
+      projectState.sessions.delete(conversation);
+      stopFollow(session);
+      if (session.sessionId) sessionProjects.delete(session.sessionId);
+      if (session.inflight) settleTurn(projectId, session, { ok: true, stopReason: 'cancelled' });
+      return { ok: true };
     },
 
     async reset(projectId) {

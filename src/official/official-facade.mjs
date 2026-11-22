@@ -65,7 +65,7 @@ function officialFacadeFactory(bridge) {
       options,
     };
   };
-  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'skills:list', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs', 'asr:status', 'asr:install', 'asr:cancel', 'asr:choice-get', 'asr:choice-set', 'dictation:transcribe', 'search:status', 'search:choice-set', 'models:list', 'models:preview', 'models:install', 'models:cancel', 'models:remove', 'models:import-local', 'models:pre-migrate', 'vision:authorize', 'stage:deliverable-check']);
+  const rpcAllow = new Set(['chat:load', 'chat:log', 'chat:save-sessions', 'chat:save-turn', 'chat:archive', 'chat:unarchive', 'chat:archive-state', 'editor:link', 'client:log', 'agent:prompt', 'skills:list', 'agent:cancel', 'agent:models', 'agent:select-model', 'agent:thinking', 'agent:select-thinking', 'agent:attach', 'agent:turn-state', 'agent:running', 'agent:mode', 'agent:mode-set', 'agent:answer-permission', 'agent:permission', 'agent:permission-set', 'agent:session', 'agent:trace', 'probe:drag', 'prefs:get', 'prefs:set', 'template:list', 'template:create', 'project:create-blank', 'account:balance', 'account:overview', 'account:traces', 'account:pricing', 'auth:status', 'auth:logout', 'auth:action', 'auth:remember-get', 'auth:remember-set', 'auth:remember-clear', 'diag:list', 'diag:export', 'diag:clear', 'diag:prefs', 'asr:status', 'asr:install', 'asr:cancel', 'asr:choice-get', 'asr:choice-set', 'dictation:transcribe', 'search:status', 'search:choice-set', 'models:list', 'models:preview', 'models:install', 'models:cancel', 'models:remove', 'models:import-local', 'models:pre-migrate', 'vision:authorize', 'stage:deliverable-check']);
   const eventAllow = new Set(['desktop:full-screen', 'desktop:toggle-chat', 'desktop:open-settings']);
   const rpc = async (channel, payload) => {
     if (!rpcAllow.has(channel) || typeof bridge.invoke !== 'function') throw unavailable(channel);
@@ -269,6 +269,16 @@ function officialFacadeFactory(bridge) {
         try { value = JSON.parse(message.data); } catch { fail(); return; }
         if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.key !== 'string' || typeof value.kind !== 'string') { fail(); return; }
         if (typeof value.seq === 'number' && Number.isFinite(value.seq)) entry.lastSeq = Math.max(entry.lastSeq, value.seq);
+        if (value.kind === 'conversation_deleted') {
+          const ids = deletedConversations.get(id) ?? new Set();
+          for (const sessionId of Array.isArray(value.removedIds) ? value.removedIds : []) {
+            if (typeof sessionId === 'string') ids.add(sessionId);
+          }
+          if (typeof value.sessionId === 'string') ids.add(value.sessionId);
+          deletedConversations.set(id, ids);
+          try { globalThis.dispatchEvent(new CustomEvent('no996-openfilm:conversation-deleted', { detail: { projectId: id } })); } catch {}
+          return;
+        }
         if (value.kind === 'done') {
           const pending = pendingAgentPrompts.get(value.key);
           if (!pending || pending.source !== entry || !pending.dispatched || value.turnId !== pending.turnId || pending.terminalSeen) return;
@@ -325,7 +335,26 @@ function officialFacadeFactory(bridge) {
       }
       return { ok: true, info };
     },
-    running: async () => [],
+    // Turns this project still runs. The shell puts one back after a reload and
+    // waits on the same key's terminal, so a running turn no longer looks like a
+    // prompt that failed to send (and its retry is never answered with BUSY).
+    running: async () => {
+      const match = /^\/projects\/([A-Za-z0-9_-]{6,40})\/?$/.exec(globalThis.location?.pathname || '');
+      if (!match) return [];
+      let list;
+      try { list = await rpc('agent:running', { projectId: match[1] }); } catch { return []; }
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter(entry => entry && typeof entry.key === 'string' && entry.meta && typeof entry.meta.turnId === 'string')
+        .map(entry => ({
+          key: entry.key,
+          agent: typeof entry.agent === 'string' && entry.agent ? entry.agent : 'deepseek',
+          cwd: typeof entry.cwd === 'string' ? entry.cwd : '',
+          meta: entry.meta,
+          done: entry.done ?? null,
+          events: Array.isArray(entry.events) ? entry.events : [],
+        }));
+    },
     adopt: async () => ({ ok: true }),
     close: async () => ({ ok: true }),
     onEvent: (listener) => {
@@ -358,8 +387,20 @@ function officialFacadeFactory(bridge) {
       // Failures used to be swallowed — then usage stayed at 0% with no log line.
       let attachedUsage = null;
       let attachedWorkMode = null;
+      let adoptedKey = null;
+      let activeTurn = null;
       try {
         const attachResult = await rpc('agent:attach', { projectId: id, conversation: conversationId, key });
+        // A turn that is still running keeps the key its events carry. Adopting that
+        // key is what lets a reloaded page put the turn back instead of leaving it
+        // looking interrupted (and answering its retry with OFFICIAL_AGENT_BUSY).
+        if (typeof attachResult?.key === 'string' && attachResult.key && attachResult.key !== key) {
+          adoptedKey = attachResult.key;
+          agentKeys.set(adoptedKey, { projectId: id, conversation: conversationId });
+        }
+        if (attachResult?.activeTurn && typeof attachResult.activeTurn === 'object') {
+          activeTurn = attachResult.activeTurn;
+        }
         if (attachResult?.usage && typeof attachResult.usage.used === 'number' && typeof attachResult.usage.size === 'number' && attachResult.usage.size > 0) {
           attachedUsage = { used: attachResult.usage.used, size: attachResult.usage.size };
           emitAgent({ key, kind: 'update', update: { sessionUpdate: 'usage_update', used: attachedUsage.used, size: attachedUsage.size } });
@@ -414,10 +455,11 @@ function officialFacadeFactory(bridge) {
       // and when a spawn overlay was refused the fallback reason rides along.
       return {
         ok: true,
-        key,
+        key: adoptedKey ?? key,
         info: {
           sessionId: conversationId,
           resumed,
+          ...(activeTurn ? { activeTurn } : {}),
           ...(attachedUsage ? { usage: attachedUsage } : {}),
           ...(attachedWorkMode ? { workMode: attachedWorkMode } : {}),
           ...(appliedModel ? { appliedModel } : {}),
@@ -552,7 +594,26 @@ function officialFacadeFactory(bridge) {
         pending.dispatched = true;
         // RPC completion is not an ordering barrier for SSE. Only the matching
         // terminal on this exact stream can finish the visible turn.
-        const request = rpc('agent:prompt', { projectId: id, conversation: scope.conversation, key, turnId, text: text.trim() ? text : (skillIds?.length ? '请应用我选中的技能。' : '（参考图）'), ...(stills.length ? { images: stills } : {}), ...(skillIds?.length ? { skillIds } : {}) });
+        const request = rpc('agent:prompt', {
+          projectId: id,
+          conversation: scope.conversation,
+          key,
+          turnId,
+          text: text.trim() ? text : (skillIds?.length ? '请应用我选中的技能。' : '（参考图）'),
+          ...(stills.length ? { images: stills } : {}),
+          ...(skillIds?.length ? { skillIds } : {}),
+          meta: {
+            turnId,
+            projectId: id,
+            projectTitle: typeof meta?.projectTitle === 'string' ? meta.projectTitle.slice(0, 200) : '',
+            sessionId: scope.conversation,
+            agent: 'deepseek',
+            prompt: typeof text === 'string' ? text.slice(0, 8000) : '',
+            turnNo: Number.isSafeInteger(meta?.turnNo) ? meta.turnNo : 0,
+            startedAt: Number.isFinite(meta?.startedAt) ? meta.startedAt : Date.now(),
+            ...(meta?.turn && typeof meta.turn === 'object' ? { turn: meta.turn } : {}),
+          },
+        });
         const rpcFailure = request.then(() => new Promise((_, reject) => {
           if (!settled) terminalTimer = setTimeout(() => reject(unavailable('agent.events: terminal missing; output may be incomplete')), 15000);
         }));
@@ -572,12 +633,19 @@ function officialFacadeFactory(bridge) {
   };
   const revisions = new Map();
   const writes = new Map();
+  const deletedConversations = new Map();
   const saveChat = async (project, channel, payload) => {
     // Capture the component's value before another render can mutate it.
     const copy = JSON.parse(JSON.stringify(payload));
     const id = await projectId(project);
     const previous = writes.get(id) || Promise.resolve();
     const pending = previous.then(async () => {
+      const deleted = deletedConversations.get(id);
+      if (channel === 'chat:save-turn' && deleted?.has(copy.turn?.sessionId)) return { ok: true, discarded: true };
+      if (channel === 'chat:save-sessions' && deleted && Array.isArray(copy.sessions)) {
+        copy.sessions = copy.sessions.filter(session => !deleted.has(session?.id));
+        if (deleted.has(copy.last)) copy.last = null;
+      }
       let expectedRevision = revisions.get(id);
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
         // A save can arrive before any load (a reloaded page finishing a turn, a
@@ -639,6 +707,7 @@ function officialFacadeFactory(bridge) {
       const result = await rpc('chat:load', { projectId: id });
       if (!Number.isSafeInteger(result?.revision) || result.revision < 0) throw unavailable('chat:load');
       revisions.set(id, result.revision);
+      void ensureAgentSource(id).catch(() => {});
       return result;
     },
     saveAttachment: async (project, name, bytes) => {
@@ -729,6 +798,7 @@ function officialFacadeFactory(bridge) {
       choiceGet: (purpose = 'media') => rpc('asr:choice-get', { purpose }),
       choiceSet: (choice) => rpc('asr:choice-set', { choice }),
       transcribeDictation: (payload) => rpc('dictation:transcribe', payload),
+      reportMicFailure: (reason) => rpc('client:log', { event: 'dictation-mic-failed', detail: reason }).catch(() => {}),
     },
     search: {
       status: () => rpc('search:status', {}),

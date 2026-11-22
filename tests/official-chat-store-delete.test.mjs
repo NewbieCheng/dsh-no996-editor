@@ -76,6 +76,21 @@ test('saving a list without a conversation drops that conversation\'s turns', as
   assert.deepEqual(persisted.turns.map(e => e.turn.id), ['t2'], 'and the record on disk was rewritten');
 });
 
+test('sidebar deletion is serialized with a save and refuses a stale list afterward', async () => {
+  const { store } = await open();
+  const write = store.saveTurn('proj123', { ...turn('t3', 's1'), expectedRevision: 3 });
+  const deletion = store.deleteConversations('proj123', 's2');
+  assert.equal(await write, 4);
+  assert.deepEqual(await deletion, { removed: [{ id: 's2' }], remaining: 1, revision: 5 });
+  await assert.rejects(store.saveSessions('proj123', {
+    sessions: [{ id: 's1' }, { id: 's2' }], last: 's2', expectedRevision: 4,
+  }), { code: 'OFFICIAL_CHAT_CONFLICT' });
+  const loaded = await store.load('proj123');
+  assert.equal(loaded.last, 's1');
+  assert.deepEqual(loaded.turns.map(entry => entry.turn.id), ['t1', 't3']);
+  assert.deepEqual(await store.deleteConversations('proj123', 's2'), { removed: [], remaining: 1, revision: 5 });
+});
+
 test('a saved web search retains its query, outcome and result on load', async () => {
   const { store } = await open();
   const items = [{ id: 'act:search-1', kind: 'act', act: 'research.search', tool: 'web_search',

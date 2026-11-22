@@ -75,7 +75,7 @@ export function exportReadiness(can) {
   return readiness;
 }
 
-export function createFilmTool({ isProjectAgent, projectOf, http }) {
+export function createFilmTool({ isProjectAgent, projectOf, http, studioRunning }) {
   return {
     name: 'no996_film',
     description: 'Read the film as Studio parses it: tracks, clip ids, durations, locked flags — plus what this machine can export. Use it before promising an edit or an export, and after a change to confirm what the film now is. Reading it costs nothing and changes nothing.',
@@ -128,8 +128,12 @@ export function createFilmTool({ isProjectAgent, projectOf, http }) {
       }
       const result = await http().get(path);
       const summary = summarizeFilm(result?.doc);
+      // An external write while Studio is open discards Studio's unsaved overrides
+      // (the "编辑被撤销 / 恢复它们" prompt). Say so before the model edits.
+      const live = typeof studioRunning === 'function' && studioRunning() === true;
+      const studioNote = live ? '；Studio 正在运行，直接改写 film.html 会让未保存的编排失效，改用 no996_clip / no996_draft 或先让用户在 Studio 保存' : '';
       return {
-        text: `影片结构（Studio 解析 film.html 的结果）${result?.filmMissing === true ? '——注意：film.html 现在不存在，Studio 按空片读' : ''}：\n${JSON.stringify({
+        text: `影片结构（Studio 解析 film.html 的结果）${result?.filmMissing === true ? '——注意：film.html 现在不存在，Studio 按空片读' : ''}${studioNote}：\n${JSON.stringify({
           ...summary,
           ...(text(result?.rev) ? { revision: text(result.rev) } : {}),
           ...(text(result?.folder) ? { folder: text(result.folder) } : {}),

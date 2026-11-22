@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..0d9428c 100644
+index b41b3f8..038bf0a 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -13,13 +13,43 @@ export const enUS = {
@@ -144,7 +144,7 @@ index b41b3f8..0d9428c 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +471,43 @@ export const enUS = {
+@@ -418,7 +471,48 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -178,6 +178,11 @@ index b41b3f8..0d9428c 100644
 +    start: 'Voice dictation (local)',
 +    stop: 'Click to finish and transcribe',
 +    recognizing: 'Transcribing locally…',
++    micPolicy: 'This embedded page is blocked from using the microphone. Check your DSH desktop version and open diagnostics if the problem persists.',
++    micDenied: 'Microphone access was denied. Allow it in Windows privacy settings and in the browser or desktop app, then try again.',
++    micMissing: 'No microphone found. Connect one and try again.',
++    micUnavailable: 'Could not start the microphone. Check the selected device or close other apps using it, then try again.',
++    micUnsupported: 'This page cannot record audio. Open No996 Studio from the DSH desktop app or a supported browser.',
 +    shortClip: 'Recording was too short. Speak for a bit longer.',
 +    noSpeech: 'No clear speech detected.',
 +    localOnlyRemoteBlocked: 'Voice dictation runs locally only and will never upload mic audio to remote providers.',

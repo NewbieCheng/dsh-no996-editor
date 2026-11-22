@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { transform } from 'esbuild';
 import { officialFacadeSource } from '../src/official/official-facade.mjs';
 
-function setup({ promptResult = { ok: true }, EventSourceAvailable = true, recoveryMs, invoke } = {}) {
+function setup({ promptResult = { ok: true }, EventSourceAvailable = true, recoveryMs, invoke, pathname = '/projects/project1' } = {}) {
   const sources = [], calls = [], events = [], timers = new Map();
   // A rejected mocked RPC may be supplied before start's async setup completes.
   if (promptResult && typeof promptResult.catch === 'function') promptResult.catch(() => {});
@@ -21,6 +21,8 @@ function setup({ promptResult = { ok: true }, EventSourceAvailable = true, recov
     close() { this.readyState = 2; }
   }
   const factory = runInNewContext(officialFacadeSource, { EventSource: EventSourceAvailable ? MockEventSource : undefined,
+    // The facade reads the project from the page's own address (`running`, `start`).
+    location: { pathname },
     // Kept with their delay so a test can fire only the ones that are due: the
     // recovery retry is short, the "terminal missing" guard is fifteen seconds.
     setTimeout: (fn, ms) => { const id = ++nextTimer; timers.set(id, { fn, ms: Number(ms) || 0 }); return id; },
@@ -58,6 +60,21 @@ async function start(env) {
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const done = (key, turnId, extra = {}) => ({ key, turnId, kind: 'done', ok: true, stopReason: 'end_turn', ...extra });
+
+test('a reloaded page adopts the running turn and its key instead of prompting again', async () => {
+  const adopted = { ok: true, sessionId: 'conv-1', resumed: true, key: 'page-old', activeTurn: { turnId: 't9', key: 'page-old' } };
+  const env = setup({
+    invoke: async (channel) => (channel === 'agent:attach' ? adopted : null),
+  });
+  const pending = env.facade.localAgents.start('deepseek', '', 'conv-1', { projectId: 'project1' });
+  const initial = env.sources[0];
+  initial.open(); initial.ready();
+  const started = await pending;
+  assert.equal(started.key, 'page-old', 'the adopted turn keeps the key its events carry');
+  assert.equal(started.info.activeTurn?.turnId, 't9');
+  assert.equal(started.info.sessionId, 'conv-1', 'the conversation is still the one it was');
+  assert.equal(env.calls.some(x => x.channel === 'agent:prompt'), false, 'adoption never sends a prompt');
+});
 
 test('RPC success cannot overtake ordered updates and matching terminal', async () => {
   const env = setup(), key = await start(env);
@@ -265,4 +282,41 @@ test('an unknown current preset still draws the permission row', async () => {
   assert.ok(option, `expected a permission option, got ${JSON.stringify(started.configOptions)}`);
   assert.equal(option.currentValue, 'read-only');
   assert.equal(option.options.map(o => o.value).join(','), 'danger-full-access,workspace-write,read-only');
+});
+// After a reload the shell asks what this project still runs. The answer decides
+// whether a turn is put back or a second prompt is sent into BUSY.
+test('running() puts back only well-formed turns of this project', async () => {
+  const seen = [];
+  const env = setup({
+    pathname: '/projects/project1',
+    invoke: async (channel, payload) => {
+      seen.push({ channel, payload });
+      if (channel !== 'agent:running') return null;
+      return [
+        { key: 'dsh-a', agent: 'deepseek', cwd: 'C:/film', meta: { turnId: 't1', prompt: 'hi' }, done: null, events: [{ kind: 'thinking' }] },
+        { key: 'dsh-b', meta: { turnId: 't2' } },
+        { key: 42, meta: { turnId: 't3' } },
+        { key: 'dsh-c' },
+        'nonsense',
+      ];
+    },
+  });
+  const list = await env.facade.localAgents.running();
+  assert.deepEqual(seen.map(call => call.channel), ['agent:running']);
+  assert.equal(seen[0].payload.projectId, 'project1');
+  assert.equal(list.length, 2, 'bad keys and entries without a turn meta are dropped');
+  assert.equal(list[0].key, 'dsh-a');
+  assert.equal(list[0].cwd, 'C:/film');
+  assert.deepEqual(JSON.parse(JSON.stringify(list[0].events)), [{ kind: 'thinking' }]);
+  assert.equal(list[1].agent, 'deepseek', 'a missing agent is named, not guessed per turn');
+  assert.equal(list[1].cwd, '');
+});
+
+test('running() answers [] outside a project page, or when the Host refuses', async () => {
+  const offProject = setup({ pathname: '/' });
+  assert.equal((await offProject.facade.localAgents.running()).length, 0);
+  assert.equal(offProject.calls.length, 0, 'no project means no RPC');
+
+  const refused = setup({ pathname: '/projects/project1', invoke: async () => { throw new Error('denied'); } });
+  assert.equal((await refused.facade.localAgents.running()).length, 0);
 });

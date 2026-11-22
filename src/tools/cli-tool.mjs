@@ -49,7 +49,12 @@ const within = (root, candidate) => {
 
 /** argv for one verb, or a reason it cannot be built. */
 export function cliArguments(verb, args, projectPath) {
-  if (!VERBS.includes(verb)) return { error: `只允许 ${VERBS.join(' / ')}；${verb} 请用对应的工具或 Studio。` };
+  if (!VERBS.includes(verb)) {
+    const why = verb === 'look' || verb === 'render' || verb === 'open'
+      ? '：它会在后台另起一个 Studio 并可能打开浏览器页面。看画面用 no996_frame，导出用 no996_export。'
+      : '。';
+    return { error: `只允许 ${VERBS.join(' / ')}${why}` };
+  }
   const argv = [verb];
   if (verb === 'doctor' || verb === 'skills') return { argv };
   if (verb === 'version') return { argv: ['--version'] };

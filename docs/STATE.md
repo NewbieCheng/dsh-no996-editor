@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.20.0
+checked: 0.21.0
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.20.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.21.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -24,6 +24,25 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - **本地视觉工具**：`openfilm_cutout` 返回透明单帧 PNG，`openfilm_face_analysis` 返回采样帧的人脸框与关键点；不识别人、不修改时间轴，绑定影片项目的 DSH 会话可用。
 
 ## 待真机验（源码完成 ≠ 可以用）
+
+- **2026-11-23 01:1x 插件启用失败（已修）**：`Cannot access 'studioCliGuard' before initialization` —— CLI 守卫的 `const` 放在 `createDiagnoseRoute(...)` 之后、却在之前作为值传入，装配期触发 TDZ；`apply()` 抛错使插件整块不激活，页面所有 RPC 变 503（`OFFICIAL_RPC_FAILED chat:load / agent:attach`）。修法：守卫在 `log` 之后、任何读取者之前创建（与 `router.mjs` 拆出的理由一致），`start()` 仍延后到 host-start 块。新增 `scripts/smoke-apply.mjs`（`npm run smoke:apply`，已并入 `npm run check`）：可调用 Proxy ctx 真正执行 `effect(fn)` 走完装配；**已用临时回退证明它能抓到该 TDZ**。
+
+- **2026-11-22 强刷接回 / 删除同步 / 听写诊断 / 改名反馈（本工作区源码，未换壳快照、未重启）**：
+  1. **强刷接回**：Host `attach` 在回合仍在运行时保留该回合的页面 key 并返回 `activeTurn`；新增只读 `agent:running` 供 `localAgents.running()` 使用，页面据此把正在跑的回合放回（不再重复发送）。忙冲突由 503 改为 409（不再触发底部红条）。测试：`tests/dsh-native-agent-service.test.mjs`（adoption 用例）、`tests/official-facade-events.test.mjs`。
+  2. **删除同步**：`official-chat-store.deleteConversations` 在项目写队列内一次提交「删对话 + 清回合 + 更新 last/revision」，非法 ID 拒绝、冲突不回退为清空；路由只清目标对话的原生会话（`resetConversation`），成功后经事件 Hub 发 `conversation_deleted`，聊天页立即重读列表。测试：`editing-routes`、`official-chat-store-delete`、`shell-live-refresh`。
+  3. **听写**：麦克风失败分五类（策略禁止/被拒/无设备/无法启动/环境不支持），提示按类给出，只上报错误类别。**宿主页面策略是否放行麦克风仍需在桌面 GUI 实测**。
+  4. **改名**：偏好写盘失败不再被吞，接口回 `persisted:false`，侧栏保留输入并提示「重开后可能恢复原名」。
+  5. **预览**：影片解析问题按行列出（先修第一条），缺标签不再挤成一句话；损坏提示保留换行。
+  6. **导演预设**：系统提示新增 AUDIENCE FIRST，导演技能新增情绪线（`emotionArc`）与钩子兑现；分镜支持可选 `emotionArc` / `audienceBeat` / `hook`，旧分镜照读。
+  - **壳与校验**：`vendor/official-shell` 已替换为最新构建（旧快照备份在 `.dev/shell-backup-20261123-000910`），`npm run shell:bake` 已重烤主题，`npm run check` 全绿（781 项）。**仍未真机验**：桌面需完整重启以加载新 Host 与新壳；重启后要复验强刷接回、删除同步、麦克风、改名与影片解析提示。
+- **2026-11-23 官方 Studio 误开 / 编辑被撤销**：
+  1. **不再打开浏览器**：Host 进程设 `OPENFILM_NO_BROWSER=1`（内核自带开关），`host-start` 日志多一个 `cliBrowser` 字段；Agent 用 shell 跑 CLI 也继承。
+  2. **不再起第二个 Studio**：新增 [CLI 守卫](../src/studio/studio-cli-guard.mjs)，在 4747 上按内核认可的 health 形状（`product`/`version`/`home` 哈希/`filmOrigin`）回应 CLI，并把 `open` 变成「回工作台」的提示；`look`/`render` 在缺 `.film/opened` 时的自动 `open` 也走同一守卫。**实测**（临时项目 + 临时 home）：CLI 退出 0、不写 Studio home（只有它自己的 `key`）、不写 `.film/opened`、不起第二个 Studio、不弹浏览器。`NO996_STUDIO_CLI_GUARD=off` 可关；真人自己的 Studio 已在 4747 时守卫让位（日志 `occupied`）。日志：`studio-cli-guard` / `studio-cli-guard-hit` / `studio-cli-open-blocked`。
+  3. **提示词与工具**：系统提示禁止用 shell 调 `openfilm look|render|open`；`no996_cli` 被拒时说明为什么；`no996_film` 在 Studio 运行时提醒直接改写 film.html 会让未保存编排失效。
+  4. **编辑不再只能二选一**：编辑被外部改写撤销时，Studio 横幅新增「先存一份」下载 JSON，并写明这些编辑只存在页面里、刷新即丢。
+  - **校验**：`npm run upstream:verify -- --dir .dev/verify-checkout` 在干净固定版 checkout（715c3a6）上重放 **70/70 补丁全部成功**；`npm run upstream:verify` 在已打补丁的工作树上原本会报 70 个冲突，现在改为明确提示改传 `--dir`；`npm run check` 全绿。facade 补了 `running()` 用例（只接本项目的合法条目、无项目/被拒返回空）；听写失败分类抽成 [mic-failure.mjs](../src/native/mic-failure.mjs) 并测“只记类别、不记文本/未知码”；系统提示补两条守门测试（AUDIENCE FIRST 在动效标准之前、禁止 shell 跑 CLI）；`no996_cli` 补“为什么拒绝”的测试。
+  - **待真机**：重启后确认 CLI 不再弹页面、4747 被 CLI 守卫接住（`studio-cli-guard` 日志）、横幅出现「先存一份」。守卫状态已进 `POST /api/no996-openfilm/diagnose` 的 `cli` 字段（`held`/`occupied`/`disabled`），`occupied` 另记 `studio-cli-guard-occupied`。**残留已清理**：那次 bug 的 4132/32264 已停止，4747 空闲；实测守卫在 4747 上 `held`、health 的 `home` 哈希与本机一致、`/api/open` 返回改名提示（不接管项目）。`~/.openfilm/run.json` 仍留着指向已退出进程的旧记录，CLI 探测失败后会回落到 4747 守卫，不需要删它。
+
 
 - **0.19.12 桌面项目创建修复**：代理启动失败不再污染其他入口；桌面回环地址与端口有针对性回退，创建与监听故障统一结构化记录。先在 Apple Silicon Mac（报告中的平台）及 Windows DSH 桌面用临时项目验证「复制开工」「空白开工」和诊断导出；不要以 Windows 自动化代替 macOS 真机。
 

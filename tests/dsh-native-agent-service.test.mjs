@@ -11,7 +11,7 @@ function makeProject() {
   return { projectId: 'proj_abc123', path };
 }
 
-function createFakeCtx() {
+function createFakeCtx({ holdTurn = false } = {}) {
   const created = [];
   const prompts = [];
   const selectedModels = [];
@@ -87,7 +87,8 @@ function createFakeCtx() {
         });
         pushFrame(sid, { type: 'event', event: { type: 'compaction/start', seq: 10 } });
         pushFrame(sid, { type: 'event', event: { type: 'compaction/end', seq: 11 } });
-        pushFrame(sid, { type: 'event', event: { type: 'turn/end', data: { stopReason: 'end_turn' } } });
+        // A held turn is still running: only cancel() ends it.
+        if (!holdTurn) pushFrame(sid, { type: 'event', event: { type: 'turn/end', data: { stopReason: 'end_turn' } } });
       });
       return { accepted: true };
     },
@@ -155,6 +156,43 @@ function createFakeCtx() {
     cancelled,
   };
 }
+
+test('a reloaded page adopts the turn still running instead of prompting it again', async () => {
+  const project = makeProject();
+  const { ctx, prompts } = createFakeCtx({ holdTurn: true });
+  const events = [];
+  const service = createDshNativeAgentService({
+    ctx,
+    verifier: async id => (id === project.projectId ? project : null),
+    store: createDshSessionStore(),
+    emit: async (projectId, event) => { events.push({ projectId, event }); return true; },
+    defaultSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+  });
+  const running = service.send(project.projectId, {
+    conversation: 'conv-1', key: 'page-1', turnId: 'turn-9', text: '剪一支片',
+    meta: { turnId: 'turn-9', projectTitle: '示例片', sessionId: 'conv-1', agent: 'deepseek', prompt: '剪一支片', turnNo: 2, startedAt: 1, turn: { id: 'turn-9', status: 'generating' } },
+  });
+  // The page reloads: a new page key attaches while the turn is still running.
+  const attached = await service.attach(project.projectId, 'conv-1', { key: 'page-2' });
+  assert.equal(attached.key, 'page-1', 'the running turn keeps the key its events carry');
+  assert.equal(attached.activeTurn?.turnId, 'turn-9');
+  const listed = service.running(project.projectId);
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].key, 'page-1');
+  assert.equal(listed[0].cwd, project.path);
+  assert.equal(listed[0].meta.turnId, 'turn-9');
+  assert.equal(listed[0].meta.turn?.status, 'generating', 'the saved row rides along so the page can rebuild it');
+  await assert.rejects(service.send(project.projectId, { conversation: 'conv-1', key: 'page-2', turnId: 'turn-10', text: '再改一下' }), { code: 'OFFICIAL_AGENT_BUSY' });
+  assert.equal(prompts.length, 1, 'adoption never sends a second prompt');
+
+  await service.cancel(project.projectId, 'conv-1');
+  assert.equal((await running).ok, true);
+  assert.equal(service.running(project.projectId).length, 0, 'a settled turn is no longer adopted');
+  const after = await service.attach(project.projectId, 'conv-1', { key: 'page-3' });
+  assert.equal(after.activeTurn, null);
+  assert.equal(after.key, 'page-3', 'a settled conversation takes the new page key back');
+  assert.ok(events.some(item => item.event.kind === 'done'));
+});
 
 test('native agent creates preset-bound sessions per conversation, streams frames, and authorizes project agents', async () => {
   const project = makeProject();

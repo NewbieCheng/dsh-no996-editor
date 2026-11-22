@@ -1,5 +1,5 @@
 diff --git a/packages/openfilm/studio/ui/src/i18n/en.ts b/packages/openfilm/studio/ui/src/i18n/en.ts
-index 4be139f..dea02fb 100644
+index 4be139f..e38371d 100644
 --- a/packages/openfilm/studio/ui/src/i18n/en.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/en.ts
 @@ -133,7 +133,7 @@ export const en = {
@@ -56,7 +56,16 @@ index 4be139f..dea02fb 100644
      captionTracksDrawn: 'Caption tracks are part of the picture and come with it; hide a track on the timeline to leave it out.',
    },
    exportTray: {
-@@ -910,7 +910,7 @@ export const en = {
+@@ -889,6 +889,8 @@ export const en = {
+     editsUndoneShort: 'Edits undone: {n}',
+     editsRestore: 'Restore them',
+     editsLeaveOut: 'Leave them out',
++    editsKeepCopy: 'Keep a copy',
++    editsUndoneHint: 'These edits live in this page only: reloading or switching project loses them. Keep a copy first.',
+     previewFailed: 'Something in the film can\'t be shown at this moment.',
+     previewUpdating: 'Updating…',
+     previewDetails: 'Details',
+@@ -910,7 +912,7 @@ export const en = {
      filmNotReady: 'The video isn’t ready yet',
      filmCannotExport: 'The film can’t be exported while it can’t be drawn:',
      untitled: 'Untitled',
@@ -65,7 +74,7 @@ index 4be139f..dea02fb 100644
      close: 'Close',
      deleteFailed: 'Delete failed. Please retry.',
      renameFailed: 'Rename failed. Please retry.',
-@@ -1091,7 +1091,7 @@ export const en = {
+@@ -1091,7 +1093,7 @@ export const en = {
      kindRestoreOlder: 'Restored an earlier version',
      kindUpgrade: 'Kept all the project’s files',
      kindParked: 'Changes left on “{name}”',
@@ -74,7 +83,7 @@ index 4be139f..dea02fb 100644
      retry: 'Try again',
      errorNoFilm: 'This version has no film.html to bring back. Pick an earlier one.',
      errorMissingFilm: 'film.html is missing, so there is nothing to save as a version. Restore it first: from a version here, or from before the agent’s turn.',
-@@ -1806,7 +1806,7 @@ export const en = {
+@@ -1806,7 +1808,7 @@ export const en = {
      workbenchAddedTimeline: "Added to the timeline",
      workbenchOpen: "Open",
      noPluginsOn: "No editor is on. Turn one on in Features to work on the film.",
@@ -83,7 +92,7 @@ index 4be139f..dea02fb 100644
      surfaceStarting: "Starting…",
      surfaceNotAllowed: "This editor runs code of its own on your computer. Allow it on its page in Features.",
      surfaceFailed: "This editor's program did not start.",
-@@ -2504,7 +2504,7 @@ export const en = {
+@@ -2504,7 +2506,7 @@ export const en = {
      undoDelete: "Undo delete",
      import: "Import",
      export: "Export",
@@ -92,7 +101,7 @@ index 4be139f..dea02fb 100644
      imported: "Imported {n} layouts.",
      importLimit: "No new layouts imported. Up to 24 layouts can be saved.",
      dock_left: "Dock left",
-@@ -3109,19 +3109,19 @@ export const en = {
+@@ -3109,19 +3111,19 @@ export const en = {
        cancel: 'Discard the recording',
        saving: 'Saving the recording…',
        fileName: 'Recording',
@@ -116,7 +125,7 @@ index 4be139f..dea02fb 100644
      removeBlock: 'Delete',
      rippleRemove: 'Ripple delete',
      menuSplitHere: 'Split at playhead',
-@@ -3470,10 +3470,12 @@ export const en = {
+@@ -3470,10 +3472,12 @@ export const en = {
        github: 'GitHub',
        examples: 'Examples',
        site: 'Website',
@@ -129,7 +138,7 @@ index 4be139f..dea02fb 100644
        developer: 'Developer',
        general: 'General',
        shortcuts: 'Keyboard shortcuts',
-@@ -3482,7 +3484,7 @@ export const en = {
+@@ -3482,7 +3486,7 @@ export const en = {
      notifications: {
        group: 'Notifications',
        turns: 'When the agent finishes',
@@ -138,7 +147,7 @@ index 4be139f..dea02fb 100644
      },
      account: {
        group: 'Account',
-@@ -3505,7 +3507,7 @@ export const en = {
+@@ -3505,7 +3509,7 @@ export const en = {
        language: 'Language',
        languageSystem: 'Same as the system',
        themeHint: 'Light, dark, or the same as your system.',
@@ -147,7 +156,7 @@ index 4be139f..dea02fb 100644
      },
      storage: {
        group: "Storage",
-@@ -3529,8 +3531,8 @@ export const en = {
+@@ -3529,8 +3533,8 @@ export const en = {
        clear: "Clear cache",
        cleared: "Cleared {size}.",
        projectLine: "{size}, {clearable} cache",
@@ -158,7 +167,7 @@ index 4be139f..dea02fb 100644
        areaNote: {projects: "{count} projects in the projects folder", linked: "{count} projects in folders elsewhere, opened in place", saved: "your media, for every film", skills: "skills you added or wrote", exports: "finished videos", cache: "made while previewing and exporting; made again when needed", app: "models, the downloaded library, logs" },
        parts: "media {media} · versions {history} · conversations {talk} · files {files}",
      },
-@@ -3556,6 +3558,7 @@ export const en = {
+@@ -3556,6 +3560,7 @@ export const en = {
      },
      about: {
        group: 'About',
@@ -166,7 +175,7 @@ index 4be139f..dea02fb 100644
        check: 'Check for updates',
        checking: 'Checking…',
        failed: 'Couldn’t reach npm. Try again later.',
-@@ -3962,6 +3965,18 @@ export const en = {
+@@ -3962,6 +3967,18 @@ export const en = {
        about: { 'whisper-small': 'OpenAI\'s speech recognition model, small size: good accuracy in about 100 languages, each word timed for subtitles.', 'whisper-large-v3-turbo': 'The most accurate Whisper: fewer mistakes in names and mixed languages, and steadier in Chinese, but larger and about as slow as real time.', 'birefnet-lite': 'Finds what a picture is of — people, objects, animals — and cuts it out with clean edges, hair included.' },
      },
      providers: {
@@ -185,7 +194,7 @@ index 4be139f..dea02fb 100644
        included: 'Available',
        about: {
          openfilm: 'OpenFilm\'s own service. Connect your OpenFilm account once and make voice-over, music, sound, transcripts, pictures and video with leading models, paid from your OpenFilm balance: no other accounts or keys.',
-@@ -4067,4 +4082,185 @@ export const en = {
+@@ -4067,4 +4084,185 @@ export const en = {
        },
      },
    },

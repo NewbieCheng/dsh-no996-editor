@@ -110,8 +110,10 @@ import { createTurnLog } from './studio-controller/turns.mjs';
 import { buildFallbackPayload } from '../host/fallback-prompt.mjs';
 import { createVisionPackManager, VISION_PACK_ID } from '../vision/vision-pack.mjs';
 import { createVisionAuthStore, computeSourceRevision } from '../host/vision-auth-store.mjs';
+import { createStudioCliGuard } from './studio-cli-guard.mjs';
 import { createModelCatalogService } from '../host/model-catalog-service.mjs';
 import { createAsrChoiceResolver } from '../native/asr-choice.mjs';
+import { micFailureCode } from '../native/mic-failure.mjs';
 import { createWorkbenchSearchRouter } from '../native/search-routing.mjs';
 import { checkEditableDeliverable } from '../film/editable-check.mjs';
 
@@ -131,6 +133,15 @@ export function createStudioController(ctx, createProxy, {
   registerWalletDirtyListener = undefined,
 } = {}) {
   const log = createPluginLog();
+  // Created before anything that reads it: reading a `const` declared further down
+  // is a TDZ crash at assembly (the hazard router.mjs was split out to avoid), and it
+  // takes the whole plugin down — every RPC then answers 503. Starting the listener
+  // is deferred to the host-start block below; construction only reads the env.
+  const studioCliGuard = createStudioCliGuard({
+    port: Number(process.env.NO996_STUDIO_CLI_GUARD_PORT || 4747),
+    log,
+    enabled: () => process.env.NO996_STUDIO_CLI_GUARD !== 'off',
+  });
   const diagLog = createDiagnosticLog();
   // What the bridge actually published to the panel, and what the page reported
   // receiving. Read through /diagnose; never exposed as user content.
@@ -396,7 +407,16 @@ export function createStudioController(ctx, createProxy, {
       // every project's turns into one DSH Session (the "new chat continues the old
       // one" bug). '' is the project's default conversation.
       const conversation = typeof payload?.conversation === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(payload.conversation) ? payload.conversation : '';
-      return agentService.send(payload?.projectId, { conversation, key: payload?.key, turnId: payload?.turnId, text: payload?.text, images: payload?.images, skillIds: payload?.skillIds });
+      return agentService.send(payload?.projectId, { conversation, key: payload?.key, turnId: payload?.turnId, text: payload?.text, images: payload?.images, skillIds: payload?.skillIds, meta: payload?.meta });
+    }
+    if (channel === 'agent:running') {
+      // Read-only: what this project still runs, so a reloaded page adopts its turn
+      // instead of leaving it looking interrupted and sending it again.
+      const projectId = typeof payload?.projectId === 'string' ? payload.projectId : '';
+      if (!/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) throw Object.assign(new Error('unknown project'), { code: 'PERMISSION_INPUT' });
+      try { await verifyOfficialProject(projectId); } catch { return []; }
+      const running = agentService?.running?.(projectId);
+      return Array.isArray(running) ? running : [];
     }
     if (channel === 'agent:session') {
       // Read-only: never opens a Session just to answer a question about one.
@@ -487,6 +507,11 @@ export function createStudioController(ctx, createProxy, {
     }
     if (channel === 'client:log') {
       const event = typeof payload?.event === 'string' ? payload.event : '';
+      if (event === 'dictation-mic-failed') {
+        const code = micFailureCode(payload);
+        if (code) void log.warn('dictation-mic-failed', { code });
+        return { ok: true };
+      }
       if (!CLIENT_EVENTS.has(event)) throw Object.assign(new Error('unknown client event'), { code: 'CLIENT_EVENT_UNKNOWN' });
       log.info(`page-${event}`, {
         anchor: typeof payload?.anchor === 'string' ? payload.anchor.slice(0, 16) : undefined,
@@ -1171,7 +1196,7 @@ export function createStudioController(ctx, createProxy, {
       visionPack,
       conversationOf: agent => projectOfAgent(agent)?.conversation || '',
     }),
-    createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
+    createFilmTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, studioRunning: () => runtime.status()?.running === true }),
     createFontsTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
     createKitTool({ isProjectAgent, projectOf: projectOfAgent }),
     createAudioTool({ isProjectAgent, projectOf: projectOfAgent }),
@@ -1500,6 +1525,7 @@ export function createStudioController(ctx, createProxy, {
     getLastProxy: () => lastProxy,
     instructions: describeInstructions,
     projectPathOf,
+    cliGuard: studioCliGuard,
   });
   const [unregisterDiagnose] = diagnose.disposers;
   // Environment (evidence for "what can the film agent load"): preset activation,
@@ -1573,6 +1599,9 @@ export function createStudioController(ctx, createProxy, {
     resolveDeleteTarget,
     log,
     getAcpAgentService: () => nativeAgentService,
+    onConversationsDeleted: ({ projectId, sessionId, revision, removedIds }) => {
+      eventHub.publish(projectId, { key: 'dsh-native', kind: 'conversation_deleted', sessionId, revision, removedIds });
+    },
   });
   diagLogs = createDiagLogsController({
     ctx,
@@ -1651,7 +1680,13 @@ export function createStudioController(ctx, createProxy, {
   log.info('host-start', {
     version: HOST_VERSION, officialShell, editorPort: Number(process.env.NO996_OPENFILM_EDITOR_PORT || 47822),
     elevated: isElevated(),
+    // Evidence that a shell-run CLI inheriting this env cannot pop a browser page.
+    cliBrowser: process.env.OPENFILM_NO_BROWSER === '1' ? 'suppressed' : 'allowed',
   });
+  // Answer the kernel CLI as the Studio it is looking for, so a shell-run
+  // `openfilm open` neither starts a second Studio nor takes the project over.
+  // `NO996_STUDIO_CLI_GUARD=off` opts out; a real Studio on the port is left alone.
+  void studioCliGuard.start();
   // Warm the editor port at assembly. Otherwise the proxy only exists after the
   // first bootstrap, so opening http://<host>:47822 directly (or pasting the
   // address from the docs) reads as a dead port even though the plugin is fine.
@@ -1713,7 +1748,7 @@ export function createStudioController(ctx, createProxy, {
     try { await perm?.close?.(); } catch { /* already closed */ }
     const chat = await officialStorePromise?.catch(() => undefined);
     try { await chat?.close(); }
-    finally { await runtime.close(); }
+    finally { await studioCliGuard.stop(); await runtime.close(); }
     log.info('host-stop', { uptimeMs: closingAt - openedAt, events: log.count });
     await Promise.all([log.flush().catch(() => {}), diagLog.flush().catch(() => {})]);
   };

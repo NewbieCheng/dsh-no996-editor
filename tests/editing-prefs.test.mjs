@@ -54,6 +54,24 @@ test('conversation pins and titles are stored per session', () => {
   assert.deepEqual(prefs.getSession('proj_ABC123', 'sess_XYZ789'), { pinned: false, title: '第一条' });
 });
 
+test('a write the disk refuses is reported instead of looking saved', () => {
+  const failing = {
+    readFileSync: () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); },
+    mkdirSync: () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }); },
+    writeFileSync: () => {},
+    renameSync: () => {},
+  };
+  const prefs = createEditingPrefs({ file: join(tmpdir(), 'editing-prefs-denied', 'prefs.json'), fs: failing });
+  const set = prefs.set('proj_ABC123', { title: '改名' });
+  assert.equal(set.ok, false);
+  assert.equal(set.code, 'EACCES');
+  assert.equal(set.title, '改名', 'the list still shows the name it was given');
+  assert.deepEqual(prefs.writeState(), { ok: false, code: 'EACCES' });
+  const session = prefs.setSession('proj_ABC123', 'sess_XYZ789', { title: '对话' });
+  assert.equal(session.ok, false);
+  assert.equal(prefs.getSession('proj_ABC123', 'sess_XYZ789').title, '对话');
+});
+
 test('the store persists to its file and survives a reload', () => {
   const dir = mkdtempSync(join(tmpdir(), 'editing-prefs-'));
   const file = join(dir, 'editing-prefs.json');

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..7dcaa9d 100644
+index 0ef8753..d5a2e64 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -450,7 +450,7 @@ index 0ef8753..7dcaa9d 100644
 +        info: started.info,
 +        projectId,
 +        conversation,
-+        needsHistoryCarryOver: Boolean(resume && (!started.info.resumed || started.info.sessionId !== resume)),
++        needsHistoryCarryOver: Boolean(resume && !(started.info as { activeTurn?: unknown }).activeTurn && (!started.info.resumed || started.info.sessionId !== resume)),
 +      };
 +      sessions.set(sessionKey, session);
 +      const initialUsage = (started.info as LocalAgentSessionInfo & { usage?: { used?: unknown; size?: unknown } }).usage;
@@ -641,7 +641,7 @@ index 0ef8753..7dcaa9d 100644
    let session = sessions.get(sessionKey);
    if (!session || session.cwd !== cwd) {
      const started = await bridge.start(agent, cwd, resume, meta);
-@@ -815,6 +1259,14 @@ export async function runLocalAgentTurn({
+@@ -815,10 +1259,25 @@ export async function runLocalAgentTurn({
      }
      session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
      sessions.set(sessionKey, session);
@@ -656,20 +656,18 @@ index 0ef8753..7dcaa9d 100644
      tellContext();
      onSessionInfo?.(started.info);
      /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
-@@ -822,6 +1274,13 @@ export async function runLocalAgentTurn({
-       text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
-       turn.notice('agent.sessionNotResumed');
-     }
+-    if (resume && (!started.info.resumed || started.info.sessionId !== resume)) {
++    if (resume && (!started.info.resumed || started.info.sessionId !== resume) && !(started.info as { activeTurn?: unknown }).activeTurn) {
++      text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
++      turn.notice('agent.sessionNotResumed');
++    }
 +  } else {
 +    onSessionInfo?.(session.info);
 +    if (session.needsHistoryCarryOver) {
 +      session.needsHistoryCarryOver = false;
-+      text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
-+      turn.notice('agent.sessionNotResumed');
-+    }
-   }
-   /* a turn the agent was working on by itself ends as the person writes */
-   endUnprompted(session.key);
+       text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
+       turn.notice('agent.sessionNotResumed');
+     }
 @@ -840,6 +1299,7 @@ export async function runLocalAgentTurn({
        const option = live.info.configOptions?.find((o) => o.id === configId);
        if (!option) return;
@@ -678,7 +676,24 @@ index 0ef8753..7dcaa9d 100644
        // Cursor can restore a different model when reusing a session. Reassert the selection and read its parameters.
        if (option.currentValue === value && !(agent === 'cursor' && model)) return;
        if (option.options?.length && !option.options.some((choice) => choice.value === value)) {
-@@ -1055,7 +1515,7 @@ const undoneTurn = (turn: Turn) => (turn as Turn & { undone?: unknown }).undone
+@@ -940,7 +1400,15 @@ export async function recoverLocalAgentTurns(projectId: string): Promise<Recover
+   try { held = await bridge.running(); } catch { return []; }
+   const out: RecoveredLocalTurn[] = [];
+   for (const r of held) {
+-    const meta = r.meta;
++    /* no996-editor: a Host that keeps the running turn may not have kept its row; the
++       turn is still adopted, from what the row needs, instead of vanishing. */
++    const meta = (r.meta?.turn ? r.meta : { ...r.meta, turn: {
++      id: r.meta.turnId,
++      sessionId: r.meta.sessionId,
++      createdAt: new Date(r.meta.startedAt).toISOString(),
++      status: 'generating',
++      ...(r.meta.prompt ? { prompt: r.meta.prompt } : {}),
++    } }) as LocalAgentTurnMeta;
+     if (!meta?.turnId || meta.projectId !== projectId || recovered.has(meta.turnId) || turns.has(meta.turnId)) continue;
+     recovered.add(meta.turnId);
+     const turn = new LocalAgentTurn(meta.turnId, r.agent, meta.turnNo ?? 0);
+@@ -1055,7 +1523,7 @@ const undoneTurn = (turn: Turn) => (turn as Turn & { undone?: unknown }).undone
  
  /** A running turn's rows as they are kept while it runs: as read back after the app closed on it, nothing still going. */
  export function restingItems(items: TranscriptItem[]): TranscriptItem[] {
@@ -687,7 +702,7 @@ index 0ef8753..7dcaa9d 100644
  }
  
  /** what a turn the app closed on (or crashed in) says, kept while it ran and read back with it not running */
-@@ -1073,8 +1533,8 @@ export function loadLocalAgentTurns(projectId: string, sessionId: string | null)
+@@ -1073,8 +1541,8 @@ export function loadLocalAgentTurns(projectId: string, sessionId: string | null)
    return readSaved(projectId)
      .filter((x) => (!sessionId || x.turn.sessionId === sessionId) && !isEmptyBackgroundTurn(x.turn, x.items) && !undoneTurn(x.turn))
      .map((x) => (ACTIVE_STATUSES.has(x.turn.status) && !runningTurns.has(x.turn.id)

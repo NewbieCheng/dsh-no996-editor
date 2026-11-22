@@ -28,8 +28,15 @@ test('a deleted current conversation leaves the empty starter, not another one',
   assert.match(app, /setSessionId\(\(current\) => \(current && !list\.some\(\(entry\) => entry\.id === current\) \? '' : current\)\)/);
 });
 
-test('the re-read replaces the page copy and reports whether it changed', () => {
+test('the re-read replaces the page copy, drops removed turns, and reports whether it changed', () => {
   assert.match(store, /\+export async function refreshChatSessions/);
   assert.match(store, /\+  if \(stamp\(next\) === stamp\(current\)\) return false;/);
-  assert.match(store, /\+  record\(project\)\.sessions = next;/);
+  assert.match(store, /\+  chat\.sessions = next;/);
+  assert.match(store, /\+  chat\.turns = chat\.turns\.filter\(entry => !removed\.has\(entry\.turn\.sessionId \?\? ''\)\);/);
+});
+
+test('a conversation deleted elsewhere reaches the open page at once, not on the next poll', () => {
+  assert.match(app, /no996-openfilm:conversation-deleted/);
+  assert.match(app, /addEventListener\('no996-openfilm:conversation-deleted', onDeleted\)/);
+  assert.match(app, /removeEventListener\('no996-openfilm:conversation-deleted', onDeleted\)/);
 });

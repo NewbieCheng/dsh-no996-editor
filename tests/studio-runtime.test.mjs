@@ -5,6 +5,31 @@ import { createStudioRuntime, OPENFILM_VERSION } from '../src/studio/studio-runt
 
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
+test('a shell-run OpenFilm CLI cannot open the person a browser', async () => {
+  const previous = process.env.OPENFILM_NO_BROWSER;
+  delete process.env.OPENFILM_NO_BROWSER;
+  let server;
+  const runtime = createStudioRuntime({
+    loadStudio: async () => async () => {
+      assert.equal(process.env.OPENFILM_NO_BROWSER, '1', 'the embedded kernel CLI must not open a browser');
+      server = createServer((req, res) => {
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ product: 'openfilm-studio', version: OPENFILM_VERSION, app: true, filmOrigin: 'http://127.0.0.1:12345' }));
+      });
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+      const current = server;
+      return { port: server.address().port, filmOrigin: 'http://127.0.0.1:12345', close: async () => { await new Promise(resolve => current.close(resolve)); } };
+    },
+  });
+  try {
+    await runtime.ensureStarted();
+  } finally {
+    await runtime.close();
+    if (previous === undefined) delete process.env.OPENFILM_NO_BROWSER;
+    else process.env.OPENFILM_NO_BROWSER = previous;
+  }
+});
+
 test('health observes a lost upstream and the next start cleans up and recovers', async () => {
   let server, starts = 0, closes = 0, disposals = 0;
   const previousUpdateCheck = process.env.OPENFILM_NO_UPDATE_CHECK;

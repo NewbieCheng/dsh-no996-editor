@@ -114,11 +114,34 @@ test('every editing route refuses a foreign peer or the wrong method', async () 
   }
 });
 
+test('bad conversation IDs and failed storage writes do not reset or unlink native sessions', async () => {
+  let writes = 0;
+  const routes = mount({
+    officialStore: async () => ({ deleteConversations: async () => { writes++; throw new Error('write failed'); } }),
+    getAcpAgentService: () => ({ reset: () => assert.fail('reset after failed delete') }),
+    acpSessions: { remove: () => assert.fail('unlink after failed delete') },
+    onConversationsDeleted: () => assert.fail('publish after failed delete'),
+  });
+  const route = routeOf(routes, '/api/no996-openfilm/editing-delete');
+  for (const [sessionId, status] of [[null, 400], ['?', 400], ['session_1', 503]]) {
+    const res = fakeRes();
+    await route.handler({ method: 'POST', headers: {}, async *[Symbol.asyncIterator]() {
+      yield Buffer.from(JSON.stringify({ projectId: 'abcdef123456', sessionId }));
+    } }, res);
+    assert.equal(res.status, status);
+  }
+  assert.equal(writes, 1);
+});
+
 test('deleting one conversation unbinds its mapped agentSessions.deepseek key without touching other sessions', async () => {
   const removed = [];
   const archived = [];
   const saved = [];
+  const reset = [];
+  const events = [];
   const routes = mount({
+    getAcpAgentService: () => ({ reset: () => assert.fail('whole project reset'), resetConversation: (_pid, id) => reset.push(id) }),
+    onConversationsDeleted: receipt => events.push(receipt),
     acpSessions: {
       all: () => [],
       get: () => undefined,
@@ -132,15 +155,10 @@ test('deleting one conversation unbinds its mapped agentSessions.deepseek key wi
       archive: async sid => { archived.push(sid); },
     },
     officialStore: async () => ({
-      load: async () => ({
-        revision: 4,
-        last: 'session_1',
-        sessions: [
-          { id: 'session_1', agentSessions: { deepseek: 'dsh-conv-1' } },
-          { id: 'session_2', agentSessions: { deepseek: 'dsh-conv-2' } },
-        ],
-      }),
-      saveSessions: async (pid, payload) => { saved.push([pid, payload]); return 5; },
+      deleteConversations: async (pid, id) => {
+        saved.push([pid, id]);
+        return { removed: [{ id, agentSessions: { deepseek: 'dsh-conv-1' } }], remaining: 1, revision: 5 };
+      },
     }),
   });
   const route = routeOf(routes, '/api/no996-openfilm/editing-delete');
@@ -153,9 +171,11 @@ test('deleting one conversation unbinds its mapped agentSessions.deepseek key wi
     async *[Symbol.asyncIterator]() { yield Buffer.from(payload); },
   }, res);
   assert.equal(res.status, 200);
-  assert.deepEqual(JSON.parse(res.body), { ok: true, remaining: 1 });
-  assert.deepEqual(removed, [['abcdef123456', 'dsh-conv-1'], ['abcdef123456', 'session_1']]);
+  const receipt = { projectId: 'abcdef123456', sessionId: 'session_1', revision: 5, remaining: 1 };
+  assert.deepEqual(JSON.parse(res.body), { ok: true, ...receipt, cleanupPending: false });
+  assert.deepEqual(removed, [['abcdef123456', 'session_1'], ['abcdef123456', 'dsh-conv-1']]);
   assert.deepEqual(archived, ['dsh-sess-1']);
-  assert.equal(saved[0][1].sessions.length, 1);
-  assert.equal(saved[0][1].sessions[0].id, 'session_2');
+  assert.deepEqual(reset, ['session_1', 'dsh-conv-1']);
+  assert.deepEqual(events, [{ ...receipt, removedIds: ['session_1'] }]);
+  assert.deepEqual(saved, [['abcdef123456', 'session_1']]);
 });

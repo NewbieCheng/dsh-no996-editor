@@ -9,6 +9,14 @@ export const inject = ['tools', 'connection', 'webServer', 'llm', 'agentDefaultM
 
 /** Register OpenFilm draft tool, No996 LLM/Web adapters, and the Studio host controller. */
 export function apply(ctx) {
+  // The packaged CLI (open --help) honors this: it prints the address instead of
+  // opening a browser. Set on the Host process, so an agent that shells out to the
+  // CLI still inherits it — the tool whitelist alone was bypassed that way.
+  if (process.env.OPENFILM_NO_BROWSER == null) process.env.OPENFILM_NO_BROWSER = '1';
+  // The packaged CLI starts its own Studio on 4747 when it can't find one; the
+  // patched kernel reads this and refuses instead, so a shell-run `openfilm open`
+  // cannot create a second Studio on the same project folder.
+  if (process.env.NO996_EMBEDDED_STUDIO == null) process.env.NO996_EMBEDDED_STUDIO = '1';
   const workbenchAuth = createWorkbenchAuth({ dev: process.env.NO996_OPENFILM_DEV === '1' });
   let resolveAttachmentsMod;
   const loadResolveImageAccess = async () => {

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..08eb89f 100644
+index 26575ee..1859f01 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -26,7 +26,7 @@ index 26575ee..08eb89f 100644
  import { StickToBottomContext, useStickToBottom, useTailSpacer } from '@/components/useStickToBottom';
  import { PromptEditor, PromptPill, PromptPillHoverContext, PromptPillRevealContext, activatedSkillIds, fileReferenceId, fileReferencePath, promptReferenceToken, resolvePromptReferences, skillReferenceId, skillReferencePackage, splitPromptReferenceText, type MentionProvider, type PromptEditorHandle, type PromptEditorState, type PromptPillHover, type PromptReference } from '@/components/prompt-editor';
  import { filesFromTransfer, transferHasFiles } from '@/lib/composer-attachments';
-+import { startMicRecorder, type DictationRecorder } from '@/lib/dictation';
++import { MicRecorderError, startMicRecorder, type DictationRecorder } from '@/lib/dictation';
  import { PROMPT_PICTURES_MAX, attachedPictures, attachmentBlocker, formatFileSize, turnAttachments, useDesktopAttachments } from '@/lib/desktop-attachments';
  import { attachmentPill, attachmentsInText, attachmentWords, isAttachmentPill, projectFilePath, sentPill } from '@/lib/attachment-pills';
  import { deriveProjectTurns } from '@/lib/project-versions';
@@ -67,7 +67,7 @@ index 26575ee..08eb89f 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +193,71 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -184,11 +193,77 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
    const [sessionId, setSessionId] = React.useState<string>(() => {
@@ -120,8 +120,8 @@ index 26575ee..08eb89f 100644
 +     jump to another conversation's turns. */
 +  React.useEffect(() => {
 +    let stopped = false;
-+    const check = () => {
-+      if (stopped || document.visibilityState === 'hidden') return;
++    const refresh = () => {
++      if (stopped) return;
 +      void refreshChatSessions(projectKey).then((changed) => {
 +        if (!changed || stopped) return;
 +        const list = loadSessions(projectKey);
@@ -129,18 +129,24 @@ index 26575ee..08eb89f 100644
 +        setSessionId((current) => (current && !list.some((entry) => entry.id === current) ? '' : current));
 +      }).catch(() => { /* the next tick tries again */ });
 +    };
++    const check = () => { if (document.visibilityState !== 'hidden') refresh(); };
++    const onDeleted = (event: Event) => {
++      if ((event as CustomEvent<{ projectId?: string }>).detail?.projectId === project.id) refresh();
++    };
 +    const timer = window.setInterval(check, 10000);
 +    document.addEventListener('visibilitychange', check);
++    window.addEventListener('no996-openfilm:conversation-deleted', onDeleted);
 +    return () => {
 +      stopped = true;
 +      window.clearInterval(timer);
 +      document.removeEventListener('visibilitychange', check);
++      window.removeEventListener('no996-openfilm:conversation-deleted', onDeleted);
 +    };
-+  }, [projectKey]);
++  }, [project.id, projectKey]);
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +455,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +461,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -149,7 +155,7 @@ index 26575ee..08eb89f 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +483,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +489,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -213,7 +219,7 @@ index 26575ee..08eb89f 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,6 +565,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +571,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -261,7 +267,7 @@ index 26575ee..08eb89f 100644
    /* how full the agent's context is in this conversation: said only once it is nearly full */
    const agentContext = useAgentContext(projectKey, sessionId, agent);
    const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
-@@ -733,7 +898,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -733,7 +904,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      const summary = agentModelSummary(options, prefs);
      /* how hard it thinks, as the menu offers it */
      const effortOption = options?.find((o) => o.category === 'thought_level');
@@ -272,7 +278,7 @@ index 26575ee..08eb89f 100644
      const modelLabel = [summary.model, effort].filter(Boolean).join(' · ');
      const started: Turn = {
        ...makePlaceholder(id, 'video', instruction, { projectId: projectKey, sessionId }),
-@@ -1011,6 +1178,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1011,6 +1184,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -286,7 +292,7 @@ index 26575ee..08eb89f 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1041,8 +1215,119 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1041,8 +1221,123 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    };
    const wasName = agentWas === 'byok' ? t('composer.agentOwnKey') : agentWas ? la.roster?.find((a) => a.id === agentWas)?.name ?? AGENT_DEFINITIONS[agentWas]?.name ?? agentWas : '';
  
@@ -304,6 +310,7 @@ index 26575ee..08eb89f 100644
 +      asr?: {
 +        choiceGet?: (purpose?: string) => Promise<{ configured?: string; available?: boolean; reason?: string; message?: string }>;
 +        install?: () => Promise<unknown>;
++        reportMicFailure?: (reason: MicRecorderError['reason']) => Promise<unknown>;
 +        transcribeDictation?: (payload: { audioBase64: string; lang?: string }) => Promise<{ ok?: boolean; text?: string; noSpeech?: boolean; message?: string }>;
 +      };
 +    };
@@ -385,8 +392,11 @@ index 26575ee..08eb89f 100644
 +      recorderRef.current?.abort();
 +      recorderRef.current = null;
 +      setDictationPhase('idle');
++      if (error instanceof MicRecorderError) void nativeAsr.reportMicFailure?.(error.reason);
 +      setDictationNotice({
-+        text: t('dictation.failed').replace('{reason}', error instanceof Error ? error.message : String(error)),
++        text: error instanceof MicRecorderError
++          ? t(`dictation.${error.reason}`)
++          : t('dictation.failed').replace('{reason}', error instanceof Error ? error.message : String(error)),
 +      });
 +    }
 +  }, [dictationPhase, nativeAsr, stopAndTranscribeDictation, t]);
@@ -406,7 +416,7 @@ index 26575ee..08eb89f 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1360,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1370,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -419,7 +429,7 @@ index 26575ee..08eb89f 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1123,6 +1409,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1123,6 +1419,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                mentions={{ providers: mentionProviders, label: t('mention.menu'), onOpen: loadMentionFiles }}
              />
            </div>
@@ -450,7 +460,7 @@ index 26575ee..08eb89f 100644
            {/* while it works: Stop, or Send once something is written (it goes into the turn, or after it); Esc stops */}
            <Tooltip label={stopping ? t('project.stop') : t('project.sendFollowUp')} shortcut={stopping ? 'Esc' : 'Enter'}>
              <button
-@@ -1136,9 +1446,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1136,9 +1456,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
              </button>
            </Tooltip>
          </div>
@@ -489,7 +499,7 @@ index 26575ee..08eb89f 100644
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1485,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1495,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -500,7 +510,7 @@ index 26575ee..08eb89f 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1496,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1506,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -515,7 +525,7 @@ index 26575ee..08eb89f 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1517,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1183,6 +1527,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -532,7 +542,7 @@ index 26575ee..08eb89f 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1544,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1554,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -2307,7 +2317,7 @@ index 011d900..9f06417 100644
      React.useEffect(() => {
        if (autoFocus) editor.focus();
 diff --git a/apps/desktop/chat/src/i18n/locales/en-US.ts b/apps/desktop/chat/src/i18n/locales/en-US.ts
-index b41b3f8..0d9428c 100644
+index b41b3f8..038bf0a 100644
 --- a/apps/desktop/chat/src/i18n/locales/en-US.ts
 +++ b/apps/desktop/chat/src/i18n/locales/en-US.ts
 @@ -13,13 +13,43 @@ export const enUS = {
@@ -2452,7 +2462,7 @@ index b41b3f8..0d9428c 100644
      skillsHidden: 'Your own skills, off',
      skillsUnfiltered: 'This agent has all your own skills, as in its own app',
      mcpHidden: 'Your own MCP servers, off',
-@@ -418,7 +471,43 @@ export const enUS = {
+@@ -418,7 +471,48 @@ export const enUS = {
      description: 'The project\'s files go back to how they were before it, including anything changed in Studio since. The turn leaves the chat and its message goes back into the box below, to send again.',
      confirm: 'Undo',
      cancel: 'Cancel',
@@ -2486,6 +2496,11 @@ index b41b3f8..0d9428c 100644
 +    start: 'Voice dictation (local)',
 +    stop: 'Click to finish and transcribe',
 +    recognizing: 'Transcribing locally…',
++    micPolicy: 'This embedded page is blocked from using the microphone. Check your DSH desktop version and open diagnostics if the problem persists.',
++    micDenied: 'Microphone access was denied. Allow it in Windows privacy settings and in the browser or desktop app, then try again.',
++    micMissing: 'No microphone found. Connect one and try again.',
++    micUnavailable: 'Could not start the microphone. Check the selected device or close other apps using it, then try again.',
++    micUnsupported: 'This page cannot record audio. Open No996 Studio from the DSH desktop app or a supported browser.',
 +    shortClip: 'Recording was too short. Speak for a bit longer.',
 +    noSpeech: 'No clear speech detected.',
 +    localOnlyRemoteBlocked: 'Voice dictation runs locally only and will never upload mic audio to remote providers.',
@@ -2966,7 +2981,7 @@ index 07ac398..5900ba6 100644
  };
 +
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..8d86765 100644
+index 92e929a..9218232 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,13 +13,43 @@ export const zhCN: Words = {
@@ -3111,7 +3126,7 @@ index 92e929a..8d86765 100644
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
-@@ -417,7 +470,43 @@ export const zhCN: Words = {
+@@ -417,7 +470,48 @@ export const zhCN: Words = {
      description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
      confirm: '撤销',
      cancel: '取消',
@@ -3145,6 +3160,11 @@ index 92e929a..8d86765 100644
 +    start: '语音输入（本地听写）',
 +    stop: '点击结束录音并转写',
 +    recognizing: '本地转写中…',
++    micPolicy: '嵌入页面的策略禁止访问麦克风。请检查 DSH 客户端版本；如果仍无法使用，请打开诊断日志。',
++    micDenied: '未获得麦克风权限。请在 Windows「隐私和安全性 → 麦克风」以及浏览器或桌面应用的权限设置中允许后重试。',
++    micMissing: '未找到麦克风。请连接麦克风后重试。',
++    micUnavailable: '无法启动麦克风。请检查输入设备，或关闭可能占用麦克风的应用后重试。',
++    micUnsupported: '当前页面不支持录音。请从 DSH 桌面应用或支持录音的浏览器打开工作台。',
 +    shortClip: '录音过短，请长按或说话超过 0.3 秒后再试。',
 +    noSpeech: '未检测到清晰语音。',
 +    localOnlyRemoteBlocked: '语音听写仅支持本地模型；当前媒体转写已选云端，不会将麦克风录音发送到云端。',
@@ -3408,10 +3428,10 @@ index 48d05f4..e635d5b 100644
      /* The agent's question settled (answered / skipped / timed out): write it back to its row, so the conversation
         reads "asked what · answered what". The question's id is not the tool call's callId, so match the latest
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..e756e31 100644
+index 9134f7a..ea044c3 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
-@@ -82,12 +82,55 @@ async function readAgain(project: string): Promise<void> {
+@@ -82,12 +82,60 @@ async function readAgain(project: string): Promise<void> {
    joinKept(record(project), kept);
  }
  
@@ -3428,7 +3448,7 @@ index 9134f7a..e756e31 100644
 +export async function refreshChatSessions(project: string): Promise<boolean> {
 +  // The bridge's load result is only loosely typed (`sessions: unknown[]`), so narrow it
 +  // here instead of declaring the precise list and failing the typecheck.
-+  let kept: { sessions?: unknown[] } | null = null;
++  let kept: { sessions?: unknown[]; last?: unknown } | null = null;
 +  try { kept = await app.chat.load(project); } catch { return false; }
 +  const next = (Array.isArray(kept?.sessions) ? kept.sessions : [])
 +    .filter((entry: unknown): entry is ProjectSessionItem => {
@@ -3439,7 +3459,12 @@ index 9134f7a..e756e31 100644
 +  const current = record(project).sessions;
 +  const stamp = (list: ProjectSessionItem[]) => list.map(entry => `${entry.id}\u0000${entry.updatedAt ?? ''}\u0000${entry.title ?? ''}`).join('\u0001');
 +  if (stamp(next) === stamp(current)) return false;
-+  record(project).sessions = next;
++  const chat = record(project);
++  const live = new Set(next.map(item => item.id));
++  const removed = new Set(current.filter(item => !live.has(item.id)).map(item => item.id));
++  chat.sessions = next;
++  chat.last = typeof kept?.last === 'string' && live.has(kept.last) ? kept.last : null;
++  chat.turns = chat.turns.filter(entry => !removed.has(entry.turn.sessionId ?? ''));
 +  return true;
 +}
 +
@@ -3536,10 +3561,10 @@ index eb12f7b..b24ab24 100644
  
 diff --git a/apps/desktop/chat/src/lib/dictation.ts b/apps/desktop/chat/src/lib/dictation.ts
 new file mode 100644
-index 0000000..3bdcbdb
+index 0000000..ae37459
 --- /dev/null
 +++ b/apps/desktop/chat/src/lib/dictation.ts
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,170 @@
 +/**
 + * Local microphone dictation helper (16 kHz mono Int16 PCM WAV, capped at 120 s / 16 MB).
 + *
@@ -3614,17 +3639,49 @@ index 0000000..3bdcbdb
 +  abort: () => void;
 +}
 +
++export type MicFailure = 'micPolicy' | 'micDenied' | 'micMissing' | 'micUnavailable' | 'micUnsupported';
++
++export class MicRecorderError extends Error {
++  constructor(readonly reason: MicFailure) { super(reason); }
++}
++
 +export async function startMicRecorder(onLimit?: () => void): Promise<DictationRecorder> {
-+  if (!navigator?.mediaDevices?.getUserMedia) {
-+    throw Object.assign(new Error('当前环境不支持麦克风录音'), { code: 'MIC_UNSUPPORTED' });
++  const doc = document as Document & {
++    permissionsPolicy?: { allowsFeature: (feature: string) => boolean };
++    featurePolicy?: { allowsFeature: (feature: string) => boolean };
++  };
++  if ((doc.permissionsPolicy ?? doc.featurePolicy)?.allowsFeature('microphone') === false) {
++    throw new MicRecorderError('micPolicy');
 +  }
-+  const stream = await navigator.mediaDevices.getUserMedia({
-+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-+  });
++  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
++    throw new MicRecorderError('micUnsupported');
++  }
++  let stream: MediaStream;
++  try {
++    stream = await navigator.mediaDevices.getUserMedia({
++      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
++    });
++  } catch (error) {
++    const name = error instanceof Error ? error.name : '';
++    throw new MicRecorderError(name === 'NotAllowedError' || name === 'SecurityError' ? 'micDenied'
++      : name === 'NotFoundError' ? 'micMissing' : 'micUnavailable');
++  }
 +  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-+  const ctx = new AudioCtx();
-+  const source = ctx.createMediaStreamSource(stream);
-+  const processor = ctx.createScriptProcessor(4096, 1, 1);
++  let context: AudioContext | undefined;
++  let source: MediaStreamAudioSourceNode;
++  let processor: ScriptProcessorNode;
++  try {
++    context = new AudioCtx();
++    source = context.createMediaStreamSource(stream);
++    processor = context.createScriptProcessor(4096, 1, 1);
++    source.connect(processor);
++    processor.connect(context.destination);
++  } catch {
++    for (const track of stream.getTracks()) track.stop();
++    void context?.close().catch(() => {});
++    throw new MicRecorderError('micUnavailable');
++  }
++  const ctx = context;
 +  const chunks: Float32Array[] = [];
 +  let totalSamples = 0;
 +  let stopped = false;
@@ -3650,9 +3707,6 @@ index 0000000..3bdcbdb
 +      onLimit?.();
 +    }
 +  };
-+  source.connect(processor);
-+  processor.connect(ctx.destination);
-+
 +  return {
 +    abort() {
 +      stopped = true;
@@ -3682,7 +3736,7 @@ index 0000000..3bdcbdb
 +  };
 +}
 diff --git a/apps/desktop/chat/src/lib/local-agent-run.ts b/apps/desktop/chat/src/lib/local-agent-run.ts
-index 0ef8753..7dcaa9d 100644
+index 0ef8753..d5a2e64 100644
 --- a/apps/desktop/chat/src/lib/local-agent-run.ts
 +++ b/apps/desktop/chat/src/lib/local-agent-run.ts
 @@ -17,6 +17,8 @@
@@ -4133,7 +4187,7 @@ index 0ef8753..7dcaa9d 100644
 +        info: started.info,
 +        projectId,
 +        conversation,
-+        needsHistoryCarryOver: Boolean(resume && (!started.info.resumed || started.info.sessionId !== resume)),
++        needsHistoryCarryOver: Boolean(resume && !(started.info as { activeTurn?: unknown }).activeTurn && (!started.info.resumed || started.info.sessionId !== resume)),
 +      };
 +      sessions.set(sessionKey, session);
 +      const initialUsage = (started.info as LocalAgentSessionInfo & { usage?: { used?: unknown; size?: unknown } }).usage;
@@ -4324,7 +4378,7 @@ index 0ef8753..7dcaa9d 100644
    let session = sessions.get(sessionKey);
    if (!session || session.cwd !== cwd) {
      const started = await bridge.start(agent, cwd, resume, meta);
-@@ -815,6 +1259,14 @@ export async function runLocalAgentTurn({
+@@ -815,10 +1259,25 @@ export async function runLocalAgentTurn({
      }
      session = { key: started.key, agent, cwd, info: started.info, projectId, conversation };
      sessions.set(sessionKey, session);
@@ -4339,20 +4393,18 @@ index 0ef8753..7dcaa9d 100644
      tellContext();
      onSessionInfo?.(started.info);
      /* its session of this conversation not taken up again: a new one, told what was said so far, and the person told */
-@@ -822,6 +1274,13 @@ export async function runLocalAgentTurn({
-       text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
-       turn.notice('agent.sessionNotResumed');
-     }
+-    if (resume && (!started.info.resumed || started.info.sessionId !== resume)) {
++    if (resume && (!started.info.resumed || started.info.sessionId !== resume) && !(started.info as { activeTurn?: unknown }).activeTurn) {
++      text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
++      turn.notice('agent.sessionNotResumed');
++    }
 +  } else {
 +    onSessionInfo?.(session.info);
 +    if (session.needsHistoryCarryOver) {
 +      session.needsHistoryCarryOver = false;
-+      text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
-+      turn.notice('agent.sessionNotResumed');
-+    }
-   }
-   /* a turn the agent was working on by itself ends as the person writes */
-   endUnprompted(session.key);
+       text = withConversationSoFar(loadLocalAgentTurns(projectId, conversation).filter((x) => x.turn.id !== turn.turnId), text);
+       turn.notice('agent.sessionNotResumed');
+     }
 @@ -840,6 +1299,7 @@ export async function runLocalAgentTurn({
        const option = live.info.configOptions?.find((o) => o.id === configId);
        if (!option) return;
@@ -4361,7 +4413,24 @@ index 0ef8753..7dcaa9d 100644
        // Cursor can restore a different model when reusing a session. Reassert the selection and read its parameters.
        if (option.currentValue === value && !(agent === 'cursor' && model)) return;
        if (option.options?.length && !option.options.some((choice) => choice.value === value)) {
-@@ -1055,7 +1515,7 @@ const undoneTurn = (turn: Turn) => (turn as Turn & { undone?: unknown }).undone
+@@ -940,7 +1400,15 @@ export async function recoverLocalAgentTurns(projectId: string): Promise<Recover
+   try { held = await bridge.running(); } catch { return []; }
+   const out: RecoveredLocalTurn[] = [];
+   for (const r of held) {
+-    const meta = r.meta;
++    /* no996-editor: a Host that keeps the running turn may not have kept its row; the
++       turn is still adopted, from what the row needs, instead of vanishing. */
++    const meta = (r.meta?.turn ? r.meta : { ...r.meta, turn: {
++      id: r.meta.turnId,
++      sessionId: r.meta.sessionId,
++      createdAt: new Date(r.meta.startedAt).toISOString(),
++      status: 'generating',
++      ...(r.meta.prompt ? { prompt: r.meta.prompt } : {}),
++    } }) as LocalAgentTurnMeta;
+     if (!meta?.turnId || meta.projectId !== projectId || recovered.has(meta.turnId) || turns.has(meta.turnId)) continue;
+     recovered.add(meta.turnId);
+     const turn = new LocalAgentTurn(meta.turnId, r.agent, meta.turnNo ?? 0);
+@@ -1055,7 +1523,7 @@ const undoneTurn = (turn: Turn) => (turn as Turn & { undone?: unknown }).undone
  
  /** A running turn's rows as they are kept while it runs: as read back after the app closed on it, nothing still going. */
  export function restingItems(items: TranscriptItem[]): TranscriptItem[] {
@@ -4370,7 +4439,7 @@ index 0ef8753..7dcaa9d 100644
  }
  
  /** what a turn the app closed on (or crashed in) says, kept while it ran and read back with it not running */
-@@ -1073,8 +1533,8 @@ export function loadLocalAgentTurns(projectId: string, sessionId: string | null)
+@@ -1073,8 +1541,8 @@ export function loadLocalAgentTurns(projectId: string, sessionId: string | null)
    return readSaved(projectId)
      .filter((x) => (!sessionId || x.turn.sessionId === sessionId) && !isEmptyBackgroundTurn(x.turn, x.items) && !undoneTurn(x.turn))
      .map((x) => (ACTIVE_STATUSES.has(x.turn.status) && !runningTurns.has(x.turn.id)
@@ -7659,7 +7728,7 @@ index bd3b623..7919a9c 100644
        )}>
        <PluginsPane line={line} query={query} projectId={projectId} opened={page} onOpen={showPluginsPage}
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectView.tsx b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
-index cdae14b..265c104 100644
+index cdae14b..ceec233 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectView.tsx
 +++ b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
 @@ -3030,6 +3030,13 @@ export function ProjectView({ projectId, onProject }: {
@@ -7676,6 +7745,59 @@ index cdae14b..265c104 100644
        pause();
        seek(command.time * 1000);
        setFlashBox((cur) => ({ box: command.box, seq: (cur?.seq ?? 0) + 1 }));
+@@ -5359,6 +5366,19 @@ export function ProjectView({ projectId, onProject }: {
+                         <span className="hidden @xl:inline">{t('project.editsUndone').replace('{n}', String(undoneCount))}</span>
+                         <span className="@xl:hidden">{t('project.editsUndoneShort').replace('{n}', String(undoneCount))}</span>
+                       </span>
++                      <button type="button" onClick={() => {
++                        // The person's edits exist only in this page's memory; downloading them
++                        // turns "restore or lose" into "restore later" before anything is cleared.
++                        try {
++                          const payload = JSON.stringify({ projectId, savedAt: new Date().toISOString(), dropped, undone }, null, 2);
++                          const href = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
++                          const link = document.createElement('a');
++                          link.href = href;
++                          link.download = `studio-edits-${projectId}-${Date.now()}.json`;
++                          link.click();
++                          setTimeout(() => URL.revokeObjectURL(href), 10_000);
++                        } catch { toast(t('project.editsKeepCopy')); }
++                      }} className="shrink-0 rounded-md px-2 py-1 text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]" title={t('project.editsUndoneHint')}>{t('project.editsKeepCopy')}</button>
+                       <button type="button" onClick={() => void restoreDropped()} className="shrink-0 rounded-md bg-[var(--primary)] px-2.5 py-1 text-[var(--on-primary)] transition hover:bg-[var(--primary-hover)]">{t('project.editsRestore')}</button>
+                       <button type="button" onClick={() => { setDropped(null); for (const e of undone) settledEdits.current.add(e); setUndone([]); }} className="shrink-0 rounded-md px-2 py-1 text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]">{t('project.editsLeaveOut')}</button>
+                     </div>
+@@ -5509,13 +5529,30 @@ export function ProjectView({ projectId, onProject }: {
+                       ) : null}
+                     </div>
+                   ) : (
+-                    filmMissing ? null : <p className="max-w-[280px] text-center text-[12.5px] text-[var(--text-faint)]">{loaded.problems.join(' ') || t('project.filmEmptyHint')}</p>
++                    filmMissing ? null : (loaded.problems.length ? (
++                      /* Read each problem as its own line, the first one first: a missing
++                         end tag usually explains the ones after it, and a wall of joined
++                         sentences reads like a connection error instead of a file one. */
++                      <div className="max-w-[300px] text-[12.5px] text-[var(--text-faint)]">
++                        <p className="mb-1 font-medium text-[var(--text)]">{t('project.filmBroken')}</p>
++                        <ul className="list-disc space-y-0.5 pl-4 text-left">
++                          {loaded.problems.slice(0, 3).map((problem, index) => (
++                            <li key={`${index}:${problem}`} className="break-words">{problem}</li>
++                          ))}
++                        </ul>
++                        {loaded.problems.length > 3 ? (
++                          <p className="mt-1">{t('settings.report.more').replace('{count}', String(loaded.problems.length - 3))}</p>
++                        ) : null}
++                      </div>
++                    ) : (
++                      <p className="max-w-[280px] text-center text-[12.5px] text-[var(--text-faint)]">{t('project.filmEmptyHint')}</p>
++                    ))
+                   )}
+                 </div>
+                 {film.broken ? (
+                   <div role="status" className="mx-2 mb-1 flex items-start gap-2 rounded-md border border-[var(--warn)] px-2.5 py-1.5 text-[12px] leading-snug text-[var(--text)]">
+                     <TriangleAlert size={14} className="mt-px shrink-0 text-[var(--warn)]" aria-hidden />
+-                    <span className="min-w-0 break-words"><span className="font-medium">{t('project.filmBroken')}</span>{' '}<span className="text-[var(--text-muted)]">{film.broken}</span></span>
++                    <span className="min-w-0 break-words"><span className="font-medium">{t('project.filmBroken')}</span>{' '}<span className="whitespace-pre-line text-[var(--text-muted)]">{film.broken}</span></span>
+                   </div>
+                 ) : null}
+                 <div ref={setLibraryPreviewBar} data-library-preview-bar="" className="peer empty:hidden" />
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
 index 7b8de03..145c631 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
@@ -10287,7 +10409,7 @@ index 59a6cb9..ec0dc93 100644
    return [section, setSection] as const;
  }
 diff --git a/packages/openfilm/studio/ui/src/i18n/en.ts b/packages/openfilm/studio/ui/src/i18n/en.ts
-index 4be139f..dea02fb 100644
+index 4be139f..e38371d 100644
 --- a/packages/openfilm/studio/ui/src/i18n/en.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/en.ts
 @@ -133,7 +133,7 @@ export const en = {
@@ -10344,7 +10466,16 @@ index 4be139f..dea02fb 100644
      captionTracksDrawn: 'Caption tracks are part of the picture and come with it; hide a track on the timeline to leave it out.',
    },
    exportTray: {
-@@ -910,7 +910,7 @@ export const en = {
+@@ -889,6 +889,8 @@ export const en = {
+     editsUndoneShort: 'Edits undone: {n}',
+     editsRestore: 'Restore them',
+     editsLeaveOut: 'Leave them out',
++    editsKeepCopy: 'Keep a copy',
++    editsUndoneHint: 'These edits live in this page only: reloading or switching project loses them. Keep a copy first.',
+     previewFailed: 'Something in the film can\'t be shown at this moment.',
+     previewUpdating: 'Updating…',
+     previewDetails: 'Details',
+@@ -910,7 +912,7 @@ export const en = {
      filmNotReady: 'The video isn’t ready yet',
      filmCannotExport: 'The film can’t be exported while it can’t be drawn:',
      untitled: 'Untitled',
@@ -10353,7 +10484,7 @@ index 4be139f..dea02fb 100644
      close: 'Close',
      deleteFailed: 'Delete failed. Please retry.',
      renameFailed: 'Rename failed. Please retry.',
-@@ -1091,7 +1091,7 @@ export const en = {
+@@ -1091,7 +1093,7 @@ export const en = {
      kindRestoreOlder: 'Restored an earlier version',
      kindUpgrade: 'Kept all the project’s files',
      kindParked: 'Changes left on “{name}”',
@@ -10362,7 +10493,7 @@ index 4be139f..dea02fb 100644
      retry: 'Try again',
      errorNoFilm: 'This version has no film.html to bring back. Pick an earlier one.',
      errorMissingFilm: 'film.html is missing, so there is nothing to save as a version. Restore it first: from a version here, or from before the agent’s turn.',
-@@ -1806,7 +1806,7 @@ export const en = {
+@@ -1806,7 +1808,7 @@ export const en = {
      workbenchAddedTimeline: "Added to the timeline",
      workbenchOpen: "Open",
      noPluginsOn: "No editor is on. Turn one on in Features to work on the film.",
@@ -10371,7 +10502,7 @@ index 4be139f..dea02fb 100644
      surfaceStarting: "Starting…",
      surfaceNotAllowed: "This editor runs code of its own on your computer. Allow it on its page in Features.",
      surfaceFailed: "This editor's program did not start.",
-@@ -2504,7 +2504,7 @@ export const en = {
+@@ -2504,7 +2506,7 @@ export const en = {
      undoDelete: "Undo delete",
      import: "Import",
      export: "Export",
@@ -10380,7 +10511,7 @@ index 4be139f..dea02fb 100644
      imported: "Imported {n} layouts.",
      importLimit: "No new layouts imported. Up to 24 layouts can be saved.",
      dock_left: "Dock left",
-@@ -3109,19 +3109,19 @@ export const en = {
+@@ -3109,19 +3111,19 @@ export const en = {
        cancel: 'Discard the recording',
        saving: 'Saving the recording…',
        fileName: 'Recording',
@@ -10404,7 +10535,7 @@ index 4be139f..dea02fb 100644
      removeBlock: 'Delete',
      rippleRemove: 'Ripple delete',
      menuSplitHere: 'Split at playhead',
-@@ -3470,10 +3470,12 @@ export const en = {
+@@ -3470,10 +3472,12 @@ export const en = {
        github: 'GitHub',
        examples: 'Examples',
        site: 'Website',
@@ -10417,7 +10548,7 @@ index 4be139f..dea02fb 100644
        developer: 'Developer',
        general: 'General',
        shortcuts: 'Keyboard shortcuts',
-@@ -3482,7 +3484,7 @@ export const en = {
+@@ -3482,7 +3486,7 @@ export const en = {
      notifications: {
        group: 'Notifications',
        turns: 'When the agent finishes',
@@ -10426,7 +10557,7 @@ index 4be139f..dea02fb 100644
      },
      account: {
        group: 'Account',
-@@ -3505,7 +3507,7 @@ export const en = {
+@@ -3505,7 +3509,7 @@ export const en = {
        language: 'Language',
        languageSystem: 'Same as the system',
        themeHint: 'Light, dark, or the same as your system.',
@@ -10435,7 +10566,7 @@ index 4be139f..dea02fb 100644
      },
      storage: {
        group: "Storage",
-@@ -3529,8 +3531,8 @@ export const en = {
+@@ -3529,8 +3533,8 @@ export const en = {
        clear: "Clear cache",
        cleared: "Cleared {size}.",
        projectLine: "{size}, {clearable} cache",
@@ -10446,7 +10577,7 @@ index 4be139f..dea02fb 100644
        areaNote: {projects: "{count} projects in the projects folder", linked: "{count} projects in folders elsewhere, opened in place", saved: "your media, for every film", skills: "skills you added or wrote", exports: "finished videos", cache: "made while previewing and exporting; made again when needed", app: "models, the downloaded library, logs" },
        parts: "media {media} · versions {history} · conversations {talk} · files {files}",
      },
-@@ -3556,6 +3558,7 @@ export const en = {
+@@ -3556,6 +3560,7 @@ export const en = {
      },
      about: {
        group: 'About',
@@ -10454,7 +10585,7 @@ index 4be139f..dea02fb 100644
        check: 'Check for updates',
        checking: 'Checking…',
        failed: 'Couldn’t reach npm. Try again later.',
-@@ -3962,6 +3965,18 @@ export const en = {
+@@ -3962,6 +3967,18 @@ export const en = {
        about: { 'whisper-small': 'OpenAI\'s speech recognition model, small size: good accuracy in about 100 languages, each word timed for subtitles.', 'whisper-large-v3-turbo': 'The most accurate Whisper: fewer mistakes in names and mixed languages, and steadier in Chinese, but larger and about as slow as real time.', 'birefnet-lite': 'Finds what a picture is of — people, objects, animals — and cuts it out with clean edges, hair included.' },
      },
      providers: {
@@ -10473,7 +10604,7 @@ index 4be139f..dea02fb 100644
        included: 'Available',
        about: {
          openfilm: 'OpenFilm\'s own service. Connect your OpenFilm account once and make voice-over, music, sound, transcripts, pictures and video with leading models, paid from your OpenFilm balance: no other accounts or keys.',
-@@ -4067,4 +4082,185 @@ export const en = {
+@@ -4067,4 +4084,185 @@ export const en = {
        },
      },
    },
@@ -11221,7 +11352,7 @@ index f5955a6..ea6288c 100644
        about: {
          openfilm: 'OpenFilm 자체 서비스입니다. OpenFilm 계정을 한 번 연결하면 선도적인 모델로 내레이션, 음악, 효과음, 대본, 이미지, 비디오를 만들고 OpenFilm 잔액에서 결제합니다. 다른 계정이나 키가 필요 없습니다.',
 diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
-index debd95b..2b19795 100644
+index debd95b..f0f861c 100644
 --- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 @@ -132,7 +132,7 @@ export const zhCN: Words = {
@@ -11278,7 +11409,16 @@ index debd95b..2b19795 100644
      captionTracksDrawn: '字幕轨是画面的一部分，会一起导出；不想要时在时间线上隐藏字幕轨。',
    },
    exportTray: {
-@@ -909,7 +909,7 @@ export const zhCN: Words = {
+@@ -888,6 +888,8 @@ export const zhCN: Words = {
+     editsUndoneShort: '已撤销的编辑：{n}',
+     editsRestore: '恢复它们',
+     editsLeaveOut: '不恢复',
++    editsKeepCopy: '先存一份',
++    editsUndoneHint: '这些编辑只在这个页面里：刷新或切换项目就会丢。建议先存一份再决定。',
+     previewFailed: '影片里有内容此刻画不出来。',
+     previewUpdating: '正在更新…',
+     previewDetails: '详情',
+@@ -909,7 +911,7 @@ export const zhCN: Words = {
      filmNotReady: '视频尚未就绪',
      filmCannotExport: '影片无法绘制，因此无法导出：',
      untitled: '未命名',
@@ -11287,7 +11427,7 @@ index debd95b..2b19795 100644
      close: '关闭',
      deleteFailed: '删除失败，请重试。',
      renameFailed: '重命名失败，请重试。',
-@@ -1090,7 +1090,7 @@ export const zhCN: Words = {
+@@ -1090,7 +1092,7 @@ export const zhCN: Words = {
      kindRestoreOlder: '恢复了更早的版本',
      kindUpgrade: '开始保存项目的全部文件',
      kindParked: '留在「{name}」上的改动',
@@ -11296,7 +11436,7 @@ index debd95b..2b19795 100644
      retry: '重试',
      errorNoFilm: '这个版本里没有 film.html 可以恢复，请选更早的版本。',
      errorMissingFilm: 'film.html 不见了，所以没有可以保存为版本的内容。请先恢复它：从这里的某个版本，或从智能体这一轮之前的状态。',
-@@ -1805,7 +1805,7 @@ export const zhCN: Words = {
+@@ -1805,7 +1807,7 @@ export const zhCN: Words = {
      workbenchAddedTimeline: "已加到时间线",
      workbenchOpen: "打开",
      noPluginsOn: "没有打开任何编辑器。在「功能」里打开一个，就可以开始做片子。",
@@ -11305,7 +11445,7 @@ index debd95b..2b19795 100644
      surfaceStarting: "正在启动…",
      surfaceNotAllowed: "这个编辑器要在你的电脑上运行自己的代码。请在「功能」里打开它的页面并允许。",
      surfaceFailed: "这个编辑器的程序没有启动起来。",
-@@ -2503,7 +2503,7 @@ export const zhCN: Words = {
+@@ -2503,7 +2505,7 @@ export const zhCN: Words = {
      undoDelete: "撤销删除",
      import: "导入",
      export: "导出",
@@ -11314,7 +11454,7 @@ index debd95b..2b19795 100644
      imported: "已导入 {n} 个布局。",
      importLimit: "未导入新布局，最多可保存 24 个。",
      dock_left: "停靠左侧",
-@@ -3108,19 +3108,19 @@ export const zhCN: Words = {
+@@ -3108,19 +3110,19 @@ export const zhCN: Words = {
        cancel: '丢弃这段录音',
        saving: '正在保存录音…',
        fileName: '录音',
@@ -11338,7 +11478,7 @@ index debd95b..2b19795 100644
      removeBlock: '删除',
      rippleRemove: '波纹删除',
      menuSplitHere: '在播放头处分割',
-@@ -3469,10 +3469,12 @@ export const zhCN: Words = {
+@@ -3469,10 +3471,12 @@ export const zhCN: Words = {
        github: 'GitHub',
        examples: '示例',
        site: '官网',
@@ -11351,7 +11491,7 @@ index debd95b..2b19795 100644
        developer: '开发者',
        general: '通用',
        shortcuts: '键盘快捷键',
-@@ -3481,7 +3483,7 @@ export const zhCN: Words = {
+@@ -3481,7 +3485,7 @@ export const zhCN: Words = {
      notifications: {
        group: '通知',
        turns: '智能体做完时提醒',
@@ -11360,7 +11500,7 @@ index debd95b..2b19795 100644
      },
      account: {
        group: '账号',
-@@ -3504,7 +3506,7 @@ export const zhCN: Words = {
+@@ -3504,7 +3508,7 @@ export const zhCN: Words = {
        language: '语言',
        languageSystem: '跟随系统',
        themeHint: '浅色、深色，或跟随系统。',
@@ -11369,7 +11509,7 @@ index debd95b..2b19795 100644
      },
      storage: {
        group: "存储",
-@@ -3528,8 +3530,8 @@ export const zhCN: Words = {
+@@ -3528,8 +3532,8 @@ export const zhCN: Words = {
        clear: "清理缓存",
        cleared: "已清理 {size}。",
        projectLine: "{size}，缓存 {clearable}",
@@ -11380,7 +11520,7 @@ index debd95b..2b19795 100644
        areaNote: {projects: "项目位置里的 {count} 个项目", linked: "{count} 个项目，在其他位置的文件夹，原地打开", saved: "你的素材，所有影片共用", skills: "你添加或自己写的技能", exports: "导出的成片", cache: "预览和导出时生成，清理后用到时会重新生成", app: "模型、下载的素材库、日志" },
        parts: "素材 {media} · 版本 {history} · 对话 {talk} · 文件 {files}",
      },
-@@ -3555,6 +3557,7 @@ export const zhCN: Words = {
+@@ -3555,6 +3559,7 @@ export const zhCN: Words = {
      },
      about: {
        group: '关于',
@@ -11388,7 +11528,7 @@ index debd95b..2b19795 100644
        check: '检查更新',
        checking: '正在检查…',
        failed: '连不上 npm，请稍后再试。',
-@@ -3961,6 +3964,18 @@ export const zhCN: Words = {
+@@ -3961,6 +3966,18 @@ export const zhCN: Words = {
        about: { 'whisper-small': 'OpenAI 的语音识别模型（小号）：约 100 种语言准确率都不错，每个词都有时间，可直接做字幕。', 'whisper-large-v3-turbo': '最准的 Whisper：人名、中英混说更少出错，中文也更稳定；但体积更大，速度约等于实时。', 'birefnet-lite': '找出图片的主体（人、物、动物），干净地抠出来，头发边缘也能保留。' },
      },
      providers: {
@@ -11407,7 +11547,7 @@ index debd95b..2b19795 100644
        included: '支持',
        about: {
          openfilm: 'OpenFilm 自己的服务。连接一次 OpenFilm 账号，就能用领先的模型生成配音、音乐、音效、文字稿、图片和视频，从 OpenFilm 余额扣费，不需要别的账号或 key。',
-@@ -4066,4 +4081,185 @@ export const zhCN: Words = {
+@@ -4066,4 +4083,185 @@ export const zhCN: Words = {
        },
      },
    },

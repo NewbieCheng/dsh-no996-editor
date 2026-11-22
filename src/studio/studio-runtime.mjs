@@ -110,6 +110,10 @@ export function createStudioRuntime({ loadStudio = loadPinnedStudio, attach, ask
         // from upstream URLs; always route vision reads to the Host-managed model store.
         if (process.env.NO996_NO_AUTO_VISION_DOWNLOAD == null) process.env.NO996_NO_AUTO_VISION_DOWNLOAD = '1';
         if (process.env.NO996_VISION_MODELS_DIR == null) process.env.NO996_VISION_MODELS_DIR = visionPackDir();
+        // The kernel's own switch (open --help): never open the person's browser.
+        // Set process-wide, not just for our spawn: an agent that runs the packaged
+        // CLI itself through a shell inherits this and cannot pop a Studio page.
+        if (process.env.OPENFILM_NO_BROWSER == null) process.env.OPENFILM_NO_BROWSER = '1';
         // No machine-wide persistent key, run.json advertisement or browser launch.
         const result = await startStudio({ port, advertise: false, stays: true, openBrowser: () => {}, ...(askAgent ? { askAgent } : {}), ...(resolvedEditorDir ? { editorDir: resolvedEditorDir } : {}) });
         if (!result || typeof result.close !== 'function') throw new Error();

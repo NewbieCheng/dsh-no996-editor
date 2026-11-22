@@ -1779,19 +1779,40 @@
       const input = doc.createElement("input");
       input.value = session ? session.title || "\u65B0\u5BF9\u8BDD" : project.title || project.name || project.projectId;
       input.style.cssText = "box-sizing:border-box;width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle, rgba(255,255,255,.16));background:transparent;color:inherit;font:inherit;";
-      const { overlay } = openModal(session ? "\u91CD\u547D\u540D\u5BF9\u8BDD" : "\u91CD\u547D\u540D\u9879\u76EE", input, [
+      const field = doc.createElement("div");
+      const errorLine = doc.createElement("div");
+      errorLine.setAttribute("role", "alert");
+      errorLine.style.cssText = "display:none;margin-top:8px;font-size:12px;line-height:1.5;color:var(--dsw-alias-state-error-primary, #e5484d);";
+      field.append(input, errorLine);
+      const fail = (message) => {
+        errorLine.textContent = message;
+        errorLine.style.display = "block";
+        input.focus();
+      };
+      const { overlay } = openModal(session ? "\u91CD\u547D\u540D\u5BF9\u8BDD" : "\u91CD\u547D\u540D\u9879\u76EE", field, [
         ["\u53D6\u6D88", () => overlay.remove(), null],
-        ["\u4FDD\u5B58", async () => {
+        ["\u4FDD\u5B58", async (button) => {
           const title = input.value.trim();
-          overlay.remove();
+          button.disabled = true;
+          errorLine.style.display = "none";
           try {
-            await postJson("/api/no996-openfilm/editing-prefs", {
+            const result = await postJson("/api/no996-openfilm/editing-prefs", {
               projectId: project.projectId,
               ...session ? { sessionId: session.sessionId } : {},
               title
             });
+            if (result?.persisted === false) {
+              overlay.remove();
+              toast("\u5DF2\u6539\u540D\uFF0C\u4F46\u5199\u5165\u78C1\u76D8\u5931\u8D25\uFF08\u6743\u9650\u4E0D\u8DB3\u6216\u76EE\u5F55\u4E0D\u53EF\u5199\uFF09\uFF0C\u91CD\u5F00\u5DE5\u4F5C\u53F0\u540E\u53EF\u80FD\u6062\u590D\u539F\u540D\u3002");
+              refresh();
+              return;
+            }
+            overlay.remove();
             refresh();
-          } catch {
+          } catch (failure) {
+            button.disabled = false;
+            const code = String(failure?.message || `HTTP ${failure?.status ?? "?"}`).trim().slice(0, 60);
+            fail(`\u6539\u540D\u5931\u8D25\uFF08${code}\uFF09\uFF0C\u5DF2\u4FDD\u7559\u8FD9\u6B21\u8F93\u5165\u3002`);
           }
         }, "primary"]
       ]);

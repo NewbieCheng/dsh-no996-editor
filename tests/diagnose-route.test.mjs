@@ -41,12 +41,13 @@ function mount(overrides = {}) {
 const post = () => ({ method: 'POST', headers: {}, url: PATH });
 
 test('diagnose answers with evidence instead of throwing', async () => {
-  const { route } = mount();
+  const { route } = mount({ cliGuard: () => ({ status: () => ({ state: 'held', port: 4747, hits: 2, opens: 1 }) }) });
   const res = fakeRes();
   await route.handler(post(), res);
   assert.equal(res.status, 200);
   const body = JSON.parse(res.body);
   assert.equal(body.mode, 'dsh');
+  assert.deepEqual(body.cli, { state: 'held', port: 4747, hits: 2, opens: 1 }, 'the CLI guard state is evidence, not a guess');
   assert.equal(body.studio.running, true);
   assert.equal(body.grouping, 'acp');
   assert.deepEqual(body.permission, { available: true, names: ['full-access'] });

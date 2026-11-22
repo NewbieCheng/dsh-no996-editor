@@ -96,6 +96,8 @@ export function validateStoryboard(input) {
     if (maxWipeRun >= 3) warnings.push('连续 3 镜以上使用同类擦除/淡入转场，易显 PPT 感；请改用 morph-expand/portal-zoom/line-grow/card-flip 等生长转场');
     if (growthCount === 0) warnings.push('全片未标注 growth/carryFrom 生长承接：违反镜头连贯性原则，建议明确下一镜如何从上一镜长出来');
     if (cameraCount === 0) warnings.push('全片未标注 camera 景别与运镜描述：建议补充推镜特写/跟拍/拉远全景起伏');
+    if (!emotionArc(input.emotionArc)) warnings.push('没有 emotionArc：先写清给谁看、开场让人在意什么、转折与结尾留下什么感受，再挑镜头和动效');
+    else if (!input.emotionArc.hook && !input.emotionArc.turn) warnings.push('emotionArc 缺 hook 或 turn：钩子要有后续镜头兑现，转折要能说出观众预期与实际差异');
   }
   if (input.duration !== undefined) {
     const duration = Number(input.duration);
@@ -106,6 +108,20 @@ export function validateStoryboard(input) {
 }
 
 /** Fill in defaults and round the numbers, so two writers produce the same file. */
+function emotionArc(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const field = (name, max) => (typeof value[name] === 'string' && value[name].trim() ? value[name].trim().slice(0, max) : undefined);
+  const arc = {
+    audience: field('audience', 120),
+    opening: field('opening', 120),
+    hook: field('hook', 120),
+    turn: field('turn', 120),
+    payoff: field('payoff', 120),
+    closing: field('closing', 120),
+  };
+  return Object.values(arc).some(Boolean) ? Object.fromEntries(Object.entries(arc).filter(([, text]) => text)) : null;
+}
+
 export function normalizeStoryboard(input) {
   const shots = (Array.isArray(input?.shots) ? input.shots : []).map((shot, index) => ({
     id: typeof shot?.id === 'string' && shot.id.trim() ? shot.id.trim() : `s${index + 1}`,
@@ -124,6 +140,9 @@ export function normalizeStoryboard(input) {
     ...(typeof shot?.trigger === 'string' && shot.trigger.trim() ? { trigger: shot.trigger.trim().slice(0, 120) } : {}),
     ...(typeof shot?.explain === 'string' && shot.explain.trim() ? { explain: shot.explain.trim().slice(0, 120) } : {}),
     ...(typeof shot?.carryFrom === 'string' && shot.carryFrom.trim() ? { carryFrom: shot.carryFrom.trim().slice(0, 80) } : {}),
+    // What the viewer should feel and why: optional, so older storyboards read as before.
+    ...(typeof shot?.audienceBeat === 'string' && shot.audienceBeat.trim() ? { audienceBeat: shot.audienceBeat.trim().slice(0, 160) } : {}),
+    ...(typeof shot?.hook === 'string' && shot.hook.trim() ? { hook: shot.hook.trim().slice(0, 120) } : {}),
     ...(typeof shot?.sfx === 'string' && shot.sfx.trim() ? { sfx: shot.sfx.trim().slice(0, 80) } : {}),
     ...(typeof shot?.notes === 'string' && shot.notes ? { notes: shot.notes.slice(0, 200) } : {}),
   }));
@@ -132,6 +151,9 @@ export function normalizeStoryboard(input) {
     ...(typeof input?.title === 'string' && input.title.trim() ? { title: input.title.trim().slice(0, 120) } : {}),
     ...(typeof input?.brief === 'string' && input.brief.trim() ? { brief: input.brief.trim().slice(0, 400) } : {}),
     ...(typeof input?.style === 'string' && input.style.trim() ? { style: input.style.trim().slice(0, 60) } : {}),
+    // The film's emotional spine: who it is for, what they should feel at the
+    // opening, the turn, and the last frame. Optional; never invented here.
+    ...(emotionArc(input?.emotionArc) ? { emotionArc: emotionArc(input.emotionArc) } : {}),
     duration: round(Number(input?.duration) || (shots.length ? shots[shots.length - 1].to : 0)),
     shots,
   };
@@ -141,6 +163,13 @@ export function normalizeStoryboard(input) {
 export function storyboardSummary(storyboard) {
   const shots = Array.isArray(storyboard?.shots) ? storyboard.shots : [];
   const lines = [`${shots.length} 个镜头，共 ${round(storyboard?.duration ?? 0)} 秒${storyboard?.style ? `，风格 ${storyboard.style}` : ''}`];
+  const arc = storyboard?.emotionArc;
+  if (arc && typeof arc === 'object') {
+    const beat = (label, text) => (text ? `${label}：${text}` : '');
+    const line = [beat('给谁看', arc.audience), beat('开场', arc.opening), beat('钩子', arc.hook), beat('转折', arc.turn), beat('兑现', arc.payoff), beat('结尾', arc.closing)]
+      .filter(Boolean).join(' · ');
+    if (line) lines.push(`情绪线 ${line}`);
+  }
   for (const shot of shots.slice(0, 40)) {
     const caption = shot.caption ? `「${shot.caption}」` : '';
     lines.push(`· ${shot.id} ${round(shot.from)}–${round(shot.to)}s ${shot.kind} ${shot.motion}${caption}`);

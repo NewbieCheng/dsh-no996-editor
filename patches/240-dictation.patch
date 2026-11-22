@@ -1,9 +1,9 @@
 diff --git a/apps/desktop/chat/src/lib/dictation.ts b/apps/desktop/chat/src/lib/dictation.ts
 new file mode 100644
-index 0000000..3bdcbdb
+index 0000000..ae37459
 --- /dev/null
 +++ b/apps/desktop/chat/src/lib/dictation.ts
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,170 @@
 +/**
 + * Local microphone dictation helper (16 kHz mono Int16 PCM WAV, capped at 120 s / 16 MB).
 + *
@@ -78,17 +78,49 @@ index 0000000..3bdcbdb
 +  abort: () => void;
 +}
 +
++export type MicFailure = 'micPolicy' | 'micDenied' | 'micMissing' | 'micUnavailable' | 'micUnsupported';
++
++export class MicRecorderError extends Error {
++  constructor(readonly reason: MicFailure) { super(reason); }
++}
++
 +export async function startMicRecorder(onLimit?: () => void): Promise<DictationRecorder> {
-+  if (!navigator?.mediaDevices?.getUserMedia) {
-+    throw Object.assign(new Error('当前环境不支持麦克风录音'), { code: 'MIC_UNSUPPORTED' });
++  const doc = document as Document & {
++    permissionsPolicy?: { allowsFeature: (feature: string) => boolean };
++    featurePolicy?: { allowsFeature: (feature: string) => boolean };
++  };
++  if ((doc.permissionsPolicy ?? doc.featurePolicy)?.allowsFeature('microphone') === false) {
++    throw new MicRecorderError('micPolicy');
 +  }
-+  const stream = await navigator.mediaDevices.getUserMedia({
-+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-+  });
++  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
++    throw new MicRecorderError('micUnsupported');
++  }
++  let stream: MediaStream;
++  try {
++    stream = await navigator.mediaDevices.getUserMedia({
++      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
++    });
++  } catch (error) {
++    const name = error instanceof Error ? error.name : '';
++    throw new MicRecorderError(name === 'NotAllowedError' || name === 'SecurityError' ? 'micDenied'
++      : name === 'NotFoundError' ? 'micMissing' : 'micUnavailable');
++  }
 +  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-+  const ctx = new AudioCtx();
-+  const source = ctx.createMediaStreamSource(stream);
-+  const processor = ctx.createScriptProcessor(4096, 1, 1);
++  let context: AudioContext | undefined;
++  let source: MediaStreamAudioSourceNode;
++  let processor: ScriptProcessorNode;
++  try {
++    context = new AudioCtx();
++    source = context.createMediaStreamSource(stream);
++    processor = context.createScriptProcessor(4096, 1, 1);
++    source.connect(processor);
++    processor.connect(context.destination);
++  } catch {
++    for (const track of stream.getTracks()) track.stop();
++    void context?.close().catch(() => {});
++    throw new MicRecorderError('micUnavailable');
++  }
++  const ctx = context;
 +  const chunks: Float32Array[] = [];
 +  let totalSamples = 0;
 +  let stopped = false;
@@ -114,9 +146,6 @@ index 0000000..3bdcbdb
 +      onLimit?.();
 +    }
 +  };
-+  source.connect(processor);
-+  processor.connect(ctx.destination);
-+
 +  return {
 +    abort() {
 +      stopped = true;

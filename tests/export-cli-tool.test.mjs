@@ -176,3 +176,11 @@ test('version and the skills list are built read-only, and a skill name cannot b
     assert.match(cliArguments('skill', { name }, 'C:/p').error, /owner\/name/, name + ' must not be read as a path');
   }
 });
+
+test('a verb that would start its own Studio is refused with the reason', () => {
+  const refused = cliArguments('open', {}, 'C:/p').error;
+  assert.match(refused, /另起一个 Studio/);
+  assert.match(refused, /no996_frame/);
+  const tool = createCliTool();
+  assert.deepEqual(tool.parameters.properties.verb.enum, ['doctor', 'version', 'skills', 'skill'], 'look/render never reach the schema');
+});

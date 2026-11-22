@@ -31,15 +31,24 @@ function read(file, fs) {
 export function createEditingPrefs({ file, fs } = {}) {
   const api = fs ?? { readFileSync, writeFileSync, renameSync, mkdirSync };
   let data = file ? read(file, api) : empty();
+  let lastWrite = { ok: true };
   const flush = () => {
-    if (!file) return;
+    if (!file) return lastWrite = { ok: true };
     try {
       api.mkdirSync(dirname(file), { recursive: true });
       const temporary = `${file}.${process.pid}.tmp`;
       api.writeFileSync(temporary, JSON.stringify(data, null, 2), 'utf8');
       api.renameSync(temporary, file);
-    } catch { /* pins and display names are cosmetic; a write failure must not break the list */ }
+      return lastWrite = { ok: true };
+    } catch (error) {
+      // Pins and display names are cosmetic, so memory keeps the change and the
+      // list stays usable; the caller is still told it will not survive a restart.
+      const code = typeof error?.code === 'string' && /^[A-Z_]{2,16}$/.test(error.code) ? error.code : 'WRITE_FAILED';
+      return lastWrite = { ok: false, code };
+    }
   };
+  /** Whether the latest change reached the file, with a fixed code when it did not. */
+  const writeState = () => lastWrite;
   return {
     get(projectId) {
       if (typeof projectId !== 'string' || !PROJECT_ID.test(projectId)) return undefined;
@@ -63,8 +72,8 @@ export function createEditingPrefs({ file, fs } = {}) {
       }
       if (Object.keys(next).length === 0) delete data.projects[projectId];
       else data.projects[projectId] = next;
-      flush();
-      return this.get(projectId) ?? { pinned: false };
+      const write = flush();
+      return { ...(this.get(projectId) ?? { pinned: false }), ...write };
     },
     /** Forget a project's pin/title and every conversation preference under it. */
     remove(projectId) {
@@ -79,6 +88,7 @@ export function createEditingPrefs({ file, fs } = {}) {
       if (changed) flush();
       return changed;
     },
+    writeState,
     all() {
       return Object.fromEntries(Object.entries(data.projects).map(([projectId, record]) => [projectId, {
         pinned: record?.pinned === true,
@@ -111,8 +121,8 @@ export function createEditingPrefs({ file, fs } = {}) {
       }
       if (Object.keys(next).length === 0) delete data.sessions[key];
       else data.sessions[key] = next;
-      flush();
-      return this.getSession(projectId, sessionId) ?? { pinned: false };
+      const write = flush();
+      return { ...(this.getSession(projectId, sessionId) ?? { pinned: false }), ...write };
     },
   };
 }

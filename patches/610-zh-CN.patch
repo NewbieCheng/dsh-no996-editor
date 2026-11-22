@@ -1,5 +1,5 @@
 diff --git a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
-index debd95b..2b19795 100644
+index debd95b..f0f861c 100644
 --- a/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 +++ b/packages/openfilm/studio/ui/src/i18n/zh-CN.ts
 @@ -132,7 +132,7 @@ export const zhCN: Words = {
@@ -56,7 +56,16 @@ index debd95b..2b19795 100644
      captionTracksDrawn: '字幕轨是画面的一部分，会一起导出；不想要时在时间线上隐藏字幕轨。',
    },
    exportTray: {
-@@ -909,7 +909,7 @@ export const zhCN: Words = {
+@@ -888,6 +888,8 @@ export const zhCN: Words = {
+     editsUndoneShort: '已撤销的编辑：{n}',
+     editsRestore: '恢复它们',
+     editsLeaveOut: '不恢复',
++    editsKeepCopy: '先存一份',
++    editsUndoneHint: '这些编辑只在这个页面里：刷新或切换项目就会丢。建议先存一份再决定。',
+     previewFailed: '影片里有内容此刻画不出来。',
+     previewUpdating: '正在更新…',
+     previewDetails: '详情',
+@@ -909,7 +911,7 @@ export const zhCN: Words = {
      filmNotReady: '视频尚未就绪',
      filmCannotExport: '影片无法绘制，因此无法导出：',
      untitled: '未命名',
@@ -65,7 +74,7 @@ index debd95b..2b19795 100644
      close: '关闭',
      deleteFailed: '删除失败，请重试。',
      renameFailed: '重命名失败，请重试。',
-@@ -1090,7 +1090,7 @@ export const zhCN: Words = {
+@@ -1090,7 +1092,7 @@ export const zhCN: Words = {
      kindRestoreOlder: '恢复了更早的版本',
      kindUpgrade: '开始保存项目的全部文件',
      kindParked: '留在「{name}」上的改动',
@@ -74,7 +83,7 @@ index debd95b..2b19795 100644
      retry: '重试',
      errorNoFilm: '这个版本里没有 film.html 可以恢复，请选更早的版本。',
      errorMissingFilm: 'film.html 不见了，所以没有可以保存为版本的内容。请先恢复它：从这里的某个版本，或从智能体这一轮之前的状态。',
-@@ -1805,7 +1805,7 @@ export const zhCN: Words = {
+@@ -1805,7 +1807,7 @@ export const zhCN: Words = {
      workbenchAddedTimeline: "已加到时间线",
      workbenchOpen: "打开",
      noPluginsOn: "没有打开任何编辑器。在「功能」里打开一个，就可以开始做片子。",
@@ -83,7 +92,7 @@ index debd95b..2b19795 100644
      surfaceStarting: "正在启动…",
      surfaceNotAllowed: "这个编辑器要在你的电脑上运行自己的代码。请在「功能」里打开它的页面并允许。",
      surfaceFailed: "这个编辑器的程序没有启动起来。",
-@@ -2503,7 +2503,7 @@ export const zhCN: Words = {
+@@ -2503,7 +2505,7 @@ export const zhCN: Words = {
      undoDelete: "撤销删除",
      import: "导入",
      export: "导出",
@@ -92,7 +101,7 @@ index debd95b..2b19795 100644
      imported: "已导入 {n} 个布局。",
      importLimit: "未导入新布局，最多可保存 24 个。",
      dock_left: "停靠左侧",
-@@ -3108,19 +3108,19 @@ export const zhCN: Words = {
+@@ -3108,19 +3110,19 @@ export const zhCN: Words = {
        cancel: '丢弃这段录音',
        saving: '正在保存录音…',
        fileName: '录音',
@@ -116,7 +125,7 @@ index debd95b..2b19795 100644
      removeBlock: '删除',
      rippleRemove: '波纹删除',
      menuSplitHere: '在播放头处分割',
-@@ -3469,10 +3469,12 @@ export const zhCN: Words = {
+@@ -3469,10 +3471,12 @@ export const zhCN: Words = {
        github: 'GitHub',
        examples: '示例',
        site: '官网',
@@ -129,7 +138,7 @@ index debd95b..2b19795 100644
        developer: '开发者',
        general: '通用',
        shortcuts: '键盘快捷键',
-@@ -3481,7 +3483,7 @@ export const zhCN: Words = {
+@@ -3481,7 +3485,7 @@ export const zhCN: Words = {
      notifications: {
        group: '通知',
        turns: '智能体做完时提醒',
@@ -138,7 +147,7 @@ index debd95b..2b19795 100644
      },
      account: {
        group: '账号',
-@@ -3504,7 +3506,7 @@ export const zhCN: Words = {
+@@ -3504,7 +3508,7 @@ export const zhCN: Words = {
        language: '语言',
        languageSystem: '跟随系统',
        themeHint: '浅色、深色，或跟随系统。',
@@ -147,7 +156,7 @@ index debd95b..2b19795 100644
      },
      storage: {
        group: "存储",
-@@ -3528,8 +3530,8 @@ export const zhCN: Words = {
+@@ -3528,8 +3532,8 @@ export const zhCN: Words = {
        clear: "清理缓存",
        cleared: "已清理 {size}。",
        projectLine: "{size}，缓存 {clearable}",
@@ -158,7 +167,7 @@ index debd95b..2b19795 100644
        areaNote: {projects: "项目位置里的 {count} 个项目", linked: "{count} 个项目，在其他位置的文件夹，原地打开", saved: "你的素材，所有影片共用", skills: "你添加或自己写的技能", exports: "导出的成片", cache: "预览和导出时生成，清理后用到时会重新生成", app: "模型、下载的素材库、日志" },
        parts: "素材 {media} · 版本 {history} · 对话 {talk} · 文件 {files}",
      },
-@@ -3555,6 +3557,7 @@ export const zhCN: Words = {
+@@ -3555,6 +3559,7 @@ export const zhCN: Words = {
      },
      about: {
        group: '关于',
@@ -166,7 +175,7 @@ index debd95b..2b19795 100644
        check: '检查更新',
        checking: '正在检查…',
        failed: '连不上 npm，请稍后再试。',
-@@ -3961,6 +3964,18 @@ export const zhCN: Words = {
+@@ -3961,6 +3966,18 @@ export const zhCN: Words = {
        about: { 'whisper-small': 'OpenAI 的语音识别模型（小号）：约 100 种语言准确率都不错，每个词都有时间，可直接做字幕。', 'whisper-large-v3-turbo': '最准的 Whisper：人名、中英混说更少出错，中文也更稳定；但体积更大，速度约等于实时。', 'birefnet-lite': '找出图片的主体（人、物、动物），干净地抠出来，头发边缘也能保留。' },
      },
      providers: {
@@ -185,7 +194,7 @@ index debd95b..2b19795 100644
        included: '支持',
        about: {
          openfilm: 'OpenFilm 自己的服务。连接一次 OpenFilm 账号，就能用领先的模型生成配音、音乐、音效、文字稿、图片和视频，从 OpenFilm 余额扣费，不需要别的账号或 key。',
-@@ -4066,4 +4081,185 @@ export const zhCN: Words = {
+@@ -4066,4 +4083,185 @@ export const zhCN: Words = {
        },
      },
    },

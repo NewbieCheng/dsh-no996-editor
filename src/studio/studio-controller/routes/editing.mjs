@@ -29,6 +29,7 @@ export function createEditingRoutes({
   officialStore,
   deleteEditingProject,
   getAcpAgentService,
+  onConversationsDeleted,
 }) {
   track(register({
     kind: 'exact', path: '/api/no996-openfilm/editing-sessions',
@@ -139,13 +140,17 @@ export function createEditingRoutes({
       const patch = {};
       if (body.pinned !== undefined) patch.pinned = body.pinned === true;
       if (body.title !== undefined) patch.title = typeof body.title === 'string' ? body.title : '';
+      const respondPref = value => {
+        const { ok, code, ...pref } = value ?? {};
+        const persisted = ok !== false;
+        if (!persisted) void log?.warn?.('editing-pref-write-failed', { projectId, code: String(code ?? 'WRITE_FAILED') });
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, persisted, pref }));
+      };
       if (typeof body.sessionId === 'string' && /^[A-Za-z0-9_-]{6,60}$/.test(body.sessionId)) {
-        editingPrefs.setSession(projectId, body.sessionId, patch);
-        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, pref: editingPrefs.getSession(projectId, body.sessionId) ?? { pinned: false } }));
+        respondPref(editingPrefs.setSession(projectId, body.sessionId, patch));
         return;
       }
-      editingPrefs.set(projectId, patch);
-      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, pref: editingPrefs.get(projectId) ?? { pinned: false } }));
+      respondPref(editingPrefs.set(projectId, patch));
     },
   }));
   if (archiveBatch) track(register({
@@ -229,49 +234,46 @@ export function createEditingRoutes({
       const projectId = typeof body.projectId === 'string' ? body.projectId : '';
       if (!/^[A-Za-z0-9_-]{6,40}$/.test(projectId)) { res.writeHead(400).end('BAD_PROJECT'); return; }
       try { await verifyOfficialProject(projectId); } catch { res.writeHead(404).end('UNKNOWN_PROJECT'); return; }
-      const one = typeof body.sessionId === 'string' && /^[A-Za-z0-9_-]{6,60}$/.test(body.sessionId) ? body.sessionId : null;
-      // A conversation row deletes one Studio chat session (and unbinds the DSH
-      // Session for that conversation). The folder row deletes every conversation
-      // of the project; the project folder and film stay.
-      try { await getAcpAgentService()?.reset?.(projectId); } catch { /* the binding still goes */ }
-      let remaining = 0;
-      let deletedConversationKey = one;
-      try {
-        const store = await officialStore();
-        const data = await store.load(projectId);
-        const rawSessions = Array.isArray(data?.sessions) ? data.sessions : [];
-        if (one !== null) {
-          const hit = rawSessions.find(item => item?.id === one);
-          const mapped = hit?.agentSessions?.deepseek;
-          if (typeof mapped === 'string' && mapped) deletedConversationKey = mapped;
-        }
-        const sessions = rawSessions.filter(item => (one === null ? false : item?.id !== one));
-        remaining = sessions.length;
-        const last = (one === null || data?.last === one) ? (sessions[0]?.id ?? null) : (data?.last ?? null);
-        if (Number.isSafeInteger(data?.revision)) await store.saveSessions(projectId, { sessions, last, expectedRevision: data.revision });
-      } catch { /* a stale transcript is cosmetic; the binding still goes */ }
-      const archiveSessionId = async sid => {
-        if (!sid) return;
-        try {
-          if (archive.available && archive.isArchived(sid) !== true) await archive.archive(sid, { stopActivity: true });
-        } catch { /* best effort */ }
-      };
-      if (one === null) {
-        const boundRows = acpSessions.all().filter(r => r.projectId === projectId);
-        acpSessions.remove(projectId);
-        for (const row of boundRows) await archiveSessionId(row.sessionId);
-      } else {
-        const targetRecord = (typeof acpSessions.getSession === 'function'
-          ? (acpSessions.getSession(projectId, deletedConversationKey) ?? (deletedConversationKey !== one ? acpSessions.getSession(projectId, one) : undefined))
-          : undefined) ?? (acpSessions.get(projectId)?.sessionId === one ? acpSessions.get(projectId) : undefined);
-        if (typeof acpSessions.removeSession === 'function') {
-          acpSessions.removeSession(projectId, deletedConversationKey);
-          if (deletedConversationKey !== one) acpSessions.removeSession(projectId, one);
-        }
-        if (acpSessions.get(projectId)?.sessionId === one) acpSessions.remove(projectId);
-        await archiveSessionId(targetRecord?.sessionId);
+      if (Object.hasOwn(body, 'sessionId') && (typeof body.sessionId !== 'string' || !/^[A-Za-z0-9_-]{6,60}$/.test(body.sessionId))) {
+        res.writeHead(400).end('BAD_CONVERSATION'); return;
       }
-      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, remaining }));
+      const one = body.sessionId ?? null;
+      let deletion;
+      try { deletion = await (await officialStore()).deleteConversations(projectId, one); }
+      catch (error) {
+        const conflict = error?.code === 'OFFICIAL_CHAT_CONFLICT';
+        void log?.warn?.('delete-failed', { what: 'conversation', projectId, code: error?.code ?? 'DELETE_FAILED' });
+        res.writeHead(conflict ? 409 : 503).end(conflict ? 'OFFICIAL_CHAT_CONFLICT' : 'DELETE_FAILED');
+        return;
+      }
+      const { removed, remaining, revision } = deletion;
+      const service = getAcpAgentService();
+      const providerKey = removed[0]?.agentSessions?.deepseek;
+      const keys = new Set(one === null ? [] : [one, ...(typeof providerKey === 'string' && providerKey ? [providerKey] : [])]);
+      const legacy = one !== null && acpSessions.get?.(projectId)?.sessionId === one ? acpSessions.get(projectId) : null;
+      if (legacy) keys.add(legacy.conversation ?? '');
+      const nativeIds = new Set(one === null
+        ? acpSessions.all().filter(row => row.projectId === projectId).map(row => row.sessionId)
+        : [...keys].map(key => acpSessions.getSession?.(projectId, key)?.sessionId).filter(Boolean));
+      if (legacy) nativeIds.add(legacy.sessionId);
+      if (one === null) acpSessions.remove(projectId);
+      else for (const key of keys) acpSessions.removeSession?.(projectId, key);
+
+      const receipt = { projectId, sessionId: one, revision, remaining };
+      try { onConversationsDeleted?.({ ...receipt, removedIds: removed.map(item => item.id) }); }
+      catch { /* the committed deletion remains available through chat:load */ }
+      let cleanupPending = false;
+      for (const sid of nativeIds) {
+        try {
+          if (!archive.available) cleanupPending = true;
+          else if (!archive.isArchived(sid)) await archive.archive(sid, { stopActivity: true });
+        } catch { cleanupPending = true; }
+      }
+      // Do not reset other conversations on the same film, even if native archival failed.
+      if (one === null) await service?.reset?.(projectId);
+      else for (const key of keys) await service?.resetConversation?.(projectId, key);
+      if (cleanupPending) void log?.warn?.('conversation-native-cleanup-failed', { projectId });
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ ok: true, ...receipt, cleanupPending }));
     },
   }));
   // Delete the project itself: its OpenFilm folder (default: a recoverable trash

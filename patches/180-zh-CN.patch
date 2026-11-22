@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/i18n/locales/zh-CN.ts b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
-index 92e929a..8d86765 100644
+index 92e929a..9218232 100644
 --- a/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 +++ b/apps/desktop/chat/src/i18n/locales/zh-CN.ts
 @@ -13,13 +13,43 @@ export const zhCN: Words = {
@@ -144,7 +144,7 @@ index 92e929a..8d86765 100644
      skillsHidden: '你自己的 skill（已关闭）',
      skillsUnfiltered: '这个 agent 带着你自己的全部 skill，和它自己的应用里一样',
      mcpHidden: '你自己的 MCP 服务（已关闭）',
-@@ -417,7 +470,43 @@ export const zhCN: Words = {
+@@ -417,7 +470,48 @@ export const zhCN: Words = {
      description: '项目文件会回到这一轮之前的样子，之后在 Studio 里的修改也会一起撤销。这一轮会从对话里移除，你的消息回到下面的输入框，可以改了再发。',
      confirm: '撤销',
      cancel: '取消',
@@ -178,6 +178,11 @@ index 92e929a..8d86765 100644
 +    start: '语音输入（本地听写）',
 +    stop: '点击结束录音并转写',
 +    recognizing: '本地转写中…',
++    micPolicy: '嵌入页面的策略禁止访问麦克风。请检查 DSH 客户端版本；如果仍无法使用，请打开诊断日志。',
++    micDenied: '未获得麦克风权限。请在 Windows「隐私和安全性 → 麦克风」以及浏览器或桌面应用的权限设置中允许后重试。',
++    micMissing: '未找到麦克风。请连接麦克风后重试。',
++    micUnavailable: '无法启动麦克风。请检查输入设备，或关闭可能占用麦克风的应用后重试。',
++    micUnsupported: '当前页面不支持录音。请从 DSH 桌面应用或支持录音的浏览器打开工作台。',
 +    shortClip: '录音过短，请长按或说话超过 0.3 秒后再试。',
 +    noSpeech: '未检测到清晰语音。',
 +    localOnlyRemoteBlocked: '语音听写仅支持本地模型；当前媒体转写已选云端，不会将麦克风录音发送到云端。',

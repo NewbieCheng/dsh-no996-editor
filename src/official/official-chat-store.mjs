@@ -206,6 +206,31 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     });
   }
 
+  // Sidebar deletion reads and writes inside one project queue slot. A stale
+  // client must not win over a concurrent save by replaying an older full list.
+  function deleteConversations(projectId, sessionId = null) {
+    if (sessionId !== null && (typeof sessionId !== 'string' || !sessionId)) {
+      return Promise.reject(failure('OFFICIAL_CHAT_INPUT', 'A valid conversation ID is required'));
+    }
+    return run(projectId, async (key, path) => {
+      const { data, rebound } = await readRecord(key, projectId, path);
+      const removed = data.sessions.filter(item => sessionId === null || item.id === sessionId);
+      const remaining = data.sessions.filter(item => sessionId !== null && item.id !== sessionId);
+      const turns = sessionId === null ? [] : data.turns.filter(entry => entry.turn.sessionId !== sessionId);
+      if (sessionId !== null && !removed.length && turns.length === data.turns.length) {
+        if (rebound) await put(key, projectId, path, data);
+        return { removed, remaining: data.sessions.length, revision: data.revision };
+      }
+      if (data.revision === Number.MAX_SAFE_INTEGER) throw failure('OFFICIAL_CHAT_CONFLICT', 'Chat revision exhausted');
+      data.sessions = remaining;
+      data.turns = turns;
+      if (!remaining.some(item => item.id === data.last)) data.last = remaining[0]?.id ?? null;
+      data.revision += 1;
+      await put(key, projectId, path, data);
+      return { removed, remaining: remaining.length, revision: data.revision };
+    });
+  }
+
   function saveTurn(projectId, entry) {
     let copy;
     try { copy = snapshot(entry); } catch (error) { return Promise.reject(error); }
@@ -234,5 +259,5 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     }
     return closePromise;
   }
-  return Object.freeze({ load, saveSessions, saveTurn, remove, close });
+  return Object.freeze({ load, saveSessions, saveTurn, deleteConversations, remove, close });
 }
