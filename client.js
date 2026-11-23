@@ -84,6 +84,234 @@
     ].filter(Boolean).join("\n");
   }
 
+  // src/studio/mic-delegation.mjs
+  var STUDIO_FRAME_ALLOW = Object.freeze(
+    "clipboard-read; clipboard-write; fullscreen; microphone"
+  );
+
+  // src/studio/frame-capture.mjs
+  var REQUEST = "no996-openfilm:dictation-capture";
+  var AUDIO = "no996-openfilm:dictation-audio";
+  var MAX_SECONDS = 120;
+  var TARGET_RATE = 16e3;
+  var ID = /^[A-Za-z0-9-]{1,64}$/;
+  function classify(error) {
+    const name = error?.name ?? "";
+    if (name === "NotAllowedError" || name === "SecurityError") return "micDenied";
+    if (name === "NotFoundError" || name === "OverconstrainedError") return "micMissing";
+    return "micUnavailable";
+  }
+  function downsampleTo16k(samples, fromRate) {
+    if (!fromRate || fromRate <= TARGET_RATE) {
+      const out2 = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i += 1) {
+        const s = Math.max(-1, Math.min(1, samples[i] ?? 0));
+        out2[i] = s < 0 ? s * 32768 : s * 32767;
+      }
+      return out2;
+    }
+    const ratio = fromRate / TARGET_RATE;
+    const targetLen = Math.max(1, Math.floor(samples.length / ratio));
+    const out = new Int16Array(targetLen);
+    for (let i = 0; i < targetLen; i += 1) {
+      const start = Math.floor(i * ratio);
+      const end = Math.min(samples.length, Math.floor((i + 1) * ratio));
+      let sum = 0;
+      let count = 0;
+      for (let j = start; j < end; j += 1) {
+        sum += samples[j] ?? 0;
+        count += 1;
+      }
+      const avg = count > 0 ? sum / count : 0;
+      const clamped = Math.max(-1, Math.min(1, avg));
+      out[i] = clamped < 0 ? clamped * 32768 : clamped * 32767;
+    }
+    return out;
+  }
+  function encodeWavBase64(pcm, sampleRate) {
+    const dataBytes = pcm.byteLength;
+    const buffer = new ArrayBuffer(44 + dataBytes);
+    const view = new DataView(buffer);
+    const write = (offset, text2) => {
+      for (let i = 0; i < text2.length; i += 1) view.setUint8(offset + i, text2.charCodeAt(i));
+    };
+    write(0, "RIFF");
+    view.setUint32(4, 36 + dataBytes, true);
+    write(8, "WAVE");
+    write(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    write(36, "data");
+    view.setUint32(40, dataBytes, true);
+    new Int16Array(buffer, 44).set(pcm);
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 32768) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
+    }
+    return btoa(binary);
+  }
+  function createFrameCaptureHost({ post, mediaDevices, AudioContext } = {}) {
+    const reply = (payload) => {
+      try {
+        post(payload);
+      } catch {
+      }
+    };
+    let session = null;
+    const teardown = (current) => {
+      try {
+        current.processor.disconnect();
+      } catch {
+      }
+      try {
+        current.source.disconnect();
+      } catch {
+      }
+      try {
+        void current.context.close().catch(() => {
+        });
+      } catch {
+      }
+      for (const track of current.stream.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+        }
+      }
+    };
+    function finalize(state) {
+      if (state.finished) return;
+      state.finished = true;
+      if (session === state) session = null;
+      teardown(state);
+      const flat = state.chunks.length === 1 ? state.chunks[0] : (() => {
+        const merged = new Float32Array(state.samples);
+        let at = 0;
+        for (const piece of state.chunks) {
+          merged.set(piece, at);
+          at += piece.length;
+        }
+        return merged;
+      })();
+      const pcm = downsampleTo16k(flat, state.rate);
+      reply({
+        type: AUDIO,
+        version: 1,
+        id: state.id,
+        ok: true,
+        audioBase64: encodeWavBase64(pcm, TARGET_RATE),
+        durationMs: Math.round(state.samples / state.rate * 1e3),
+        rms: Math.sqrt(state.squareSum / Math.max(1, state.samples))
+      });
+    }
+    async function start(id) {
+      if (session) {
+        const stale = session;
+        session = null;
+        stale.finished = true;
+        teardown(stale);
+      }
+      if (!mediaDevices?.getUserMedia || typeof AudioContext !== "function") {
+        reply({ type: AUDIO, version: 1, id, ok: false, reason: "micUnsupported" });
+        return;
+      }
+      let stream;
+      try {
+        stream = await mediaDevices.getUserMedia({
+          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+      } catch (error) {
+        reply({ type: AUDIO, version: 1, id, ok: false, reason: classify(error) });
+        return;
+      }
+      let context;
+      let source;
+      let processor;
+      try {
+        context = new AudioContext();
+        source = context.createMediaStreamSource(stream);
+        processor = context.createScriptProcessor(4096, 1, 1);
+        source.connect(processor);
+        processor.connect(context.destination);
+      } catch {
+        for (const track of stream.getTracks()) {
+          try {
+            track.stop();
+          } catch {
+          }
+        }
+        reply({ type: AUDIO, version: 1, id, ok: false, reason: "micUnavailable" });
+        return;
+      }
+      const state = {
+        id,
+        stream,
+        context,
+        source,
+        processor,
+        rate: context.sampleRate,
+        chunks: [],
+        samples: 0,
+        squareSum: 0,
+        finished: false
+      };
+      session = state;
+      const maxSamples = MAX_SECONDS * state.rate;
+      processor.onaudioprocess = (event) => {
+        if (state.finished) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const take = Math.min(input.length, Math.max(0, maxSamples - state.samples));
+        if (take > 0) {
+          const piece = take === input.length ? input : input.subarray(0, take);
+          state.chunks.push(Float32Array.from(piece));
+          state.samples += take;
+          for (let i = 0; i < piece.length; i += 1) {
+            const v = piece[i];
+            state.squareSum += v * v;
+          }
+        }
+        if (state.samples >= maxSamples) finalize(state);
+      };
+      reply({ type: AUDIO, version: 1, id, ok: true, phase: "started" });
+    }
+    return {
+      /** Handle one validated frame message. Returns false when it is not ours. */
+      handle(data) {
+        if (!data || typeof data !== "object" || data.type !== REQUEST || data.version !== 1) return false;
+        const id = typeof data.id === "string" && ID.test(data.id) ? data.id : "";
+        if (!id) return true;
+        if (data.action === "start") void start(id);
+        else if (data.action === "stop") {
+          const state = session;
+          if (state && state.id === id) finalize(state);
+        } else if (data.action === "abort") {
+          const state = session;
+          if (state && state.id === id) {
+            state.finished = true;
+            session = null;
+            teardown(state);
+          }
+        }
+        return true;
+      },
+      /** The panel is being torn down or the frame replaced: release the microphone. */
+      stopAll() {
+        const state = session;
+        session = null;
+        if (state && !state.finished) {
+          state.finished = true;
+          teardown(state);
+        }
+      }
+    };
+  }
+
   // src/studio/studio-panel.mjs
   function createStudioPanel(React) {
     const h = React.createElement;
@@ -103,6 +331,7 @@
       const readyRef = React.useRef(false);
       const urlRef = React.useRef(null);
       const renewAckRef = React.useRef(null);
+      const captureRef = React.useRef(null);
       const reportPanelDiag = (payload) => {
         if (!HOST_HTTP) return;
         try {
@@ -217,6 +446,15 @@
         const receive = (event) => {
           if (event.origin !== editorOrigin || event.source !== iframeRef.current?.contentWindow) return;
           const data = event.data;
+          captureRef.current ??= createFrameCaptureHost({
+            post: (payload) => {
+              const frame = iframeRef.current;
+              if (frame?.contentWindow) frame.contentWindow.postMessage(payload, editorOrigin);
+            },
+            mediaDevices: globalThis.navigator?.mediaDevices,
+            AudioContext: globalThis.AudioContext ?? globalThis.webkitAudioContext
+          });
+          if (captureRef.current.handle(data)) return;
           if (data && typeof data === "object" && data.type === "no996-openfilm:boot" && data.version === 1) {
             if (data.rendered === true) {
               heardRef.current = true;
@@ -259,6 +497,8 @@
           clearTimeout(timer);
           watchNavigationRef.current = null;
           window.removeEventListener("message", receive);
+          captureRef.current?.stopAll();
+          captureRef.current = null;
         };
       }, [state.status, state.url, attempt]);
       const retry = () => {
@@ -507,7 +747,7 @@
           // inside this frame, and a cross-origin frame without the delegation is
           // refused by permissions policy (the button did nothing and the refusal
           // surfaced as an unhandled rejection). Only this validated frame is granted.
-          allow: "clipboard-read; clipboard-write; fullscreen; microphone",
+          allow: STUDIO_FRAME_ALLOW,
           allowFullScreen: true,
           referrerPolicy: "no-referrer",
           style: { display: "block", width: "100%", height: "100%", border: 0, background: "var(--dsw-alias-bg-base)" }
@@ -1566,7 +1806,6 @@
       }
       try {
         const data = await fetchSessions?.();
-        syncHiddenIds(data);
         const projects2 = Array.isArray(data?.projects) ? data.projects : [];
         const key = JSON.stringify(projects2);
         if (quiet && key === lastKey) return;
@@ -2131,52 +2370,7 @@
       }
       startRetry();
     };
-    const hiddenSessionIds = /* @__PURE__ */ new Set();
-    const hiddenRows = /* @__PURE__ */ new Map();
-    let hiddenSeeded = false;
-    let disposed = false;
-    const syncHiddenIds = (data) => {
-      if (disposed || !data || typeof data !== "object") return;
-      if (Array.isArray(data.hiddenSessionIds)) {
-        hiddenSessionIds.clear();
-        for (const id of data.hiddenSessionIds) {
-          if (typeof id === "string" && id) hiddenSessionIds.add(id);
-        }
-      }
-    };
-    const hideFilmSessionsInWorkspaces = () => {
-      if (disposed) return;
-      try {
-        if (!hiddenSeeded && typeof fetchSessions === "function") {
-          hiddenSeeded = true;
-          void Promise.resolve(fetchSessions()).then((data) => {
-            syncHiddenIds(data);
-            hideFilmSessionsInWorkspaces();
-          }).catch(() => {
-          });
-        }
-        const matching = /* @__PURE__ */ new Set();
-        const links = doc.querySelectorAll('a[href*="/sessions/"], [data-session-id]');
-        for (const el of links) {
-          const sid = el.getAttribute?.("data-session-id") || (/\/sessions\/([A-Za-z0-9_-]+)/.exec(el.getAttribute?.("href") || "")?.[1] ?? "");
-          if (!sid || !hiddenSessionIds.has(sid)) continue;
-          const row = el.closest('li, [role="listitem"]') ?? el;
-          matching.add(row);
-          if (!hiddenRows.has(row) && row.style.display !== "none") {
-            hiddenRows.set(row, row.style.display);
-            row.style.display = "none";
-          }
-        }
-        for (const [row, display] of hiddenRows) {
-          if (matching.has(row)) continue;
-          if (row.style.display === "none") row.style.display = display;
-          hiddenRows.delete(row);
-        }
-      } catch {
-      }
-    };
     const mount = () => {
-      hideFilmSessionsInWorkspaces();
       const found = findHeader(doc);
       if (!found) {
         noteLoss("no-header");
@@ -2253,8 +2447,6 @@
     return () => {
       disposed = true;
       observer?.disconnect();
-      for (const [row, display] of hiddenRows) if (row.style.display === "none") row.style.display = display;
-      hiddenRows.clear();
       cleanup();
     };
   }

@@ -114,6 +114,7 @@ import { createStudioCliGuard } from './studio-cli-guard.mjs';
 import { createModelCatalogService } from '../host/model-catalog-service.mjs';
 import { createAsrChoiceResolver } from '../native/asr-choice.mjs';
 import { micFailureCode } from '../native/mic-failure.mjs';
+import { micDelegation } from './mic-delegation.mjs';
 import { createWorkbenchSearchRouter } from '../native/search-routing.mjs';
 import { checkEditableDeliverable } from '../film/editable-check.mjs';
 
@@ -1526,6 +1527,7 @@ export function createStudioController(ctx, createProxy, {
     instructions: describeInstructions,
     projectPathOf,
     cliGuard: studioCliGuard,
+    mic: micDelegation,
   });
   const [unregisterDiagnose] = diagnose.disposers;
   // Environment (evidence for "what can the film agent load"): preset activation,

@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.21.0
+checked: 0.21.12
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.21.0**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.21.12**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -25,6 +25,10 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 ## 待真机验（源码完成 ≠ 可以用）
 
+- **2026-11-23 10:1x 听写采集挪进 DSH 主框架 + 绑定对话回归工作区列表（0.21.12，源码/壳快照/client 完成，待重启真机验）**：
+  1. **听写**：读 DSH 安装包确认桌面麦克风策略只授主窗口主框架（`isMainFrame` + `dsh-app://app` + audio），子框架无条件拒绝且永不弹窗——此前 `micDenied` 的根因，Windows 隐私设置页配置无效（桌面应用走总开关，不逐应用列条目）。修法：工作台点麦克风 → 外层 DSH 页面代录（[frame-capture.mjs](../src/studio/frame-capture.mjs)，16 kHz 单声道 WAV、120 s 上限自动收尾、录音不落盘不进日志）→ 经校验消息桥交回工作台帧 → 仍走工作台自己的 ASR（与 DSH 听写模型/开关互不相干）。主框架代录不可用时回退帧内自采；拒绝原因按原五类映射并照常上报 `dictation-mic-failed`。测试：`tests/frame-capture.test.mjs`（6 例：WAV 头/采样率/时长/RMS、拒绝原因、上限自动收尾、垃圾 id、麦克风释放）、`tests/panel-capture-bridge.test.mjs`（接线 + 外来来源拒绝）。**待验**：完整重启后在工作台点麦克风直接可用（桌面端自动放行，无需任何设置）。
+  2. **会话**：剪辑区绑定的对话不再从工作区列表隐藏（移除 `hiddenSessionIds` 机制），工作区行与剪辑区行打开同一条 DSH 会话，不再诱导复制会话导致历史分叉。测试：既有 editing 路由用例回归；ARCHITECTURE §2.1 已更新。**待验**：影片项目的对话出现在工作区列表且点开即完整历史，左右操作互相同步。
+- **2026-11-23 03:1x 听写提示关闭按钮归位（0.21.11，源码 + 壳快照完成，待重启真机验）**：中文麦克风提示等长文案下，提示条用 `flex flex-wrap ... justify-between`，文案占满一行后把动作组（`×`）挤到下一行左端，与上方 turn 错误卡片的右侧 `×` 不一致。改法：上游 `apps/desktop/chat/src/App.tsx` 的 `dictationNotice` 文案 span 改 `min-w-0 flex-1 break-words`、动作组 `shrink-0`，去掉 `flex-wrap`，`×` 固定在右侧。已重跑上游 `build:shell` → `build-official-shell` → 换快照（备份 `.dev/shell-backup-pre-02111-20261123-031800`）→ `patches:split`（70 个补丁）→ `shell:bake`。回归：`tests/shell-extras.test.mjs` 断言产物含新排版、旧排版消失。**待验**：完整重启后在桌面 GUI 用临时项目触发一次麦克风提示确认 `×` 在右。
 - **2026-11-23 01:1x 插件启用失败（已修）**：`Cannot access 'studioCliGuard' before initialization` —— CLI 守卫的 `const` 放在 `createDiagnoseRoute(...)` 之后、却在之前作为值传入，装配期触发 TDZ；`apply()` 抛错使插件整块不激活，页面所有 RPC 变 503（`OFFICIAL_RPC_FAILED chat:load / agent:attach`）。修法：守卫在 `log` 之后、任何读取者之前创建（与 `router.mjs` 拆出的理由一致），`start()` 仍延后到 host-start 块。新增 `scripts/smoke-apply.mjs`（`npm run smoke:apply`，已并入 `npm run check`）：可调用 Proxy ctx 真正执行 `effect(fn)` 走完装配；**已用临时回退证明它能抓到该 TDZ**。
 
 - **2026-11-22 强刷接回 / 删除同步 / 听写诊断 / 改名反馈（本工作区源码，未换壳快照、未重启）**：

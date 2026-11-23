@@ -26,6 +26,10 @@ export function createDiagnoseRoute({
   // leftover) Studio owns the port and the CLI would use that one. A function keeps
   // the guard's construction order free (see studio-controller assembly).
   cliGuard = null,
+  // What this plugin grants the Studio frame for microphone dictation. The OS /
+  // DSH desktop grant is outside the plugin; this reports the part we own so a
+  // denied mic can be told apart from a delegation that was turned off.
+  mic = null,
 }) {
   const guardStatus = () => {
     try {
@@ -75,6 +79,9 @@ export function createDiagnoseRoute({
         studio,
         // Whether a shell-run OpenFilm CLI is kept from starting a second Studio.
         cli: guardStatus(),
+        // The microphone grant we delegate to the Studio frame. A `micDenied`
+        // failure is an OS/app setting, not a plugin permission we can flip.
+        mic: typeof mic === 'function' ? mic() : mic,
         preset,
         proxy: proxy?.diagnostics?.() ?? null,
         // Whether this Host can see DSH's archive set, and how many Sessions it

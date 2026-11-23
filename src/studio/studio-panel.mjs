@@ -13,6 +13,8 @@
 
 import { areaBus } from '../host/area-bus.mjs';
 import { studioFailureSummary } from './panel-failure.mjs';
+import { STUDIO_FRAME_ALLOW } from './mic-delegation.mjs';
+import { createFrameCaptureHost } from './frame-capture.mjs';
 
 /** Shared project-URL guard. The injected template picker and the standalone
  * templates page both build `/projects/<id>`, so the rule lives in one place. */
@@ -45,6 +47,8 @@ export function createStudioPanel(React) {
     // One renewal is in flight at a time; the frame answers with whether the
     // cookie was extended.
     const renewAckRef = React.useRef(null);
+    // Dictation capture host: created lazily for the frame's origin (see receive).
+    const captureRef = React.useRef(null);
 
     const reportPanelDiag = (payload) => {
       if (!HOST_HTTP) return;
@@ -169,6 +173,18 @@ export function createStudioPanel(React) {
       const receive = event => {
         if (event.origin !== editorOrigin || event.source !== iframeRef.current?.contentWindow) return;
         const data = event.data;
+        // Dictation capture: the main frame is the only caller DSH's microphone
+        // policy grants, so the panel records on the shell frame's behalf. The
+        // clip is handed straight back to the frame and never stored or logged.
+        captureRef.current ??= createFrameCaptureHost({
+          post: payload => {
+            const frame = iframeRef.current;
+            if (frame?.contentWindow) frame.contentWindow.postMessage(payload, editorOrigin);
+          },
+          mediaDevices: globalThis.navigator?.mediaDevices,
+          AudioContext: globalThis.AudioContext ?? globalThis.webkitAudioContext,
+        });
+        if (captureRef.current.handle(data)) return;
         if (data && typeof data === 'object' && data.type === 'no996-openfilm:boot' && data.version === 1) {
           if (data.rendered === true) {
             heardRef.current = true;
@@ -220,6 +236,9 @@ export function createStudioPanel(React) {
         clearTimeout(timer);
         watchNavigationRef.current = null;
         window.removeEventListener('message', receive);
+        // A replaced frame must not leave the microphone open behind it.
+        captureRef.current?.stopAll();
+        captureRef.current = null;
       };
     }, [state.status, state.url, attempt]);
 
@@ -427,7 +446,7 @@ export function createStudioPanel(React) {
         // inside this frame, and a cross-origin frame without the delegation is
         // refused by permissions policy (the button did nothing and the refusal
         // surfaced as an unhandled rejection). Only this validated frame is granted.
-        allow: 'clipboard-read; clipboard-write; fullscreen; microphone',
+        allow: STUDIO_FRAME_ALLOW,
         allowFullScreen: true,
         referrerPolicy: 'no-referrer',
         style: { display: 'block', width: '100%', height: '100%', border: 0, background: 'var(--dsw-alias-bg-base)' },

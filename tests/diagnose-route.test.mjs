@@ -48,12 +48,22 @@ test('diagnose answers with evidence instead of throwing', async () => {
   const body = JSON.parse(res.body);
   assert.equal(body.mode, 'dsh');
   assert.deepEqual(body.cli, { state: 'held', port: 4747, hits: 2, opens: 1 }, 'the CLI guard state is evidence, not a guess');
+  assert.equal(body.mic, null, 'no mic evidence supplied: report nothing, do not guess');
   assert.equal(body.studio.running, true);
   assert.equal(body.grouping, 'acp');
   assert.deepEqual(body.permission, { available: true, names: ['full-access'] });
   assert.deepEqual(body.bridge, { published: 3 });
   assert.equal(body.archive.available, true);
   assert.equal(body.turns, null, 'no agent service means no turn evidence, not a failure');
+});
+
+test('diagnose reports the microphone delegation the plugin actually grants', async () => {
+  const mic = { frameAllowsMicrophone: true, systemGrantControlledByPlugin: false };
+  const { route } = mount({ mic: () => mic });
+  const res = fakeRes();
+  await route.handler(post(), res);
+  const body = JSON.parse(res.body);
+  assert.deepEqual(body.mic, mic, 'the frame grant is evidence; the OS grant is named as out of scope');
 });
 
 test('a failing probe degrades that field only', async () => {

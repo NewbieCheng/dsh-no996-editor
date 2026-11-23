@@ -102,6 +102,28 @@ test('About branding lives in SettingsModal (source or patch), not the injection
   assert.ok(text.includes(`OPENFILM_PIN = '${pinned}'`) || text.includes(pinned), `pin ${pinned} must appear`);
 });
 
+test('the dictation notice keeps its close button on the right', () => {
+  // The mic-permission notice sits right under the composer. With a long Chinese
+  // message, `flex-wrap` used to push the action group (including the ×) onto its
+  // own line at the left edge, while the turn-error Notice above it closes on the
+  // right. The text now flexes and the actions stay a shrink-0 group on the right.
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'vendor', 'official-shell', 'ui', 'assets');
+  // The dictation notice lives in the chat bundle — the asset that carries the
+  // mic failure copy — not in top-bar, which has an unrelated runtime-info row
+  // using the same flex utility string.
+  const chat = readdirSync(dir)
+    .filter(name => name.startsWith('main-') && name.endsWith('.js'))
+    .map(name => readFileSync(join(dir, name), 'utf8'))
+    .join('\n');
+  assert.match(chat, /dictation\.shortClip|dictation\.micDenied/, 'found the chat bundle');
+  assert.match(chat, /min-w-0 flex-1 break-words/, 'the flexed notice text must be in the shipped chat bundle');
+  assert.doesNotMatch(chat, /flex flex-wrap items-center justify-between gap-2 border-t/,
+    'the old wrapping layout that stranded the close button on the left must be gone from chat');
+  // The recorded patch is the replayable source of the built assets.
+  const patch = readFileSync(new URL('../vendor/official-shell/patch.diff', import.meta.url), 'utf8');
+  assert.match(patch, /min-w-0 flex-1 break-words/);
+});
+
 test('the overlay version is the file mtime the page polls', () => {
   assert.match(shellUiVersion(), /^\d+$/);
 });

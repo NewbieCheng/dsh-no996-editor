@@ -1,9 +1,9 @@
 diff --git a/apps/desktop/chat/src/lib/dictation.ts b/apps/desktop/chat/src/lib/dictation.ts
 new file mode 100644
-index 0000000..ae37459
+index 0000000..5a7f9b2
 --- /dev/null
 +++ b/apps/desktop/chat/src/lib/dictation.ts
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,292 @@
 +/**
 + * Local microphone dictation helper (16 kHz mono Int16 PCM WAV, capped at 120 s / 16 MB).
 + *
@@ -82,6 +82,128 @@ index 0000000..ae37459
 +
 +export class MicRecorderError extends Error {
 +  constructor(readonly reason: MicFailure) { super(reason); }
++}
++
++/* ---------------------------------------------------------------------------
++ * Capture delegated to the DSH main frame.
++ *
++ * The embedded frame is a cross-origin subframe, and DSH's desktop microphone
++ * policy grants media only to the primary window's main frame, so this frame's
++ * own getUserMedia is refused without a prompt on every platform (`micDenied`
++ * with nowhere to allow it). The panel that hosts this frame records on our
++ * behalf — there the policy grants audio — and hands the finished 16 kHz WAV
++ * back over the validated postMessage bridge. Control messages (start/stop/
++ * abort, an id) are all this frame sends; the audio itself only flows from the
++ * panel back to this exact frame. When no capture host answers (older plugin
++ * build, standalone shell), the frame falls back to its own recorder below.
++ * ------------------------------------------------------------------------- */
++
++const CAPTURE_REQUEST = 'no996-openfilm:dictation-capture';
++const CAPTURE_AUDIO = 'no996-openfilm:dictation-audio';
++const KNOWN_REASONS: ReadonlySet<string> = new Set(['micPolicy', 'micDenied', 'micMissing', 'micUnavailable', 'micUnsupported']);
++
++/** The capture host answered and refused: its reason is the honest one to show. */
++export class ParentCaptureRefused extends MicRecorderError {
++  constructor(reason: MicFailure) { super(reason); }
++}
++
++/** No capture host replied in time: the caller may capture by itself. */
++export class ParentCaptureMissing extends Error {}
++
++interface CaptureAudio {
++  type: string;
++  version: number;
++  id: string;
++  ok: boolean;
++  phase?: string;
++  audioBase64?: string;
++  durationMs?: number;
++  rms?: number;
++  reason?: string;
++}
++
++interface Clip { audioBase64: string; durationMs: number; rms: number }
++
++const reasonOf = (data: CaptureAudio): MicFailure => {
++  const value = typeof data.reason === 'string' ? data.reason : '';
++  return (KNOWN_REASONS.has(value) ? value : 'micUnavailable') as MicFailure;
++};
++
++export function startParentRecorder(onLimit?: () => void, timeoutMs = 2000): Promise<DictationRecorder> {
++  const parent = window.parent;
++  if (parent === window) return Promise.reject(new ParentCaptureMissing());
++  const id = `dc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
++  return new Promise((resolve, reject) => {
++    let recorderDone = false; // the outer promise settled (recorder handed out or refused)
++    let finalResolve: ((clip: Clip) => void) | null = null;
++    let finalReject: ((error: unknown) => void) | null = null;
++    let early: Clip | null = null;
++    let stopTimer = 0;
++    const cleanup = () => {
++      window.clearTimeout(timer);
++      window.clearTimeout(stopTimer);
++      window.removeEventListener('message', onMessage);
++    };
++    const timer = window.setTimeout(() => {
++      if (recorderDone) return;
++      recorderDone = true;
++      cleanup();
++      reject(new ParentCaptureMissing());
++    }, timeoutMs);
++    const onMessage = (event: MessageEvent) => {
++      if (event.source !== parent) return;
++      const data = event.data as CaptureAudio | null;
++      if (!data || typeof data !== 'object' || data.type !== CAPTURE_AUDIO || data.id !== id) return;
++      if (data.phase === 'started' && data.ok === true) {
++        recorderDone = true;
++        window.clearTimeout(timer);
++        resolve({
++          stop: () => new Promise<Clip>((res, rej) => {
++            if (early) { res(early); return; }
++            finalResolve = res;
++            finalReject = rej;
++            window.clearTimeout(stopTimer);
++            stopTimer = window.setTimeout(() => {
++              if (!finalReject) return;
++              const fail = finalReject;
++              finalReject = null;
++              fail(new MicRecorderError('micUnavailable'));
++            }, 5000);
++            parent.postMessage({ type: CAPTURE_REQUEST, version: 1, action: 'stop', id }, '*');
++          }),
++          abort: () => {
++            recorderDone = true;
++            cleanup();
++            parent.postMessage({ type: CAPTURE_REQUEST, version: 1, action: 'abort', id }, '*');
++          },
++        });
++        return;
++      }
++      // Any other reply with our id is an explicit answer: a started-phase
++      // refusal names why capture cannot begin; a later one rejects a stop that
++      // is already pending.
++      if (data.ok === true && typeof data.audioBase64 === 'string') {
++        const clip: Clip = { audioBase64: data.audioBase64, durationMs: Number(data.durationMs) || 0, rms: Number(data.rms) || 0 };
++        cleanup();
++        if (finalResolve) { const done = finalResolve; finalResolve = null; done(clip); }
++        else if (!early) { early = clip; onLimit?.(); } // the 120 s cap finished the clip by itself
++        return;
++      }
++      const reason = reasonOf(data);
++      cleanup();
++      if (finalReject) {
++        const fail = finalReject;
++        finalReject = null;
++        fail(new MicRecorderError(reason));
++      } else if (!recorderDone) {
++        recorderDone = true;
++        reject(new ParentCaptureRefused(reason));
++      }
++      // else: the recorder is out and nobody is waiting — nothing to answer.
++    };
++    window.addEventListener('message', onMessage);
++    parent.postMessage({ type: CAPTURE_REQUEST, version: 1, action: 'start', id }, '*');
++  });
 +}
 +
 +export async function startMicRecorder(onLimit?: () => void): Promise<DictationRecorder> {

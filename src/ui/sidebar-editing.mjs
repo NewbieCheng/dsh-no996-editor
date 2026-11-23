@@ -464,7 +464,6 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     }
     try {
       const data = await fetchSessions?.();
-      syncHiddenIds(data);
       const projects = Array.isArray(data?.projects) ? data.projects : [];
       // A quiet reload that finds the same list must not repaint: the poll below
       // runs every 10 s, and rebuilding rows under the pointer would eat clicks.
@@ -1030,52 +1029,13 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     startRetry();
   };
 
-  const hiddenSessionIds = new Set();
-  const hiddenRows = new Map();
-  let hiddenSeeded = false;
-  let disposed = false;
-  const syncHiddenIds = data => {
-    if (disposed || !data || typeof data !== 'object') return;
-    if (Array.isArray(data.hiddenSessionIds)) {
-      hiddenSessionIds.clear();
-      for (const id of data.hiddenSessionIds) {
-        if (typeof id === 'string' && id) hiddenSessionIds.add(id);
-      }
-    }
-  };
-  const hideFilmSessionsInWorkspaces = () => {
-    if (disposed) return;
-    try {
-      if (!hiddenSeeded && typeof fetchSessions === 'function') {
-        hiddenSeeded = true;
-        void Promise.resolve(fetchSessions()).then(data => {
-          syncHiddenIds(data);
-          hideFilmSessionsInWorkspaces();
-        }).catch(() => {});
-      }
-      const matching = new Set();
-      const links = doc.querySelectorAll('a[href*="/sessions/"], [data-session-id]');
-      for (const el of links) {
-        const sid = el.getAttribute?.('data-session-id')
-          || (/\/sessions\/([A-Za-z0-9_-]+)/.exec(el.getAttribute?.('href') || '')?.[1] ?? '');
-        if (!sid || !hiddenSessionIds.has(sid)) continue;
-        const row = el.closest('li, [role="listitem"]') ?? el;
-        matching.add(row);
-        if (!hiddenRows.has(row) && row.style.display !== 'none') {
-          hiddenRows.set(row, row.style.display);
-          row.style.display = 'none';
-        }
-      }
-      for (const [row, display] of hiddenRows) {
-        if (matching.has(row)) continue;
-        if (row.style.display === 'none') row.style.display = display;
-        hiddenRows.delete(row);
-      }
-    } catch { /* ignore */ }
-  };
-
+  // The editing-bound conversations stay visible in the workspace list: they are
+  // real DSH sessions of the film project, and both doors — the workspace row and
+  // the editing section — open the same conversation, so the two views always
+  // agree without any copying. (An earlier build hid these rows to avoid two
+  // entries for one conversation; that sent people looking for their own chat
+  // into copying it, which forked the history. Showing it is the honest state.)
   const mount = () => {
-    hideFilmSessionsInWorkspaces();
     const found = findHeader(doc);
     if (!found) { noteLoss('no-header'); return; }
     if (lostReason) {
@@ -1159,8 +1119,6 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
   return () => {
     disposed = true;
     observer?.disconnect();
-    for (const [row, display] of hiddenRows) if (row.style.display === 'none') row.style.display = display;
-    hiddenRows.clear();
     cleanup();
   };
 }

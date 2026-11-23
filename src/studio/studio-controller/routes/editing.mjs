@@ -108,15 +108,11 @@ export function createEditingRoutes({
             || String(right.updatedAt).localeCompare(String(left.updatedAt)));
           item.sessions = sessions;
         }
-        // Only native IDs backed by our persisted bindings, never display names,
-        // workspace paths, or OpenFilm's independent conversation IDs.
-        const visibleProjects = new Set(items.map(item => item.projectId));
-        const hidden = new Set(acpSessions.all()
-          .filter(record => visibleProjects.has(record.projectId))
-          .map(record => record.sessionId).filter(Boolean));
+        // The bound conversations are not hidden from the workspace list: the
+        // workspace row and the editing row open the same DSH session, so both
+        // views stay in step without anyone copying a conversation to find it.
         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({
           projects: items,
-          hiddenSessionIds: [...hidden],
         }));
       } catch {
         res.writeHead(503).end('EDITING_SESSIONS_UNAVAILABLE');

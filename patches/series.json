@@ -5,7 +5,7 @@
   },
   "generatedFrom": {
     "file": "patch.diff",
-    "sha256": "c15734cef20f702017019efe6c340ec44cb45a3e377c69f2360a95f608949e58"
+    "sha256": "e23e7d2eac0cfa36164bbfad49b1e33fce25264d9b0deb32d3e5a66231e90720"
   },
   "patches": [
     {
@@ -13,8 +13,8 @@
       "file": "010-App.patch",
       "source": "apps/desktop/chat/src/App.tsx",
       "group": "chat",
-      "sha256": "26be1af72e768dfd941b2839278bb3e2c65c94f2f5e6b518860da5a927b135e0",
-      "bytes": 30509
+      "sha256": "ea8e1f7149ee2b674901e1b3f6f871f130bacc67d0f20857a72f3ae792039468",
+      "bytes": 31180
     },
     {
       "id": "020-AgentActivityRow",
@@ -197,8 +197,8 @@
       "file": "240-dictation.patch",
       "source": "apps/desktop/chat/src/lib/dictation.ts",
       "group": "chat",
-      "sha256": "0888522294a13368c00fb475804166d7aa08e003c85647b2b0303f5ed7822b83",
-      "bytes": 6358
+      "sha256": "176d101147863b5386cca998aaa3b131d37648682e1b24309e3a1063c8621efe",
+      "bytes": 11749
     },
     {
       "id": "250-local-agent-run",

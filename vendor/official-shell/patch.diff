@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..1859f01 100644
+index 26575ee..d2be15f 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -26,7 +26,7 @@ index 26575ee..1859f01 100644
  import { StickToBottomContext, useStickToBottom, useTailSpacer } from '@/components/useStickToBottom';
  import { PromptEditor, PromptPill, PromptPillHoverContext, PromptPillRevealContext, activatedSkillIds, fileReferenceId, fileReferencePath, promptReferenceToken, resolvePromptReferences, skillReferenceId, skillReferencePackage, splitPromptReferenceText, type MentionProvider, type PromptEditorHandle, type PromptEditorState, type PromptPillHover, type PromptReference } from '@/components/prompt-editor';
  import { filesFromTransfer, transferHasFiles } from '@/lib/composer-attachments';
-+import { MicRecorderError, startMicRecorder, type DictationRecorder } from '@/lib/dictation';
++import { MicRecorderError, ParentCaptureMissing, startMicRecorder, startParentRecorder, type DictationRecorder } from '@/lib/dictation';
  import { PROMPT_PICTURES_MAX, attachedPictures, attachmentBlocker, formatFileSize, turnAttachments, useDesktopAttachments } from '@/lib/desktop-attachments';
  import { attachmentPill, attachmentsInText, attachmentWords, isAttachmentPill, projectFilePath, sentPill } from '@/lib/attachment-pills';
  import { deriveProjectTurns } from '@/lib/project-versions';
@@ -292,7 +292,7 @@ index 26575ee..1859f01 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1041,8 +1221,123 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1041,8 +1221,134 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    };
    const wasName = agentWas === 'byok' ? t('composer.agentOwnKey') : agentWas ? la.roster?.find((a) => a.id === agentWas)?.name ?? AGENT_DEFINITIONS[agentWas]?.name ?? agentWas : '';
  
@@ -385,7 +385,18 @@ index 26575ee..1859f01 100644
 +        });
 +        return;
 +      }
-+      const rec = await startMicRecorder(() => { void stopAndTranscribeDictation(); });
++      // Capture runs in the DSH main frame (the only frame DSH's microphone
++      // policy grants); the panel hands the clip back over the message bridge.
++      // An explicit refusal from that host is the honest failure; silence means
++      // no host is listening (older plugin, standalone shell), so this frame
++      // still tries its own microphone as before.
++      let rec: DictationRecorder;
++      try {
++        rec = await startParentRecorder(() => { void stopAndTranscribeDictation(); });
++      } catch (error) {
++        if (!(error instanceof ParentCaptureMissing)) throw error;
++        rec = await startMicRecorder(() => { void stopAndTranscribeDictation(); });
++      }
 +      recorderRef.current = rec;
 +      setDictationPhase('recording');
 +    } catch (error) {
@@ -416,7 +427,7 @@ index 26575ee..1859f01 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1370,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1381,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -429,7 +440,7 @@ index 26575ee..1859f01 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1123,6 +1419,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1123,6 +1430,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                mentions={{ providers: mentionProviders, label: t('mention.menu'), onOpen: loadMentionFiles }}
              />
            </div>
@@ -460,14 +471,14 @@ index 26575ee..1859f01 100644
            {/* while it works: Stop, or Send once something is written (it goes into the turn, or after it); Esc stops */}
            <Tooltip label={stopping ? t('project.stop') : t('project.sendFollowUp')} shortcut={stopping ? 'Esc' : 'Enter'}>
              <button
-@@ -1136,9 +1456,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1136,9 +1467,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
              </button>
            </Tooltip>
          </div>
 +        {dictationNotice ? (
-+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--text-muted)]">
-+            <span>{dictationNotice.text}</span>
-+            <div className="flex items-center gap-2">
++          <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--text-muted)]">
++            <span className="min-w-0 flex-1 break-words">{dictationNotice.text}</span>
++            <div className="flex shrink-0 items-center gap-2">
 +              {dictationNotice.action === 'install' ? (
 +                <button
 +                  type="button"
@@ -499,7 +510,7 @@ index 26575ee..1859f01 100644
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1495,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1506,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -510,7 +521,7 @@ index 26575ee..1859f01 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1506,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1517,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -525,7 +536,7 @@ index 26575ee..1859f01 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1527,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1183,6 +1538,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
  
    return (
      <ChatProjectContext.Provider value={projectKey}>
@@ -542,7 +553,7 @@ index 26575ee..1859f01 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1554,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1565,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -3561,10 +3572,10 @@ index eb12f7b..b24ab24 100644
  
 diff --git a/apps/desktop/chat/src/lib/dictation.ts b/apps/desktop/chat/src/lib/dictation.ts
 new file mode 100644
-index 0000000..ae37459
+index 0000000..5a7f9b2
 --- /dev/null
 +++ b/apps/desktop/chat/src/lib/dictation.ts
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,292 @@
 +/**
 + * Local microphone dictation helper (16 kHz mono Int16 PCM WAV, capped at 120 s / 16 MB).
 + *
@@ -3643,6 +3654,128 @@ index 0000000..ae37459
 +
 +export class MicRecorderError extends Error {
 +  constructor(readonly reason: MicFailure) { super(reason); }
++}
++
++/* ---------------------------------------------------------------------------
++ * Capture delegated to the DSH main frame.
++ *
++ * The embedded frame is a cross-origin subframe, and DSH's desktop microphone
++ * policy grants media only to the primary window's main frame, so this frame's
++ * own getUserMedia is refused without a prompt on every platform (`micDenied`
++ * with nowhere to allow it). The panel that hosts this frame records on our
++ * behalf — there the policy grants audio — and hands the finished 16 kHz WAV
++ * back over the validated postMessage bridge. Control messages (start/stop/
++ * abort, an id) are all this frame sends; the audio itself only flows from the
++ * panel back to this exact frame. When no capture host answers (older plugin
++ * build, standalone shell), the frame falls back to its own recorder below.
++ * ------------------------------------------------------------------------- */
++
++const CAPTURE_REQUEST = 'no996-openfilm:dictation-capture';
++const CAPTURE_AUDIO = 'no996-openfilm:dictation-audio';
++const KNOWN_REASONS: ReadonlySet<string> = new Set(['micPolicy', 'micDenied', 'micMissing', 'micUnavailable', 'micUnsupported']);
++
++/** The capture host answered and refused: its reason is the honest one to show. */
++export class ParentCaptureRefused extends MicRecorderError {
++  constructor(reason: MicFailure) { super(reason); }
++}
++
++/** No capture host replied in time: the caller may capture by itself. */
++export class ParentCaptureMissing extends Error {}
++
++interface CaptureAudio {
++  type: string;
++  version: number;
++  id: string;
++  ok: boolean;
++  phase?: string;
++  audioBase64?: string;
++  durationMs?: number;
++  rms?: number;
++  reason?: string;
++}
++
++interface Clip { audioBase64: string; durationMs: number; rms: number }
++
++const reasonOf = (data: CaptureAudio): MicFailure => {
++  const value = typeof data.reason === 'string' ? data.reason : '';
++  return (KNOWN_REASONS.has(value) ? value : 'micUnavailable') as MicFailure;
++};
++
++export function startParentRecorder(onLimit?: () => void, timeoutMs = 2000): Promise<DictationRecorder> {
++  const parent = window.parent;
++  if (parent === window) return Promise.reject(new ParentCaptureMissing());
++  const id = `dc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
++  return new Promise((resolve, reject) => {
++    let recorderDone = false; // the outer promise settled (recorder handed out or refused)
++    let finalResolve: ((clip: Clip) => void) | null = null;
++    let finalReject: ((error: unknown) => void) | null = null;
++    let early: Clip | null = null;
++    let stopTimer = 0;
++    const cleanup = () => {
++      window.clearTimeout(timer);
++      window.clearTimeout(stopTimer);
++      window.removeEventListener('message', onMessage);
++    };
++    const timer = window.setTimeout(() => {
++      if (recorderDone) return;
++      recorderDone = true;
++      cleanup();
++      reject(new ParentCaptureMissing());
++    }, timeoutMs);
++    const onMessage = (event: MessageEvent) => {
++      if (event.source !== parent) return;
++      const data = event.data as CaptureAudio | null;
++      if (!data || typeof data !== 'object' || data.type !== CAPTURE_AUDIO || data.id !== id) return;
++      if (data.phase === 'started' && data.ok === true) {
++        recorderDone = true;
++        window.clearTimeout(timer);
++        resolve({
++          stop: () => new Promise<Clip>((res, rej) => {
++            if (early) { res(early); return; }
++            finalResolve = res;
++            finalReject = rej;
++            window.clearTimeout(stopTimer);
++            stopTimer = window.setTimeout(() => {
++              if (!finalReject) return;
++              const fail = finalReject;
++              finalReject = null;
++              fail(new MicRecorderError('micUnavailable'));
++            }, 5000);
++            parent.postMessage({ type: CAPTURE_REQUEST, version: 1, action: 'stop', id }, '*');
++          }),
++          abort: () => {
++            recorderDone = true;
++            cleanup();
++            parent.postMessage({ type: CAPTURE_REQUEST, version: 1, action: 'abort', id }, '*');
++          },
++        });
++        return;
++      }
++      // Any other reply with our id is an explicit answer: a started-phase
++      // refusal names why capture cannot begin; a later one rejects a stop that
++      // is already pending.
++      if (data.ok === true && typeof data.audioBase64 === 'string') {
++        const clip: Clip = { audioBase64: data.audioBase64, durationMs: Number(data.durationMs) || 0, rms: Number(data.rms) || 0 };
++        cleanup();
++        if (finalResolve) { const done = finalResolve; finalResolve = null; done(clip); }
++        else if (!early) { early = clip; onLimit?.(); } // the 120 s cap finished the clip by itself
++        return;
++      }
++      const reason = reasonOf(data);
++      cleanup();
++      if (finalReject) {
++        const fail = finalReject;
++        finalReject = null;
++        fail(new MicRecorderError(reason));
++      } else if (!recorderDone) {
++        recorderDone = true;
++        reject(new ParentCaptureRefused(reason));
++      }
++      // else: the recorder is out and nobody is waiting — nothing to answer.
++    };
++    window.addEventListener('message', onMessage);
++    parent.postMessage({ type: CAPTURE_REQUEST, version: 1, action: 'start', id }, '*');
++  });
 +}
 +
 +export async function startMicRecorder(onLimit?: () => void): Promise<DictationRecorder> {
