@@ -1,5 +1,5 @@
 import { createStudioPanel } from './studio-panel.mjs';
-import { createEnvSection } from '../ui/env-section.mjs';
+import { createNo996SettingsSection, injectSettingsCss } from '../ui/settings-section.mjs';
 import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from '../ui/sidebar-editing.mjs';
 import { brandSvgMarkup, installSidebarBrand } from '../ui/sidebar-brand.mjs';
@@ -26,6 +26,7 @@ window.__ModuleLoader__.load({
       studioCopyDiagnostic: 'Copy diagnostic', studioCopied: 'Diagnostic copied.', studioCopyFallback: 'Clipboard unavailable. Select the text below to copy it.', studioFailureDetails: 'Details', studioContact: 'Contact the developer',
       studioRetry: 'Try again', studioStopped: 'Video workspace stopped', studioStoppedHint: 'The editing service is not running. Restart it to continue; projects and media are untouched.', studioRestart: 'Restart workspace',
       studioTitle: 'OpenFilm Studio',
+      settingsLabel: 'Video Workbench',
       presetReady: 'Video editing mode: loaded', presetMissing: 'Video editing mode: not loaded —',
       archiveBanner: 'This project conversation is archived; its messages stay hidden until restored.', archiveRestore: 'Restore conversation', archiveRebind: 'Start a new conversation',
       authChecking: 'Checking sign-in…', loginTitle: 'Sign in', loggedIn: 'Signed in', logout: 'Sign out',
@@ -42,12 +43,13 @@ window.__ModuleLoader__.load({
       studioCopyDiagnostic: '复制诊断', studioCopied: '已复制诊断。', studioCopyFallback: '无法使用剪贴板，请选中下方文本手动复制。', studioFailureDetails: '查看详情', studioContact: '联系开发者',
       studioRetry: '重试', studioStopped: '工作台已停止运行', studioStoppedHint: '视频编辑服务已断开。重新启动即可继续，项目和素材不受影响。', studioRestart: '重新启动工作台',
       studioTitle: 'OpenFilm 工作台',
+      settingsLabel: '不加班工作台',
       presetReady: '视频剪辑模式：已加载', presetMissing: '视频剪辑模式：未加载 —',
       archiveBanner: '这个项目的会话已归档，恢复前不显示历史消息。', archiveRestore: '恢复会话', archiveRebind: '新建会话',
       authChecking: '正在确认登录状态…', loginTitle: '登录', loggedIn: '已登录', logout: '退出',
     };
     const Panel = createStudioPanel(React);
-    const EnvSection = createEnvSection(React);
+    const SettingsSection = createNo996SettingsSection(React);
     // The real panel is rendered once and then only shown or hidden; `main`
     // receives a placeholder that reports selection (see panel-keepalive.mjs).
     const activation = createActivationStore();
@@ -138,6 +140,18 @@ window.__ModuleLoader__.load({
         h('rect', { x: 3, y: 5, width: 18, height: 14, rx: 3, stroke: 'currentColor', strokeWidth: 1.7 }),
         h('path', { d: 'm10 9 5 3-5 3V9Z', fill: 'currentColor' }));
     }
+    // Settings-nav icon: the official brand mark (same glyph family as the app
+    // icon), theme-aware like the sidebar brand. Mirrors dsh-codex-subscription,
+    // which also registers `settings.section.icon`.
+    function SettingsNavIcon({ size = 16 }) {
+      const dark = typeof document !== 'undefined'
+        ? document.documentElement?.getAttribute('data-theme') !== 'light'
+        : true;
+      return h('span', {
+        style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size },
+        dangerouslySetInnerHTML: { __html: brandSvgMarkup({ dark, size }) },
+      });
+    }
     function BrandSlotMark({ size = 22 }) {
       const dark = typeof document !== 'undefined'
         ? document.documentElement?.getAttribute('data-theme') !== 'light'
@@ -159,12 +173,22 @@ window.__ModuleLoader__.load({
         // when DSH already owns them — that must never wipe 视频创作.
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL, locale: NS }, PanelSeat));
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: PANEL, order: 21, locale: NS, label: () => t('panel') }, PanelIcon));
-        // Our OWN bundle's detail page: what the film agent can load (preset,
-        // isolated skills, film tools, per-project chain). Use the keyed config
-        // slot scoped to our package name: the list `plugins.detail.section`
-        // renders on EVERY plugin's detail page, which leaked this panel into
-        // other bundles. Keying by package keeps it on ours only.
-        ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: '@newbiecheng/dsh-no996-editor', locale: NS, label: () => t('envTitle') }, EnvSection));
+        // One surface in two seats (same as dsh-agy-link / dsh-codex-subscription):
+        // a real Settings section (one additive list slot — no shipped UI is
+        // replaced; the row icon comes from the bundle `icon` field), and the
+        // same component reused on our own bundle detail page (keyed by our
+        // package, so it never leaks into other bundles). The old EnvSection
+        // wall is deleted; there is only the new settings UI.
+        ctx.slots.inject('settings.section', () => ctx.slots.register(
+          { name: 'settings.section', id: 'no996-openfilm', order: 80, locale: NS, label: () => t('settingsLabel') },
+          SettingsSection,
+        ));
+        ctx.slots.inject('settings.section.icon', () => ctx.slots.register(
+          { name: 'settings.section.icon', id: 'no996-openfilm' },
+          SettingsNavIcon,
+        ));
+        if (typeof window !== 'undefined') ctx.effect(() => injectSettingsCss(), 'openfilm: settings styles');
+        ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: '@newbiecheng/dsh-no996-editor', locale: NS, label: () => t('settingsLabel') }, SettingsSection));
         // `shell.overlay` is rendered for the whole frame lifetime, so the panel
         // it hosts survives page switches instead of reloading Studio each time.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'no996-openfilm-panel', order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));

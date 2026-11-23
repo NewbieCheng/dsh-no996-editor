@@ -836,70 +836,10 @@
     };
   }
 
-  // src/ui/env-section.mjs
-  function createEnvSection(React) {
+  // src/ui/settings-section.mjs
+  function createNo996SettingsSection(React) {
     const h = React.createElement;
-    const box = {
-      background: "var(--dsw-alias-bg-layer-1)",
-      border: "1px solid var(--dsw-alias-border-l1)",
-      borderRadius: 12,
-      padding: "16px 18px",
-      margin: "12px 0",
-      color: "var(--dsw-alias-label-primary)",
-      fontSize: 13,
-      lineHeight: 1.65
-    };
-    const title = { fontSize: 14, fontWeight: 650, margin: "0 0 8px" };
-    const sub = { fontSize: 13, fontWeight: 600, margin: "14px 0 4px", color: "var(--dsw-alias-label-primary)" };
-    const dim = { color: "var(--dsw-alias-label-secondary)", fontSize: 12 };
-    const table = { width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 6 };
-    const th = { textAlign: "left", padding: "4px 8px 4px 0", color: "var(--dsw-alias-label-secondary)", fontWeight: 600, verticalAlign: "top", whiteSpace: "nowrap" };
-    const td = { padding: "4px 0 4px 8px", verticalAlign: "top" };
-    const code = { fontFamily: "ui-monospace, monospace", fontSize: 12 };
-    const input = {
-      width: "100%",
-      boxSizing: "border-box",
-      marginTop: 6,
-      padding: "6px 10px",
-      background: "var(--dsw-alias-bg-base)",
-      color: "var(--dsw-alias-label-primary)",
-      border: "1px solid var(--dsw-alias-border-l1)",
-      borderRadius: 8,
-      fontSize: 12
-    };
-    const button = {
-      marginTop: 8,
-      padding: "6px 14px",
-      cursor: "pointer",
-      // Ghost style (repo convention: transparent + border + label color) so the
-      // text stays readable in light and dark themes even if a brand token is
-      // missing. Never pair a filled token background with a hardcoded text color.
-      background: "transparent",
-      border: "1px solid var(--dsw-alias-border-l1)",
-      color: "var(--dsw-alias-label-primary)",
-      borderRadius: 8,
-      fontSize: 12,
-      fontWeight: 600
-    };
-    const row = { display: "flex", gap: 8, alignItems: "center", marginTop: 8 };
-    const link = {
-      background: "none",
-      border: "none",
-      cursor: "pointer",
-      padding: "6px 4px",
-      color: "var(--dsw-alias-label-secondary)",
-      fontSize: 12,
-      textDecoration: "underline",
-      textUnderlineOffset: 3
-    };
-    const STORAGE_KEY = "no996-openfilm.env.projectId";
-    const readSaved = () => {
-      try {
-        return window.localStorage.getItem(STORAGE_KEY) ?? "";
-      } catch {
-        return "";
-      }
-    };
+    const S = "data-no996-settings";
     const ICON_LABEL = {
       fish: "\u9C7C",
       cake: "\u86CB\u7CD5",
@@ -915,17 +855,6 @@
       sweet_potato: "\u7EA2\u85AF",
       bean: "\u8C46\u5B50"
     };
-    function captchaHint(prompt, iconTarget) {
-      const icon = ICON_LABEL[iconTarget] || "\u56FE\u6807";
-      if (prompt === "click_largest") return `\u8BF7\u70B9\u51FB\u6700\u5927\u7684${icon}`;
-      if (prompt === "click_smallest") return `\u8BF7\u70B9\u51FB\u6700\u5C0F\u7684${icon}`;
-      if (prompt === "click_second_smallest") return `\u8BF7\u70B9\u51FB\u7B2C\u4E8C\u5C0F\u7684${icon}`;
-      if (prompt === "click_icon") return `\u8BF7\u70B9\u51FB\u56FE\u4E2D\u7684${icon}`;
-      if (prompt === "click_sequence") return "\u8BF7\u6309\u63D0\u793A\u987A\u5E8F\u70B9\u51FB";
-      if (prompt === "click_size_asc") return `\u8BF7\u6309\u4ECE\u5C0F\u5230\u5927\u70B9\u51FB${icon}`;
-      if (prompt === "click_size_desc") return `\u8BF7\u6309\u4ECE\u5927\u5230\u5C0F\u70B9\u51FB${icon}`;
-      return "\u8BF7\u5B8C\u6210\u4EBA\u673A\u9A8C\u8BC1";
-    }
     async function postAuth(payload) {
       const surface = `${window.location.protocol}//${window.location.host}`;
       const response = await fetch("/api/no996-openfilm/auth", {
@@ -940,61 +869,192 @@
       }
       return data;
     }
-    return function EnvSection() {
-      const [data, setData] = React.useState(null);
-      const [error, setError] = React.useState("");
-      const [projectId, setProjectId] = React.useState("");
-      const [savedId, setSavedId] = React.useState("");
-      const [loading, setLoading] = React.useState(true);
-      const [authOpen, setAuthOpen] = React.useState(false);
-      const [authAccount, setAuthAccount] = React.useState("");
-      const [authPassword, setAuthPassword] = React.useState("");
-      const [authBusy, setAuthBusy] = React.useState(false);
-      const [authMsg, setAuthMsg] = React.useState("");
-      const [captcha, setCaptcha] = React.useState(null);
+    function captchaHint(prompt, iconTarget) {
+      const icon = ICON_LABEL[iconTarget] || "\u56FE\u6807";
+      if (prompt === "click_largest") return `\u8BF7\u70B9\u51FB\u6700\u5927\u7684${icon}`;
+      if (prompt === "click_smallest") return `\u8BF7\u70B9\u51FB\u6700\u5C0F\u7684${icon}`;
+      if (prompt === "click_second_smallest") return `\u8BF7\u70B9\u51FB\u7B2C\u4E8C\u5C0F\u7684${icon}`;
+      if (prompt === "click_icon") return `\u8BF7\u70B9\u51FB\u56FE\u4E2D\u7684${icon}`;
+      if (prompt === "click_sequence") return "\u8BF7\u6309\u63D0\u793A\u987A\u5E8F\u70B9\u51FB";
+      if (prompt === "click_size_asc") return `\u8BF7\u6309\u4ECE\u5C0F\u5230\u5927\u70B9\u51FB${icon}`;
+      if (prompt === "click_size_desc") return `\u8BF7\u6309\u4ECE\u5927\u5230\u5C0F\u70B9\u51FB${icon}`;
+      return "\u8BF7\u5B8C\u6210\u4EBA\u673A\u9A8C\u8BC1";
+    }
+    function Card({ title, hint, action, children }) {
+      return h(
+        "section",
+        { [S]: "card" },
+        h(
+          "div",
+          { [S]: "card-head" },
+          h(
+            "div",
+            null,
+            h("h3", { [S]: "card-title" }, title),
+            hint ? h("p", { [S]: "card-hint" }, hint) : null
+          ),
+          action || null
+        ),
+        h("div", { [S]: "card-body" }, children)
+      );
+    }
+    function Badge({ tone = "idle", children }) {
+      return h("span", { [S]: "badge", [`${S}-tone`]: tone }, children);
+    }
+    function Row({ label, detail, badge, children }) {
+      return h(
+        "div",
+        { [S]: "row" },
+        h(
+          "div",
+          { [S]: "row-main" },
+          h("div", { [S]: "row-label" }, label, badge || null),
+          detail ? h("div", { [S]: "row-detail" }, detail) : null
+        ),
+        children ? h("div", { [S]: "row-action" }, children) : null
+      );
+    }
+    function Btn({ variant = "ghost", children, ...rest }) {
+      return h("button", { [S]: "btn", [`${S}-variant`]: variant, type: "button", ...rest }, children);
+    }
+    function Chevron({ open }) {
+      return h("svg", {
+        [S]: "chevron",
+        [`${S}-open`]: open ? "1" : void 0,
+        width: 12,
+        height: 12,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: 2,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": true
+      }, h("path", { d: "m9 18 6-6-6-6" }));
+    }
+    function Disclosure({ title, summary, children }) {
+      const [open, setOpen] = React.useState(false);
+      return h(
+        "div",
+        { [S]: "disclosure" },
+        h(
+          "button",
+          { [S]: "disclosure-head", type: "button", onClick: () => setOpen((v) => !v), "aria-expanded": open ? "true" : "false" },
+          h("span", null, title),
+          h("span", { [S]: "disclosure-summary" }, summary || (open ? "\u6536\u8D77" : "\u5C55\u5F00")),
+          h(Chevron, { open })
+        ),
+        open ? h("div", { [S]: "disclosure-body" }, children) : null
+      );
+    }
+    function Modal({ title, onClose, children }) {
+      return h(
+        "div",
+        { [S]: "modal-backdrop", onClick: (event) => {
+          if (event.target === event.currentTarget) onClose();
+        } },
+        h(
+          "div",
+          { [S]: "modal", role: "dialog", "aria-modal": "true", "aria-label": title },
+          h(
+            "div",
+            { [S]: "modal-head" },
+            h("h2", { [S]: "modal-title" }, title),
+            h("button", { [S]: "modal-x", type: "button", onClick: onClose, "aria-label": "\u5173\u95ED" }, "\xD7")
+          ),
+          h("div", { [S]: "modal-body" }, children)
+        )
+      );
+    }
+    function LoginDialog({ busy, message, onLogin, onClose }) {
+      const [account, setAccount] = React.useState("");
+      const [password, setPassword] = React.useState("");
+      const [cap, setCap] = React.useState(null);
       const [clicks, setClicks] = React.useState([]);
-      const [catalog, setCatalog] = React.useState(null);
-      const [catalogBusy, setCatalogBusy] = React.useState(false);
-      const [catalogMsg, setCatalogMsg] = React.useState("");
-      const [localTarPath, setLocalTarPath] = React.useState("");
-      const [showImportPath, setShowImportPath] = React.useState(false);
-      const [confirmRemove, setConfirmRemove] = React.useState(false);
-      const loadCatalog = React.useCallback(async () => {
+      const [localMsg, setLocalMsg] = React.useState("");
+      const openCaptcha = React.useCallback(async () => {
+        setLocalMsg("");
+        setClicks([]);
         try {
-          const res = await fetch("/api/no996-openfilm/models", { credentials: "same-origin", headers: { accept: "application/json" } });
-          if (res.ok) setCatalog(await res.json());
-        } catch {
+          setCap(await postAuth({ action: "captcha", type: "click" }));
+        } catch (fail) {
+          setCap(null);
+          setLocalMsg(String(fail?.message ?? fail));
         }
       }, []);
-      const postModels = React.useCallback(async (payload) => {
-        setCatalogBusy(true);
-        setCatalogMsg("");
-        try {
-          const res = await fetch("/api/no996-openfilm/models", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          const data2 = await res.json().catch(() => ({}));
-          if (!res.ok || data2?.ok === false) {
-            throw new Error(data2?.message || data2?.error || `HTTP ${res.status}`);
-          }
-          if (data2?.catalog) setCatalog(data2.catalog);
-          else if (data2?.items) setCatalog(data2);
-          else await loadCatalog();
-        } catch (err) {
-          setCatalogMsg(String(err?.message || err));
-        } finally {
-          setCatalogBusy(false);
+      const submit = React.useCallback(async (captchaId, captchaCode) => {
+        const ok = await onLogin({ account, password, captchaId, captchaCode });
+        if (ok) onClose();
+        else {
+          setClicks([]);
+          if (captchaId) void openCaptcha();
         }
-      }, [loadCatalog]);
-      const load = React.useCallback(async (project) => {
+      }, [account, password, onLogin, onClose, openCaptcha]);
+      const clickCaptcha = React.useCallback((event) => {
+        if (!cap?.id || busy) return;
+        const target = event.target?.closest?.("[data-captcha-id]");
+        const id = target?.getAttribute?.("data-captcha-id");
+        if (!id) return;
+        const prompt = cap.prompt || "";
+        const isSeq = prompt === "click_sequence" || prompt === "click_size_asc" || prompt === "click_size_desc";
+        if (!isSeq) {
+          void submit(cap.id, id);
+          return;
+        }
+        if (clicks.includes(id)) return;
+        const next = [...clicks, id];
+        setClicks(next);
+        const needed = prompt === "click_sequence" ? cap.sequence?.length || 1 : 4;
+        if (next.length >= needed) void submit(cap.id, next.join(","));
+      }, [cap, clicks, busy, submit]);
+      return h(
+        Modal,
+        { title: "\u767B\u5F55\u4E0D\u52A0\u73ED\u8D26\u53F7", onClose },
+        h("p", { [S]: "modal-hint" }, "\u767B\u5F55\u540E\u5373\u53EF\u4F7F\u7528\u4E0D\u52A0\u73ED Auto\u3001\u751F\u56FE\u3001\u914D\u97F3\u4E0E\u8054\u7F51\u3002\u8D26\u53F7\u4FE1\u606F\u4EC5\u7528\u4E8E\u672C\u673A\u4F1A\u8BDD\u3002"),
+        h(
+          "label",
+          { [S]: "field" },
+          h("span", { [S]: "field-label" }, "\u90AE\u7BB1\u6216\u624B\u673A\u53F7"),
+          h("input", { [S]: "input", type: "text", value: account, placeholder: "\u8BF7\u8F93\u5165\u8D26\u53F7", autoComplete: "username", onChange: (e) => setAccount(e.target.value) })
+        ),
+        h(
+          "label",
+          { [S]: "field" },
+          h("span", { [S]: "field-label" }, "\u5BC6\u7801"),
+          h("input", { [S]: "input", type: "password", value: password, placeholder: "\u81F3\u5C11 6 \u4F4D", autoComplete: "current-password", onChange: (e) => setPassword(e.target.value) })
+        ),
+        h(
+          "div",
+          { [S]: "field-actions" },
+          h(Btn, { onClick: () => void openCaptcha(), disabled: busy }, cap ? "\u5237\u65B0\u4EBA\u673A\u9A8C\u8BC1" : "\u83B7\u53D6\u4EBA\u673A\u9A8C\u8BC1"),
+          cap?.id ? h("span", { [S]: "captcha-hint" }, `${captchaHint(cap.prompt, cap.icon_target)}${clicks.length ? `\uFF08\u5DF2\u70B9 ${clicks.length}\uFF09` : ""}`) : null
+        ),
+        cap?.svg ? h("div", { [S]: "captcha", onClick: clickCaptcha, dangerouslySetInnerHTML: { __html: cap.svg } }) : null,
+        message || localMsg ? h("p", { [S]: "notice", [`${S}-tone`]: "error" }, message || localMsg) : null,
+        h(
+          "div",
+          { [S]: "modal-actions" },
+          h(Btn, { onClick: onClose }, "\u53D6\u6D88"),
+          h(Btn, { variant: "primary", onClick: () => void submit(cap?.id, ""), disabled: busy || !account.trim() || password.length < 6 || !cap?.id }, busy ? "\u767B\u5F55\u4E2D\u2026" : "\u767B\u5F55")
+        )
+      );
+    }
+    return function No996SettingsSection() {
+      const [data, setData] = React.useState(null);
+      const [error, setError] = React.useState("");
+      const [loading, setLoading] = React.useState(true);
+      const [busy, setBusy] = React.useState(false);
+      const [message, setMessage] = React.useState("");
+      const [catalog, setCatalog] = React.useState(null);
+      const [loginOpen, setLoginOpen] = React.useState(false);
+      const [confirmRemove, setConfirmRemove] = React.useState(false);
+      const [showImport, setShowImport] = React.useState(false);
+      const [tarPath, setTarPath] = React.useState("");
+      const load = React.useCallback(async () => {
         setLoading(true);
         setError("");
         try {
-          const query = project ? `?projectId=${encodeURIComponent(project)}` : "";
-          const response = await fetch(`/api/no996-openfilm/environment${query}`, { credentials: "same-origin", headers: { accept: "application/json" } });
+          const response = await fetch("/api/no996-openfilm/environment", { credentials: "same-origin", headers: { accept: "application/json" } });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           setData(await response.json());
         } catch (fail) {
@@ -1004,297 +1064,240 @@
           setLoading(false);
         }
       }, []);
-      const fetchCaptcha = React.useCallback(async () => {
-        setAuthMsg("");
-        setClicks([]);
+      const loadCatalog = React.useCallback(async () => {
         try {
-          const cap = await postAuth({ action: "captcha", type: "click" });
-          setCaptcha(cap);
-        } catch (fail) {
-          setCaptcha(null);
-          setAuthMsg(String(fail?.message ?? fail));
+          const res = await fetch("/api/no996-openfilm/models", { credentials: "same-origin", headers: { accept: "application/json" } });
+          if (res.ok) setCatalog(await res.json());
+        } catch {
         }
       }, []);
-      const submitLogin = React.useCallback(async (captchaId, captchaCode) => {
-        setAuthBusy(true);
-        setAuthMsg("");
-        try {
-          await postAuth({
-            action: "login",
-            account: authAccount.trim(),
-            password: authPassword,
-            captchaId,
-            captchaCode
-          });
-          setAuthOpen(false);
-          setAuthPassword("");
-          setCaptcha(null);
-          setClicks([]);
-          await load(savedId || projectId.trim());
-        } catch (fail) {
-          setAuthMsg(String(fail?.message ?? fail));
-          setClicks([]);
-          if (captchaId) void fetchCaptcha();
-        } finally {
-          setAuthBusy(false);
-        }
-      }, [authAccount, authPassword, fetchCaptcha, load, projectId, savedId]);
-      const handleLogout = React.useCallback(async () => {
-        setAuthBusy(true);
-        setAuthMsg("");
-        try {
-          await postAuth({ action: "logout" });
-          await load(savedId || projectId.trim());
-        } catch (fail) {
-          setAuthMsg(String(fail?.message ?? fail));
-        } finally {
-          setAuthBusy(false);
-        }
-      }, [load, projectId, savedId]);
-      const handleCaptchaClick = React.useCallback((event) => {
-        if (!captcha?.id || authBusy) return;
-        const target = event.target?.closest?.("[data-captcha-id]");
-        const id = target?.getAttribute?.("data-captcha-id");
-        if (!id) return;
-        const prompt = captcha.prompt || "";
-        const isSeq = prompt === "click_sequence" || prompt === "click_size_asc" || prompt === "click_size_desc";
-        if (!isSeq) {
-          void submitLogin(captcha.id, id);
-          return;
-        }
-        if (clicks.includes(id)) return;
-        const needed = prompt === "click_sequence" ? captcha.sequence?.length || 1 : 4;
-        const next = [...clicks, id];
-        setClicks(next);
-        if (next.length >= needed) {
-          void submitLogin(captcha.id, next.join(","));
-        }
-      }, [authBusy, captcha, clicks, submitLogin]);
       React.useEffect(() => {
-        const saved = readSaved();
-        if (saved) {
-          setProjectId(saved);
-          setSavedId(saved);
-          load(saved);
-        } else {
-          load("");
-        }
+        void load();
         void loadCatalog();
       }, [load, loadCatalog]);
-      const visionInstalling = Boolean(catalog?.vision?.installing);
-      React.useEffect(() => {
-        if (!visionInstalling) return void 0;
-        const timer = window.setInterval(() => {
-          void loadCatalog();
-        }, 1e3);
-        return () => window.clearInterval(timer);
-      }, [visionInstalling, loadCatalog]);
-      const save = React.useCallback(() => {
-        const value = projectId.trim();
-        if (!value) return;
+      const postModels = React.useCallback(async (payload) => {
+        setBusy(true);
+        setMessage("");
         try {
-          window.localStorage.setItem(STORAGE_KEY, value);
-        } catch {
+          const res = await fetch("/api/no996-openfilm/models", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || body?.ok === false) throw new Error(body?.message || body?.error || `HTTP ${res.status}`);
+          if (body?.catalog) setCatalog(body.catalog);
+          else await loadCatalog();
+        } catch (fail) {
+          setMessage(String(fail?.message ?? fail));
+        } finally {
+          setBusy(false);
         }
-        setSavedId(value);
-        load(value);
-      }, [projectId, load]);
-      const clearSaved = React.useCallback(() => {
+      }, [loadCatalog]);
+      const login = React.useCallback(async ({ account, password, captchaId, captchaCode }) => {
+        setBusy(true);
+        setMessage("");
         try {
-          window.localStorage.removeItem(STORAGE_KEY);
-        } catch {
+          await postAuth({ action: "login", account: String(account).trim(), password: String(password), captchaId, captchaCode });
+          await load();
+          return true;
+        } catch (fail) {
+          setMessage(String(fail?.message ?? fail));
+          return false;
+        } finally {
+          setBusy(false);
         }
-        setSavedId("");
-      }, []);
+      }, [load]);
+      const logout = React.useCallback(async () => {
+        setBusy(true);
+        setMessage("");
+        try {
+          await postAuth({ action: "logout" });
+          await load();
+        } catch (fail) {
+          setMessage(String(fail?.message ?? fail));
+        } finally {
+          setBusy(false);
+        }
+      }, [load]);
+      const fmtMb = (n) => `${(Math.max(0, Number(n) || 0) / (1024 * 1024)).toFixed(1)} MB`;
+      const auth = data?.workbenchAuth;
+      const formal = Boolean(auth?.loggedIn && !auth?.guest && !auth?.dev);
       const preset = data?.preset;
-      const wbAuth = data?.workbenchAuth;
-      const isFormalUser = Boolean(wbAuth?.loggedIn && !wbAuth?.guest && !wbAuth?.dev);
       const skills = Array.isArray(data?.skills?.isolated) ? data.skills.isolated : [];
       const tools = Array.isArray(data?.tools) ? data.tools : [];
-      const chain = data?.project && !data.project.error ? data.project : null;
-      const chainError = data?.project?.error;
+      const vision = catalog?.vision || null;
       return h(
         "div",
-        { "data-no996-env": "", style: box },
-        h("p", { style: title }, "\u526A\u8F91\u73AF\u5883 \xB7 Environment"),
-        h("p", { style: dim }, "\u5F71\u7247\u5B50\u8FDB\u7A0B\u5B9E\u9645\u80FD\u52A0\u8F7D\u7684\u4E1C\u897F\uFF08\u53EA\u8BFB\uFF09\u3002\u5168\u5C40 skill \u76EE\u5F55\u4E0D\u8FDB\u5F71\u7247\u5BF9\u8BDD\uFF0C\u8BFB\u6587\u4EF6/\u8BFB\u56FE/\u4E22 PDF \u8D70\u4E0B\u9762\u7684\u5F71\u7247\u5DE5\u5177\uFF0C\u4E0D\u53D7\u5F71\u54CD\u3002"),
-        loading ? h("p", { style: dim }, "\u6B63\u5728\u8BFB\u53D6\u2026 Loading\u2026") : null,
-        error ? h("p", { style: dim }, `\u8BFB\u53D6\u5931\u8D25 Load failed\uFF1A${error}`) : null,
-        wbAuth ? h(
-          "div",
-          null,
-          h("p", { style: sub }, "\u4E0D\u52A0\u73ED\u8D26\u53F7\u4E0E\u6A21\u578B \xB7 no996/auto"),
-          h("p", { style: dim }, isFormalUser ? `\u5DF2\u767B\u5F55\uFF1A${wbAuth.displayName || wbAuth.account || "\u6B63\u5F0F\u8D26\u53F7"}\uFF08\u4E0D\u52A0\u73ED Auto \u4E0E\u751F\u56FE/\u914D\u97F3/\u8054\u7F51\u5DF2\u5C31\u7EEA\uFF09` : wbAuth.guest ? "\u5F53\u524D\u4E3A\u6E38\u5BA2\u6A21\u5F0F\uFF08\u6A21\u578B\u5217\u8868\u663E\u793A\u300C\u4E0D\u52A0\u73ED Auto (\u9700\u5148\u767B\u5F55)\u300D\uFF0C\u4EC5\u767B\u5F55\u6B63\u5F0F\u8D26\u53F7\u540E\u53EF\u8C03\u7528\uFF09" : "\u672A\u767B\u5F55\uFF08\u6A21\u578B\u5217\u8868\u663E\u793A\u300C\u4E0D\u52A0\u73ED Auto (\u9700\u5148\u767B\u5F55)\u300D\uFF0C\u767B\u5F55\u540E\u81EA\u52A8\u542F\u7528\u5E76\u5237\u65B0\uFF09"),
-          h(
-            "div",
-            { style: row },
-            isFormalUser ? h("button", { style: { ...button, marginTop: 0 }, disabled: authBusy, onClick: handleLogout }, authBusy ? "\u9000\u51FA\u4E2D\u2026" : "\u9000\u51FA\u4E0D\u52A0\u73ED\u8D26\u53F7") : h("button", {
-              style: { ...button, marginTop: 0 },
-              disabled: authBusy,
-              onClick: () => {
-                const next = !authOpen;
-                setAuthOpen(next);
-                if (next && !captcha) void fetchCaptcha();
-              }
-            }, authOpen ? "\u6536\u8D77\u767B\u5F55" : "\u767B\u5F55\u4E0D\u52A0\u73ED\u8D26\u53F7")
-          ),
-          !isFormalUser && authOpen ? h(
-            "div",
-            { style: { marginTop: 8 } },
-            h("input", {
-              style: input,
-              type: "text",
-              value: authAccount,
-              placeholder: "\u90AE\u7BB1\u6216\u624B\u673A\u53F7",
-              onChange: (event) => setAuthAccount(event.target.value)
-            }),
-            h("input", {
-              style: input,
-              type: "password",
-              value: authPassword,
-              placeholder: "\u5BC6\u7801\uFF08\u81F3\u5C11 6 \u4F4D\uFF09",
-              onChange: (event) => setAuthPassword(event.target.value)
-            }),
+        { [S]: "" },
+        h(
+          Card,
+          {
+            title: "\u8D26\u53F7\u4E0E\u6A21\u578B",
+            hint: "\u4E0D\u52A0\u73ED Auto \xB7 \u751F\u56FE \xB7 \u914D\u97F3 \xB7 \u8054\u7F51",
+            action: auth ? formal ? h(Btn, { onClick: () => void logout(), disabled: busy }, busy ? "\u9000\u51FA\u4E2D\u2026" : "\u9000\u51FA\u767B\u5F55") : h(Btn, { variant: "primary", onClick: () => setLoginOpen(true) }, "\u767B\u5F55") : null
+          },
+          !auth ? h("p", { [S]: "muted" }, loading ? "\u6B63\u5728\u8BFB\u53D6\u8D26\u53F7\u72B6\u6001\u2026" : `\u8BFB\u53D6\u5931\u8D25\uFF1A${error || "\u672A\u77E5\u9519\u8BEF"}`) : null,
+          auth ? h(Row, {
+            label: h("span", null, formal ? auth.displayName || auth.account || "\u6B63\u5F0F\u8D26\u53F7" : auth.guest ? "\u6E38\u5BA2\u6A21\u5F0F" : "\u672A\u767B\u5F55"),
+            badge: h(Badge, { tone: formal ? "success" : "idle" }, formal ? "\u5DF2\u767B\u5F55" : auth.guest ? "\u6E38\u5BA2" : "\u672A\u767B\u5F55"),
+            detail: formal ? "\u4E0D\u52A0\u73ED Auto \u4E0E\u5E73\u53F0\u80FD\u529B\u5DF2\u5C31\u7EEA" : "\u6A21\u578B\u5217\u8868\u663E\u793A\u300C\u4E0D\u52A0\u73ED Auto (\u9700\u5148\u767B\u5F55)\u300D\uFF0C\u767B\u5F55\u540E\u81EA\u52A8\u542F\u7528"
+          }) : null
+        ),
+        h(
+          Card,
+          { title: "\u6A21\u578B\u4E0E\u7EC4\u4EF6", hint: "\u6309\u9700\u5B89\u88C5\uFF0C\u4E0D\u540E\u53F0\u9759\u9ED8\u4E0B\u8F7D" },
+          vision ? h(
+            Row,
+            {
+              label: "\u672C\u5730\u89C6\u89C9\u7EC4\u4EF6",
+              badge: h(Badge, { tone: vision.managed ? "success" : "idle" }, vision.managed ? "\u5DF2\u5B89\u88C5" : "\u672A\u5B89\u88C5"),
+              detail: `\u538B\u7F29\u5305\u7EA6 ${fmtMb(vision.downloadBytes || 15449643)} / \u89E3\u538B ${fmtMb(vision.declaredBytes)} \xB7 \u8FD0\u884C\u65F6 ${vision.runtime?.ready ? "\u5DF2\u5C31\u7EEA" : "\u7F3A\u5931"}`
+            },
             h(
               "div",
-              { style: row },
-              h("button", {
-                style: { ...button, marginTop: 0 },
-                disabled: authBusy || !authAccount.trim() || authPassword.length < 6,
-                onClick: () => void fetchCaptcha()
-              }, captcha ? "\u5237\u65B0\u4EBA\u673A\u9A8C\u8BC1" : "\u83B7\u53D6\u4EBA\u673A\u9A8C\u8BC1"),
-              captcha?.id ? h("span", { style: dim }, `${captchaHint(captcha.prompt, captcha.icon_target)}${clicks.length ? `\uFF08\u5DF2\u70B9 ${clicks.length}\uFF09` : ""}`) : null
-            ),
-            captcha?.svg ? h("div", {
-              style: {
-                marginTop: 8,
-                border: "1px solid var(--dsw-alias-border-l1)",
-                borderRadius: 8,
-                overflow: "hidden",
-                cursor: "pointer",
-                maxWidth: 360,
-                background: "var(--dsw-alias-bg-base)"
-              },
-              onClick: handleCaptchaClick,
-              dangerouslySetInnerHTML: { __html: captcha.svg }
-            }) : null,
-            authMsg ? h("p", { style: { ...dim, marginTop: 6 } }, authMsg) : null
-          ) : null
-        ) : null,
-        catalog?.vision ? (() => {
-          const v = catalog.vision;
-          const seen = Number(v.install?.seen) || 0;
-          const total = Number(v.install?.total) || Number(v.downloadBytes) || 15449643;
-          const pct = total > 0 ? Math.min(100, Math.round(seen / total * 100)) : 0;
-          const fmtMb = (n) => `${(Math.max(0, Number(n) || 0) / (1024 * 1024)).toFixed(1)} MB`;
-          const corrupt = v.installState === "corrupt";
-          const statusLabel = v.installing ? `\u4E0B\u8F7D\u4E2D ${pct}%\uFF08${v.install?.sourceLabel || "\u955C\u50CF\u6E90"}\uFF09` : v.managed ? v.loadedModels?.length > 0 ? "\u5DF2\u5B89\u88C5 \xB7 \u672C\u6B21\u8FD0\u884C\u5DF2\u52A0\u8F7D" : "\u5DF2\u5B89\u88C5" : v.reusableLocal ? "\u68C0\u6D4B\u5230\u65E7\u7F13\u5B58\u53EF\u4E00\u952E\u590D\u7528" : corrupt ? "\u90E8\u5206\u6587\u4EF6\u7F3A\u5931\u6216\u635F\u574F" : "\u672A\u5B89\u88C5\uFF08\u6309\u9700\u5B89\u88C5\uFF09";
-          const rt = v.runtime || {};
-          return h(
-            "div",
-            null,
-            h("p", { style: sub }, "\u53EF\u9009\u7EC4\u4EF6 \xB7 \u672C\u5730\u89C6\u89C9 (@newbiecheng/no996-models-vision)"),
-            h("p", { style: dim }, `\u72B6\u6001\uFF1A${statusLabel} \xB7 \u538B\u7F29\u5305\u7EA6 ${fmtMb(v.downloadBytes || 15449643)} / \u89E3\u538B ${fmtMb(v.declaredBytes)} \xB7 \u8FD0\u884C\u65F6\uFF08onnxruntime-web / MediaPipe\uFF09\uFF1A${rt.ready ? "\u968F\u6838\u5FC3\u63D0\u4F9B\uFF08\u5DF2\u5C31\u7EEA\uFF09" : `\u7F3A\u5C11 ${rt.missing?.join(", ") || "\u6838\u5FC3\u4F9D\u8D56"}`}`),
-            v.managed ? h("p", { style: dim }, `\u5B58\u653E\u4F4D\u7F6E\uFF1A${v.storeDir}`) : null,
-            v.install?.error ? h("p", { style: dim }, `\u5931\u8D25\u8BF4\u660E\uFF1A${v.install.error}`) : null,
-            catalogMsg ? h("p", { style: dim }, `\u64CD\u4F5C\u53CD\u9988\uFF1A${catalogMsg}`) : null,
-            h(
-              "div",
-              { style: { ...row, flexWrap: "wrap" } },
-              !v.installing && !v.managed && v.reusableLocal ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: "migrate", id: "no996-models-vision" }) }, "\u4E00\u952E\u590D\u7528\u672C\u5730\u7F13\u5B58\uFF080 \u6D41\u91CF\uFF09") : null,
-              !v.installing && (!v.managed || corrupt) ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: "install", id: "no996-models-vision", force: corrupt }) }, corrupt ? "\u91CD\u65B0\u4E0B\u8F7D\u4FEE\u590D" : "\u5B89\u88C5\u672C\u5730\u89C6\u89C9\u7EC4\u4EF6") : null,
-              v.installing ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => void postModels({ action: "cancel", id: "no996-models-vision" }) }, "\u53D6\u6D88\u4E0B\u8F7D") : null,
-              !v.installing && v.managed && !confirmRemove ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => setConfirmRemove(true) }, `\u5378\u8F7D\u7EC4\u4EF6\uFF08\u53EF\u91CA\u653E ${fmtMb(v.reclaimableBytes)}\uFF09`) : null,
-              !v.installing && confirmRemove ? h("button", { style: { ...button, marginTop: 0 }, disabled: catalogBusy, onClick: () => {
+              { [S]: "btn-group" },
+              !vision.managed && !vision.installing ? h(Btn, { onClick: () => void postModels({ action: "install", id: "no996-models-vision" }), disabled: busy }, "\u5B89\u88C5") : null,
+              vision.managed && !confirmRemove ? h(Btn, { onClick: () => setConfirmRemove(true), disabled: busy }, `\u5378\u8F7D\uFF08\u91CA\u653E ${fmtMb(vision.reclaimableBytes)}\uFF09`) : null,
+              vision.managed && confirmRemove ? h(Btn, { variant: "danger", onClick: () => {
                 setConfirmRemove(false);
                 void postModels({ action: "remove", id: "no996-models-vision" });
-              } }, "\u786E\u8BA4\u5378\u8F7D") : null,
-              confirmRemove ? h("button", { style: link, onClick: () => setConfirmRemove(false) }, "\u53D6\u6D88") : null,
-              !v.installing && v.tempBytes > 0 ? h("button", { style: link, disabled: catalogBusy, onClick: () => void postModels({ action: "remove", id: "no996-models-vision", cleanResidualsOnly: true }) }, "\u6E05\u7406\u6B8B\u7559\u788E\u7247") : null,
-              h("button", { style: link, onClick: () => setShowImportPath((prev) => !prev) }, showImportPath ? "\u6536\u8D77\u79BB\u7EBF\u5BFC\u5165" : "\u4ECE\u672C\u5730\u538B\u7F29\u5305\u5BFC\u5165")
-            ),
-            showImportPath ? h(
-              "div",
-              { style: { marginTop: 6 } },
-              h("input", {
-                style: input,
-                type: "text",
-                value: localTarPath,
-                placeholder: "\u8F93\u5165\u79BB\u7EBF .tgz \u6587\u4EF6\u7EDD\u5BF9\u8DEF\u5F84\uFF08\u6821\u9A8C SHA-256 \u540E\u5BFC\u5165\uFF09",
-                onChange: (e) => setLocalTarPath(e.target.value)
-              }),
-              h("button", {
-                style: button,
-                disabled: catalogBusy || !localTarPath.trim(),
-                onClick: () => void postModels({ action: "import-local", path: localTarPath.trim() })
-              }, "\u5BFC\u5165\u79BB\u7EBF\u5305")
-            ) : null
-          );
-        })() : null,
-        preset ? h(
-          "div",
-          null,
-          h("p", { style: sub }, "\u9884\u8BBE Preset"),
-          h("p", { style: dim }, h("span", { style: code }, preset.id), ` \u2014 ${preset.ok ? "\u5DF2\u52A0\u8F7D loaded" : `\u672A\u52A0\u8F7D not loaded\uFF08${preset.detail}\uFF09`}`)
-        ) : null,
-        skills.length > 0 ? h(
-          "div",
-          null,
-          h("p", { style: sub }, `\u9694\u79BB\u7684\u6280\u80FD Isolated skills\uFF08${skills.length}\uFF09`),
-          h("p", { style: dim }, "\u5B50\u8FDB\u7A0B\u53EA\u770B\u672C\u63D2\u4EF6 skills/\uFF08includeDefaultRoots: false\uFF09\u3002\u9879\u76EE\u81EA\u5E26\u7684 <project>/.agents/skills \u4ECD\u53EF\u7528\u3002"),
-          h("table", { style: table }, h("tbody", null, skills.map((skill) => h(
-            "tr",
-            { key: skill.id },
-            h("td", { style: th }, h("span", { style: code }, skill.id)),
-            h("td", { style: td }, skill.description || "\u2014")
-          ))))
-        ) : null,
-        tools.length > 0 ? h(
-          "div",
-          null,
-          h("p", { style: sub }, `\u5F71\u7247\u5DE5\u5177 Film tools\uFF08MCP\uFF0C${tools.length}\uFF09`),
-          h("table", { style: table }, h("tbody", null, tools.map((tool) => h(
-            "tr",
-            { key: tool.name },
-            h("td", { style: th }, h("span", { style: code }, tool.name)),
-            h("td", { style: td }, h("span", { style: dim }, tool.description || "\u2014"))
-          ))))
-        ) : null,
-        h(
-          "div",
-          null,
-          h("p", { style: sub }, "\u9879\u76EE\u6307\u4EE4\u94FE Project instructions"),
-          h("input", {
-            style: input,
-            value: projectId,
-            placeholder: "\u7C98\u8D34\u9879\u76EE ID \u67E5\u8BE5\u7247\u7684\u6307\u4EE4\u94FE\uFF08\u9762\u677F URL \u6216 /diagnose \u91CC\u6709\uFF09",
-            onChange: (event) => setProjectId(event.target.value)
-          }),
+              }, disabled: busy }, "\u786E\u8BA4\u5378\u8F7D") : null,
+              confirmRemove ? h(Btn, { onClick: () => setConfirmRemove(false) }, "\u53D6\u6D88") : null
+            )
+          ) : h("p", { [S]: "muted" }, "\u7EC4\u4EF6\u72B6\u6001\u8BFB\u53D6\u4E2D\u2026"),
+          vision?.installing ? h(
+            "div",
+            { [S]: "progress" },
+            h("div", { [S]: "progress-fill", style: { width: `${Math.min(100, Math.round((Number(vision.install?.seen) || 0) / (Number(vision.install?.total) || 1) * 100))}%` } })
+          ) : null,
           h(
-            "div",
-            { style: row },
-            h("button", { style: { ...button, marginTop: 0 }, onClick: () => load(projectId.trim()) }, "\u67E5\u8BE2 Load project"),
-            h("button", { style: { ...button, marginTop: 0, marginLeft: "auto" }, onClick: save, title: "\u8BB0\u4F4F\u8FD9\u4E2A\u9879\u76EE ID\uFF0C\u4E0B\u6B21\u6253\u5F00\u81EA\u52A8\u67E5\uFF08\u53EA\u5B58\u672C\u673A\uFF09" }, "\u4FDD\u5B58 Save")
+            Row,
+            {
+              label: "\u4ECE\u672C\u5730\u538B\u7F29\u5305\u5BFC\u5165",
+              detail: "\u79BB\u7EBF\u673A\u5668\u53EF\u7528\uFF1B\u5BFC\u5165\u4F1A\u6821\u9A8C SHA-256"
+            },
+            h(Btn, { onClick: () => setShowImport((v) => !v) }, showImport ? "\u6536\u8D77" : "\u9009\u62E9\u538B\u7F29\u5305")
           ),
-          savedId ? h(
-            "p",
-            { style: dim },
-            `\u5DF2\u8BB0\u4F4F ${savedId}\uFF08\u6253\u5F00\u81EA\u52A8\u67E5\uFF09`,
-            h("button", { style: link, onClick: clearSaved }, "\u6E05\u9664 Clear")
-          ) : null,
-          chain ? h(
+          showImport ? h(
             "div",
-            { style: { marginTop: 8 } },
-            h("p", { style: dim }, `\u5E38\u9A7B\u9884\u7B97 resident\uFF1A${chain?.budget?.total ?? "?"} / ${chain?.budget?.limit ?? 6144} bytes\uFF08${chain?.budget?.ok ? "OK" : "\u8D85\u9650 over"}\uFF09\xB7 persona ${chain?.persona ?? "?"}B`),
-            h("p", { style: dim }, `\u8BFB\u5230\u7684\u6587\u4EF6 files\uFF1A${(chain.files ?? []).map((f) => f.file).join("\uFF1B") || "\u65E0"}`),
-            chain.outside?.length > 0 ? h("p", { style: dim }, `\u5DF2\u6321\u6389\u7684\u4E0A\u5C42\u624B\u518C excluded\uFF1A${chain.outside.join("\uFF1B")}`) : null,
-            Array.isArray(chain.activeTemplates) && chain.activeTemplates.length > 0 ? h("p", { style: dim }, `\u751F\u6548\u6A21\u677F templates\uFF1A${chain.activeTemplates.join(", ")}`) : null
+            { [S]: "import" },
+            h("input", { [S]: "input", type: "text", value: tarPath, placeholder: "\u672C\u5730 .tgz \u7684\u7EDD\u5BF9\u8DEF\u5F84", onChange: (e) => setTarPath(e.target.value) }),
+            h(Btn, { variant: "primary", disabled: busy || !tarPath.trim(), onClick: () => void postModels({ action: "import-local", id: "no996-models-vision", path: tarPath.trim() }) }, "\u5BFC\u5165")
           ) : null,
-          chainError ? h("p", { style: dim }, `\u8BE5\u9879\u76EE\u67E5\u4E0D\u5230 ${chainError}\uFF08\u5148\u5728\u5DE5\u4F5C\u53F0\u91CC\u6253\u5F00\u4E00\u6B21\u8BE5\u9879\u76EE\uFF09`) : null
-        )
+          message ? h("p", { [S]: "notice" }, message) : null
+        ),
+        h(
+          Card,
+          { title: "\u526A\u8F91\u5DE5\u4F5C\u53F0", hint: "\u5F71\u7247\u5B50\u8FDB\u7A0B\u5B9E\u9645\u80FD\u52A0\u8F7D\u7684\u4E1C\u897F" },
+          h(Row, {
+            label: "\u9884\u8BBE Preset",
+            badge: h(Badge, { tone: preset?.ok ? "success" : "error" }, preset?.ok ? "\u5DF2\u52A0\u8F7D" : "\u672A\u52A0\u8F7D"),
+            detail: preset ? `${preset.id}${preset.ok ? "" : ` \u2014 ${preset.detail}`}` : "\u8BFB\u53D6\u4E2D\u2026"
+          }),
+          h(Disclosure, {
+            title: `\u9694\u79BB\u6280\u80FD\uFF08${skills.length}\uFF09`,
+            summary: "\u4EC5\u672C\u63D2\u4EF6 skills/\uFF0C\u5168\u5C40\u76EE\u5F55\u4E0D\u8FDB\u5F71\u7247\u5BF9\u8BDD"
+          }, skills.length ? skills.map((skill) => h(
+            "div",
+            { [S]: "skill" },
+            h("div", { [S]: "skill-name" }, skill.name || skill.id || "\u672A\u547D\u540D"),
+            h("div", { [S]: "skill-desc" }, skill.description || "")
+          )) : h("p", { [S]: "muted" }, "\u6CA1\u6709\u9694\u79BB\u6280\u80FD\u3002")),
+          h(Disclosure, {
+            title: `\u5F71\u7247\u5DE5\u5177\uFF08${tools.length}\uFF09`,
+            summary: "\u8BFB\u6587\u4EF6 / \u8BFB\u56FE / \u4E22 PDF \u8D70\u8FD9\u91CC\uFF0C\u4E0D\u53D7\u6280\u80FD\u9694\u79BB\u5F71\u54CD"
+          }, tools.length ? tools.map((tool) => h(
+            "div",
+            { [S]: "skill" },
+            h("div", { [S]: "skill-name" }, tool.name),
+            h("div", { [S]: "skill-desc" }, tool.description || "")
+          )) : h("p", { [S]: "muted" }, "\u6CA1\u6709\u5F71\u7247\u5DE5\u5177\u3002"))
+        ),
+        loginOpen ? h(LoginDialog, { busy, message, onLogin: login, onClose: () => {
+          setLoginOpen(false);
+          setMessage("");
+        } }) : null
       );
     };
   }
+  function injectSettingsCss() {
+    if (typeof document === "undefined") return () => {
+    };
+    const id = "no996-settings-css";
+    if (!document.getElementById(id)) {
+      const st = document.createElement("style");
+      st.id = id;
+      st.textContent = NO996_SETTINGS_CSS;
+      const host = document.head ?? document.documentElement;
+      if (host) host.appendChild(st);
+    }
+    return () => {
+    };
+  }
+  var NO996_SETTINGS_CSS = `
+[data-no996-settings] { color: var(--dsw-alias-label-primary); font-size: 13px; line-height: 1.6; }
+[data-no996-settings] * { box-sizing: border-box; }
+[data-no996-settings="card"] { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+[data-no996-settings="card-head"] { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+[data-no996-settings="card-title"] { font-size: 14px; font-weight: 650; margin: 0; }
+[data-no996-settings="card-hint"] { font-size: 12px; color: var(--dsw-alias-label-secondary); margin: 2px 0 0; }
+[data-no996-settings="card-body"] { display: flex; flex-direction: column; gap: 10px; }
+[data-no996-settings="row"] { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+[data-no996-settings="row"]:first-child { border-top: none; }
+[data-no996-settings="row-main"] { min-width: 0; flex: 1; }
+[data-no996-settings="row-label"] { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+[data-no996-settings="row-detail"] { font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 2px; word-break: break-word; }
+[data-no996-settings="row-action"] { flex-shrink: 0; }
+[data-no996-settings="badge"] { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid var(--dsw-alias-border-l2); }
+[data-no996-settings-tone="success"] { color: var(--dsw-alias-state-success-primary); border-color: var(--dsw-alias-state-success-primary); }
+[data-no996-settings-tone="error"] { color: var(--dsw-alias-state-error-primary); border-color: var(--dsw-alias-state-error-primary); }
+[data-no996-settings-tone="warn"] { color: var(--dsw-alias-state-warn-primary); border-color: var(--dsw-alias-state-warn-primary); }
+[data-no996-settings="btn"] { padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; border: 1px solid var(--dsw-alias-border-l1); color: var(--dsw-alias-label-primary); }
+[data-no996-settings="btn"]:disabled { opacity: .5; cursor: default; }
+[data-no996-settings-variant="primary"] { background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-base); border-color: var(--dsw-alias-brand-primary); }
+[data-no996-settings-variant="danger"] { color: var(--dsw-alias-state-error-primary); border-color: var(--dsw-alias-state-error-primary); }
+[data-no996-settings="btn-group"] { display: flex; flex-wrap: wrap; gap: 8px; }
+[data-no996-settings="progress"] { height: 6px; background: var(--dsw-alias-bg-layer-2); border-radius: 999px; overflow: hidden; }
+[data-no996-settings="progress-fill"] { height: 100%; background: var(--dsw-alias-brand-primary); transition: width .2s ease; }
+[data-no996-settings="import"] { display: flex; gap: 8px; align-items: center; }
+[data-no996-settings="input"] { flex: 1; min-width: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-size: 12px; }
+[data-no996-settings="muted"] { color: var(--dsw-alias-label-secondary); margin: 4px 0; }
+[data-no996-settings="notice"] { color: var(--dsw-alias-label-secondary); margin: 6px 0 0; font-size: 12px; }
+[data-no996-settings="disclosure"] { border-top: 1px solid var(--dsw-alias-border-l1); }
+[data-no996-settings="disclosure-head"] { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 0; background: none; border: none; color: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+[data-no996-settings="disclosure-summary"] { flex: 1; font-size: 12px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
+[data-no996-settings="chevron"] { flex: none; color: var(--dsw-alias-label-secondary); transition: transform .15s ease; }
+[data-no996-settings-open="1"] { transform: rotate(90deg); }
+[data-no996-settings="btn"]:hover:not(:disabled) { border-color: var(--dsw-alias-brand-primary); }
+[data-no996-settings-variant="primary"]:hover:not(:disabled) { filter: brightness(1.08); }
+[data-no996-settings="btn"]:focus-visible,
+[data-no996-settings="disclosure-head"]:focus-visible,
+[data-no996-settings="modal-x"]:focus-visible,
+[data-no996-settings="captcha"]:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+[data-no996-settings="input"]:focus { border-color: var(--dsw-alias-brand-primary); outline: none; }
+@media (prefers-reduced-motion: reduce) {
+  [data-no996-settings="chevron"], [data-no996-settings="progress-fill"] { transition: none; }
+}
+[data-no996-settings="disclosure-body"] { padding: 0 0 8px; display: flex; flex-direction: column; gap: 8px; }
+[data-no996-settings="skill"] { padding: 6px 8px; background: var(--dsw-alias-bg-layer-2); border-radius: 8px; }
+[data-no996-settings="skill-name"] { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 600; }
+[data-no996-settings="skill-desc"] { font-size: 12px; color: var(--dsw-alias-label-secondary); word-break: break-word; }
+[data-no996-settings="modal-backdrop"] { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+[data-no996-settings="modal"] { width: min(440px, 100%); max-height: 90vh; overflow: auto; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; box-shadow: 0 18px 48px rgba(0,0,0,.35); }
+[data-no996-settings="modal-head"] { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+[data-no996-settings="modal-title"] { font-size: 15px; font-weight: 650; margin: 0; }
+[data-no996-settings="modal-x"] { background: none; border: none; color: var(--dsw-alias-label-secondary); font-size: 20px; cursor: pointer; line-height: 1; }
+[data-no996-settings="modal-body"] { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+[data-no996-settings="modal-hint"] { font-size: 12px; color: var(--dsw-alias-label-secondary); margin: 0; }
+[data-no996-settings="field"] { display: flex; flex-direction: column; gap: 4px; }
+[data-no996-settings="field-label"] { font-size: 12px; font-weight: 600; }
+[data-no996-settings="field-actions"] { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+[data-no996-settings="captcha-hint"] { font-size: 12px; color: var(--dsw-alias-label-secondary); }
+[data-no996-settings="captcha"] { border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--dsw-alias-bg-base); max-width: 360px; }
+[data-no996-settings="modal-actions"] { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+`;
 
   // src/studio/panel-keepalive.mjs
   function createActivationStore() {
@@ -2815,6 +2818,7 @@
         studioStoppedHint: "The editing service is not running. Restart it to continue; projects and media are untouched.",
         studioRestart: "Restart workspace",
         studioTitle: "OpenFilm Studio",
+        settingsLabel: "Video Workbench",
         presetReady: "Video editing mode: loaded",
         presetMissing: "Video editing mode: not loaded \u2014",
         archiveBanner: "This project conversation is archived; its messages stay hidden until restored.",
@@ -2844,6 +2848,7 @@
         studioStoppedHint: "\u89C6\u9891\u7F16\u8F91\u670D\u52A1\u5DF2\u65AD\u5F00\u3002\u91CD\u65B0\u542F\u52A8\u5373\u53EF\u7EE7\u7EED\uFF0C\u9879\u76EE\u548C\u7D20\u6750\u4E0D\u53D7\u5F71\u54CD\u3002",
         studioRestart: "\u91CD\u65B0\u542F\u52A8\u5DE5\u4F5C\u53F0",
         studioTitle: "OpenFilm \u5DE5\u4F5C\u53F0",
+        settingsLabel: "\u4E0D\u52A0\u73ED\u5DE5\u4F5C\u53F0",
         presetReady: "\u89C6\u9891\u526A\u8F91\u6A21\u5F0F\uFF1A\u5DF2\u52A0\u8F7D",
         presetMissing: "\u89C6\u9891\u526A\u8F91\u6A21\u5F0F\uFF1A\u672A\u52A0\u8F7D \u2014",
         archiveBanner: "\u8FD9\u4E2A\u9879\u76EE\u7684\u4F1A\u8BDD\u5DF2\u5F52\u6863\uFF0C\u6062\u590D\u524D\u4E0D\u663E\u793A\u5386\u53F2\u6D88\u606F\u3002",
@@ -2855,7 +2860,7 @@
         logout: "\u9000\u51FA"
       };
       const Panel = createStudioPanel(React);
-      const EnvSection = createEnvSection(React);
+      const SettingsSection = createNo996SettingsSection(React);
       const activation = createActivationStore();
       function PanelSeat() {
         const ref = React.useRef(null);
@@ -2949,6 +2954,13 @@
           h("path", { d: "m10 9 5 3-5 3V9Z", fill: "currentColor" })
         );
       }
+      function SettingsNavIcon({ size = 16 }) {
+        const dark = typeof document !== "undefined" ? document.documentElement?.getAttribute("data-theme") !== "light" : true;
+        return h("span", {
+          style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: size, height: size },
+          dangerouslySetInnerHTML: { __html: brandSvgMarkup({ dark, size }) }
+        });
+      }
       function BrandSlotMark({ size = 22 }) {
         const dark = typeof document !== "undefined" ? document.documentElement?.getAttribute("data-theme") !== "light" : true;
         return h("span", {
@@ -2966,7 +2978,16 @@
           const t = ctx.locale.bind(NS);
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
-          ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "@newbiecheng/dsh-no996-editor", locale: NS, label: () => t("envTitle") }, EnvSection));
+          ctx.slots.inject("settings.section", () => ctx.slots.register(
+            { name: "settings.section", id: "no996-openfilm", order: 80, locale: NS, label: () => t("settingsLabel") },
+            SettingsSection
+          ));
+          ctx.slots.inject("settings.section.icon", () => ctx.slots.register(
+            { name: "settings.section.icon", id: "no996-openfilm" },
+            SettingsNavIcon
+          ));
+          if (typeof window !== "undefined") ctx.effect(() => injectSettingsCss(), "openfilm: settings styles");
+          ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({ name: "plugins.bundle.config", key: "@newbiecheng/dsh-no996-editor", locale: NS, label: () => t("settingsLabel") }, SettingsSection));
           ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: "no996-openfilm-panel", order: 0, locale: NS, inject: () => ({ startStudio }) }, PanelKeepAlive));
           try {
             ctx.slots.inject("sidebar.brand.mark", () => {

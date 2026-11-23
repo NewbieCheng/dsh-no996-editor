@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.21.12
+checked: 0.21.20
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.21.12**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.21.20**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -24,6 +24,8 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 - **本地视觉工具**：`openfilm_cutout` 返回透明单帧 PNG，`openfilm_face_analysis` 返回采样帧的人脸框与关键点；不识别人、不修改时间轴，绑定影片项目的 DSH 会话可用。
 
 ## 待真机验（源码完成 ≠ 可以用）
+
+- **2026-11-23 12:5x 设置页唯一界面（0.21.20，源码完成，待重建 + 真机验）**：以真机上正常露出的 `dsh-agy-link` / `dsh-codex-subscription` 为参照——只注册一个 `settings.section` 追加槽（无 icon 槽、无 `ctx.styles`、factory 仅 require react、inject 保持 `['slots','locale']`、行图标走 bundle `icon` 字段）；样式经 document `<style>` 自插；登录弹窗就地 fixed 渲染；插件详情页改复用同一新组件，旧诊断墙模块已删除（全插件只有一个设置界面；技能/工具清单默认折叠）。测试 `tests/settings-section.test.mjs` 先行。**待验**：重启后侧栏图标 + 工作区/剪辑区切换 + 设置里「不加班工作台」一行全部出现，设置页可打开，详情页显示同一新界面。
 
 - **2026-11-23 10:1x 听写采集挪进 DSH 主框架 + 绑定对话回归工作区列表（0.21.12，源码/壳快照/client 完成，待重启真机验）**：
   1. **听写**：读 DSH 安装包确认桌面麦克风策略只授主窗口主框架（`isMainFrame` + `dsh-app://app` + audio），子框架无条件拒绝且永不弹窗——此前 `micDenied` 的根因，Windows 隐私设置页配置无效（桌面应用走总开关，不逐应用列条目）。修法：工作台点麦克风 → 外层 DSH 页面代录（[frame-capture.mjs](../src/studio/frame-capture.mjs)，16 kHz 单声道 WAV、120 s 上限自动收尾、录音不落盘不进日志）→ 经校验消息桥交回工作台帧 → 仍走工作台自己的 ASR（与 DSH 听写模型/开关互不相干）。主框架代录不可用时回退帧内自采；拒绝原因按原五类映射并照常上报 `dictation-mic-failed`。测试：`tests/frame-capture.test.mjs`（6 例：WAV 头/采样率/时长/RMS、拒绝原因、上限自动收尾、垃圾 id、麦克风释放）、`tests/panel-capture-bridge.test.mjs`（接线 + 外来来源拒绝）。**待验**：完整重启后在工作台点麦克风直接可用（桌面端自动放行，无需任何设置）。

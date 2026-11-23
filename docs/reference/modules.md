@@ -8,8 +8,8 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。160 个模块、30280 行。
-> 没有测试直接 import 的模块：16 个（待补清单，不是失败项）；另有 1 个已登记排除。
+> 生成命令：`npm run docs:gen`。160 个模块、30322 行。
+> 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
 
@@ -27,7 +27,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/studio/studio-panel.mjs` | 510 | createStudioPanel, templateProjectUrl | `panel-capture-bridge.test.mjs`、`panel-session-renewal.test.mjs`、`template-bridge.test.mjs`、`template-panel.test.mjs` |
 | `src/tools/clip-tool.mjs` | 488 | MAX_CLIP_BYTES, MAX_CLIP_OPERATIONS, createClipTool, filmIdentity | `clip-tool.test.mjs`、`editable-deliverable.test.mjs`、`tool-schema.test.mjs` |
 | `src/auth/workbench-auth.mjs` | 462 | DEFAULT_WORKBENCH_BASE_URL, createWorkbenchAuth, parseAuthActionBody | `dev-mode.test.mjs`、`workbench-auth-jwt-session.test.mjs`、`workbench-auth.test.mjs` |
-| `src/ui/env-section.mjs` | 409 | createEnvSection | **无** |
+| `src/ui/settings-section.mjs` | 427 | NO996_SETTINGS_CSS, createNo996SettingsSection, injectSettingsCss | `settings-section.test.mjs` |
 | `src/audio/sfx-synth.mjs` | 385 | SFX_CATALOG, SFX_KINDS, SFX_SAMPLE_RATE, encodeWav16Stereo, packCuesToLanes, renderSfxStem… | `sfx-synth.test.mjs` |
 | `src/asr/transcribe-service.mjs` | 379 | CACHE_VERSION, RUNNER_VERSION, createTranscribeService, fingerprint | `asr-routing-dictation.test.mjs` |
 | `src/media/no996-studio-bridge.mjs` | 378 | VOICE_BRIDGE, createNo996StudioBridge | `no996-studio-bridge.test.mjs` |
@@ -42,13 +42,13 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/native/search-routing.mjs` | 265 | createWorkbenchSearchRouter | `search-routing.test.mjs` |
 | `src/tools/library-tool.mjs` | 264 | LIBRARY_KINDS, createLibraryTool | `library-inspect.test.mjs`、`library-transition.test.mjs`、`studio-tools.test.mjs`、`template-discovery.test.mjs`、`template-prompts.test.mjs`、`tool-schema.test.mjs` |
 | `src/official/official-chat-store.mjs` | 263 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
+| `src/studio/studio-entry.js` | 261 | — | 读源码：`panel-keepalive.test.mjs`、`settings-section.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/film/library-presets.mjs` | 257 | buildGradeFilterCss, findLibraryItem, inspectLibraryItem, loadBuiltInLibraryModule, mergeFadeOverride, mergeRootVars… | `library-inspect.test.mjs` |
 | `src/dev/dev-hmr-proxy.mjs` | 256 | createDevHmrHooks, isViteUiPath, parseLoopbackViteOrigin | `dev-browser-portal.test.mjs`、`dev-hmr-proxy.test.mjs` |
 | `src/official/official-permission.mjs` | 249 | FULL_ACCESS, PROJECT_PERMISSIONS_DOMAIN, WORKSPACE_WRITE, openProjectPermissions | `official-permission.test.mjs` |
 | `src/audio/audio-ops.mjs` | 247 | buildDuckingVolumeExpr, deriveActiveSegments, extractProjectAudio, mergeSpeechRanges, parseSilenceDetect, parseVolumeDetect… | `audio-tool.test.mjs` |
 | `src/studio/studio-controller/routes/diag-logs.mjs` | 243 | createDiagLogsController, formatDiagnosticMarkdown | `diag-logs-route.test.mjs` |
 | `src/film/storyboard.mjs` | 239 | GROWTH_TYPES, KINDS, MOTIONS, STORYBOARD_FILE, VERSION, normalizeStoryboard… | `storyboard.test.mjs` |
-| `src/studio/studio-entry.js` | 237 | — | 读源码：`panel-keepalive.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/audio/builtin-bgm.mjs` | 234 | BUILTIN_BGM_CATALOG, getBuiltinBgmSpec, globalBgmCachePath, installBuiltinBgmToProject, loadBuiltinRhythm, resolveBuiltinBgmFile… | `audio-tool.test.mjs` |
 | `src/tools/kit-tool.mjs` | 220 | RUNTIME_KITS, createKitTool | `kit-tool.test.mjs`、`tool-schema.test.mjs` |
 | `src/tools/vision-tool.mjs` | 220 | createVisionTools, extractVisionFrame | `tool-schema.test.mjs`、`vision-auth-intent.test.mjs`、`vision-tool.test.mjs` |
@@ -178,7 +178,6 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 ## 没有测试直接 import 的模块
 
-- `src/ui/env-section.mjs`（409 行）
 - `src/tools/vision-browser.mjs`（153 行）
 - `src/official/official-approvals.mjs`（118 行）
 - `src/studio/desktop-loopback.mjs`（102 行）
