@@ -2,7 +2,7 @@
 id: state
 reader: 想知道"现在到哪了"的人或智能体
 fact-source: package.json、docs/decisions、最近一次真机验收
-checked: 0.21.20
+checked: 0.21.21
 rot-if: 每次发版、或某项从"待验"变成"验过"
 -->
 
@@ -10,7 +10,7 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 > 只有这一篇写进度。别的文档不写"已实现某版本"，只写怎么用、为什么这么定。以下描述以当前工作区源码为准，不等于已发布包或用户桌面已更新；真机结果以具体验收证据为准。
 
-- 当前版本 **0.21.20**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
+- 当前版本 **0.21.21**（`package.json`，包名 `@newbiecheng/dsh-no996-editor`，小写 scope——DSH 版本检测只认小写包名；配套视觉权重包 `@newbiecheng/no996-models-vision@0.2.0`），内置上游 **OpenFilm 0.4.0**（commit `715c3a6`）。安装/更新/发版见 [`playbooks/publish.md`](playbooks/publish.md)。源码仍推 GitHub。
 - **GUI 更新检测（2026-11-19 实证）**：GitLab/GitHub Packages 不保存 `dsh` 元数据，DSH 的 `pnpm view name@version` 读不到 `dsh.bundle`，GUI 会显示「没有声明组合包，无法安装」。发布通道已切到 npmjs.org（保留完整 packument），诊断闸门 `node scripts/verify-registry-dsh.mjs`。
 
 ## 能用
@@ -25,7 +25,11 @@ rot-if: 每次发版、或某项从"待验"变成"验过"
 
 ## 待真机验（源码完成 ≠ 可以用）
 
-- **2026-11-23 12:5x 设置页唯一界面（0.21.20，源码完成，待重建 + 真机验）**：以真机上正常露出的 `dsh-agy-link` / `dsh-codex-subscription` 为参照——只注册一个 `settings.section` 追加槽（无 icon 槽、无 `ctx.styles`、factory 仅 require react、inject 保持 `['slots','locale']`、行图标走 bundle `icon` 字段）；样式经 document `<style>` 自插；登录弹窗就地 fixed 渲染；插件详情页改复用同一新组件，旧诊断墙模块已删除（全插件只有一个设置界面；技能/工具清单默认折叠）。测试 `tests/settings-section.test.mjs` 先行。**待验**：重启后侧栏图标 + 工作区/剪辑区切换 + 设置里「不加班工作台」一行全部出现，设置页可打开，详情页显示同一新界面。
+- **2026-11-23 13:1x 浅色/深色跟随 + 官方图标 + 去开发中（0.21.21，源码完成，待重建 + 真机验）**：
+  1. **切换器下拉框跟主题**：`sidebar-editing.mjs` 里菜单/弹窗/提示条/视图选项弹层把背景写死为 `var(--bg-elevated, #232325)`——宿主 token 表里没有这个名字，于是永远回退深色，浅色主题下仍是黑面板。改为 `var(--dsw-alias-bg-overlay, …)`，边框改 `var(--dsw-alias-border-l1, …)`；错误色 `${'#e07b5a'}` 改走 `--dsw-alias-state-error-primary`。回归测试 `sidebar-editing-rows.test.mjs` 新增用例锁死禁止再用那两个不存在的变量名。**已真机确认问题**（用户截图：浅色主题下「工作区/剪辑区/整理剪辑历史」浮层是黑底）。
+  2. **设置左栏图标改官方 App 图标**：原来 `SettingsNavIcon` 用白环裸字形 + 猜 `data-theme` 上色，猜错即隐形、16px 下发虚。改为 esbuild `loader: {'.svg': 'text'}` 内联 `icon.svg`（深蓝圆角底＋白字形＋橙箭头），自带不透明底→深浅主题一致，无主题嗅探。**待真机验**：切换浅色/深色，设置左栏图标都清晰可辨。
+  3. **删「（开发中）」**：`locale/zh.json`、`locale/en.json` 描述去掉开发中字样；`tests/settings-section.test.mjs` 新增用例禁止用户可见文案再出现开发中/In development/beta。
+  - 上一版（0.21.20）的设置页唯一界面**已真机确认**：设置左栏「不加班工作台」行出现、新卡片页可打开、登录弹窗正常（用户截图）。
 
 - **2026-11-23 10:1x 听写采集挪进 DSH 主框架 + 绑定对话回归工作区列表（0.21.12，源码/壳快照/client 完成，待重启真机验）**：
   1. **听写**：读 DSH 安装包确认桌面麦克风策略只授主窗口主框架（`isMainFrame` + `dsh-app://app` + audio），子框架无条件拒绝且永不弹窗——此前 `micDenied` 的根因，Windows 隐私设置页配置无效（桌面应用走总开关，不逐应用列条目）。修法：工作台点麦克风 → 外层 DSH 页面代录（[frame-capture.mjs](../src/studio/frame-capture.mjs)，16 kHz 单声道 WAV、120 s 上限自动收尾、录音不落盘不进日志）→ 经校验消息桥交回工作台帧 → 仍走工作台自己的 ASR（与 DSH 听写模型/开关互不相干）。主框架代录不可用时回退帧内自采；拒绝原因按原五类映射并照常上报 `dictation-mic-failed`。测试：`tests/frame-capture.test.mjs`（6 例：WAV 头/采样率/时长/RMS、拒绝原因、上限自动收尾、垃圾 id、麦克风释放）、`tests/panel-capture-bridge.test.mjs`（接线 + 外来来源拒绝）。**待验**：完整重启后在工作台点麦克风直接可用（桌面端自动放行，无需任何设置）。

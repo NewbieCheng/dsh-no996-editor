@@ -481,13 +481,13 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
         return;
       }
       const failed = doc.createElement('div');
-      failed.style.cssText = 'padding:8px 10px;font-size:12px;color:#e07b5a;display:flex;align-items:center;gap:8px;';
+      failed.style.cssText = 'padding:8px 10px;font-size:12px;color:var(--dsw-alias-state-error-primary, #e07b5a);display:flex;align-items:center;gap:8px;';
       const message = doc.createElement('span');
       message.textContent = '读取失败，稍后再试。';
       const retry = doc.createElement('button');
       retry.type = 'button';
       retry.textContent = '重试';
-      retry.style.cssText = 'border:1px solid var(--border-subtle, rgba(255,255,255,.2));border-radius:5px;background:none;color:inherit;font:inherit;padding:2px 8px;cursor:pointer;';
+      retry.style.cssText = 'border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.2));border-radius:5px;background:none;color:inherit;font:inherit;padding:2px 8px;cursor:pointer;';
       retry.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); void load(container); });
       failed.append(message, retry);
       container.replaceChildren(failed);
@@ -544,14 +544,14 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
 
   const menuSeparator = parent => {
     const line = doc.createElement('div');
-    line.style.cssText = 'height:1px;margin:4px 6px;background:var(--border-subtle, rgba(255,255,255,.12));';
+    line.style.cssText = 'height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1, rgba(255,255,255,.12));';
     parent.append(line);
   };
 
   const openMenuAt = (anchor, attribute) => {
     const menu = doc.createElement('div');
     menu.setAttribute(attribute, '');
-    menu.style.cssText = 'position:fixed;z-index:2147483000;min-width:180px;padding:4px;border-radius:8px;background:var(--bg-elevated, #232325);border:1px solid var(--border-subtle, rgba(255,255,255,.12));box-shadow:0 10px 30px rgba(0,0,0,.45);font:13px system-ui,sans-serif;color:inherit;';
+    menu.style.cssText = 'position:fixed;z-index:2147483000;min-width:180px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay, #232325);border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.12));box-shadow:0 10px 30px rgba(0,0,0,.45);font:13px system-ui,sans-serif;color:inherit;';
     const rect = anchor.getBoundingClientRect();
     menu.style.left = `${Math.max(8, Math.min(rect.left, (doc.defaultView?.innerWidth ?? 1200) - 200))}px`;
     menu.style.top = `${Math.round(rect.bottom + 4)}px`;
@@ -616,7 +616,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     overlay.setAttribute(MODAL, '');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);';
     const card = doc.createElement('div');
-    card.style.cssText = 'width:min(360px,calc(100vw - 32px));padding:16px;border-radius:10px;background:var(--bg-elevated, #232325);border:1px solid var(--border-subtle, rgba(255,255,255,.12));box-shadow:0 18px 50px rgba(0,0,0,.5);font:13px system-ui,sans-serif;color:inherit;';
+    card.style.cssText = 'width:min(360px,calc(100vw - 32px));padding:16px;border-radius:10px;background:var(--dsw-alias-bg-overlay, #232325);border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.12));box-shadow:0 18px 50px rgba(0,0,0,.5);font:13px system-ui,sans-serif;color:inherit;';
     const heading = doc.createElement('div');
     heading.textContent = title;
     heading.style.cssText = 'font-weight:600;margin-bottom:8px;';
@@ -634,7 +634,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
       const background = variant === 'danger'
         ? 'var(--dsw-alias-state-error-primary, #e5484d)'
         : variant === 'primary' ? 'var(--dsw-alias-state-business-primary, #4b7bec)' : 'none';
-      button.style.cssText = 'padding:6px 14px;border-radius:7px;border:1px solid var(--border-subtle, rgba(255,255,255,.14));background:' + background + ';color:' + (solid ? '#fff' : 'inherit') + ';cursor:pointer;font:inherit;';
+      button.style.cssText = 'padding:6px 14px;border-radius:7px;border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.14));background:' + background + ';color:' + (solid ? '#fff' : 'inherit') + ';cursor:pointer;font:inherit;';
       button.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); void onClick(button); });
       footer.append(button);
       buttons.push(button);
@@ -649,7 +649,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     closeMenus();
     const input = doc.createElement('input');
     input.value = session ? (session.title || '新对话') : (project.title || project.name || project.projectId);
-    input.style.cssText = 'box-sizing:border-box;width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border-subtle, rgba(255,255,255,.16));background:transparent;color:inherit;font:inherit;';
+    input.style.cssText = 'box-sizing:border-box;width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.16));background:transparent;color:inherit;font:inherit;';
     const field = doc.createElement('div');
     const errorLine = doc.createElement('div');
     errorLine.setAttribute('role', 'alert');
@@ -717,7 +717,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     const node = doc.createElement('div');
     node.setAttribute(TOAST, '');
     node.textContent = message;
-    node.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483002;max-width:min(560px,calc(100vw - 32px));padding:8px 12px;border-radius:8px;background:var(--bg-elevated,#232325);border:1px solid var(--border-subtle,rgba(255,255,255,.14));box-shadow:0 10px 30px rgba(0,0,0,.4);font:12px/1.5 system-ui,sans-serif;color:inherit;word-break:break-all;';
+    node.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483002;max-width:min(560px,calc(100vw - 32px));padding:8px 12px;border-radius:8px;background:var(--dsw-alias-bg-overlay,#232325);border:1px solid var(--dsw-alias-border-l1,rgba(255,255,255,.14));box-shadow:0 10px 30px rgba(0,0,0,.4);font:12px/1.5 system-ui,sans-serif;color:inherit;word-break:break-all;';
     doc.body.append(node);
     doc.defaultView?.setTimeout?.(() => node.remove(), 8000);
   };
@@ -919,7 +919,7 @@ export function installWorkspaceSwitch({ document: doc, fetchSessions } = {}) {
     popover = doc.createElement('div');
     popover.setAttribute(POPOVER, '');
     popover.setAttribute('role', 'menu');
-    popover.style.cssText = 'position:fixed;z-index:2147483000;min-width:210px;padding:4px;border-radius:8px;background:var(--bg-elevated, #232325);border:1px solid var(--border-subtle, rgba(255,255,255,.12));box-shadow:0 10px 30px rgba(0,0,0,.45);font:13px system-ui,sans-serif;color:inherit;';
+    popover.style.cssText = 'position:fixed;z-index:2147483000;min-width:210px;padding:4px;border-radius:8px;background:var(--dsw-alias-bg-overlay, #232325);border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.12));box-shadow:0 10px 30px rgba(0,0,0,.45);font:13px system-ui,sans-serif;color:inherit;';
     const item = (label, value, iconName) => {
       const button = doc.createElement('button');
       button.type = 'button';

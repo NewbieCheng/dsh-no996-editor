@@ -8,7 +8,7 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 
 # 模块清单（自动生成）
 
-> 生成命令：`npm run docs:gen`。160 个模块、30322 行。
+> 生成命令：`npm run docs:gen`。160 个模块、30326 行。
 > 没有测试直接 import 的模块：15 个（待补清单，不是失败项）；另有 1 个已登记排除。
 > "测试"列 = 直接 import 该模块的测试文件，来自 `tests/**` 的实际 import 语句，不做名字猜测。
 > 排除项写在 `scripts/test-exclusions.json`，每条必须带理由。
@@ -40,9 +40,9 @@ rot-if: 新增/删除模块或测试（重新生成即可）
 | `src/film/editable-check.mjs` | 290 | checkEditableDeliverable, inspectPageEditableLayers, mergeLayerOverride, parseFilmClips | `editable-deliverable.test.mjs` |
 | `src/host/url-assets.mjs` | 273 | assertSafePublicUrl, fetchWebImageBytes, inspectWebImages, isBlockedIp | `assets-url.test.mjs` |
 | `src/native/search-routing.mjs` | 265 | createWorkbenchSearchRouter | `search-routing.test.mjs` |
+| `src/studio/studio-entry.js` | 265 | — | 读源码：`panel-keepalive.test.mjs`、`settings-section.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/tools/library-tool.mjs` | 264 | LIBRARY_KINDS, createLibraryTool | `library-inspect.test.mjs`、`library-transition.test.mjs`、`studio-tools.test.mjs`、`template-discovery.test.mjs`、`template-prompts.test.mjs`、`tool-schema.test.mjs` |
 | `src/official/official-chat-store.mjs` | 263 | OFFICIAL_CHAT_DOMAIN, OFFICIAL_CHAT_MAX_BYTES, openOfficialChatStore | `official-chat-store-delete.test.mjs` |
-| `src/studio/studio-entry.js` | 261 | — | 读源码：`panel-keepalive.test.mjs`、`settings-section.test.mjs`、`sidebar-untouched.test.mjs`、`template-panel.test.mjs` |
 | `src/film/library-presets.mjs` | 257 | buildGradeFilterCss, findLibraryItem, inspectLibraryItem, loadBuiltInLibraryModule, mergeFadeOverride, mergeRootVars… | `library-inspect.test.mjs` |
 | `src/dev/dev-hmr-proxy.mjs` | 256 | createDevHmrHooks, isViteUiPath, parseLoopbackViteOrigin | `dev-browser-portal.test.mjs`、`dev-hmr-proxy.test.mjs` |
 | `src/official/official-permission.mjs` | 249 | FULL_ACCESS, PROJECT_PERMISSIONS_DOMAIN, WORKSPACE_WRITE, openProjectPermissions | `official-permission.test.mjs` |

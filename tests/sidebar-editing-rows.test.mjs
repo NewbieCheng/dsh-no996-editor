@@ -37,6 +37,17 @@ test('the header reserves a slot so an expanding search cannot cover the switch'
   assert.ok(source.includes("header.style.setProperty('--n996-switch-w'"));
 });
 
+test('floating surfaces follow the host theme instead of hardcoding dark mode', () => {
+  // The workspace/editing switcher menu, dialogs, toasts and popovers must
+  // stay readable when DSH switches light/dark: their backgrounds and borders
+  // resolve host alias tokens first, with the old dark values only as fallback.
+  assert.equal(/var\(--bg-elevated[,)]/.test(source), false);
+  assert.equal(/var\(--border-subtle[,)]/.test(source), false);
+  assert.ok(source.includes('var(--dsw-alias-bg-overlay,'));
+  assert.ok(source.includes('var(--dsw-alias-border-l1,'));
+  assert.ok(source.includes('var(--dsw-alias-state-error-primary, #e07b5a)'));
+});
+
 test('a folder row separates clearing conversations from deleting the project', () => {
   assert.ok(source.includes("menuButton(menu, '清空对话（保留项目）…'"));
   assert.ok(source.includes("menuButton(menu, '删除项目…'"));

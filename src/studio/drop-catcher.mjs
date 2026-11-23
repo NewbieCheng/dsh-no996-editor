@@ -48,7 +48,7 @@ export function installDropCatcher({
     overlay.style.height = `${Math.round(box.height)}px`;
     const hint = doc.createElement('div');
     hint.textContent = '松手即可附上';
-    hint.style.cssText = 'padding:16px 24px;border:2px dashed #FF6400;border-radius:12px;background:var(--dsw-alias-bg-elevated,#232325);pointer-events:none;';
+    hint.style.cssText = 'padding:16px 24px;border:2px dashed #FF6400;border-radius:12px;background:var(--dsw-alias-bg-overlay,#232325);pointer-events:none;';
     overlay.append(hint);
     overlay.addEventListener('dragover', event => {
       event.preventDefault();

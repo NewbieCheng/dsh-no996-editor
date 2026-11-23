@@ -12,6 +12,10 @@ const result = await build({
   entryPoints: ['src/studio/studio-entry.js'],
   outfile,
   bundle: true,
+  // The settings-nav icon inlines the official app icon so the row mark is
+  // identical in light/dark themes (it carries its own background). Single
+  // source of truth stays icon.svg; esbuild embeds it as text.
+  loader: { '.svg': 'text' },
   write: false,
   format: 'iife',
   platform: 'browser',

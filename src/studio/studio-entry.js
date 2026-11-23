@@ -1,5 +1,6 @@
 import { createStudioPanel } from './studio-panel.mjs';
 import { createNo996SettingsSection, injectSettingsCss } from '../ui/settings-section.mjs';
+import appIconSvg from '../../icon.svg';
 import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from '../ui/sidebar-editing.mjs';
 import { brandSvgMarkup, installSidebarBrand } from '../ui/sidebar-brand.mjs';
@@ -140,16 +141,19 @@ window.__ModuleLoader__.load({
         h('rect', { x: 3, y: 5, width: 18, height: 14, rx: 3, stroke: 'currentColor', strokeWidth: 1.7 }),
         h('path', { d: 'm10 9 5 3-5 3V9Z', fill: 'currentColor' }));
     }
-    // Settings-nav icon: the official brand mark (same glyph family as the app
-    // icon), theme-aware like the sidebar brand. Mirrors dsh-codex-subscription,
-    // which also registers `settings.section.icon`.
+    // Settings-nav icon: the official app icon verbatim (navy rounded square +
+    // white glyph + orange arrow). It carries its own opaque background, so the
+    // row mark reads identically in light and dark themes with no theme
+    // sniffing — the bare ring glyph it replaces went invisible whenever the
+    // theme guess was wrong and was too thin at 16px regardless.
+    const NAV_ICON_SVG = appIconSvg
+      .replace(/<title>.*?<\/title>|<desc>.*?<\/desc>/g, '')
+      .replace('aria-labelledby="title desc"', 'aria-hidden="true"');
     function SettingsNavIcon({ size = 16 }) {
-      const dark = typeof document !== 'undefined'
-        ? document.documentElement?.getAttribute('data-theme') !== 'light'
-        : true;
+      const sized = NAV_ICON_SVG.replace('<svg ', `<svg width="${size}" height="${size}" `);
       return h('span', {
-        style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size },
-        dangerouslySetInnerHTML: { __html: brandSvgMarkup({ dark, size }) },
+        style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size, overflow: 'hidden', borderRadius: Math.max(3, Math.round(size / 5)) },
+        dangerouslySetInnerHTML: { __html: sized },
       });
     }
     function BrandSlotMark({ size = 22 }) {
