@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>02 · 包豪斯</title>
+<link rel="stylesheet" href="../assets/motion-scene.css">
+<script src="../assets/motion.js"></script>
+</head>
+<body>
+<main class="motion-study bauhaus landscape"><div class="bauhaus-shapes" data-element-id="motion-bauhaus-shapes">
+      <span class="bauhaus-band" data-bauhaus-band></span><span class="bauhaus-red" data-bauhaus-red></span><span class="bauhaus-blue" data-bauhaus-blue></span><span class="bauhaus-disc" data-bauhaus-disc></span>
+    </div>
+    <p data-element-id="motion-bauhaus-kicker" class="label">BAUHAUS / 02</p>
+    <h1 data-element-id="motion-bauhaus-headline" class="headline">动效语法</h1>
+    <p data-element-id="motion-bauhaus-deck" class="deck">形状、节奏与留白，组成一句 visual sentence。</p>
+    <div class="bauhaus-rule" data-element-id="motion-bauhaus-rule"></div>
+    <p data-element-id="motion-bauhaus-number" class="number">0%</p></main>
+<script>
+(function () {
+    const M = window.Motion;
+    const duration = 8;
+    const number = document.querySelector('[data-element-id="motion-bauhaus-number"]');
+    function draw(value) {
+      const t = Math.max(0, Math.min(duration, Number(value) || 0));
+      const p = M.cubicOut(M.seg(t, 0.05, 0.62));
+      const title = document.querySelector('.headline');
+      title.style.clipPath = 'inset(0 ' + ((1 - p) * 100) + '% 0 0)';
+      title.style.transform = 'translateY(' + ((1 - p) * 24) + 'px)';
+      
+      const red = document.querySelector('[data-bauhaus-red]');
+      const blue = document.querySelector('[data-bauhaus-blue]');
+      const disc = document.querySelector('[data-bauhaus-disc]');
+      const band = document.querySelector('[data-bauhaus-band]');
+      const rule = document.querySelector('[data-element-id="motion-bauhaus-rule"]');
+      red.style.transform = 'translateX(' + (-160 * (1 - M.spring(M.seg(t, 0.1, 0.7), 0.7, 0.58))) + 'px)';
+      blue.style.transform = 'translateX(' + (160 * (1 - M.spring(M.seg(t, 0.24, 0.7), 0.7, 0.58))) + 'px)';
+      disc.style.transform = 'translateY(' + (120 * (1 - M.spring(M.seg(t, 0.45, 0.7)))) + 'px)';
+      band.style.transform = 'scaleX(' + M.cubicOut(M.seg(t, 0.05, 0.5)) + ')';
+      rule.style.transform = 'scaleX(' + M.cubicOut(M.seg(t, 1.1, 0.55)) + ')';
+      if (number) number.textContent = Math.round(100 * M.cubicOut(M.seg(t, 0.8, 1.5))) + '%';
+      
+    }
+    window.film = { width: 1920, height: 1080, duration,
+      ready: Promise.resolve(document.fonts?.ready).then(function () { draw(0); return true; }),
+      frame: draw };
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+diff --git a/packages/openfilm/studio/ui/src/components/Launcher.tsx b/packages/openfilm/studio/ui/src/components/Launcher.tsx
+index 4eb6817..f8c8d2d 100644
+--- a/packages/openfilm/studio/ui/src/components/Launcher.tsx
++++ b/packages/openfilm/studio/ui/src/components/Launcher.tsx
+@@ -5,6 +5,7 @@
+  * window buttons beside it: its logo opens the app menu, as a project's does.
+  */
+ import { AppMenu } from './AppMenu';
++import { WorkbenchAccountControls } from './WorkbenchAccount';
+ import { ProjectsPopover } from './ProjectsLibrary';
+ import { SettingsModal } from './settings/SettingsModal';
+ import { ProjectTabs } from './ProjectTabs';
+@@ -21,6 +22,7 @@ export function Launcher({ onOpen }: { onOpen: (projectId: string) => void }) {
+         <div aria-hidden className={tabStyles.windowSpace} style={{ width: 'var(--titlebar-logo-x)' }} />
+         <div className={tabStyles.system}><AppMenu onSettings={setSettings} /></div>
+         <ProjectTabs onProjects={() => {}} />
++        <WorkbenchAccountControls className="ml-auto" onSettings={setSettings} />
+       </div>
+       <ProjectsPopover open currentProjectId="" onOpen={onOpen} onCurrentRemoved={() => {}} />
+       <SettingsModal open={settings !== null} section={settings ?? undefined} onClose={() => setSettings(null)} />

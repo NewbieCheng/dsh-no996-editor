@@ -8,7 +8,7 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 
 # HTTP 路由（自动生成）
 
-> 生成命令：`npm run docs:gen`。共 **23** 条。**不要手改**——改了也会被 `--check` 判为过期。
+> 生成命令：`npm run docs:gen`。共 **24** 条。**不要手改**——改了也会被 `--check` 判为过期。
 > 方法列来自 handler 里的 `request.method` 判断，可能不完整；镜像路由（如代理）不在此表。
 
 ## /api/no996-openfilm/
@@ -25,15 +25,16 @@ rot-if: 新增或删除任何 /api 路由（重新生成即可）
 | POST | `/api/no996-openfilm/debug-url` | exact | `src/studio/studio-controller/routes/debug-url.mjs:23` |
 | POST | `/api/no996-openfilm/diagnose` | exact | `src/studio/studio-controller/routes/diagnose.mjs:42` |
 | POST | `/api/no996-openfilm/drag-probe` | exact | `src/studio/studio-controller/routes/diagnostics.mjs:47` |
-| POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio/studio-controller/routes/editing.mjs:172` |
-| POST | `/api/no996-openfilm/editing-archive-batch` | exact | `src/studio/studio-controller/routes/editing.mjs:153` |
-| POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio/studio-controller/routes/editing.mjs:222` |
-| POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio/studio-controller/routes/editing.mjs:281` |
-| POST | `/api/no996-openfilm/editing-prefs` | exact | `src/studio/studio-controller/routes/editing.mjs:125` |
-| GET | `/api/no996-openfilm/editing-sessions` | exact | `src/studio/studio-controller/routes/editing.mjs:35` |
+| POST | `/api/no996-openfilm/editing-archive` | exact | `src/studio/studio-controller/routes/editing.mjs:207` |
+| POST | `/api/no996-openfilm/editing-archive-batch` | exact | `src/studio/studio-controller/routes/editing.mjs:188` |
+| POST | `/api/no996-openfilm/editing-delete` | exact | `src/studio/studio-controller/routes/editing.mjs:257` |
+| POST | `/api/no996-openfilm/editing-delete-project` | exact | `src/studio/studio-controller/routes/editing.mjs:316` |
+| POST | `/api/no996-openfilm/editing-prefs` | exact | `src/studio/studio-controller/routes/editing.mjs:160` |
+| POST | `/api/no996-openfilm/editing-session-target` | exact | `src/studio/studio-controller/routes/editing.mjs:126` |
+| GET | `/api/no996-openfilm/editing-sessions` | exact | `src/studio/studio-controller/routes/editing.mjs:36` |
 | GET | `/api/no996-openfilm/environment` | exact | `src/studio/studio-controller/routes/environment.mjs:52` |
 | POST | `/api/no996-openfilm/logs` | exact | `src/studio/studio-controller/routes/diag-logs.mjs:184` |
-| GET/POST | `/api/no996-openfilm/models` | exact | `src/studio/studio-controller.mjs:1275` |
+| GET/POST | `/api/no996-openfilm/models` | exact | `src/studio/studio-controller.mjs:1298` |
 | POST | `/api/no996-openfilm/renew-session` | exact | `src/studio/studio-controller/routes/bootstrap.mjs:83` |
 | POST | `/api/no996-openfilm/system/check` | exact | `src/studio/studio-controller/routes/system.mjs:71` |
 | POST | `/api/no996-openfilm/system/install` | exact | `src/studio/studio-controller/routes/system.mjs:83` |

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>07 · 整页总结</title>
+<link rel="stylesheet" href="../assets/sketch.css">
+<script src="../assets/motion.js"></script>
+</head>
+<body>
+
+  <main class="sketch-page landscape">
+    <header class="sketch-header"><span data-element-id="sketch-series" class="series">费曼笔记</span><span data-element-id="sketch-page-label">No.07 · 学习方法</span></header>
+    <div class="sketch-progress" aria-label="学习步骤"><span data-step="1" class="done">1</span><span data-step="2" class="done">2</span><span data-step="3" class="done">3</span><span data-step="4" class="done">4</span></div>
+    
+    <div class="sketch-copy"><p data-element-id="sketch-kicker" class="eyebrow">一句话总结</p>
+      <h1 data-element-id="sketch-headline" class="display">讲得清楚，</h1>
+      <p data-element-id="sketch-deck" class="deck">才是真的懂了。</p></div>
+    <div class="sketch-summary" data-element-id="sketch-summary"><div><b>1</b><span>选一个概念</span></div><div><b>2</b><span>讲给外行听</span></div><div><b>3</b><span>卡住就重学</span></div><div><b>4</b><span>简化＋打比方</span></div></div>
+    <footer class="sketch-footer"><span data-element-id="sketch-footer">讲清楚，才是真的懂了</span></footer>
+  </main>
+<script>
+(function () {
+    const duration = 2.051;
+    const title = document.querySelector('[data-reveal]') || document.querySelector('.display');
+    const card = document.querySelector('[data-element-id="sketch-step-card"], [data-element-id="sketch-title-diagram"], [data-element-id="sketch-summary"], [data-element-id="sketch-loop-diagram"]');
+    const arrow = document.querySelector('.sketch-arrow path');
+    function draw(value) {
+      const t = Math.max(0, Math.min(duration, Number(value) || 0));
+      const p = window.Motion.cubicOut(Math.min(1, t / 0.48));
+      if (title) { title.style.clipPath = 'inset(0 ' + ((1 - p) * 100) + '% 0 0)'; }
+      if (card) { card.style.opacity = String(p); card.style.transform = 'translateY(' + ((1 - p) * 22) + 'px)'; }
+      if (arrow) { arrow.style.opacity = String(p); arrow.style.strokeDashoffset = String(420 * (1 - p)); }
+    }
+    window.film = { width: 1920, height: 1080, duration,
+      ready: Promise.resolve(document.fonts?.ready).then(function () { draw(0); return true; }),
+      frame: draw };
+  })();
+</script>
+</body>
+</html>

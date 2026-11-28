@@ -2,11 +2,11 @@
 id: transcribe
 reader: 用转写的人、维护者
 fact-source: src/asr/transcribe-service.mjs、scripts/asr-*.mjs
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 模型、路由或权重来源变化
 -->
 
-# 本地口播转写（openfilm_transcribe）
+# 本地口播转写（no996_transcribe）
 
 > 本地识别在本机 CPU 处理音频；文字校对默认关闭，显式设置 `refine: true` 会调用当前 DSH 会话模型并可能向模型服务发送转写文本。工具返回的文稿进入当前对话后，也可能发送给该对话模型提供方；需要完全本地处理时还须确认模型提供方及部署方式。
 
@@ -34,13 +34,13 @@ rot-if: 模型、路由或权重来源变化
 ## 用法（对模型）
 
     // 1) 看是否已就绪 / 下载进度
-    openfilm_transcribe({ status: true })
+    no996_transcribe({ status: true })
 
     // 2) 显式开始下载（from: 首次调用也会自动触发）
-    openfilm_transcribe({ setup: true })
+    no996_transcribe({ setup: true })
 
     // 3) 转写：本机绝对路径，视频或音频都行
-    openfilm_transcribe({ from: "C:\\clips\\talk.mp4", lang: "zh", maxChars: 6000 })
+    no996_transcribe({ from: "C:\\clips\\talk.mp4", lang: "zh", maxChars: 6000 })
 
 返回文本包含：时长、段数/句数、RTF、模型名、是否命中缓存、完整 JSON 路径、逐段 `[mm:ss.d–mm:ss.d] 文本`、以及截断的全文。
 
@@ -60,7 +60,7 @@ rot-if: 模型、路由或权重来源变化
 
 | 入口 | 说明 |
 |---|---|
-| 对话 | `openfilm_transcribe({from})` 首次调用 → 回「已自动开始下载」，`status` 看进度 |
+| 对话 | `no996_transcribe({from})` 首次调用 → 回「已自动开始下载」，`status` 看进度 |
 | 面板/控制台 | `POST /api/no996-openfilm/asr` body `{"action":"install"}` → `{ready,bytesOnDisk,progress,installing}` |
 | 命令行 | `node scripts/asr-models.mjs fetch` |
 
@@ -89,7 +89,7 @@ rot-if: 模型、路由或权重来源变化
 
 ## 已知边界（别当成已完成）
 
-- **macOS 未在本机实测**：只靠官方预编译包的存在性；首台 Mac 先跑一次 `openfilm_transcribe status` 再转一段真音频。
+- **macOS 未在本机实测**：只靠官方预编译包的存在性；首台 Mac 先跑一次 `no996_transcribe status` 再转一段真音频。
 - **长任务在会话里同步跑**：3 小时音轨约 5–8 分钟，若上层有工具超时会先断。后续可挂 Worker。
 - **没有说话人分离**：多人时是一整段文本。
 - **没有逐字时间戳**：句级时间按段内字重插值，够字幕，不够卡拉 OK 高亮。要逐字就换 Paraformer-zh（同一套 sherpa 接口）。

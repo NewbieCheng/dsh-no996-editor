@@ -2,7 +2,7 @@
 id: safety
 reader: 维护者、reviewer、写新路由的人
 fact-source: src/studio/studio-proxy.mjs、src/auth/workbench-auth.mjs、src/auth/auth-bridge.mjs、SECURITY.md
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 新增对浏览器的信任假设，或改动鉴权链路
 -->
 
@@ -25,7 +25,9 @@ rot-if: 新增对浏览器的信任假设，或改动鉴权链路
 | 新增 Host 路由 | 只收本机 DSH 浏览器（`ctx.connection.admit` / `requestRejection`）；只读写明确字段；体积上限；错误只回码 |
 | 代理层 | cookie、`Host`、`Origin`；WS 逐帧校验 |
 | 项目操作 | 项目 ID 经 Studio 实时列表核对；删除前 realpath + `.openfilm/.film/film.html` 校验 |
-| 模板桥 | 白名单 + 单条消息 1 KiB |
+| 模板桥 | 白名单 + 单条消息 1 KiB；创建目标独占，拒绝符号链接与未知比例 |
+| 本地配方 | 只读已保存影片和选中页面；HTML 经允许标签／属性／CSS 净化，文字变占位；ZIP 不解压到任意路径，素材按 SHA-256 校验 |
+| 模板市场 | 仅 HTTPS、无 URL 凭据、禁重定向；索引 JSON 有体积上限，安装校验索引 SHA-256 与配方 ID；不执行索引或配方中的 HTML/JS |
 | 日志 | `plugin-log` 统一脱敏：`path`/`session`/`cookie` 写成 `[redacted]`，换字段名（`route`/`authed`） |
 
 ## 3. 明确不做沙箱的东西

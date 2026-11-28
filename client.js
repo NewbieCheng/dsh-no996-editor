@@ -9,7 +9,9 @@
   }
   function createAreaBus() {
     const listeners = /* @__PURE__ */ new Set();
-    const state = { projectId: null, ready: false, pending: null, pendingSessionId: null };
+    let pending = null;
+    let projectId = null;
+    let sequence = 0;
     function emit(event) {
       for (const listener of [...listeners]) {
         try {
@@ -18,6 +20,10 @@
         }
       }
     }
+    const report = (next) => {
+      projectId = next;
+      emit({ type: "project", projectId });
+    };
     return {
       subscribe(listener) {
         if (typeof listener !== "function") return () => {
@@ -27,44 +33,31 @@
           listeners.delete(listener);
         };
       },
-      /** Ask the panel to navigate; a request made before it mounts is kept. */
-      navigate(projectId, sessionId) {
-        const id = normalizeProjectId(projectId);
-        if (!id) return false;
+      navigate(project, sessionId) {
+        const id = normalizeProjectId(project);
         const sid = normalizeSessionId(sessionId);
-        state.pending = id;
-        state.pendingSessionId = sid;
-        emit({ type: "navigate", projectId: id, ...sid ? { sessionId: sid } : {} });
+        if (!id || sessionId !== void 0 && !sid) return false;
+        pending = Object.freeze({ requestId: ++sequence, projectId: id, ...sid ? { sessionId: sid } : {} });
+        emit({ type: "navigate", ...pending });
         return true;
       },
-      /** Take the pending project request (kept for callers expecting a projectId string). */
-      takePending() {
-        const id = state.pending;
-        state.pending = null;
-        state.pendingSessionId = null;
-        return id;
+      pendingTarget: () => pending,
+      acknowledge({ requestId, projectId: project, sessionId, status } = {}) {
+        if (!pending?.sessionId || pending.requestId !== requestId || pending.projectId !== project || pending.sessionId !== sessionId || status !== "ready" && status !== "cancelled") return false;
+        pending = null;
+        if (status === "ready") report(project);
+        return true;
       },
-      /** Take both the pending projectId and optional conversation sessionId. */
-      takePendingTarget() {
-        const projectId = state.pending;
-        const sessionId = state.pendingSessionId;
-        state.pending = null;
-        state.pendingSessionId = null;
-        return projectId ? { projectId, ...sessionId ? { sessionId } : {} } : null;
+      reportProject(project) {
+        const id = normalizeProjectId(project);
+        if (pending) {
+          if (pending.sessionId || pending.projectId !== id) return false;
+          pending = null;
+        }
+        report(id);
+        return true;
       },
-      /** The official shell has a live frame again. */
-      reportReady() {
-        state.ready = true;
-        emit({ type: "ready" });
-      },
-      /** The project the official shell currently shows (null when none). */
-      reportProject(projectId) {
-        state.projectId = normalizeProjectId(projectId);
-        emit({ type: "project", projectId: state.projectId });
-      },
-      snapshot() {
-        return { ...state };
-      }
+      snapshot: () => ({ projectId, pending })
     };
   }
   var areaBus = createAreaBus();
@@ -345,23 +338,17 @@
         } catch {
         }
       };
-      const postNavigate = (target, sessionId) => {
-        const projectId2 = typeof target === "string" ? target : target?.projectId;
-        const sid = typeof sessionId === "string" ? sessionId : typeof target === "object" ? target?.sessionId : void 0;
+      const postNavigate = (target) => {
         const frame = iframeRef.current;
-        if (!frame || !frame.contentWindow || !readyRef.current || typeof projectId2 !== "string") return false;
-        let origin = "*";
-        try {
-          origin = new URL(urlRef.current).origin;
-        } catch {
-        }
+        if (!target || !frame?.contentWindow || !readyRef.current || !urlRef.current) return false;
         try {
           frame.contentWindow.postMessage({
             type: "no996-openfilm:navigate",
             version: 1,
-            projectId: projectId2,
-            ...typeof sid === "string" && sid ? { sessionId: sid } : {}
-          }, origin);
+            projectId: target.projectId,
+            requestId: target.requestId,
+            ...target.sessionId ? { sessionId: target.sessionId } : {}
+          }, new URL(urlRef.current).origin);
           return true;
         } catch {
           return false;
@@ -369,7 +356,7 @@
       };
       React.useEffect(() => {
         const off = areaBus.subscribe((event) => {
-          if (event.type === "navigate") postNavigate(event.projectId, event.sessionId);
+          if (event.type === "navigate") postNavigate(event);
         });
         return off;
       }, []);
@@ -443,6 +430,14 @@
         };
         watchNavigationRef.current = watchNavigation;
         watchNavigation();
+        const rememberProject = (id) => {
+          setProjectId(id);
+          try {
+            if (id) localStorage.setItem("no996.openfilm.lastProject", id);
+            else localStorage.removeItem("no996.openfilm.lastProject");
+          } catch {
+          }
+        };
         const receive = (event) => {
           if (event.origin !== editorOrigin || event.source !== iframeRef.current?.contentWindow) return;
           const data = event.data;
@@ -461,9 +456,7 @@
               readyRef.current = true;
               setSilent(false);
               clearTimeout(timer);
-              areaBus.reportReady();
-              const pending = typeof areaBus.takePendingTarget === "function" ? areaBus.takePendingTarget() : areaBus.takePending();
-              if (pending) postNavigate(pending);
+              postNavigate(areaBus.pendingTarget());
             }
           }
           if (data && typeof data === "object" && data.type === "no996-openfilm:restart" && data.version === 1) {
@@ -475,21 +468,15 @@
             renewAckRef.current = null;
             if (acknowledge) acknowledge(data.ok === true);
           }
-          if (data && typeof data === "object" && data.type === "no996-openfilm:archive" && data.version === 1 && typeof data.projectId === "string") {
+          if (data?.type === "no996-openfilm:archive" && data.version === 1 && typeof data.projectId === "string" && data.projectId === (areaBus.pendingTarget()?.projectId ?? areaBus.snapshot().projectId)) {
             setArchive({ available: data.available !== false, archived: data.archived === true });
           }
-          if (data && typeof data === "object" && data.type === "no996-openfilm:project" && data.version === 1 && typeof data.projectId === "string") {
-            areaBus.reportProject(/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId) ? data.projectId : null);
-            try {
-              if (/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)) {
-                localStorage.setItem("no996.openfilm.lastProject", data.projectId);
-                setProjectId(data.projectId);
-              } else {
-                localStorage.removeItem("no996.openfilm.lastProject");
-                setProjectId(null);
-              }
-            } catch {
-            }
+          if (data?.type === "no996-openfilm:navigation-result" && data.version === 1) {
+            if (areaBus.acknowledge(data) && data.status === "ready") rememberProject(data.projectId);
+          }
+          if (data?.type === "no996-openfilm:project" && data.version === 1) {
+            if (data.projectId !== null && (typeof data.projectId !== "string" || !/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId))) return;
+            if (areaBus.reportProject(data.projectId)) rememberProject(data.projectId);
           }
         };
         window.addEventListener("message", receive);
@@ -2457,6 +2444,80 @@
     };
   }
 
+  // src/ui/workspace-editing-action.mjs
+  var PROJECT_ID = /^[A-Za-z0-9_-]{6,40}$/;
+  var CONVERSATION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+  async function readWorkspaceEditingTarget(sessionId, signal, request = globalThis.fetch) {
+    const response = await request("/api/no996-openfilm/editing-session-target", {
+      method: "POST",
+      credentials: "same-origin",
+      signal,
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ sessionId })
+    });
+    if (!response.ok) throw new Error("EDITING_TARGET_UNAVAILABLE");
+    const { target } = await response.json();
+    if (target === null) return null;
+    if (typeof target?.projectId !== "string" || !PROJECT_ID.test(target.projectId) || typeof target?.conversationId !== "string" || !CONVERSATION_ID.test(target.conversationId) || typeof target?.archived !== "boolean") throw new Error("EDITING_TARGET_INVALID");
+    return target;
+  }
+  async function openWorkspaceEditingTarget({ sessionId, signal, readTarget, selectPanel, navigate }) {
+    if (signal.aborted) return false;
+    const target = await readTarget(sessionId, signal);
+    if (signal.aborted || !target || target.archived) return false;
+    selectPanel();
+    navigate(target.projectId, target.conversationId);
+    return true;
+  }
+  function createWorkspaceEditingAction(React, { t, layout, navigate }) {
+    const h = React.createElement;
+    return function WorkspaceEditingAction({ sessionId }) {
+      const [state, setState] = React.useState(null);
+      const active = React.useRef(null);
+      React.useEffect(() => {
+        if (!sessionId) return void 0;
+        const controller = new AbortController();
+        active.current = controller;
+        const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(12e3)]);
+        void readWorkspaceEditingTarget(sessionId, signal).then((target2) => {
+          if (!controller.signal.aborted) setState({ sessionId, target: target2 });
+        }).catch(() => {
+          if (!controller.signal.aborted) setState({ sessionId, failure: true });
+        });
+        return () => controller.abort();
+      }, [sessionId]);
+      if (state?.sessionId !== sessionId || !state?.target && !state?.failure) return null;
+      const { opening, failure, target } = state;
+      const archived = target?.archived === true;
+      const label = archived ? t("editingTargetArchived") : failure ? t("editingTargetRetry") : t("editingTargetOpen");
+      return h("button", {
+        type: "button",
+        disabled: archived || opening,
+        title: label,
+        style: { paddingInline: "6px", minHeight: "24px", color: "var(--dsw-alias-label-primary)", whiteSpace: "nowrap" },
+        onClick: async () => {
+          const controller = active.current;
+          if (!controller || controller.signal.aborted) return;
+          const navigation = layout.beginNavigation();
+          const signal = AbortSignal.any([navigation, controller.signal, AbortSignal.timeout(12e3)]);
+          setState({ sessionId, target, failure, opening: true });
+          try {
+            const opened = await openWorkspaceEditingTarget({
+              sessionId,
+              signal,
+              readTarget: readWorkspaceEditingTarget,
+              selectPanel: () => layout.selectPanel("no996-openfilm"),
+              navigate
+            });
+            if (!controller.signal.aborted) setState({ sessionId, target, failure: !opened });
+          } catch {
+            if (!controller.signal.aborted) setState({ sessionId, target, failure: true });
+          }
+        }
+      }, opening ? t("editingTargetOpening") : label);
+    };
+  }
+
   // src/ui/sidebar-brand.mjs
   var MARK_ATTR = "data-no996-brand-mark";
   var REPLACED_ATTR = "data-no996-brand-replaced";
@@ -2805,6 +2866,10 @@
       const en = {
         panel: "Video studio",
         envTitle: "Editing environment",
+        editingTargetOpen: "Continue in Video studio",
+        editingTargetRetry: "Retry editing conversation",
+        editingTargetOpening: "Locating conversation\u2026",
+        editingTargetArchived: "Restore this conversation before editing",
         studioLoading: "Starting OpenFilm Studio\u2026",
         studioFailed: "Unable to open Video Creation",
         studioFailureHint: "The editing workspace did not start or could not be reached. Try again first.",
@@ -2835,6 +2900,10 @@
       const zh = {
         panel: "\u89C6\u9891\u521B\u4F5C",
         envTitle: "\u526A\u8F91\u73AF\u5883",
+        editingTargetOpen: "\u5728\u526A\u8F91\u533A\u7EED\u804A",
+        editingTargetRetry: "\u91CD\u8BD5\u5B9A\u4F4D\u526A\u8F91\u4F1A\u8BDD",
+        editingTargetOpening: "\u6B63\u5728\u5B9A\u4F4D\u4F1A\u8BDD\u2026",
+        editingTargetArchived: "\u6062\u590D\u4F1A\u8BDD\u540E\u53EF\u5728\u526A\u8F91\u533A\u7EED\u804A",
         studioLoading: "\u6B63\u5728\u542F\u52A8 OpenFilm \u5DE5\u4F5C\u53F0\u2026",
         studioFailed: "\u6682\u65F6\u65E0\u6CD5\u6253\u5F00\u89C6\u9891\u521B\u4F5C",
         studioFailureHint: "\u526A\u8F91\u5DE5\u4F5C\u53F0\u672A\u80FD\u542F\u52A8\u6216\u8FDE\u63A5\uFF0C\u8BF7\u5148\u91CD\u8BD5\u3002",
@@ -2982,6 +3051,17 @@
           const t = ctx.locale.bind(NS);
           ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, PanelSeat));
           ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({ name: "sidebar.panellist", id: PANEL, order: 21, locale: NS, label: () => t("panel") }, PanelIcon));
+          const layout = ctx.get("layout");
+          if (layout) {
+            const WorkspaceEditingAction = createWorkspaceEditingAction(React, { t, layout, navigate: areaBus.navigate });
+            ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
+              name: "conversation.session.header.actions",
+              id: "no996-editing-resume",
+              order: 0,
+              locale: NS,
+              label: () => t("editingTargetOpen")
+            }, WorkspaceEditingAction));
+          }
           ctx.slots.inject("settings.section", () => ctx.slots.register(
             { name: "settings.section", id: "no996-openfilm", order: 80, locale: NS, label: () => t("settingsLabel") },
             SettingsSection

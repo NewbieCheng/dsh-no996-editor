@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 
 import { buildEditingProjects } from '../../../project/editing-sessions.mjs';
+import { NATIVE_EDITING_SESSION_ID, resolveEditingSessionTarget } from '../../../project/editing-session-target.mjs';
 import { readJsonBody } from '../http-body.mjs';
 
 // Editing routes: the sidebar's project list, per-project preferences, archive,
@@ -116,6 +117,40 @@ export function createEditingRoutes({
         }));
       } catch {
         res.writeHead(503).end('EDITING_SESSIONS_UNAVAILABLE');
+      }
+    },
+  }));
+  // A workspace header supplies the original DSH session ID, not an OpenFilm
+  // conversation ID. Authorize the Owner browser, then read only that binding.
+  track(register({
+    kind: 'exact', path: '/api/no996-openfilm/editing-session-target',
+    async handler(req, res) {
+      res.setHeader('cache-control', 'no-store');
+      if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }).end(); return; }
+      const admission = ctx.connection.admit({ headers: req.headers });
+      if ('rejection' in admission) {
+        res.writeHead(admission.rejection).end(admission.rejection === 403 ? 'DSH_ORIGIN_REJECTED' : 'DSH_SESSION_REQUIRED');
+        return;
+      }
+      if (admission.peer.id !== ctx.connection.browserPeer.id) { res.writeHead(403).end('DSH_BROWSER_REQUIRED'); return; }
+      const body = await readJsonBody(req, 512);
+      if (Object.keys(body).length !== 1 || typeof body.sessionId !== 'string' || !NATIVE_EDITING_SESSION_ID.test(body.sessionId)) {
+        res.writeHead(400).end('BAD_SESSION'); return;
+      }
+      try {
+        const result = await resolveEditingSessionTarget({
+          bindings: () => acpSessions.all(),
+          loadChat: async projectId => (await officialStore()).listSessions(projectId),
+          isArchived: sessionId => archive?.isArchived?.(sessionId),
+        }, body.sessionId);
+        if (result.status === 'ready' || result.status === 'unbound') {
+          res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' })
+            .end(JSON.stringify({ target: result.target ?? null }));
+        } else {
+          res.writeHead(409).end('EDITING_SESSION_TARGET_UNRESOLVED');
+        }
+      } catch {
+        res.writeHead(503).end('EDITING_SESSION_TARGET_UNAVAILABLE');
       }
     },
   }));

@@ -1,0 +1,358 @@
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
+index 7b8de03..12afeba 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
+@@ -18,6 +18,8 @@
+ import React from 'react';
+ import { createPortal } from 'react-dom';
+ import { Loader2, X } from 'lucide-react';
++import { No996TemplateLibrary } from './No996TemplateLibrary';
++import { No996BrandSetupHint } from './No996Brand';
+ import { api, ApiError, LIBRARY_EVENT } from '@/api';
+ import { recycleRefusalOf, recycleRefusalWords, type RecycleRefusal } from '@/lib/recycle';
+ import { useT } from '@/i18n';
+@@ -240,6 +242,197 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
+ const COVER_WAIT_MS = 4000;
+ 
+ 
++type CreationRatio = '9:16' | '16:9';
++const creationRatios = ['9:16', '16:9'] as const;
++type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string; featured?: boolean; ratios?: CreationRatio[]; defaultRatio?: CreationRatio };
++
++function CreateRatioButton({ ratio, primary = false, blank = false, zh, busy, onCreate }: {
++  ratio: CreationRatio; primary?: boolean; blank?: boolean; zh: boolean; busy: boolean; onCreate: () => void;
++}) {
++  const portrait = ratio === '9:16';
++  const title = zh ? (portrait ? '竖屏创建' : '横屏创建') : (portrait ? 'Create portrait' : 'Create landscape');
++  const label = blank ? `${title} · ${zh ? '空白' : 'Blank'}` : title;
++  return <button type="button" disabled={busy} aria-label={label} data-no996-create-ratio={ratio} onClick={onCreate}
++    className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-pressed)] disabled:opacity-50 ${primary ? 'border-[var(--text-muted)] bg-[var(--bg-hover)]' : 'border-[var(--border)] hover:bg-[var(--bg-hover)]'}`}>
++    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
++      <rect x={portrait ? 4.5 : 2} y={portrait ? 2 : 4.5} width={portrait ? 7 : 12} height={portrait ? 12 : 7} rx="1.25" />
++    </svg>
++    {label}
++  </button>;
++}
++
++function No996TemplateIcon({ id }: { id: string }) {
++  const common = { width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
++  if (id === 'talking-head' || id === 'talking_head') {
++    return (
++      <svg {...common}>
++        <circle cx="8" cy="5.5" r="2.5" />
++        <path d="M3.5 13.5a4.5 4.5 0 0 1 9 0" />
++      </svg>
++    );
++  }
++  if (id === 'paper-texture' || id === 'paper_texture') {
++    return (
++      <svg {...common}>
++        <path d="M4 2.5h5.5L13 6v7.5H4z" />
++        <path d="M9.5 2.5V6H13" />
++        <path d="M6.2 9h4.6M6.2 11.2h3.2" />
++      </svg>
++    );
++  }
++  if (id === 'feature-explain' || id === 'feature_explain' || id === 'product-demo') {
++    return (
++      <svg {...common}>
++        <rect x="2.5" y="3.5" width="11" height="9" rx="1.8" />
++        <path d="M6.8 6.4 10 8 6.8 9.6z" fill="currentColor" stroke="none" />
++      </svg>
++    );
++  }
++  return (
++    <svg {...common}>
++      <rect x="2.5" y="3.5" width="11" height="9" rx="1.8" />
++      <path d="M5.5 3.5v9M10.5 3.5v9" />
++    </svg>
++  );
++}
++
++type SpokenInput = { requestId: string; copy: string; ratio: CreationRatio; music: 'default' | 'upload' | 'none'; audioBase64?: string };
++const spokenFormControl = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-3 py-2 text-sm text-[var(--text)]';
++
++function spokenError(code: string, zh: boolean) {
++  const messages: Record<string, [string, string]> = {
++    SPOKEN_MODEL_FAILED: ['模型未完成拆解。检查 DSH 默认文本模型后重试。', 'The model did not finish. Check the default text model in DSH and try again.'],
++    SPOKEN_BLUEPRINT_INPUT: ['未能拆出有效分镜。请缩短文案或补充分句标点。', 'No valid storyboard was produced. Try a shorter script or add sentence punctuation.'],
++    SPOKEN_BGM_UNAVAILABLE: ['默认配乐暂不可用。可上传音乐或关闭配乐。', 'Default music is unavailable. Upload a track or turn music off.'],
++    SPOKEN_BGM_INPUT: ['请选择不超过 6 MB 的 MP3、WAV、FLAC 或 OGG。', 'Choose an MP3, WAV, FLAC or OGG file up to 6 MiB.'],
++    SPOKEN_BGM_DECODE_FAILED: ['无法读取音乐。请换一个音频文件。', 'The audio could not be read. Try another file.'],
++    SPOKEN_CREATION_BUSY: ['建片繁忙，请稍后重试。', 'Creation is busy. Try again shortly.'],
++    SPOKEN_CREATION_FAILED: ['未能写入新草稿。检查项目目录和磁盘空间。', 'The draft could not be written. Check the project directory and disk space.'],
++  };
++  return messages[code]?.[zh ? 0 : 1] ?? (zh ? '无法确认创建结果。请先在「我的项目」检查，避免重复创建。' : 'Creation could not be confirmed. Check My Projects before creating again.');
++}
++
++function SpokenForm({ zh, busy, onClose, onCreate }: { zh: boolean; busy: boolean; onClose: () => void; onCreate: (input: SpokenInput) => Promise<void> }) {
++  const [copy, setCopy] = React.useState('');
++  const [ratio, setRatio] = React.useState<CreationRatio>('9:16');
++  const [music, setMusic] = React.useState<SpokenInput['music']>('default');
++  const [audio, setAudio] = React.useState<File | null>(null);
++  const [pending, setPending] = React.useState(false);
++  const [error, setError] = React.useState('');
++  const submitting = React.useRef(false);
++  const blocked = error === 'uncertain';
++  const locked = busy || pending;
++  const copyId = React.useId();
++  async function submit(event: React.FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++    if (locked || blocked || submitting.current || !copy.trim()) return;
++    submitting.current = true;
++    setPending(true);
++    setError('');
++    try {
++      const payload: SpokenInput = { requestId: crypto.randomUUID(), copy: copy.trim(), ratio, music };
++      if (music === 'upload') {
++        if (!audio || audio.size < 1 || audio.size > 6 * 1024 * 1024) throw new Error('SPOKEN_BGM_INPUT');
++        try {
++          payload.audioBase64 = await new Promise<string>((resolve, reject) => {
++            const reader = new FileReader();
++            reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
++            reader.onerror = reader.onabort = () => reject(new Error('SPOKEN_BGM_INPUT'));
++            reader.readAsDataURL(audio);
++          });
++        } catch { throw new Error('SPOKEN_BGM_INPUT'); }
++      }
++      await onCreate(payload);
++    } catch (failure) {
++      const code = failure instanceof Error ? failure.message : '';
++      setError(['SPOKEN_MODEL_FAILED', 'SPOKEN_BLUEPRINT_INPUT', 'SPOKEN_BGM_UNAVAILABLE', 'SPOKEN_BGM_INPUT', 'SPOKEN_BGM_DECODE_FAILED', 'SPOKEN_CREATION_BUSY', 'SPOKEN_CREATION_FAILED'].includes(code) ? code : 'uncertain');
++    } finally {
++      submitting.current = false;
++      setPending(false);
++    }
++  }
++  return <form onSubmit={event => void submit(event)} aria-label={zh ? '用口播文案创建 Vibe 草稿' : 'Create Vibe from a script'} className="mt-3 space-y-3 rounded-lg border border-[var(--border)] p-4">
++    <label className="block text-sm font-semibold" htmlFor={copyId}>{zh ? '口播文案' : 'Spoken script'}</label>
++    <textarea id={copyId} autoFocus maxLength={8000} required rows={5} disabled={locked} value={copy} onChange={event => setCopy(event.target.value)}
++      placeholder={zh ? '粘贴你打算说的内容。' : 'Paste what you plan to say.'} className={`${spokenFormControl} resize-y`} />
++    <div className="grid gap-3 sm:grid-cols-2">
++      <label className="space-y-1 text-sm"><span>{zh ? '画幅' : 'Canvas'}</span>
++        <select className={spokenFormControl} disabled={locked} value={ratio} onChange={event => setRatio(event.target.value as CreationRatio)}>
++          <option value="9:16">{zh ? '竖屏 9:16' : 'Portrait 9:16'}</option><option value="16:9">{zh ? '横屏 16:9' : 'Landscape 16:9'}</option>
++        </select>
++      </label>
++      <label className="space-y-1 text-sm"><span>{zh ? '背景音乐' : 'Background music'}</span>
++        <select className={spokenFormControl} disabled={locked} value={music} onChange={event => setMusic(event.target.value as SpokenInput['music'])}>
++          <option value="default">{zh ? '默认：We Never' : 'Default: We Never'}</option><option value="upload">{zh ? '上传音乐' : 'Upload music'}</option><option value="none">{zh ? '关闭配乐' : 'No music'}</option>
++        </select>
++      </label>
++    </div>
++    {music === 'upload' ? <label className="block space-y-1 text-sm"><span>{zh ? '选择音频（最大 6 MB）' : 'Choose audio (up to 6 MiB)'}</span>
++      <input className={spokenFormControl} type="file" required disabled={locked} accept=".mp3,.wav,.flac,.ogg" onChange={event => setAudio(event.target.files?.[0] ?? null)} />
++    </label> : null}
++    <p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '文案会交给 DSH 默认文本模型拆分。纯文稿为估时字幕，不会合成口播声音。' : 'Your script is sent to the default DSH text model. Subtitle timing is estimated; no voiceover is generated.'}</p>
++    {error ? <p role="alert" className="text-sm text-[var(--text)]">{spokenError(error, zh)}</p> : null}
++    <div className="flex flex-wrap justify-end gap-2">
++      <button type="button" disabled={locked} onClick={onClose} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm">{zh ? '取消' : 'Cancel'}</button>
++      <button type="submit" disabled={locked || blocked || !copy.trim()} className="rounded-md border border-[var(--text-muted)] bg-[var(--bg-hover)] px-3 py-2 text-sm font-semibold disabled:opacity-50">{locked ? (zh ? '正在拆分并创建…' : 'Preparing draft…') : (zh ? '创建可编辑草稿' : 'Create editable draft')}</button>
++    </div>
++  </form>;
++}
++
++/** NO996-UPSTREAM: keep product templates inside the upstream examples gallery. */
++function No996Templates({ onCreate, onBlank, onSpoken, onLocalCreate, busy }: {
++  onCreate: (id: string, ratio?: CreationRatio) => void; onBlank: (ratio: CreationRatio) => void;
++  onSpoken: (input: SpokenInput) => Promise<void>; onLocalCreate: (projectId: string) => void; busy: boolean;
++}) {
++  const [spoken, setSpoken] = React.useState(false);
++  const [cards, setCards] = React.useState<No996Template[]>([]);
++  const [failed, setFailed] = React.useState(false);
++  const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
++  React.useEffect(() => {
++    let live = true;
++    void fetch('/__dsh/official-rpc', {
++      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ channel: 'template:list', payload: {} }),
++    }).then(async (response) => {
++      if (!response.ok) throw new Error('template list unavailable');
++      return response.json() as Promise<{ templates?: No996Template[] }>;
++    }).then((data) => {
++      if (live) setCards((Array.isArray(data.templates) ? data.templates : []).filter((card) => card && card.id !== 'custom'));
++    }).catch(() => { if (live) setFailed(true); });
++    return () => { live = false; };
++  }, []);
++  return (
++    <section className="px-6 pb-4" aria-label={zh ? 'No996 模板' : 'No996 templates'}>
++      <div className="mb-3 ml-auto flex w-fit max-w-full flex-wrap items-center gap-2" role="group" aria-label={zh ? '新建空白项目' : 'Create blank project'}>
++        {creationRatios.map(ratio => <CreateRatioButton key={ratio} ratio={ratio} primary={ratio === '9:16'} blank zh={zh} busy={busy} onCreate={() => onBlank(ratio)} />)}
++      </div>
++      {failed ? <p role="status" className="text-sm text-[var(--text-muted)]">{zh ? '模板暂不可用，仍可浏览示例或新建空白项目。' : 'Templates are unavailable; browse examples or start blank.'}</p> : null}
++      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
++        {cards.map((card) => <article key={card.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] p-3">
++          <div className="flex items-center justify-between gap-2">
++            <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-[var(--text)]">
++              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--bg-field)] text-[var(--text-muted)]">
++                <No996TemplateIcon id={card.id} />
++              </span>
++              <span className="truncate">{card.productTitle || card.title}</span>
++            </h3>
++            {card.featured ? <span className="shrink-0 rounded-full bg-[rgba(255,194,75,0.16)] px-2 py-0.5 text-[10px] font-medium text-[#e2a32e]">{zh ? '首推' : 'Featured'}</span> : null}
++          </div>
++          <p className="flex-1 text-xs leading-relaxed text-[var(--text-muted)]">{card.productBlurb || card.description}</p>
++          <div className="mt-1 flex flex-wrap justify-end gap-2">
++            {Array.isArray(card.ratios) && creationRatios.some(ratio => card.ratios?.includes(ratio))
++              ? creationRatios.filter(ratio => card.ratios?.includes(ratio)).map(ratio => <CreateRatioButton key={ratio} ratio={ratio} primary={ratio === card.defaultRatio} zh={zh} busy={busy} onCreate={() => onCreate(card.id, ratio)} />)
++              : <button type="button" disabled={busy} onClick={() => onCreate(card.id)} className="rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '按示例创建' : 'Create from example'}</button>}
++          </div>
++          {card.id === 'vibe-explainer' ? <button type="button" aria-expanded={spoken} disabled={busy} onClick={() => setSpoken(!spoken)} className="mt-1 rounded-md border border-[var(--border)] px-2 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--bg-hover)]">{zh ? '用口播文案创建' : 'Create from a script'}</button> : null}
++        </article>)}
++      </div>
++      {spoken ? <SpokenForm zh={zh} busy={busy} onClose={() => setSpoken(false)} onCreate={onSpoken} /> : null}
++      <No996TemplateLibrary onCreate={onLocalCreate} />
++    </section>
++  );
++}
++
+ export function ProjectsPopover({
+   open,
+   currentProjectId,
+@@ -272,6 +465,9 @@ export function ProjectsPopover({
+   const cover = useProjectCover(lib.coverChanged, React.useCallback(() => flash(t('projects.coverFailed')), [flash, t]));
+   /* each time it opens: the projects (the examples are a project tab away), or the examples when asked for */
+   const [view, setView] = React.useState<LauncherView>('projects');
++  /** Inside Examples: No996 templates vs OpenFilm example films. */
++  const [examplesPane, setExamplesPane] = React.useState<'templates' | 'examples'>('templates');
++  const zhExamples = typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('zh');
+   React.useLayoutEffect(() => {
+     if (!open) return;
+     const previous = document.activeElement as HTMLElement | null;
+@@ -282,7 +478,11 @@ export function ProjectsPopover({
+   const navigateProjects = (folderId: string | null = null) => { setProjectNavigation(old => ({ folderId, seq: old.seq + 1 })); setView('projects'); };
+   React.useLayoutEffect(() => {
+     if (!open) return;
+-    if (examples) { setView('examples'); return; }
++    if (examples) {
++      setView('examples');
++      setExamplesPane(examples.example ? 'examples' : 'templates');
++      return;
++    }
+     navigateProjects(null);
+   }, [open, Boolean(examples), examples?.example]);
+   React.useEffect(() => { try { localStorage.setItem(RESOURCE_VIEW_KEY, display); } catch { /* private window */ } }, [display]);
+@@ -374,6 +574,67 @@ export function ProjectsPopover({
+     }
+   }
+ 
++  const creatingNo996 = React.useRef(false);
++  async function createNo996Project(templateId: string | null, ratio?: CreationRatio) {
++    if (busy || creatingNo996.current) return;
++    creatingNo996.current = true;
++    setBusy('creating');
++    try {
++      const response = await fetch('/__dsh/official-rpc', {
++        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({
++          channel: templateId ? 'template:create' : 'project:create-blank',
++          payload: { ...(templateId ? { templateId } : {}), ...(ratio ? { ratio } : {}) },
++        }),
++      });
++      if (!response.ok) throw new Error(`HTTP ${response.status}`);
++      const result = await response.json() as { projectId?: string; error?: string; warnings?: string[] };
++      if (!result.projectId || !/^[A-Za-z0-9_-]{6,40}$/.test(result.projectId)) throw new Error(result.error || 'Missing project ID');
++      // NO996-UPSTREAM: the copy exists even if recording its template/prefs failed.
++      // Warn before navigating rather than encouraging a second copy.
++      if (result.warnings?.length) {
++        const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
++        window.alert(result.warnings.includes('TEMPLATE_ACTIVATION_FAILED')
++          ? (zh ? '项目已创建，但模板说明未能自动启用。请在对话中读取所选模板说明。' : 'The project was created, but its template guidance was not activated. Read the template guidance in chat.')
++          : (zh ? '项目已创建，但未能保存最近使用的偏好。' : 'The project was created, but recent preferences could not be saved.'));
++      }
++      go(result.projectId, 'creating');
++    } catch {
++      setBusy(null);
++      // A lost response may follow successful registration; never imply it is safe
++      // to create again before checking the project list.
++      lib.flash(document.documentElement.lang.toLowerCase().startsWith('zh')
++        ? '无法确认创建结果，请先到「我的项目」检查，再决定是否重试。'
++        : 'Creation could not be confirmed. Check My Projects before trying again.');
++    } finally {
++      creatingNo996.current = false;
++    }
++  }
++
++  async function createSpokenProject(payload: SpokenInput) {
++    if (busy || creatingNo996.current) throw new Error('SPOKEN_CREATION_BUSY');
++    creatingNo996.current = true;
++    setBusy('creating');
++    try {
++      const response = await fetch('/__dsh/official-rpc', {
++        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ channel: 'template:create-spoken', payload }),
++      });
++      if (!response.ok) throw new Error(/^([A-Z_]+)/.exec((await response.text()).slice(0, 80))?.[1] ?? 'uncertain');
++      const result = await response.json() as { projectId?: string; warnings?: string[]; errorCode?: string };
++      if (result.errorCode) throw new Error(result.errorCode);
++      if (!result.projectId || !/^[A-Za-z0-9_-]{6,40}$/.test(result.projectId)) throw new Error('uncertain');
++      if (result.warnings?.length) lib.flash(document.documentElement.lang.toLowerCase().startsWith('zh')
++        ? '草稿已创建，但未能记录模板说明或最近偏好。' : 'The draft was created; template guidance or preferences could not be recorded.');
++      go(result.projectId, 'creating');
++    } catch (error) {
++      setBusy(null);
++      throw error;
++    } finally {
++      creatingNo996.current = false;
++    }
++  }
++
+   async function duplicateProject(project: LibraryProject) {
+     if (busy) return;
+     setBusy('duplicating');
+@@ -481,6 +742,8 @@ export function ProjectsPopover({
+       key={examples?.example ?? ''}
+       heading={null}
+       embedded
++      surface={examplesPane}
++      supplement={<No996Templates busy={busy !== null} onBlank={ratio => void createNo996Project(null, ratio)} onCreate={(id, ratio) => void createNo996Project(id, ratio)} onSpoken={createSpokenProject} onLocalCreate={id => go(id, 'creating')} />}
+       {...(examples?.example ? { initial: examples.example } : {})}
+       onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
+       /* over a film: the example pointed at in its chat, for the agent to follow (as the Community does) */
+@@ -521,7 +784,11 @@ export function ProjectsPopover({
+           <div className={resourceStyles.resourceFrame}>
+             <ProjectsSidebar
+               place={view === 'recycle' ? 'projects' : view}
+-              onPlace={(place) => (place === 'projects' ? navigateProjects(null) : setView(place))}
++              onPlace={(place) => {
++                if (place === 'projects') { navigateProjects(null); return; }
++                setView(place);
++                if (place === 'examples') setExamplesPane('templates');
++              }}
+               onStart={(workbench) => void newProject(null, workbench)}
+               starting={busy !== null}
+             />
+@@ -531,11 +798,32 @@ export function ProjectsPopover({
+             <>
+               {/* the place's name and the way out of the window */}
+               <header className={sideStyles.pageHead}>
+-                <h2>{t(view === 'examples' ? 'projects.sideExamples' : 'projects.sideProjects')}</h2>
++                {view === 'examples' ? (
++                  <div role="tablist" aria-label={zhExamples ? '示例分区' : 'Examples sections'} className="flex min-w-0 flex-1 items-center gap-1">
++                    {([
++                      ['templates', zhExamples ? 'No996 模板' : 'No996 templates'],
++                      ['examples', zhExamples ? '示例' : 'Examples'],
++                    ] as const).map(([id, label]) => (
++                      <button
++                        key={id}
++                        type="button"
++                        role="tab"
++                        id={id === 'examples' ? 'resource-examples-tab' : 'resource-templates-tab'}
++                        aria-selected={examplesPane === id}
++                        aria-controls="resource-examples-panel"
++                        onClick={() => setExamplesPane(id)}
++                        className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${examplesPane === id ? 'bg-[var(--bg-hover)] text-[var(--text)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'}`}
++                      >{label}</button>
++                    ))}
++                  </div>
++                ) : (
++                  <h2>{t('projects.sideProjects')}</h2>
++                )}
+                 <span className={sideStyles.pageTools}>
+                   {onClose ? <button type="button" className={sideStyles.pageClose} aria-label={t('project.close')} onClick={onClose}><X size={17} /></button> : null}
+                 </span>
+               </header>
++              {view === 'projects' ? <No996BrandSetupHint /> : null}
+               {view === 'examples' ? gallery : null}
+               {lib.loaded ? (
+             <ProjectCoverContext.Provider value={cover.actions}>

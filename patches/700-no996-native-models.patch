@@ -1,0 +1,219 @@
+diff --git a/packages/openfilm/studio/ui/src/lib/no996-native-models.ts b/packages/openfilm/studio/ui/src/lib/no996-native-models.ts
+new file mode 100644
+index 0000000..6112e54
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/lib/no996-native-models.ts
+@@ -0,0 +1,213 @@
++import React from 'react';
++
++export interface VisionCapabilityInfo {
++  id: string;
++  capability: string;
++  label: string;
++  bytes: number;
++  sha256: string;
++  license: string;
++  ready: boolean;
++  weightsPresent: boolean;
++  loaded: boolean;
++}
++
++export interface VisionPackStatus {
++  packId: string;
++  packageName: string;
++  version: string;
++  digest: string;
++  storeDir: string;
++  effectiveDir: string;
++  sourceKind: 'missing' | 'managed_download' | 'legacy_cache' | 'legacy_bundled';
++  installState: 'missing' | 'downloading' | 'verifying' | 'installed' | 'corrupt' | 'incomplete' | 'error';
++  overallStatus: string;
++  weightsInstalled: boolean;
++  managed: boolean;
++  reusableLocal: boolean;
++  canImportLocal?: boolean;
++  inUse: boolean;
++  declaredBytes: number;
++  downloadBytes: number;
++  bytesOnDisk: number;
++  tempBytes: number;
++  reclaimableBytes: number;
++  installing: boolean;
++  install: {
++    phase: string;
++    source: string;
++    sourceLabel: string;
++    seen: number;
++    total: number;
++    error: string;
++    cancelled: boolean;
++  };
++  runtime: {
++    ready: boolean;
++    state: string;
++    providedByCore: boolean;
++    missing: string[];
++  };
++  loadedModels: string[];
++  capabilities: VisionCapabilityInfo[];
++}
++
++export interface CatalogModelItem {
++  id: string;
++  version?: string;
++  label: string;
++  category: 'asr' | 'cutout' | 'face' | 'other';
++  sourceKind: 'managed_download' | 'bundled' | 'external_shared' | 'openfilm_library';
++  sourceLabel: string;
++  installState: 'installed' | 'downloading' | 'missing' | 'corrupt' | 'incomplete' | 'error';
++  runtimeState?: string;
++  enabledState?: string;
++  declaredBytes: number;
++  downloadBytes?: number;
++  bytesOnDisk: number;
++  tempBytes?: number;
++  reclaimableBytes: number;
++  dir: string;
++  canDelete: boolean;
++  canCleanResiduals?: boolean;
++  deleteBlockedReason?: string;
++  usedBy: string[];
++  visionPack?: VisionPackStatus;
++}
++
++export interface ModelCatalogSnapshot {
++  revision: number;
++  partialStats: boolean;
++  scanWarnings: Array<{ path: string; code: string }>;
++  items: CatalogModelItem[];
++  vision: VisionPackStatus;
++  totals: {
++    modelsBytes: number;
++    inHomeModelsBytes: number;
++    externalModelsBytes: number;
++    resourcesBytes: number;
++    inHomeResourcesBytes: number;
++    reclaimableBytes: number;
++  };
++}
++
++export interface AsrChoiceState {
++  configured: string;
++  effective: string;
++  available: boolean;
++  reason?: string;
++  message: string;
++  local: {
++    ready: boolean;
++    weightsReady: boolean;
++    engine: string;
++    ffmpegOk: boolean;
++    installing: boolean;
++    bytesTotal: number;
++    bytesOnDisk: number;
++    progress: number;
++    error?: string;
++    dir?: string;
++  };
++}
++
++export interface SearchChoiceState {
++  source: 'dsh' | 'no996';
++  options: Array<{
++    id: 'dsh' | 'no996';
++    label: string;
++    supported?: boolean;
++    available: boolean;
++    statusText: string;
++  }>;
++  webFetchIndependent: boolean;
++}
++
++interface NativeModelsBridge {
++  models?: {
++    list: () => Promise<ModelCatalogSnapshot>;
++    install: (id: string, opts?: { force?: boolean }) => Promise<ModelCatalogSnapshot>;
++    cancel: (id: string) => Promise<ModelCatalogSnapshot>;
++    remove: (id: string, opts?: { cleanResidualsOnly?: boolean }) => Promise<{ ok: boolean; code?: string; message?: string; catalog?: ModelCatalogSnapshot }>;
++    importLocal: (path: string) => Promise<{ ok: boolean; code?: string; message?: string; catalog?: ModelCatalogSnapshot }>;
++    preMigrate: () => Promise<{ ok: boolean; migrated?: boolean; catalog?: ModelCatalogSnapshot }>;
++  };
++  asr?: {
++    choiceGet: (purpose?: 'media' | 'dictation') => Promise<AsrChoiceState>;
++    choiceSet: (choice: string) => Promise<AsrChoiceState>;
++    install: () => Promise<unknown>;
++    cancel: () => Promise<AsrChoiceState>;
++  };
++  search?: {
++    status: () => Promise<SearchChoiceState>;
++    choiceSet: (source: 'dsh' | 'no996') => Promise<SearchChoiceState>;
++  };
++  hostPrefs?: {
++    get: () => Promise<{ prefs?: Record<string, unknown> }>;
++    set: (patch: Record<string, unknown>) => Promise<{ prefs?: Record<string, unknown> }>;
++  };
++}
++
++export function getNativeBridge(): NativeModelsBridge | null {
++  return (window as unknown as { openfilmNative?: NativeModelsBridge }).openfilmNative ?? null;
++}
++
++export function openWorkbenchSettings(section: string, sub?: 'storage' | null): void {
++  window.dispatchEvent(new CustomEvent('no996:navigate-settings', { detail: { section, sub: sub ?? null } }));
++}
++
++export function formatSizeMb(bytes: number): string {
++  const n = Math.max(0, Number(bytes) || 0);
++  if (n >= 1e9) return `${(n / 1e9).toFixed(2)} GB`;
++  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
++}
++
++export function useModelCatalog() {
++  const [catalog, setCatalog] = React.useState<ModelCatalogSnapshot | null>(null);
++  const [busy, setBusy] = React.useState(false);
++  const [error, setError] = React.useState('');
++
++  const refresh = React.useCallback(async () => {
++    const api = getNativeBridge()?.models;
++    if (!api) return;
++    try {
++      setCatalog(await api.list());
++    } catch (e) {
++      setError(e instanceof Error ? e.message : String(e));
++    }
++  }, []);
++
++  React.useEffect(() => {
++    void refresh();
++  }, [refresh]);
++
++  const downloading = Boolean(
++    catalog?.vision?.installing || catalog?.items?.some((item) => item.installState === 'downloading'),
++  );
++
++  React.useEffect(() => {
++    if (!downloading) return undefined;
++    const timer = window.setInterval(() => { void refresh(); }, 1000);
++    return () => window.clearInterval(timer);
++  }, [downloading, refresh]);
++
++  const runAction = React.useCallback(async (fn: () => Promise<unknown>) => {
++    setBusy(true);
++    setError('');
++    try {
++      const res = (await fn()) as { ok?: boolean; message?: string; catalog?: ModelCatalogSnapshot; items?: CatalogModelItem[] } | undefined;
++      if (res && res.ok === false) {
++        setError(res.message || '操作失败');
++      }
++      if (res?.catalog) setCatalog(res.catalog);
++      else if (res && Array.isArray(res.items)) setCatalog(res as ModelCatalogSnapshot);
++      else await refresh();
++    } catch (e) {
++      setError(e instanceof Error ? e.message : String(e));
++    } finally {
++      setBusy(false);
++    }
++  }, [refresh]);
++
++  return { catalog, busy, error, setError, refresh, runAction };
++}

@@ -1,114 +1,120 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=1080, height=1920">
-  <title>物理碰撞 · 单双向门</title>
-  <style>
-    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0c10; }
-    canvas#stage { display: block; width: 100%; height: 100%; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080, height=1920">
+<title>物理碰撞 · 单双向门</title>
+
+<style>
+*{box-sizing:border-box}html,body,main{margin:0;width:100%;height:100%;overflow:hidden}
+body{color:#f3f6f4;background:#08121c;font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif}
+.vibe-page{position:relative;background:radial-gradient(ellipse at 82% 45%,#162c3b 0%,#08121c 67%);isolation:isolate}
+.vibe-header{position:absolute;display:flex;justify-content:space-between;inset:6% 8% auto;gap:20px;padding-bottom:20px;border-bottom:2px solid #324a59;color:#b6c7d2;font-size:30px;font-weight:700;letter-spacing:.12em}
+.vibe-copy{position:absolute;inset:17% 8% auto;min-width:0}
+.vibe-question{color:#fbd46c;font-size:42px;font-weight:700;line-height:1.25;letter-spacing:.04em}
+.vibe-heading{margin:35px 0 25px;font-size:clamp(90px,14vw,162px);font-weight:900;line-height:1.13;letter-spacing:-.035em;overflow-wrap:anywhere}
+.vibe-heading.vibe-heading--long{font-size:clamp(88px,11vw,125px)}
+.vibe-heading.vibe-heading--medium{font-size:clamp(70px,8.4vw,98px)}
+.vibe-heading.vibe-heading--compact{font-size:clamp(44px,5vw,58px)}
+.vibe-heading span{display:inline-block;text-wrap:balance}
+.vibe-deck{margin:0;color:#cbd8dc;font-size:42px;line-height:1.35;overflow-wrap:anywhere}
+.vibe-visual{position:absolute;inset:46% 9% auto;height:32%;min-width:0}
+.vibe-diagram,.vibe-diagram svg{display:block;width:100%;height:100%}
+.vibe-labels{position:absolute;bottom:0;left:5%;right:5%;display:flex;justify-content:space-between;gap:16px;font-size:30px;line-height:1.2;font-weight:700}
+.vibe-label{color:#fbd46c}.vibe-label-alt{color:#a9becb;text-align:right}
+.vibe-list{display:grid;height:100%;align-content:space-evenly;gap:12px}
+.vibe-item{display:grid;align-items:center;grid-template-columns:auto 1fr;gap:25px;padding:21px;background:#0b1924;border:2px solid #324a59;border-radius:14px;font-size:30px;color:#fbd46c}
+.vibe-item-title{color:#f3f6f4;font-size:36px;font-weight:800;line-height:1.2}.vibe-item-detail{margin:8px 0 0;font-size:27px;color:#cbd8dc}
+.vibe-caption{position:absolute;inset:auto 10% 11%;display:grid;text-align:center;white-space:nowrap;font-size:44px;font-weight:800;line-height:1.32;color:#f3f6f4}
+.vibe-caption p{margin:0;grid-area:1/1;overflow:hidden}
+.vibe-caption span{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;border-left:5px solid #fbd46c;background:#0b1924;padding:14px 25px}
+.vibe-caption strong{color:#fbd46c;font-weight:inherit}
+.landscape .vibe-header{inset:8% 7% auto}
+.landscape .vibe-copy{inset:27% 53% auto 7%}
+.landscape .vibe-heading{font-size:clamp(112px,9vw,170px)}
+.landscape .vibe-heading.vibe-heading--long{font-size:clamp(88px,6.2vw,125px)}
+.landscape .vibe-question,.landscape .vibe-deck{font-size:38px}
+.landscape .vibe-visual{inset:20% 6% auto 49%;height:61%}
+.landscape .vibe-labels{left:12%;right:10%;bottom:4%}
+.landscape .vibe-caption{bottom:8%}
+</style>
 </head>
 <body>
-  <canvas id="stage" width="1080" height="1920"></canvas>
-  <script src="../assets/motion.js"></script>
-  <script src="../assets/vibe-canvas.js"></script>
-  <script src="../assets/rhythm-data.js"></script>
-  <script src="../assets/stage.js"></script>
-  <script>
-    (function () {
-      'use strict';
-      const SHOT = {"id":"shot-03","title":"物理碰撞 · 单双向门","chapter":"02 · 区分门型","series":"VIBE 科普剧场","brand":"不加班智能团","duration":6,"filmDuration":42,"start":10,"bpm":112,"palette":{},"copy":{"headline":"先分清：这是哪一扇门？","leftTitle":"单向门 · 不可逆","rightTitle":"双向门 · 随时撤退"},"vars":{}};
-      const canvas = document.getElementById('stage');
-      const stage = window.VibeKit.createStage(canvas, { width: 1080, height: 1920, palette: SHOT.palette });
-      const rhythm = window.VibeKit.readRhythm(SHOT.filmDuration, SHOT.bpm);
+<script src="../assets/motion.js"></script>
 
-      
-
-      function renderFrame(t) {
-        const local = Math.max(0, Math.min(SHOT.duration, Number(t) || 0));
-        const globalT = SHOT.start + local;
-        const beatPulse = window.VibeKit.hitPulse(rhythm.beats, globalT, 0.22, rhythm.beatStrength);
-        const onsetPulse = window.VibeKit.hitPulse(rhythm.onsets, globalT, 0.14, rhythm.onsetStrength);
-        const tonalPulse = window.VibeKit.hitPulse(rhythm.tonal || [], globalT, 0.26);
-        const beatIndex = window.VibeKit.lastAt(rhythm.beats, globalT);
-        window.VibeKit.drawBackdrop(stage.ctx, globalT, { width: 1080, height: 1920, palette: stage.pal, beatPulse });
-        const frameCtx = {
-          t: local,
-          globalT,
-          duration: SHOT.duration,
-          filmDuration: SHOT.filmDuration,
-          shot: SHOT,
-          ctx: stage.ctx,
-          w: 1080,
-          h: 1920,
-          safe: stage.safe,
-          pal: stage.pal,
-          copy: SHOT.copy,
-          vars: SHOT.vars,
-          kit: window.VibeKit,
-          motion: window.Motion,
-          rhythm,
-          beatPulse,
-          onsetPulse,
-          tonalPulse,
-        };
-        if (typeof window.drawContinuousStage === 'function') {
-          stage.ctx.save();
-          window.drawContinuousStage(frameCtx);
-          stage.ctx.restore();
-        } else if (typeof drawShot === 'function') {
-          stage.ctx.save();
-          drawShot(frameCtx);
-          stage.ctx.restore();
+  <main class="vibe-page portrait">
+    <header class="vibe-header">
+      <span data-element-id="vibe-series">VIBE / 科普剧场</span>
+      <span class="" data-element-id="vibe-chapter">02 · 区分门型</span>
+    </header>
+    <div class="vibe-copy">
+      <div class="vibe-question" data-element-id="vibe-question">判断 / 02</div>
+      <h1 class="vibe-heading vibe-heading--long" data-element-id="vibe-headline"><span data-reveal>先看能不能退</span></h1>
+      <p class="vibe-deck" data-element-id="vibe-deck">先分清：这是哪一扇门？</p>
+    </div>
+    <div class="vibe-visual"><div class="vibe-diagram" data-element-id="vibe-diagram">
+      <svg viewBox="0 0 620 450" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs><pattern id="vibe-grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="#223745" stroke-width="1"/></pattern></defs>
+        <rect x="18" y="24" width="584" height="400" rx="26" fill="#0b1924" stroke="#324a59" stroke-width="2"/>
+        <rect x="38" y="44" width="544" height="364" fill="url(#vibe-grid)"/>
+        <g data-pivot fill="none" stroke="#fbd46c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path opacity=".55" d="M146 333V119h122v214M345 333V119h122v214M113 333h387"/><path d="M149 330V121h116v209ZM348 331V121l104-26v250Z"/><circle cx="234" cy="228" r="5"/><circle cx="422" cy="222" r="5"/></g>
+        <circle data-pulse cx="422" cy="222" r="18" fill="none" stroke="#fbd46c" stroke-width="2"/>
+      </svg>
+    </div><div class="vibe-labels"><span class="vibe-label" data-element-id="vibe-callout">单向门 · 不可逆</span><span class="vibe-label-alt" data-element-id="vibe-callout-secondary">双向门 · 随时撤退</span></div></div>
+    <div class="vibe-caption" aria-label="字幕">
+      <p data-caption="0" data-element-id="vibe-subtitle"><span>能回头的事，先跨半步</span></p><p data-caption="1" data-element-id="vibe-subtitle-2"><span>不能回头的事，先拆小</span></p>
+    </div>
+  </main>
+<script>
+(function () {
+    const duration = 6;
+    const title = document.querySelector('[data-reveal]');
+    const trace = document.querySelector('[data-pivot]');
+    const ping = document.querySelector('[data-pulse]');
+    const lines = Array.from(document.querySelectorAll('[data-caption]'));
+    const accent = null;
+    const items = Array.from(document.querySelectorAll('[data-item]'));
+    function draw(value) {
+      const t = Math.min(duration, Math.max(0, Number(value) || 0));
+      const ease = window.Motion.cubicOut;
+      const progress = ease(Math.min(1, t / 0.62));
+      title.style.clipPath = 'inset(0 ' + ((1 - progress) * 100) + '% 0 0)';
+      if (trace && ping) {
+        const reveal = ease(Math.max(0, Math.min(1, (t - 0.16) / 0.64)));
+        trace.style.opacity = String(0.56 + 0.44 * reveal);
+        trace.setAttribute('transform', 'translate(0 ' + (1 - reveal) * 18 + ')');
+        const energy = accent === null ? (1 - Math.cos(t * 3.6)) / 2 : t < accent ? 0 : Math.max(0, 1 - (t - accent) / 0.28);
+        ping.setAttribute('r', String(17 + 12 * energy));
+        ping.style.opacity = String(0.18 + 0.44 * energy);
+      }
+      items.forEach((item, i) => {
+        const reveal = ease(Math.max(0, Math.min(1, (t - 0.24 - i * 0.18) / 0.48)));
+        item.style.opacity = String(reveal);
+        item.style.transform = 'translateY(' + (1 - reveal) * 20 + 'px)';
+      });
+      const slot = duration / Math.max(lines.length, 1);
+      lines.forEach((line, i) => {
+        const timed = line.dataset?.from !== undefined;
+        const start = timed ? Number(line.dataset.from) / 1000 : i * slot;
+        const end = timed ? Number(line.dataset.to) / 1000 : start + slot;
+        const age = t - start;
+        const active = age >= 0 && (t < end || (!timed && i === lines.length - 1));
+        line.style.visibility = active ? 'visible' : 'hidden';
+        if (active) {
+          const p = ease(Math.min(1, age / 0.19));
+          line.style.opacity = String(p);
+          line.firstElementChild.style.transform = 'translateY(' + (1 - p) * 13 + 'px)';
+        } else {
+          line.style.opacity = '0';
+          line.firstElementChild.style.transform = 'translateY(13px)';
         }
-        window.VibeKit.drawChrome(stage.ctx, globalT, {
-          width: 1080,
-          height: 1920,
-          palette: stage.pal,
-          series: SHOT.series,
-          chapter: SHOT.chapter,
-          brand: SHOT.brand,
-          progress: globalT / Math.max(SHOT.filmDuration, 0.001),
-          beatIndex,
-          beatPulse,
-        });
-      }
-
-      let manualControl = false;
-      let previewRaf = 0;
-
-      window.film = {
-        width: 1080,
-        height: 1920,
-        duration: SHOT.duration,
-        ready: (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
-          renderFrame(0);
-          return true;
-        }),
-        frame: function (t) {
-          manualControl = true;
-          if (previewRaf) {
-            cancelAnimationFrame(previewRaf);
-            previewRaf = 0;
-          }
-          renderFrame(t);
-        },
-      };
-
-      if (!window.filmHost) {
-        const t0 = performance.now();
-        const tick = function () {
-          if (manualControl) return;
-          const elapsed = ((performance.now() - t0) / 1000) % SHOT.duration;
-          renderFrame(elapsed);
-          previewRaf = requestAnimationFrame(tick);
-        };
-        window.film.ready.then(function () {
-          if (!manualControl) previewRaf = requestAnimationFrame(tick);
-        });
-      }
-    })();
-  </script>
+      });
+    }
+    window.film = { width: 1080, height: 1920, duration,
+      ready: Promise.resolve(document.fonts?.ready).then(() => { draw(0); return true; }),
+      frame: function (t) { draw(t); },
+    };
+  })();
+</script>
 </body>
 </html>

@@ -12,20 +12,20 @@ const TEMPLATE_ID = /^(?:[a-z0-9][a-z0-9-]{1,40}|custom)$/;
 const PRODUCT = Object.freeze({
   'vibe-explainer': {
     productTitle: 'Vibe 科普剧场',
-    productBlurb: '首推知识科普模板：隐喻大字+Canvas剧场+物理弹簧动效+合成音效，无口播素材也能做强质感大片。',
+    productBlurb: '适合知识科普：双比例独立构图，标题、动态字幕、矢量图解与行动清单都能分别编辑。',
     featured: true,
   },
   'paper-texture': {
     productTitle: '口播讲堂',
-    productBlurb: '适合竖屏口播、课程讲解：一人出镜把一件事讲清楚。',
+    productBlurb: '适合课程讲解：竖屏上下讲授、横屏课件与人物并排，标题、课件和字幕都能编辑。',
   },
   sketchnote: {
     productTitle: '手绘笔记',
-    productBlurb: '适合笔记风总结与轻教程：纸笔板书感，好读好记。',
+    productBlurb: '适合笔记风总结与轻教程：竖屏单页、横屏摊页，标题、步骤和便签都可编辑。',
   },
   'motion-styles': {
     productTitle: '动效风格样片',
-    productBlurb: '适合强动效片头与品牌概念片：弹簧、错峰、镜头推拉更有冲击。',
+    productBlurb: '适合片头与概念片：双比例扁平矢量、包豪斯动效，文字与形状都能编辑。',
   },
   custom: {
     productTitle: '自定义',
@@ -48,6 +48,27 @@ function finitePoints(value) {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
 }
 
+function sanitizeMarket(raw) {
+  let url = '';
+  if (typeof raw?.url === 'string' && raw.url.length <= 500 && /^https:\/\/[^\s]+$/i.test(raw.url)) {
+    try { const parsed = new URL(raw.url); if (!parsed.username && !parsed.password) url = parsed.href; } catch { /* invalid address is disabled */ }
+  }
+  const refreshedAt = typeof raw?.refreshedAt === 'string' ? raw.refreshedAt.slice(0, 40) : '';
+  const seen = new Set();
+  const items = Array.isArray(raw?.items) ? raw.items.slice(0, 100).flatMap(item => {
+    let itemUrl = '';
+    if (typeof item?.url === 'string' && item.url.length <= 1000 && /^https:\/\/[^\s]+$/i.test(item.url)) {
+      try { const parsed = new URL(item.url); if (!parsed.username && !parsed.password) itemUrl = parsed.href; } catch { /* drop unsafe entry */ }
+    }
+    const id = typeof item?.id === 'string' && TEMPLATE_ID.test(item.id) && !seen.has(item.id) ? item.id : '';
+    const sha256 = typeof item?.sha256 === 'string' && /^[a-f0-9]{64}$/.test(item.sha256) ? item.sha256 : '';
+    if (!id || !itemUrl || !sha256 || typeof item.title !== 'string' || !item.title.trim()) return [];
+    seen.add(id);
+    return [{ id, title: item.title.slice(0, 80), description: typeof item.description === 'string' ? item.description.slice(0, 400) : '', url: itemUrl, sha256 }];
+  }) : [];
+  return { url, refreshedAt, items };
+}
+
 function defaults() {
   return {
     onboardingCompleted: false,
@@ -68,6 +89,8 @@ function defaults() {
     asrChoice: 'unset',
     searchSource: 'dsh',
     visionUpgradeNoticeDismissed: '',
+    templateMarket: { url: '', refreshedAt: '', items: [] },
+    no996UpdateVersion: '',
   };
 }
 
@@ -99,6 +122,8 @@ function sanitize(raw) {
     visionUpgradeNoticeDismissed: typeof raw.visionUpgradeNoticeDismissed === 'string'
       ? raw.visionUpgradeNoticeDismissed.slice(0, 32)
       : '',
+    templateMarket: sanitizeMarket(raw.templateMarket),
+    no996UpdateVersion: typeof raw.no996UpdateVersion === 'string' && /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(raw.no996UpdateVersion) ? raw.no996UpdateVersion : '',
   };
 }
 
@@ -294,6 +319,8 @@ export function createPreferencesStore({ home = dshHome() } = {}) {
           ? patch.visionUpgradeNoticeDismissed.slice(0, 32)
           : '';
       }
+      if ('templateMarket' in patch) next.templateMarket = sanitizeMarket(patch.templateMarket);
+      if ('no996UpdateVersion' in patch) next.no996UpdateVersion = typeof patch.no996UpdateVersion === 'string' && /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(patch.no996UpdateVersion) ? patch.no996UpdateVersion : '';
       return write(next);
     },
     productCatalog() {

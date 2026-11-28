@@ -3,5 +3,10 @@
   "title": "包豪斯 · 动效语法",
   "pageTitle": "02 · 包豪斯",
   "duration": 8,
-  "scene": "shot-02.scene.html"
+  "scene": "shot-02.scene.html",
+  "copy": {
+    "kicker": "BAUHAUS / 02",
+    "headline": "动效语法",
+    "deck": "形状、节奏与留白，组成一句 visual sentence。"
+  }
 }

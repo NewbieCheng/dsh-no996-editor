@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=1080, height=1920">
 <title>纸纹讲堂 · 标题页</title>
 <link rel="stylesheet" href="../assets/kit.css">
+
 <style>
 :root {
   --kicker-size: 34px;
@@ -20,14 +21,14 @@ body { background: radial-gradient(120% 80% at 50% 0%, #ece2d3 0%, var(--paper) 
 </head>
 <body>
 <div class="grain"></div>
-<div class="head">
-  <div class="kicker">纸 纹 讲 堂</div>
-  <div class="title">一页纸，讲<em>清一件事</em></div>
+<div class="head" data-element-id="paper-head">
+  <div class="kicker" data-element-id="paper-kicker">纸 纹 讲 堂</div>
+  <div class="title" data-element-id="paper-headline">一页纸，讲<em>清一件事</em></div>
 </div>
-<div class="stage"><div class="slide"><b>你的课件标题</b><span>把 PPT / 截图放进这里的通栏区域</span></div></div>
-<div class="nameplate">讲者 · 你的名字</div>
-<div class="presenter">人物窗口</div>
-<div class="capsule">字幕胶囊：一句话说清这一页要讲什么。</div>
+<div class="stage" data-element-id="paper-courseware"><div class="slide"><b data-element-id="paper-slide-title">你的课件标题</b><span data-element-id="paper-slide-hint">把 PPT / 截图放进这里的通栏区域</span></div></div>
+<div class="nameplate" data-element-id="paper-nameplate">讲者 · 你的名字</div>
+<div class="presenter" data-element-id="paper-presenter">人物窗口</div>
+<div class="capsule" data-element-id="paper-subtitle">字幕胶囊：一句话说清这一页要讲什么。</div>
 <script>
 // A still page has the same DOM picture at every local time.
   window.film = { width: 1080, height: 1920, duration: 6, ready: document.fonts.ready, frame(_t) {} };

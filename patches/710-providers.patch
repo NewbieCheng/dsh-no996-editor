@@ -1,0 +1,88 @@
+diff --git a/packages/openfilm/studio/ui/src/lib/providers.ts b/packages/openfilm/studio/ui/src/lib/providers.ts
+index 385cdb2..c2eef87 100644
+--- a/packages/openfilm/studio/ui/src/lib/providers.ts
++++ b/packages/openfilm/studio/ui/src/lib/providers.ts
+@@ -11,7 +11,12 @@ import { lookup, useLanguage, type Language } from '../i18n/index.ts';
+ export type ProviderVerb = 'voice' | 'tts' | 'sfx' | 'music' | 'asr' | 'cutout' | 'image-search' | 'video-search' | 'image' | 'video' | 'translate' | 'web-search' | 'web-fetch';
+ 
+ 
++export type No996VoiceStatus = 'signed-out' | 'checking' | 'ready' | 'unavailable';
++export const no996VoiceStatus = (provider: OwnProvider): No996VoiceStatus => provider.no996VoiceStatus ?? 'unavailable';
++
+ export interface OwnProvider {
++  no996VoiceStatus?: No996VoiceStatus;
++  no996VoiceDefault?: boolean;
+   id: string;
+   name: string;
+   verbs: ProviderVerb[];
+@@ -153,7 +158,7 @@ const invalidate = () => { revision++; refresh(); };
+ const refreshVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+ 
+ function followSignIn() {
+-  if (subscribers.size && snapshot?.signingIn?.provider) {
++  if (subscribers.size && (snapshot?.signingIn?.provider || snapshot?.providers.some(p => p.id === 'no996' && p.no996VoiceStatus === 'checking'))) {
+     poll ??= window.setInterval(refresh, 2000);
+   } else if (poll !== undefined) {
+     window.clearInterval(poll);
+@@ -169,10 +174,10 @@ function publish(next: ProvidersState) {
+   if (finished) announce();
+ }
+ 
+-function readProviders() {
++function readProviders(forceVoice = false) {
+   if (reading?.revision === revision) return reading.result;
+   const started = revision;
+-  const result = call('').then((next) => {
++  const result = call(forceVoice ? '?no996VoiceRefresh=1' : '').then((next) => {
+     // A read started before a successful change must not put its older state back.
+     if (started === revision) publish(next);
+   }).finally(() => { if (reading?.result === result) reading = null; });
+@@ -184,6 +189,7 @@ function subscribe(notify: () => void) {
+   subscribers.add(notify);
+   if (subscribers.size === 1) {
+     window.addEventListener('focus', refresh);
++    window.addEventListener('no996-auth-changed', invalidate);
+     document.addEventListener('visibilitychange', refreshVisible);
+     try {
+       channel = new BroadcastChannel('openfilm.providers');
+@@ -205,6 +211,7 @@ function subscribe(notify: () => void) {
+     if (subscribers.size) return;
+     followSignIn();
+     window.removeEventListener('focus', refresh);
++    window.removeEventListener('no996-auth-changed', invalidate);
+     document.removeEventListener('visibilitychange', refreshVisible);
+     channel?.close();
+     channel = undefined;
+@@ -228,11 +235,11 @@ export interface ProvidersHook {
+   signIn: (id: string) => Promise<void>;
+   cancelSignIn: (id: string) => Promise<void>;
+   /** who makes that kind of media: a provider id with its model, or '' (none) */
+-  choose: (verb: ProviderVerb, provider: string, pick?: { model?: string }) => Promise<void>;
++  choose: (verb: ProviderVerb, provider: string, pick?: { model?: string; no996VoiceAuto?: true }) => Promise<void>;
+   /** the library searched by meaning at OpenFilm's service, or by its words alone */
+   setLibrarySearch: (on: boolean) => Promise<void>;
+   /** the state asked again (what Local services makes changed) */
+-  reload: () => Promise<void>;
++  reload: (options?: { no996VoiceRefresh?: boolean }) => Promise<void>;
+   /** one of the person's own services added (id null) or changed; resolves whether it was kept */
+   saveService: (id: string | null, fields: OwnServiceFields) => Promise<boolean>;
+   removeService: (id: string) => Promise<void>;
+@@ -293,14 +300,15 @@ export function useProviders(): ProvidersHook {
+     useEnvKey: (id) => change(id, `/${encodeURIComponent(id)}/key`, { method: 'PUT', json: { env: true } }),
+     signIn: async (id) => { await change(id, `/${encodeURIComponent(id)}/sign-in`, { method: 'POST' }); },
+     cancelSignIn: async (id) => { await change(id, `/${encodeURIComponent(id)}/sign-in/cancel`, { method: 'POST' }); },
+-    choose: async (verb, provider, pick) => { await change(verb, '/use', { method: 'PUT', json: { verb, provider: provider || null, ...pick } }); },
++    choose: async (verb, provider, pick) => { await change(verb, verb === 'tts' ? '/no996-voice-choice' : '/use', { method: 'PUT', json: { verb, provider: verb === 'tts' ? provider : provider || null, ...pick } }); },
+     setLibrarySearch: async (on) => { await change('library-search', '/library-search', { method: 'PUT', json: { on } }); },
+     saveService: (id, fields) => change(id ?? 'custom', id ? `/custom/${encodeURIComponent(id)}` : '/custom', { method: id ? 'PUT' : 'POST', json: fields }),
+     removeService: async (id) => { await change(id, `/custom/${encodeURIComponent(id)}`, { method: 'DELETE' }); },
+     /* asked again: what Local services makes changed (a model came, went, or was turned on or off) */
+-    reload: async () => {
++    reload: async (options) => {
+       revision++;
+-      await readProviders().then(announce, () => {});
++      if (options?.no996VoiceRefresh) await readProviders(true).then(announce);
++      else await readProviders().then(announce, () => {});
+     },
+   };
+ }

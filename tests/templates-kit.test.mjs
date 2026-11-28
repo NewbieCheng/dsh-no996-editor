@@ -25,6 +25,9 @@ const fixtures = join(root, 'tests', 'fixtures', 'templates');
 
 // Whitespace between tags is not rendered; everything else is compared literally.
 const collapse = text => text.replace(/>\s+</g, '><').replace(/\s+/g, ' ').trim();
+// Editable IDs are a deliberate additive contract; the historical fixtures
+// continue to prove the visible markup and styling did not otherwise change.
+const withoutEditableIds = text => text.replace(/\sdata-element-id="[A-Za-z0-9_-]+"/g, '');
 
 function bodyOf(html) {
   const match = /<body[^>]*>([\s\S]*)<\/body>/.exec(html);
@@ -114,7 +117,7 @@ for (const template of ['paper-texture']) {
     test(`${template}/${id}: 生成的标记与拆分前一致`, () => {
       const generated = readFileSync(join(dir, 'pages', `${id}.html`), 'utf8');
       const original = readFileSync(join(fixtureDir, `${id}.html`), 'utf8');
-      assert.equal(bodyOf(generated), bodyOf(original));
+      assert.equal(withoutEditableIds(bodyOf(generated)), withoutEditableIds(bodyOf(original)));
     });
 
     test(`${template}/${id}: 每个选择器生效的样式与拆分前一致`, () => {
@@ -183,7 +186,7 @@ test('素材库：每个单元都能用示例数据渲染出来', () => {
     'paper.presenter': { text: 'P' },
     'paper.capsule': { text: 'C' },
     'paper.steps': { items: '<div class="step">x</div>' },
-    'paper.step': { num: '1', title: 'T', body: 'B' },
+    'paper.step': { id: 'paper-step-1', num: '1', title: 'T', body: 'B' },
   };
   for (const id of Object.keys(catalog.units)) {
     assert.ok(samples[id], `catalog 里的 ${id} 还没有示例数据`);
@@ -193,28 +196,25 @@ test('素材库：每个单元都能用示例数据渲染出来', () => {
   }
 });
 
-/**
- * 手绘笔记是"一场戏 + 多个窗口"：页面只声明时间窗，画由 notebook.js 按绝对
- * 时间完成。所以校验点不是标记，而是窗口参数与脚本装配——窗口写错时画面看着
- * 正常，只是内容错位，最难靠肉眼发现。
- */
+/** The notebook keeps the original seven time windows, but its picture is now
+ * editable DOM/SVG rather than one Canvas. Check the window and film contract. */
 const sketchDir = join(templates, 'sketchnote');
-const sketchFixtures = join(fixtures, 'sketchnote');
 const sketchShots = readdirSync(join(sketchDir, 'shots')).filter(name => name.endsWith('.json')).sort();
 
 for (const name of sketchShots) {
   const id = name.replace(/\.json$/, '');
-  test(`sketchnote/${id}: 时间窗与脚本装配与拆分前一致`, () => {
-    const generated = readFileSync(join(sketchDir, 'pages', `${id}.html`), 'utf8');
-    const original = readFileSync(join(sketchFixtures, 'pages', `${id}.html`), 'utf8');
-    const pick = (html, re) => re.exec(html)[1];
-    assert.equal(pick(generated, /<title>([^<]*)<\/title>/), pick(original, /<title>([^<]*)<\/title>/));
-    assert.equal(pick(generated, /const START = ([\d.]+);/), pick(original, /const START = ([\d.]+);/));
-    assert.equal(pick(generated, /const DURATION = ([\d.]+);/), pick(original, /const DURATION = ([\d.]+);/));
-    assert.equal(pick(generated, /<canvas ([^>]*)>/), pick(original, /<canvas ([^>]*)>/));
-    const scripts = html => [...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]);
-    assert.deepEqual(scripts(generated), scripts(original));
-    assert.match(generated, /notebook\.draw\(toSourceTime\(START \+ local\)\)/);
+  test(`sketchnote/${id}: 原时间窗与可编辑页面契约`, () => {
+    const shot = JSON.parse(readFileSync(join(sketchDir, 'shots', name), 'utf8'));
+    for (const pages of ['pages', 'pages-landscape']) {
+      const generated = readFileSync(join(sketchDir, pages, `${id}.html`), 'utf8');
+      assert.ok(generated.includes(`<title>${shot.pageTitle}</title>`));
+      assert.ok(generated.includes(`const duration = ${shot.duration};`));
+      assert.doesNotMatch(generated, /<canvas\b/);
+      assert.match(generated, /data-element-id="sketch-headline"/);
+      assert.match(generated, /data-element-id="sketch-footer"/);
+      assert.match(generated, /<script src="..\/assets\/motion.js"><\/script>/);
+      assert.match(generated, /frame: draw/);
+    }
   });
 }
 

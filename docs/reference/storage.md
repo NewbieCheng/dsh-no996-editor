@@ -2,7 +2,7 @@
 id: storage
 reader: 维护者、要加持久化的人
 fact-source: src/official/official-chat-store.mjs、src/native/dsh-session-store.mjs、src/studio/studio-controller.mjs、DSH 的 storageDomain
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 -->
 
@@ -18,7 +18,10 @@ rot-if: 换存储介质、或 DSH 改 storageDomain 形状
 | 原生会话映射 | `$DSH_HOME/no996-openfilm/native-sessions.json` | 项目与对话到原生会话的映射；不要擅自删除 |
 | 会话历史本体 | DSH 会话持久化目录（内部格式和布局以宿主版本为准） | **由 DSH 管理，插件不直接改写** |
 | 附件（抽帧图等） | `$DSH_HOME/attachments/v1/objects/<前2位>/<sha256>` | 内容寻址 |
-| 片型引导偏好 | `$DSH_HOME/no996-openfilm/preferences.json` | 提示（本机安装级） |
+| 片型引导与市场偏好 | `$DSH_HOME/no996-openfilm/preferences.json` | 提示（本机安装级）；含模板市场地址、索引缓存和已展示更新版本 |
+| 用户品牌记忆 | DSH `storageDomain`（`no996_brand_memory`） | profile 级私有设置；影片显式选用后才快照 |
+| 影片品牌快照 | 项目 `.film/brand.json` + `assets/brand/<sha256>.png` | 本片事实；不随全局 Logo 替换而变 |
+| 本地模板配方 | `$DSH_HOME/no996-openfilm/templates/<id>/recipe.json` + `assets/` | 只含选中结构与直接资源；不是项目副本 |
 | 账号会话 | `$DSH_HOME/no996-openfilm/workbench-auth.json` | token 只在 Host |
 | 预设激活报告 | `%TEMP%\no996-editor-preset.json` | 诊断 |
 | 插件日志 | `%TEMP%\no996-editor\plugin.log`（JSON Lines，脱敏） | 诊断 |

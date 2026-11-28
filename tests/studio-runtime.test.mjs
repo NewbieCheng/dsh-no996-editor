@@ -7,21 +7,20 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 
 test('a shell-run OpenFilm CLI cannot open the person a browser', async () => {
   const previous = process.env.OPENFILM_NO_BROWSER;
-  delete process.env.OPENFILM_NO_BROWSER;
-  let server;
+  process.env.OPENFILM_NO_BROWSER = '0';
   const runtime = createStudioRuntime({
-    loadStudio: async () => async () => {
-      assert.equal(process.env.OPENFILM_NO_BROWSER, '1', 'the embedded kernel CLI must not open a browser');
-      server = createServer((req, res) => {
-        res.setHeader('content-type', 'application/json');
-        res.end(JSON.stringify({ product: 'openfilm-studio', version: OPENFILM_VERSION, app: true, filmOrigin: 'http://127.0.0.1:12345' }));
-      });
-      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-      const current = server;
-      return { port: server.address().port, filmOrigin: 'http://127.0.0.1:12345', close: async () => { await new Promise(resolve => current.close(resolve)); } };
+    loadStudio: async () => {
+      assert.equal(process.env.OPENFILM_NO_BROWSER, '1', 'guard even before upstream import');
+      return async options => {
+        assert.equal(options.advertise, false, 'do not advertise upstream Studio');
+        assert.equal(typeof options.openBrowser, 'function');
+        assert.equal(options.openBrowser('http://127.0.0.1:4747/'), undefined, 'the upstream browser callback does nothing');
+        return { port: 12345, close() {} };
+      };
     },
   });
   try {
+    assert.equal(process.env.OPENFILM_NO_BROWSER, '1', 'guard shell inheritance before lazy startup');
     await runtime.ensureStarted();
   } finally {
     await runtime.close();

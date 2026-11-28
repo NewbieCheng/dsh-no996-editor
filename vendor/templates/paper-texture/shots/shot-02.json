@@ -30,9 +30,9 @@
         "unit": "paper.step",
         "as": "items",
         "items": [
-          { "num": "{{copy.steps.0.num}}", "title": "{{copy.steps.0.title}}", "body": "{{copy.steps.0.body}}" },
-          { "num": "{{copy.steps.1.num}}", "title": "{{copy.steps.1.title}}", "body": "{{copy.steps.1.body}}" },
-          { "num": "{{copy.steps.2.num}}", "title": "{{copy.steps.2.title}}", "body": "{{copy.steps.2.body}}" }
+          { "id": "paper-step-1", "num": "{{copy.steps.0.num}}", "title": "{{copy.steps.0.title}}", "body": "{{copy.steps.0.body}}" },
+          { "id": "paper-step-2", "num": "{{copy.steps.1.num}}", "title": "{{copy.steps.1.title}}", "body": "{{copy.steps.1.body}}" },
+          { "id": "paper-step-3", "num": "{{copy.steps.2.num}}", "title": "{{copy.steps.2.title}}", "body": "{{copy.steps.2.body}}" }
         ]
       }
     },

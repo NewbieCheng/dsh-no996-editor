@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { pathToFileURL } from 'node:url';
 import { readCatalog, shotWall, collectUnitStyles } from '../vendor/templates/_kit/render.mjs';
 import { packCuesToLanes, synthesizeSfxWav } from '../src/audio/sfx-synth.mjs';
+import { readBundledTemplateLayouts, selectBundledTemplateLayout } from '../src/film/template-layouts.mjs';
 
 /**
  * 模板构建：`shots/*.json` + `_kit/` → `pages/*.html` 与 `film.html`。
@@ -41,6 +42,9 @@ for (const name of readdirSync(templatesRoot).sort()) {
   if (!existsSync(configPath) || !existsSync(join(templateDir, 'shots'))) continue;
 
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const manifestPath = join(templateDir, 'manifest.json');
+  const layouts = readBundledTemplateLayouts(existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null);
+  const variants = layouts ? layouts.ratios.map(ratio => selectBundledTemplateLayout(layouts, ratio)) : [null];
   const rendererPath = join(templatesRoot, '_kit', config.kit, 'page.mjs');
   const { render, clock } = await import(pathToFileURL(rendererPath).href);
   const shots = listShots(templateDir);
@@ -101,17 +105,6 @@ for (const name of readdirSync(templatesRoot).sort()) {
     }
   }
 
-  for (const { shot } of entries) {
-    planned.push({
-      path: join(templateDir, 'pages', `${shot.id}.html`),
-      body: render(shot, catalog, {
-        templateDir,
-        hasRhythm: hasBuiltinRhythm,
-        continuousStage: continuousStageScript,
-      }),
-    });
-  }
-
   const audioTracks = [];
   if (Array.isArray(config.sfxCues) && config.sfxCues.length > 0) {
     const emitted = new Set();
@@ -142,17 +135,32 @@ for (const name of readdirSync(templatesRoot).sort()) {
     }
   }
 
-  planned.push({
-    path: join(templateDir, 'film.html'),
-    body: shotWall({
-      title: config.wallTitle,
-      size: config.size ?? [1080, 1920],
-      backdrop: config.wallBackdrop,
-      sectionTitle: config.sectionTitle,
-      audioTracks,
-      shots: entries.map(({ shot, start, order }) => ({ id: shot.id, title: shot.title, duration: shot.duration, start, order })),
-    }),
-  });
+  for (const variant of variants) {
+    const pages = variant?.pages ?? 'pages';
+    for (const { shot } of entries) {
+      planned.push({
+        path: join(templateDir, pages, `${shot.id}.html`),
+        body: render(variant ? { ...shot, size: variant.size } : shot, catalog, {
+          templateDir,
+          hasRhythm: hasBuiltinRhythm,
+          continuousStage: continuousStageScript,
+          ...(variant ? { layout: variant } : {}),
+        }),
+      });
+    }
+    planned.push({
+      path: join(templateDir, variant?.entry ?? 'film.html'),
+      body: shotWall({
+        title: config.wallTitle,
+        size: variant?.size ?? config.size ?? [1080, 1920],
+        backdrop: config.wallBackdrop,
+        sectionTitle: config.sectionTitle,
+        audioTracks,
+        pages,
+        shots: entries.map(({ shot, start, order }) => ({ id: shot.id, title: shot.title, duration: shot.duration, start, order })),
+      }),
+    });
+  }
 }
 
 let changed = 0;

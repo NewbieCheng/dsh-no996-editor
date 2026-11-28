@@ -12,7 +12,7 @@ rot-if: 新增/删除环境变量（重新生成即可）
 
 | 变量 | 读取次数 | 位置 |
 |---|---|---|
-| `DSH_HOME` | 13 | `src/audio/builtin-bgm.mjs`、`src/auth/login-remember.mjs`、`src/auth/workbench-auth.mjs`、`src/host/diagnostic-log.mjs`、`src/host/preferences.mjs`、`src/studio/studio-controller.mjs`、`src/studio/studio-controller/routes/assets.mjs`、`src/tools/tool-installer.mjs` |
+| `DSH_HOME` | 14 | `src/audio/builtin-bgm.mjs`、`src/auth/login-remember.mjs`、`src/auth/workbench-auth.mjs`、`src/host/diagnostic-log.mjs`、`src/host/preferences.mjs`、`src/studio/studio-controller.mjs`、`src/studio/studio-controller/routes/assets.mjs`、`src/tools/tool-installer.mjs` |
 | `NO996_EMBEDDED_STUDIO` | 2 | `index.js` |
 | `NO996_NO_AUTO_VISION_DOWNLOAD` | 2 | `src/studio/studio-runtime.mjs` |
 | `NO996_OPENFILM_CLI` | 1 | `src/tools/cli-tool.mjs` |
@@ -31,6 +31,6 @@ rot-if: 新增/删除环境变量（重新生成即可）
 | `NO996_WORKBENCH_BASE_URL` | 1 | `src/auth/workbench-auth.mjs` |
 | `OPENFILM_HOME` | 1 | `src/studio/studio-controller/routes/diag-logs.mjs` |
 | `OPENFILM_LIBRARY_URL` | 1 | `src/studio/studio-runtime.mjs` |
-| `OPENFILM_NO_BROWSER` | 5 | `index.js`、`src/studio/studio-controller.mjs`、`src/studio/studio-runtime.mjs` |
+| `OPENFILM_NO_BROWSER` | 4 | `index.js`、`src/studio/studio-controller.mjs`、`src/studio/studio-runtime.mjs` |
 | `OPENFILM_NO_UPDATE_CHECK` | 2 | `src/studio/studio-runtime.mjs` |
 

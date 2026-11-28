@@ -1,0 +1,29 @@
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectCard.tsx b/packages/openfilm/studio/ui/src/components/ProjectCard.tsx
+index 9931883..6d0ea99 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectCard.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectCard.tsx
+@@ -9,7 +9,7 @@
+  * Rename stays in the card's actions; All projects opens the complete project library.
+  */
+ import React from 'react';
+-import { ArrowUpRight, ChevronDown, Clapperboard, FolderOpen, Image as ImageIcon, LayoutGrid, Pencil, X } from 'lucide-react';
++import { ArrowUpRight, ChevronDown, Clapperboard, FolderOpen, Image as ImageIcon, LayoutGrid, LibraryBig, Pencil, X } from 'lucide-react';
+ import { api, type Project } from '@/api';
+ import { useT } from '@/i18n';
+ import { formatDuration } from '@/lib/export-jobs';
+@@ -56,6 +56,7 @@ export interface ProjectActions {
+   onRename?: () => void;
+   onCoverFromFrame?: () => void;
+   onReveal?: () => void;
++  onSaveTemplate?: () => void;
+ }
+ 
+ export function ProjectCard({ name, facts, actions = {}, onAll, trigger, disabled = false }: {
+@@ -149,6 +150,7 @@ export function ProjectCard({ name, facts, actions = {}, onAll, trigger, disable
+               {actions.onRename ? <button type="button" className={menu.action} onClick={() => go(actions.onRename!)}><Pencil size={12} /><span>{t('projectMenu.rename')}</span></button> : null}
+               {actions.onCoverFromFrame ? <button type="button" className={menu.action} title={t('switcher.cover')} aria-label={t('switcher.cover')} onClick={() => go(actions.onCoverFromFrame!)}><ImageIcon size={12} /><span>{t('switcher.coverShort')}</span></button> : null}
+               {actions.onReveal ? <button type="button" className={menu.action} onClick={() => go(actions.onReveal!)}><FolderOpen size={12} /><span>{t('switcher.reveal')}</span></button> : null}
++              {actions.onSaveTemplate ? <button type="button" className={menu.action} onClick={() => go(actions.onSaveTemplate!)}><LibraryBig size={12} /><span>{document.documentElement.lang.toLowerCase().startsWith('zh') ? '另存为本地模板' : 'Save as local template'}</span></button> : null}
+             </div>
+           </>
+         ) : null}

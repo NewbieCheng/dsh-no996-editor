@@ -2,7 +2,7 @@
 id: development
 reader: 新开发者、智能体
 fact-source: package.json、cordis.patch.yml、src/*.mjs、scripts/*
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 启动时序、请求路径、模块职责或构建方式变化
 -->
 
@@ -88,6 +88,8 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 | `src/studio/studio-runtime.mjs` | 懒加载并校验上游版本，`startStudio` | 中：版本 pin 与上游契约耦合 |
 | `src/studio/studio-proxy.mjs` | 回环反向代理、WS、`/__dsh/*` 桥、HTML 注入 | 很高：放松一条就是安全回归 |
 | `src/official/official-shell.mjs` | 校验 manifest（版本、commit、逐文件 sha256） | 高：改 ui 必须重生成 manifest |
+| `src/studio/template-recipe-rpc.mjs` / `src/official/local-template-store.mjs` | 本地配方预览、保存、导入导出、市场校验与配方建片 | 高：只接受项目内直接资源，不执行导入 HTML/JS |
+| `src/studio/brand-rpc.mjs` / `src/host/brand-memory.mjs` | 用户品牌设置、影片快照与 Logo 原生片段 | 高：profile 与项目边界不能混 |
 | `src/project/workspace-archive.mjs` / `archive-bridge.mjs` | 归档集合的唯一 Host 视图 + 浏览器路由 | 高：浏览器可触达的写路径 |
 
 `src/` 按故障域分目录，见 `AGENTS.md` §3。
@@ -100,11 +102,11 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 
 ### 影片工具
 
-影片工具只对项目会话可见；注册和实际工具列表以 `src/tools/` 与运行时为准，避免在多处手抄数量。常用工具包括 `openfilm_film`、`openfilm_frame`、`openfilm_clip`、`openfilm_storyboard`、`openfilm_transcribe` 和 `openfilm_guide`。
+影片工具只对项目会话可见；注册和实际工具列表以 `src/tools/` 与运行时为准，避免在多处手抄数量。常用工具包括 `no996_film`、`no996_frame`、`no996_clip`、`no996_storyboard`、`no996_transcribe`、`no996_brand` 和 `no996_guide`。
 
-`openfilm_cli` 只留只读动词：`doctor`（这台机器有什么）、`version`（固定的 OpenFilm 版本）、`skills` / `skill <owner/name>`（这部片可用的技能）。`look` / `render` 会启动 Studio，而内核在没有 `.film/opened` 时会在人的浏览器里开剪辑窗口。看画面用 `openfilm_frame`。
+`no996_cli` 只留只读动词：`doctor`（这台机器有什么）、`version`（固定的 OpenFilm 版本）、`skills` / `skill <owner/name>`（这部片可用的技能）。`look` / `render` 会启动 Studio，而内核在没有 `.film/opened` 时会在人的浏览器里开剪辑窗口。看画面用 `no996_frame`。
 
-`openfilm_library` 的素材检索分两路（OpenFilm 0.4.0 起）：音乐 / 音效 / 贴纸仍走 Studio 的 `/api/get/library`；转场、特效、滤镜、文字由 Host 用固定版库自己的索引在进程内搜（[`src/tools/library-search.mjs`](../src/tools/library-search.mjs)），取用一律走 Studio 的 `saved/take`。这两类都是 CC0 免费素材，不经过任何计费服务。
+`no996_library` 的素材检索分两路（OpenFilm 0.4.0 起）：音乐 / 音效 / 贴纸仍走 Studio 的 `/api/get/library`；转场、特效、滤镜、文字由 Host 用固定版库自己的索引在进程内搜（[`src/tools/library-search.mjs`](../src/tools/library-search.mjs)），取用一律走 Studio 的 `saved/take`。这两类都是 CC0 免费素材，不经过任何计费服务。
 
 ### 客户端
 
@@ -144,6 +146,8 @@ rot-if: 启动时序、请求路径、模块职责或构建方式变化
 npm ci
 npm run check:quick # 开发中：变更文件语法、文本规则、可识别的相关测试；仍可能漏检
 npm run check       # 提交前：全量 lint + test + docs/brand/templates/patches
+npm run packages:build # 两个创作包的 ESM/浏览器产物
+npm run templates:build # 从模板源重建横竖屏静态页
 npm run build       # src/studio/studio-entry.js → client.js
 npm run shell:bake  # 发版前把主题烘焙进 vendor/official-shell/ui
 ```

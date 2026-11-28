@@ -1,0 +1,34 @@
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx b/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx
+index fde12f6..42620a2 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx
+@@ -1,6 +1,6 @@
+ /** The desktop's projects as a continuous tab strip. Only a tab has a context menu; the empty title bar stays quiet. */
+ import React from 'react';
+-import { Clapperboard, FolderOpen, Image, Pencil, Plus, X } from 'lucide-react';
++import { Clapperboard, FolderOpen, Image, LibraryBig, Pencil, Plus, X } from 'lucide-react';
+ import { api, ApiError } from '@/api';
+ import { useT } from '@/i18n';
+ import { studioHost, type HostTab } from '@/lib/host';
+@@ -9,11 +9,12 @@ import { useHostTabs } from './ProjectCard';
+ import { Toast, useToast } from './Toast';
+ import styles from './ProjectTabs.module.css';
+ 
+-export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurrent }: {
++export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurrent, onSaveTemplateCurrent }: {
+   current?: React.ReactNode;
+   onProjects: () => void;
+   onRenameCurrent?: () => void;
+   onCoverCurrent?: () => void;
++  onSaveTemplateCurrent?: () => void;
+ }) {
+   const t = useT();
+   const host = studioHost?.tabs;
+@@ -51,6 +52,7 @@ export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurre
+     { id: 'rename', icon: <Pencil size={14} />, label: t('projectMenu.rename'), onSelect: () => beginRename(target) },
+     { id: 'cover', icon: <Image size={14} />, label: t('switcher.cover'), disabled: target.id !== self || !onCoverCurrent, hint: t('projectTabs.coverCurrent'), onSelect: onCoverCurrent },
+     { id: 'reveal', icon: <FolderOpen size={14} />, label: t('switcher.reveal'), onSelect: () => { void api.revealProject(target.projectId).catch(() => toast.showError(t('projectTabs.revealFailed'))); } },
++    { id: 'save-template', icon: <LibraryBig size={14} />, label: document.documentElement.lang.toLowerCase().startsWith('zh') ? '另存为本地模板' : 'Save as local template', disabled: target.id !== self || !onSaveTemplateCurrent, onSelect: onSaveTemplateCurrent },
+   ] : [];
+ 
+   if (!host) return null;

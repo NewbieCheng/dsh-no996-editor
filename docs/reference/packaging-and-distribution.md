@@ -2,7 +2,7 @@
 id: reference-packaging-and-distribution
 reader: 打包发布者、排查坏包或跨平台环境问题的开发者
 fact-source: package.json, scripts/build-official-shell.mjs, scripts/release-check.mjs, src/host/download-sources.mjs, src/host/download-stall.mjs, src/tools/tool-installer.mjs, cordis.patch.yml
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载源或跨平台工具配置
 -->
 
@@ -33,7 +33,8 @@ rot-if: 修改 bundledDependencies/optionalDependencies、打包脚本、下载�
 
 | 类别 | 包含项 | 分发方式 | 说明 |
 |---|---|---|---|
-| 核心运行引擎与契约 | `openfilm@0.3.2`、`zod` | `bundledDependencies` | 随包内置，用户装插件时无需再拉这两个 npm 包 |
+| 核心运行引擎与契约 | `openfilm@0.4.0`、`zod` | `bundledDependencies` | 随包内置，用户装插件时无需再拉这两个 npm 包 |
+| 可复用创作包 | `packages/no996-scene-kit`、`packages/no996-motion-runtime` | 主包 `files` 携带源码与浏览器产物 | 模板构建使用同一实现；当前未作为独立 npm 包发布 |
 | 插件壳与预设资产 | `index.js`、`client.js`、`src/`、`vendor/official-shell/ui/`、`vendor/templates/`、`vendor/providers/no996/`、`skills/`、`assets/`、`locale/`、`cordis.patch.yml` | `package.json` `files` | `vendor/official-shell/ui/` 带 `manifest.json` sha256 校验 |
 | 媒体与本地语音原生包 | `ffmpeg-static`、`ffprobe-static`、`sherpa-onnx-node` | `optionalDependencies` | 设为可选依赖，防止某平台缺少预编译二进制时阻塞整个插件安装 |
 

@@ -1,13 +1,6 @@
-// One page, two modules: the sidebar (studio-entry) publishes the project the
-// user clicked; the panel (studio-panel) owns the iframe that can act on it and
-// reports the project the official shell currently shows. This module is that
-// seam, and it is deliberately tiny: a request queue plus subscribers.
-//
-// The panel may not be mounted yet when the sidebar asks (the video area is a
-// main panel the user has not opened), so a navigate request is kept until the
-// panel says it is ready. Keeping it is what makes "click a project" work from a
-// cold start instead of only after the panel happened to be visible.
-
+// The workspace/sidebar may ask for a project before the iframe has mounted.
+// Keep the newest exact target until the frame confirms it, including across
+// a reload during a failed history fetch. A URL change alone is not a chat ACK.
 function normalizeProjectId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(value) ? value : null;
 }
@@ -18,56 +11,52 @@ function normalizeSessionId(value) {
 
 export function createAreaBus() {
   const listeners = new Set();
-  const state = { projectId: null, ready: false, pending: null, pendingSessionId: null };
+  let pending = null;
+  let projectId = null;
+  let sequence = 0;
   function emit(event) {
     for (const listener of [...listeners]) {
       try { listener(event); } catch { /* one broken listener must not starve the other */ }
     }
   }
+  const report = next => {
+    projectId = next;
+    emit({ type: 'project', projectId });
+  };
   return {
     subscribe(listener) {
       if (typeof listener !== 'function') return () => {};
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
-    /** Ask the panel to navigate; a request made before it mounts is kept. */
-    navigate(projectId, sessionId) {
-      const id = normalizeProjectId(projectId);
-      if (!id) return false;
+    navigate(project, sessionId) {
+      const id = normalizeProjectId(project);
       const sid = normalizeSessionId(sessionId);
-      state.pending = id;
-      state.pendingSessionId = sid;
-      emit({ type: 'navigate', projectId: id, ...(sid ? { sessionId: sid } : {}) });
+      if (!id || (sessionId !== undefined && !sid)) return false;
+      pending = Object.freeze({ requestId: ++sequence, projectId: id, ...(sid ? { sessionId: sid } : {}) });
+      emit({ type: 'navigate', ...pending });
       return true;
     },
-    /** Take the pending project request (kept for callers expecting a projectId string). */
-    takePending() {
-      const id = state.pending;
-      state.pending = null;
-      state.pendingSessionId = null;
-      return id;
+    pendingTarget: () => pending,
+    acknowledge({ requestId, projectId: project, sessionId, status } = {}) {
+      if (!pending?.sessionId || pending.requestId !== requestId || pending.projectId !== project || pending.sessionId !== sessionId ||
+          (status !== 'ready' && status !== 'cancelled')) return false;
+      pending = null;
+      if (status === 'ready') report(project);
+      return true;
     },
-    /** Take both the pending projectId and optional conversation sessionId. */
-    takePendingTarget() {
-      const projectId = state.pending;
-      const sessionId = state.pendingSessionId;
-      state.pending = null;
-      state.pendingSessionId = null;
-      return projectId ? { projectId, ...(sessionId ? { sessionId } : {}) } : null;
+    reportProject(project) {
+      const id = normalizeProjectId(project);
+      if (pending) {
+        // A project-only request can settle when the frame reports its route;
+        // an explicit conversation requires its separate, stamped ACK.
+        if (pending.sessionId || pending.projectId !== id) return false;
+        pending = null;
+      }
+      report(id);
+      return true;
     },
-    /** The official shell has a live frame again. */
-    reportReady() {
-      state.ready = true;
-      emit({ type: 'ready' });
-    },
-    /** The project the official shell currently shows (null when none). */
-    reportProject(projectId) {
-      state.projectId = normalizeProjectId(projectId);
-      emit({ type: 'project', projectId: state.projectId });
-    },
-    snapshot() {
-      return { ...state };
-    },
+    snapshot: () => ({ projectId, pending }),
   };
 }
 

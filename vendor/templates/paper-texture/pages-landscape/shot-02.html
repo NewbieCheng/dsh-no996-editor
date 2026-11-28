@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>纸纹讲堂 · 操作步骤</title>
+<link rel="stylesheet" href="../assets/kit.css">
+
+<style>
+:root {
+  --kicker-size: 32px;
+  --kicker-tracking: .3em;
+  --title-size: 78px;
+  --title-gap: 16px;
+  --em-pad: 8px;
+  --capsule-bottom: 130px;
+}
+body { background: var(--paper); }
+
+html, body { width: 1920px; height: 1080px; }
+.paper-page { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+.landscape .head { top: 64px; left: 84px; right: 84px; }
+.landscape .kicker { font-size: 28px; }
+.landscape .title { margin-top: 14px; font-size: 70px; line-height: 1.08; }
+.landscape .stage { top: 250px; left: 84px; right: 704px; height: 590px; }
+.landscape .slide b { font-size: 44px; }
+.landscape .presenter { top: 250px; right: 84px; bottom: auto; width: 540px; height: 404px; font-size: 30px; }
+.landscape .nameplate { left: auto; right: 84px; bottom: 158px; writing-mode: horizontal-tb; width: 540px; text-align: center; font-size: 30px; padding: 18px; }
+.landscape .capsule { left: 84px; right: 84px; bottom: 54px; font-size: 32px; padding: 22px 40px; }
+.landscape .steps { top: 250px; left: 84px; right: 84px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.landscape .step { min-width: 0; height: 590px; flex-direction: column; gap: 26px; padding: 38px 32px; }
+.landscape .num { width: 78px; height: 78px; font-size: 38px; }
+.landscape .body h3 { font-size: 44px; }
+.landscape .body p { font-size: 28px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<main class="paper-page landscape">
+<div class="head" data-element-id="paper-head">
+  <div class="kicker" data-element-id="paper-kicker">做 法</div>
+  <div class="title" data-element-id="paper-headline">三步做<em>完一页</em></div>
+</div>
+<div class="steps" data-element-id="paper-steps"><div class="step" data-element-id="paper-step-1"><div class="num" data-element-id="paper-step-1-number">1</div><div class="body"><h3 data-element-id="paper-step-1-title">放素材</h3><p data-element-id="paper-step-1-body">课件截图、板书照片、图表，一张一页，画面居中。</p></div></div><div class="step" data-element-id="paper-step-2"><div class="num" data-element-id="paper-step-2-number">2</div><div class="body"><h3 data-element-id="paper-step-2-title">写逐字稿</h3><p data-element-id="paper-step-2-body">一页一段口播，控制在 15 秒内，句子短、主语明确。</p></div></div><div class="step" data-element-id="paper-step-3"><div class="num" data-element-id="paper-step-3-number">3</div><div class="body"><h3 data-element-id="paper-step-3-title">按句换页</h3><p data-element-id="paper-step-3-body">讲到关键词就硬切换页，留空时回到纸纹底。</p></div></div></div>
+<div class="capsule" data-element-id="paper-subtitle">字幕胶囊：三步的顺序不要打乱，先素材、再稿子、最后切页。</div>
+</main>
+<script>
+// A still page has the same DOM picture at every local time.
+  window.film = { width: 1920, height: 1080, duration: 7, ready: document.fonts.ready, frame(_t) {} };
+</script>
+</body>
+</html>

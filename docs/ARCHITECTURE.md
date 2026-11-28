@@ -2,7 +2,7 @@
 id: architecture
 reader: 开发者、智能体
 fact-source: index.js、cordis.patch.yml、src/native/dsh-native-agent-service.mjs、src/film/template-prompts.mjs
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 进程模型、对话边界、预设/模板注入方式变化
 -->
 
@@ -59,6 +59,8 @@ rot-if: 进程模型、对话边界、预设/模板注入方式变化
   - 从 `follow()` 初始 `snapshot.projections` 及每轮 `sessionController.projections({ sessionId })` 读取 `contextPressure`（`contextWindow`、`projectedTokens ?? pressureTokens`），实时推送 `usage_update` 驱动底部 `ContextUsage` 圆环与 85% 预警高亮；
   - 监听 DSH 宿主自动压缩事件 `compaction/start` → `compaction/end`，向面板展示压缩活动行并在压缩完成后刷新占用百分比。
 
-### 2.5 DSH 工具与 OpenFilm 媒体能力共存
-- **工具分工**：DSH 原生工具负责联网检索（`web_search`/`web_fetch`，依赖宿主 `ctx.web` 提供商如 `web-search-deepseek`）、通用文件读写与命令行；`openfilm_*` / `openfilm_cli` 负责影片合成读取、分镜、抽帧、效果库、时间轴编辑与导出。
+### 2.5 DSH 工具、可复用创作包与 OpenFilm 媒体能力共存
+- **工具分工**：DSH 原生工具负责联网检索（`web_search`/`web_fetch`，依赖宿主 `ctx.web` 提供商如 `web-search-deepseek`）、通用文件读写与命令行；`no996_*` 负责影片合成读取、分镜、抽帧、效果库、时间轴编辑与导出，`no996_cli` 只保留不会另开 Studio 的只读动词。
+- **创作包**：`packages/no996-scene-kit` 提供 DOM/SVG 场景、字幕、安全区和影片页组装；`packages/no996-motion-runtime` 提供只依赖时间 `t` 的确定性动作。两者是源码依赖，不是独立运行时服务。
+- **本地配方**：项目标题菜单的「另存为本地模板」通过 `template:recipe-*` / `template:local-*` RPC 读取已保存影片，只提取选中页面和直接本地资源，保存为 `recipe.json` + 内容寻址素材。配方导入不执行 HTML/JS；市场索引只作为数据，安装校验 SHA-256。
 - **媒体供应商共用**：`no996` 配音及后续扩展的生图/生视频服务通过 `<sharedHome>/providers/no996/provider.mjs` 注册进 OpenFilm 媒体网关（`/api/get`），Agent 统一经由 `openfilm_get` 调用，与 DSH 对话模型零冲突。

@@ -1,0 +1,13 @@
+diff --git a/packages/openfilm/studio/ui/src/lib/plugins-window.ts b/packages/openfilm/studio/ui/src/lib/plugins-window.ts
+index df44764..c78139d 100644
+--- a/packages/openfilm/studio/ui/src/lib/plugins-window.ts
++++ b/packages/openfilm/studio/ui/src/lib/plugins-window.ts
+@@ -34,7 +34,7 @@ const set = (next: PluginsWindowState) => { state = next; for (const l of listen
+ 
+ /** Open the window: on a list, and on a page in it (none: the list). */
+ export function openPlugins(how: { line?: PluginsLine | string; page?: string | null } = {}): void {
+-  set({ open: true, line: how.line ? named(how.line) : how.page ? state.line : FIRST_LINE, page: how.page ?? null });
++  if (how.line === 'mine') set({ open: true, line: 'mine', page: how.page ?? null });
+ }
+ export function closePlugins(): void { set({ ...state, open: false, page: null }); }
+ export function showPluginsLine(line: PluginsLine | string): void { set({ ...state, line: named(line), page: null }); }

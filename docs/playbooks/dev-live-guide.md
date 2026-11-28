@@ -2,7 +2,7 @@
 id: playbooks-dev-live
 reader: 新手开发者、调样式和改界面的同学、智能体
 fact-source: scripts/dev-up.mjs、scripts/dev-up.ps1、scripts/dev-live.mjs、src/dev/index.mjs、src/dev/dev-browser-portal.mjs、src/studio/studio-proxy.mjs、src/studio/studio-proxy/plugin-surface.mjs、src/host/distribution.mjs、scripts/pack-tgz.mjs、.upstream/openfilm/packages/openfilm/studio/ui/src/App.tsx、WorkbenchAccount.tsx、lib/navigate.ts、studio/server/bridge.js
-checked: 0.19.11
+checked: 0.22.0
 rot-if: dev:up / 门户 Origin 分裂、viewerOrigins、film EDITOR、/?library=1、/?loginPreview=1 或打包流程变化
 -->
 

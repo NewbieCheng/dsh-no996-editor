@@ -105,13 +105,88 @@ test('every editing route refuses a foreign peer or the wrong method', async () 
   const routes = mount({
     ctx: { connection: { admit: () => ({ peer: { id: 'someone-else' } }), browserPeer: BROWSER } },
   });
-  assert.equal(routes.length, 5);
+  assert.equal(routes.length, 6);
   for (const route of routes) {
     const res = fakeRes();
     await route.handler({ method: 'GET', headers: {}, url: route.path }, res);
     // POST-only routes answer 405 before admission; both are refusals.
     assert.ok(res.status >= 400, `${route.path} answered ${res.status}`);
   }
+});
+
+function requestTarget(sessionId) {
+  return { method: 'POST', headers: {}, async *[Symbol.asyncIterator]() {
+    yield Buffer.from(JSON.stringify({ sessionId }));
+  } };
+}
+
+const targetRoute = overrides => routeOf(mount(overrides), '/api/no996-openfilm/editing-session-target');
+
+test('workspace lookup returns the exact Studio row for a native session, not cached last', async () => {
+  const loaded = [];
+  const route = targetRoute({
+    acpSessions: { all: () => [
+      { sessionId: 'native-1', projectId: 'projectA', conversation: 'provider-a' },
+      { sessionId: 'native-2', projectId: 'projectA', conversation: 'panel-b' },
+      { sessionId: 'native-3', projectId: 'projectB', conversation: 'panel-a' },
+    ] },
+    archive: { isArchived: id => id === 'native-2' },
+    officialStore: async () => ({ listSessions: async id => {
+      loaded.push(id);
+      return { last: 'panel-b', sessions: [{ id: 'panel-a', agentSessions: { deepseek: 'provider-a' } }, { id: 'panel-b' }] };
+    } }),
+  });
+  for (const [native, target] of [
+    ['native-1', { projectId: 'projectA', conversationId: 'panel-a', archived: false }],
+    ['native-2', { projectId: 'projectA', conversationId: 'panel-b', archived: true }],
+    ['native-4', null],
+  ]) {
+    const res = fakeRes();
+    await route.handler(requestTarget(native), res);
+    assert.equal(res.status, 200);
+    assert.deepEqual(JSON.parse(res.body), { target });
+  }
+  assert.deepEqual(loaded, ['projectA', 'projectA']);
+});
+
+test('workspace lookup rejects ambiguous, stale, and unavailable targets without fallback', async () => {
+  const row = { sessionId: 'native-1', projectId: 'projectA', conversation: 'panel-a' };
+  const cases = [
+    { all: () => [row, { ...row, projectId: 'projectB' }], load: () => assert.fail('ambiguous mapping looked up'), status: 409 },
+    { all: () => [{ ...row, conversation: '' }], load: () => assert.fail('legacy mapping guessed'), status: 409 },
+    { all: () => [row], load: async () => ({ last: 'panel-b', sessions: [{ id: 'panel-b' }] }), status: 409 },
+    { all: () => [row], load: async () => ({ sessions: [{ id: 'panel-a' }, { id: 'panel-b', agentSessions: { deepseek: 'panel-a' } }] }), status: 409 },
+    { all: () => [row], load: async () => { throw new Error('internal path'); }, status: 503 },
+  ];
+  for (const { all, load, status } of cases) {
+    const route = targetRoute({ acpSessions: { all }, officialStore: async () => ({ listSessions: load }) });
+    const res = fakeRes();
+    await route.handler(requestTarget('native-1'), res);
+    assert.equal(res.status, status);
+    assert.doesNotMatch(res.body, /panel-b|internal path/);
+  }
+  let current = row;
+  const route = targetRoute({
+    acpSessions: { all: () => [current] },
+    officialStore: async () => ({ listSessions: async () => {
+      current = { ...row, projectId: 'projectB' };
+      return { sessions: [{ id: 'panel-a' }] };
+    } }),
+  });
+  const res = fakeRes();
+  await route.handler(requestTarget('native-1'), res);
+  assert.equal(res.status, 409);
+});
+
+test('workspace target checks the browser peer and payload before reading storage', async () => {
+  const acpSessions = { all: () => assert.fail('storage accessed before validation') };
+  const foreign = targetRoute({ acpSessions, ctx: { connection: { admit: () => ({ peer: { id: 'foreign' } }), browserPeer: BROWSER } } });
+  const denied = fakeRes();
+  await foreign.handler(requestTarget('native-1'), denied);
+  assert.equal(denied.status, 403);
+  const res = fakeRes();
+  await targetRoute({ acpSessions }).handler(requestTarget('wrong/id'), res);
+  assert.equal(res.status, 400);
 });
 
 test('bad conversation IDs and failed storage writes do not reset or unlink native sessions', async () => {

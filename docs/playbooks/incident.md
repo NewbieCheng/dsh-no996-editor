@@ -2,7 +2,7 @@
 id: playbooks-incident
 reader: 排查故障的人、智能体
 fact-source: src/native/dsh-native-agent-service.mjs、src/studio/studio-controller.mjs、docs/ARCHITECTURE.md
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 -->
 
@@ -23,11 +23,12 @@ rot-if: 会话实现、诊断入口、重载方式或信任边界变化
 | 症状 | 先核实什么 | 后续 |
 |---|---|---|
 | 看不到插件或版本区 | profile、registry 包名、安装来源与重启提示 | [安装 / 更新手册](publish.md) |
-| 桌面启动失败、或「复制开工」/「空白开工」失败 | 导出诊断，查 `studio:listen` 的 Trace ID、`listener`、`bindHost`、`requestedPort`、`systemCode`、`recovery`；再按创建请求的 `stage`、`systemCode` 和 `upstreamStatus` 分层 | Mac/Windows 使用相同字段。`registrationUnknown: true` 时先查「我的项目」；不要自动重试或删除遗留文件夹。 |
+| 桌面启动失败、或模板／空白项目创建失败 | 导出诊断，查 `studio:listen` 的 Trace ID、`listener`、`bindHost`、`requestedPort`、`systemCode`、`recovery`；再按创建请求的 `stage`、`systemCode` 和 `upstreamStatus` 分层 | Mac/Windows 使用相同字段。`registrationUnknown: true` 时先查「我的项目」；不要自动重试或删除遗留文件夹。 |
 | 面板白屏或启动超时 | 页面 origin、bootstrap 请求、Host 日志和 Studio 健康情况 | [开发文档](../DEVELOPMENT.md)；历史案例仅用于提出假设 |
 | 剪辑／放映／画布报 `Failed to fetch dynamically imported module` | 查看浏览器 Network：内置工作台模块应从独立的本地插件页面代理加载，不应直连 Studio 的内部模块端口 | 查 `plugin-surface-http` 的 HTTP 状态与 `s`（模块）或 `f`（项目文件）类别；诊断不记录授权 URL。HTTP 200 但缺少编辑器对应的 `Access-Control-Allow-Origin` 也会加载失败，不能只测端口。开发门户 `47821` 上再对照 [开发门户规律](dev-live-guide.md)。 |
 | 门户 `47821` 预览卡在 Drawing the first frame，DSH 侧栏正常 | 页面 Origin、film iframe URL、`film.html` 里 `const EDITOR =`、带门 Origin 的 `/p/` 是否 403；Console 可几乎无报错 | 同一类 Origin 分裂：`EDITOR` / film CORS 必须认门（`viewerOrigins`）。步骤与表见 [开发门户规律](dev-live-guide.md) |
 | DEV 想回项目库首页却总进最近项目 | 地址是否变成 `/?library=1`；裸 `/` 会自动 `go` 最近项目 | 账号菜单「回到首页」；规律见 [开发门户规律](dev-live-guide.md) |
+| 媒体探测返回 404 | 先核对影片引用与项目内的实际文件；导入或移动素材期间也可能短暂出现 | 单个探测保留原 404，项目级 `MEDIA_PROBE_MISSING` 诊断每分钟至多一条，不弹全局异常横幅。项目接口自身的 404 和服务端 5xx 仍按故障报告。 |
 | 对话无响应或模型不符 | 会话 ID、模型选择、原生会话日志和诊断事件 | [架构](../ARCHITECTURE.md)；不要以旧 `acp-*` 日志缺失判错 |
 | 上下文圆环 0% 或 12 点小黑点 | `native-attach` 的 `usage`、`projections().contextPressure / contextBreakdown`、`ContextUsage.tsx` 是否已重编 | [架构](../ARCHITECTURE.md)；0% 不应渲染 `round` 进度弧 |
 | 思考强度需发消息才同步 | `native-select-thinking` 日志、`attach` 是否同步 `agentPrefs`、空白会话 `store.setSelection` | [架构](../ARCHITECTURE.md)；核对 `official-facade.mjs` 的 `conversationId` |

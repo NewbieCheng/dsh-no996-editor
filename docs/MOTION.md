@@ -2,7 +2,7 @@
 id: motion
 reader: 做动效的人
 fact-source: vendor/motion/**、动效目录
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 动效目录或生产协议变化
 -->
 
@@ -106,7 +106,7 @@ G0 接单 → G1 分镜 → G2 定调帧 → G3 量产 → G4 声音 → G5 帧�
 
 ### G3 量产
 
-- 动作只从 `vendor/templates/_kit/motion/` 的词汇里选（见第 5 节），不要每镜自己发明缓动。
+- 动作只从 `packages/no996-motion-runtime` 的词汇里选（见第 5 节），模板的 `vendor/templates/<模板>/assets/motion.js` 是它的静态兼容产物，不要每镜自己发明缓动。
 - 每镜必须同时有 **入场** 与 **出场**（出场可以是切走，但要在时间轴上交代）。
 - **静止不超过 1.2 s**：真要让人读字，就让画面极缓推近（1–2%）或加颗粒，不要完全冻住。
 - 文字安全边距 ≥ 32 px（1080p）；任何一行不超过画幅宽度的 86%。

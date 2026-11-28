@@ -99,6 +99,44 @@ function runShim(html, { doc, Document, onNote }) {
   return Element;
 }
 
+test('missing media probes keep the 404, report once per project, and leave the global banner for other failures', async (t) => {
+  const studio = await boot();
+  t.after(() => studio.close());
+  const page = await get(studio.origin, '/');
+  assert.equal(page.status, 200);
+  const marker = page.body.indexOf('globalThis.__no996Diag)return');
+  assert.ok(marker > 0);
+  const script = page.body.slice(page.body.lastIndexOf('<script>', marker) + '<script>'.length, page.body.indexOf('</script>', marker));
+  const reported = [];
+  const bannerChecks = [];
+  let status = 404;
+  const sandbox = {
+    Headers, URLSearchParams, console: { error() {} }, addEventListener() {}, setTimeout() {},
+    document: { getElementById(id) { bannerChecks.push(id); return null; } },
+    fetch: async (path, options) => {
+      if (path === '/__dsh/client-diag') { reported.push(JSON.parse(options.body)); return new Response(null, { status: 204 }); }
+      return new Response('{"error":"the file is not there"}', { status });
+    },
+  };
+  runInNewContext(script, sandbox);
+  const probe = '/api/projects/project1/media?what=probe&path=assets%2Fphotos%2F';
+  for (let i = 0; i < 84; i++) {
+    assert.equal((await sandbox.fetch(`${probe}${i}.jpg`)).status, 404);
+  }
+  assert.equal(reported.length, 1);
+  assert.equal(reported[0].code, 'MEDIA_PROBE_MISSING');
+  assert.equal(reported[0].detail.projectId, 'project1');
+  assert.equal(bannerChecks.length, 0);
+  assert.equal((await sandbox.fetch(probe.replace('project1', 'project2') + '2.jpg')).status, 404);
+  assert.equal(reported.length, 2);
+  await sandbox.fetch('/api/projects/project1');
+  status = 503;
+  await sandbox.fetch(probe + 'broken.jpg');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(reported.map(entry => entry.code), ['MEDIA_PROBE_MISSING', 'MEDIA_PROBE_MISSING', 'HTTP_404', 'HTTP_503']);
+  assert.deepEqual(bannerChecks, ['no996-diag', 'no996-diag']);
+});
+
 test('a refused fullscreen becomes an in-place zoom instead of an error', async (t) => {
   const studio = await boot();
   t.after(() => studio.close());

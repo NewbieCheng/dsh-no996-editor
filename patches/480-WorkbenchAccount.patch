@@ -1,0 +1,836 @@
+diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
+new file mode 100644
+index 0000000..513efe0
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
+@@ -0,0 +1,830 @@
++/**
++ * Workbench account chip + User Center drawer (~480px) for No996.
++ * Copy goes through studio i18n (`workbench.*`); Host only sends stable status flags / English fallbacks.
++ */
++import * as React from 'react';
++import { createPortal } from 'react-dom';
++import {
++  Bug,
++  ChevronLeft,
++  ChevronRight,
++  Receipt,
++  RefreshCw,
++  Settings2,
++  ShieldCheck,
++  Sparkles,
++  UserCheck,
++  X,
++} from 'lucide-react';
++import { Tooltip } from './Tooltip';
++import type { SettingsSection } from './settings/SettingsModal';
++import { useLanguage, useT } from '@/i18n';
++import { go } from '@/lib/navigate';
++import { PRODUCT_NAME, PRODUCT_NAME_ZH } from '../../../../../shared/src/no996-brand';
++
++type Wallet = {
++  available_points?: number | null;
++  points_balance?: number | null;
++  period_points_balance?: number | null;
++  expert_points_balance?: number | null;
++  period_expires_at?: string | null;
++  cached_at?: string;
++  stale?: boolean;
++  source?: string;
++  message?: string;
++};
++
++type AuthStatus = {
++  loggedIn: boolean;
++  dev?: boolean;
++  guest?: boolean;
++  account?: string;
++  displayName?: string;
++  credits?: number | null;
++  balance?: Wallet;
++};
++
++type CapabilitiesEndpoint = {
++  capability?: string;
++  method?: string;
++  path?: string;
++  ready?: boolean;
++  reserved?: boolean;
++  note?: string;
++};
++
++type CapabilitiesPayload = {
++  gateway_base_url?: string;
++  auto_vision_routing_enabled?: boolean;
++  exposed_services?: string[];
++  endpoints?: CapabilitiesEndpoint[];
++  limits?: {
++    effective_rpm?: number;
++    effective_daily_tokens?: number;
++    effective_max_keys?: number;
++    user_quota_disabled?: boolean;
++  };
++};
++
++type OverviewResponse = {
++  status: AuthStatus;
++  balance: Wallet;
++  capabilities: CapabilitiesPayload | null;
++  walletDirtyAt?: number;
++};
++
++type TraceItem = {
++  id?: number | string;
++  trace_id?: string;
++  created_at?: string;
++  model_code?: string;
++  model?: string;
++  requested_model?: string;
++  resolved_model?: string;
++  capability?: string;
++  service_code?: string;
++  provider_code?: string;
++  input_tokens?: number;
++  output_tokens?: number;
++  total_tokens?: number;
++  points_cost?: number;
++  charged_points?: number;
++  delta?: number;
++  call_count?: number;
++  reason?: string;
++  remark?: string;
++  status?: string;
++};
++
++type TracesResponse = {
++  mode?: 'traces' | 'ledgers';
++  page?: number;
++  page_size?: number;
++  items?: TraceItem[];
++  total?: number;
++};
++
++type PricingModelRow = {
++  model_code?: string;
++  display_name?: string;
++  points_per_1k_input?: number;
++  points_per_1k_output?: number;
++  fixed_points?: number;
++  billing_mode?: string;
++  supports_vision?: boolean;
++  available?: boolean;
++};
++
++type PricingServiceRow = {
++  service_code?: string;
++  display_name?: string;
++  unit_label?: string;
++  points_per_unit?: number;
++  available?: boolean;
++};
++
++type PricingResponse = {
++  models?: PricingModelRow[];
++  services?: PricingServiceRow[];
++  auto_vision_routing_enabled?: boolean;
++  gateway_base_url?: string;
++  capabilities?: CapabilitiesPayload | null;
++};
++
++type DrawerTab = 'overview' | 'ledger' | 'pricing';
++
++const fill = (template: string, values: Record<string, string | number>) =>
++  template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
++
++async function hostRpc<T>(channel: string, payload: Record<string, unknown> = {}): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', {
++    method: 'POST',
++    credentials: 'same-origin',
++    headers: { 'content-type': 'application/json' },
++    body: JSON.stringify({ channel, payload }),
++  });
++  if (!response.ok) {
++    let detail = '';
++    try { detail = (await response.text()).slice(0, 200); } catch { /* ignore */ }
++    throw new Error(detail || `HTTP ${response.status}`);
++  }
++  return response.json() as Promise<T>;
++}
++
++function labelOf(status: AuthStatus | null, t: (path: string) => string): string {
++  if (!status?.loggedIn) return '';
++  if (status.dev) return t('workbench.labelDev');
++  if (status.guest) return t('workbench.labelGuest');
++  return String(status.displayName || status.account || t('workbench.labelSignedIn')).trim().slice(0, 64);
++}
++
++/** Settings and the project browser display the same identity used by the top bar, not a provider login. */
++export function WorkbenchAccountSummary({ surface }: { surface: 'settings' | 'projects' }) {
++  const t = useT();
++  const language = useLanguage();
++  const [status, setStatus] = React.useState<AuthStatus | null>(null);
++  React.useEffect(() => {
++    let live = true;
++    let sequence = 0;
++    const refresh = () => {
++      const current = ++sequence;
++      void hostRpc<AuthStatus>('auth:status').then((next) => { if (live && current === sequence) setStatus(next); },
++        () => { if (live && current === sequence) setStatus(null); });
++    };
++    refresh();
++    window.addEventListener('no996-auth-changed', refresh);
++    return () => { live = false; window.removeEventListener('no996-auth-changed', refresh); };
++  }, []);
++  const product = language === 'zh-CN' ? PRODUCT_NAME_ZH : PRODUCT_NAME;
++  return (
++    <div data-no996-account={surface} className="flex min-w-0 flex-col gap-1">
++      <strong className="truncate text-[13px]">{product}</strong>
++      {status ? <span className="truncate text-[12px] text-[var(--text-muted)]">{labelOf(status, t) || t('projects.accountLocal')}</span> : null}
++    </div>
++  );
++}
++
++function localeTag(language: string): string {
++  if (language === 'zh-CN') return 'zh-CN';
++  if (language === 'ja') return 'ja';
++  if (language === 'ko') return 'ko';
++  if (language === 'es') return 'es';
++  return 'en';
++}
++
++function formatPoints(value: number | null | undefined, language: string): string {
++  if (typeof value === 'number' && Number.isFinite(value)) {
++    return new Intl.NumberFormat(localeTag(language)).format(value);
++  }
++  return '—';
++}
++
++function formatSyncedAt(iso: string | undefined, language: string): string {
++  if (!iso) return '';
++  const ms = Date.parse(iso);
++  if (!Number.isFinite(ms)) return '';
++  try {
++    return new Date(ms).toLocaleString(localeTag(language), { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
++  } catch {
++    return '';
++  }
++}
++
++export function WorkbenchAccountControls({
++  className = '',
++  onSettings,
++}: {
++  className?: string;
++  onSettings?: (section: SettingsSection) => void;
++}) {
++  const t = useT();
++  const language = useLanguage();
++  const [status, setStatus] = React.useState<AuthStatus | null>(null);
++  const [wallet, setWallet] = React.useState<Wallet | null>(null);
++  const [capabilities, setCapabilities] = React.useState<CapabilitiesPayload | null>(null);
++  const [open, setOpen] = React.useState(false);
++  const [tab, setTab] = React.useState<DrawerTab>('overview');
++  const [busy, setBusy] = React.useState(false);
++  const [walletBusy, setWalletBusy] = React.useState(false);
++  const walletBusyRef = React.useRef(false);
++
++  const [ledgerMode, setLedgerMode] = React.useState<'traces' | 'ledgers'>('traces');
++  const [ledgerPage, setLedgerPage] = React.useState(1);
++  const [ledgerData, setLedgerData] = React.useState<TracesResponse>({ items: [], total: 0 });
++  const [ledgerBusy, setLedgerBusy] = React.useState(false);
++
++  const [pricingData, setPricingData] = React.useState<PricingResponse | null>(null);
++  const [pricingBusy, setPricingBusy] = React.useState(false);
++
++  const [diagAlertCount, setDiagAlertCount] = React.useState(() => {
++    const raw = (window as unknown as { __no996DiagBuffer?: Array<{ level?: string }> }).__no996DiagBuffer;
++    return Array.isArray(raw) ? raw.filter((item) => item?.level === 'error' || item?.level === 'warn').length : 0;
++  });
++
++  React.useEffect(() => {
++    const onEntry = (event: Event) => {
++      const entry = (event as CustomEvent<{ level?: string }>).detail;
++      if (entry?.level === 'error' || entry?.level === 'warn') {
++        setDiagAlertCount((n) => n + 1);
++      }
++    };
++    const onCleared = () => setDiagAlertCount(0);
++    window.addEventListener('no996:diag-entry', onEntry);
++    window.addEventListener('no996:diag-cleared', onCleared);
++    return () => {
++      window.removeEventListener('no996:diag-entry', onEntry);
++      window.removeEventListener('no996:diag-cleared', onCleared);
++    };
++  }, []);
++
++  const name = labelOf(status, t);
++  const isFormal = Boolean(status?.loggedIn && !status?.guest && !status?.dev);
++  const available = wallet?.available_points ?? status?.credits ?? null;
++  const hasPeriod = typeof wallet?.period_points_balance === 'number';
++
++  const refreshStatus = React.useCallback(() => {
++    void hostRpc<AuthStatus>('auth:status', {})
++      .then((next) => {
++        if (!next || typeof next !== 'object') {
++          setStatus(null);
++          return;
++        }
++        setStatus(next);
++        if (next.balance) setWallet((prev) => prev?.source === 'live' ? prev : next.balance ?? prev);
++      })
++      .catch(() => setStatus(null));
++  }, []);
++
++  const refreshOverview = React.useCallback(async () => {
++    if (walletBusyRef.current) return;
++    walletBusyRef.current = true;
++    setWalletBusy(true);
++    try {
++      const ov = await hostRpc<OverviewResponse>('account:overview', {});
++      if (ov?.status) setStatus(ov.status);
++      if (ov?.balance) setWallet(ov.balance);
++      setCapabilities(ov?.capabilities ?? null);
++    } catch {
++      setWallet((prev) => prev ? { ...prev, stale: true, message: t('workbench.syncFailed') } : prev);
++    } finally {
++      walletBusyRef.current = false;
++      setWalletBusy(false);
++    }
++  }, [t]);
++
++  const loadLedger = React.useCallback(async (mode: 'traces' | 'ledgers', page: number) => {
++    if (!isFormal) {
++      setLedgerData({ items: [], total: 0 });
++      return;
++    }
++    setLedgerBusy(true);
++    try {
++      const res = await hostRpc<TracesResponse>('account:traces', { mode, page, pageSize: 15 });
++      setLedgerData(res || { items: [], total: 0 });
++    } catch {
++      setLedgerData({ items: [], total: 0 });
++    } finally {
++      setLedgerBusy(false);
++    }
++  }, [isFormal]);
++
++  const loadPricing = React.useCallback(async () => {
++    if (!isFormal) {
++      setPricingData({ models: [], services: [] });
++      return;
++    }
++    setPricingBusy(true);
++    try {
++      const res = await hostRpc<PricingResponse>('account:pricing', {});
++      setPricingData(res || { models: [], services: [] });
++    } catch {
++      setPricingData({ models: [], services: [] });
++    } finally {
++      setPricingBusy(false);
++    }
++  }, [isFormal]);
++
++  React.useEffect(() => {
++    refreshStatus();
++    const timer = window.setInterval(refreshStatus, 15_000);
++    const onAuth = () => {
++      refreshStatus();
++      if (open) void refreshOverview();
++    };
++    const onFocus = () => {
++      refreshStatus();
++      if (open) void refreshOverview();
++    };
++    window.addEventListener('no996-auth-changed', onAuth);
++    window.addEventListener('focus', onFocus);
++    return () => {
++      window.clearInterval(timer);
++      window.removeEventListener('no996-auth-changed', onAuth);
++      window.removeEventListener('focus', onFocus);
++    };
++  }, [open, refreshOverview, refreshStatus]);
++
++  React.useEffect(() => {
++    if (!open) return;
++    void refreshOverview();
++    const onKey = (event: KeyboardEvent) => {
++      if (event.key === 'Escape') setOpen(false);
++    };
++    window.addEventListener('keydown', onKey);
++    return () => window.removeEventListener('keydown', onKey);
++  }, [open, refreshOverview]);
++
++  React.useEffect(() => {
++    if (!open) return;
++    if (tab === 'ledger') void loadLedger(ledgerMode, ledgerPage);
++    if (tab === 'pricing' && !pricingData) void loadPricing();
++  }, [open, tab, ledgerMode, ledgerPage, loadLedger, loadPricing, pricingData]);
++
++  /**
++   * DEV never clears the session (Host keeps Dev mode), so auth:logout cannot
++   * reveal LoginGate. `/?loginPreview=1` + `no996-open-account-login` force the
++   * real login page for styling without signing out.
++   */
++  const goDevHome = () => {
++    setOpen(false);
++    go('/?loginPreview=1', false);
++    try { window.dispatchEvent(new CustomEvent('no996-open-account-login')); } catch { /* ignore */ }
++  };
++
++  const logout = async () => {
++    if (busy || status?.dev) return;
++    setBusy(true);
++    try {
++      await hostRpc('auth:logout', {});
++      setStatus({ loggedIn: false });
++      setWallet(null);
++      setPricingData(null);
++      setOpen(false);
++      try { window.dispatchEvent(new CustomEvent('no996-auth-changed', { detail: { loggedIn: false } })); } catch { /* ignore */ }
++      try {
++        if (window.parent !== window) {
++          window.parent.postMessage({ type: 'no996-openfilm:auth', version: 1, action: 'logged-out' }, '*');
++        }
++      } catch { /* ignore */ }
++    } finally {
++      setBusy(false);
++    }
++  };
++
++  const synced = formatSyncedAt(wallet?.cached_at, language);
++  const periodExpires = wallet?.period_expires_at ? formatSyncedAt(wallet.period_expires_at, language) : '';
++  const totalPages = Math.max(1, Math.ceil((ledgerData.total || 0) / 15));
++
++  const endpointReady = (cap: string, token: string, fallback = false) => {
++    const exposed = capabilities?.exposed_services;
++    if (Array.isArray(exposed) && exposed.length > 0 && !exposed.some((s) => s.toLowerCase() === token)) {
++      return false;
++    }
++    const ep = capabilities?.endpoints?.find((e) => e.capability === cap);
++    if (ep) return ep.ready === true;
++    return fallback;
++  };
++
++  const capabilityLights = [
++    { key: 'chat', label: t('workbench.capChat'), enabled: endpointReady('chat', 'chat', true) },
++    { key: 'image', label: t('workbench.capImage'), enabled: endpointReady('image_generation', 'image', true) },
++    { key: 'tts', label: t('workbench.capTts'), enabled: endpointReady('audio_speech', 'tts', true) },
++    { key: 'asr', label: t('workbench.capAsr'), enabled: endpointReady('audio_asr', 'asr', true) },
++    { key: 'ocr', label: t('workbench.capOcr'), enabled: endpointReady('ocr', 'ocr', true) },
++    { key: 'search', label: t('workbench.capSearch'), enabled: endpointReady('web_search', 'web-search', true) },
++    { key: 'video', label: t('workbench.capVideo'), enabled: endpointReady('video_generation', 'video', false) },
++  ];
++
++  return (
++    <div className={`pointer-events-auto flex min-w-0 items-center gap-1 ${className}`} data-workbench-account="" data-no996-account="topbar">
++      {name ? (
++        <button
++          type="button"
++          aria-haspopup="dialog"
++          aria-expanded={open}
++          aria-label={fill(t('workbench.accountAria'), { name })}
++          title={typeof available === 'number' ? fill(t('workbench.accountPointsTitle'), { name, points: formatPoints(available, language) }) : name}
++          onClick={() => setOpen(true)}
++          className="flex h-[26px] max-w-[11rem] min-w-0 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-2 text-[12px] text-[var(--text)] transition hover:bg-[var(--bg-hover)]"
++        >
++          <span className="min-w-0 truncate">{name}</span>
++          {typeof available === 'number' ? (
++            <span className="shrink-0 tabular-nums text-[11px] text-[var(--text-muted)]">{formatPoints(available)}</span>
++          ) : null}
++        </button>
++      ) : null}
++      <Tooltip label={diagAlertCount > 0 ? fill(t('workbench.diagnosticsWithAlerts'), { n: diagAlertCount }) : t('workbench.diagnosticsHint')} side="bottom">
++        <button
++          type="button"
++          data-no996-diag-trigger=""
++          aria-label={t('workbench.diagnostics')}
++          onClick={() => window.dispatchEvent(new CustomEvent('no996:open-diagnostics', { detail: { traceId: '' } }))}
++          className="relative flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++        >
++          <Bug size={14} strokeWidth={1.9} />
++          {diagAlertCount > 0 ? (
++            <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-[var(--bg-panel)]" />
++          ) : null}
++        </button>
++      </Tooltip>
++      <Tooltip label={t('workbench.reloadPageHint')} side="bottom">
++        <button
++          type="button"
++          aria-label={t('workbench.reloadPage')}
++          onClick={() => location.reload()}
++          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++        >
++          <RefreshCw size={14} strokeWidth={1.9} />
++        </button>
++      </Tooltip>
++      {open && name ? createPortal(
++        <div className="fixed inset-0 z-[10060]" role="presentation">
++          <button
++            type="button"
++            aria-label={t('workbench.closePanel')}
++            className="absolute inset-0 bg-black/45"
++            onClick={() => setOpen(false)}
++          />
++          <aside
++            role="dialog"
++            aria-modal="true"
++            aria-labelledby="workbench-account-title"
++            className="absolute inset-y-0 right-0 flex w-[min(480px,94vw)] flex-col border-l border-[var(--border)] bg-[var(--bg-panel)] shadow-[-18px_0_48px_rgba(0,0,0,.35)]"
++            style={{ animation: 'workbench-account-in 180ms ease-out both' }}
++          >
++            <style>{`@keyframes workbench-account-in{from{transform:translateX(12px);opacity:.0}to{transform:none;opacity:1}}`}</style>
++            <header className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--border)] px-4">
++              <div className="min-w-0 flex-1">
++                <h2 id="workbench-account-title" className="truncate text-[13.5px] font-semibold text-[var(--text)]">
++                  {t('workbench.title')}
++                </h2>
++              </div>
++              <Tooltip label={t('workbench.refreshData')}>
++                <button
++                  type="button"
++                  aria-label={t('workbench.refreshData')}
++                  disabled={walletBusy}
++                  onClick={() => {
++                    void refreshOverview();
++                    if (tab === 'ledger') void loadLedger(ledgerMode, ledgerPage);
++                    if (tab === 'pricing') void loadPricing();
++                  }}
++                  className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)] disabled:opacity-45"
++                >
++                  <RefreshCw size={14} className={walletBusy ? 'animate-spin' : ''} />
++                </button>
++              </Tooltip>
++              <button
++                type="button"
++                aria-label={t('workbench.close')}
++                onClick={() => setOpen(false)}
++                className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++              >
++                <X size={15} />
++              </button>
++            </header>
++
++            <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-2 text-[12px]" aria-label={t('workbench.tabsAria')}>
++              {(
++                [
++                  { id: 'overview', label: t('workbench.tabOverview'), icon: UserCheck },
++                  { id: 'ledger', label: t('workbench.tabLedger'), icon: Receipt },
++                  { id: 'pricing', label: t('workbench.tabPricing'), icon: Sparkles },
++                ] as const
++              ).map((item) => {
++                const Icon = item.icon;
++                const active = tab === item.id;
++                return (
++                  <button
++                    key={item.id}
++                    type="button"
++                    onClick={() => setTab(item.id)}
++                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium transition ${
++                      active
++                        ? 'bg-[var(--bg-hover)] text-[var(--text)] shadow-xs'
++                        : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]/60 hover:text-[var(--text)]'
++                    }`}
++                  >
++                    <Icon size={13} />
++                    <span>{item.label}</span>
++                  </button>
++                );
++              })}
++            </nav>
++
++            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
++              {tab === 'overview' ? (
++                <>
++                  <section className="flex items-start justify-between gap-2 min-w-0">
++                    <div className="min-w-0">
++                      <div className="text-[11px] text-[var(--text-faint)]">{t('workbench.currentAccount')}</div>
++                      <div className="mt-0.5 truncate text-[15px] font-semibold text-[var(--text)]" title={name}>{name}</div>
++                      {status?.account && status.account !== name ? (
++                        <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]" title={status.account}>{status.account}</div>
++                      ) : null}
++                    </div>
++                    {isFormal && capabilities?.limits ? (
++                      <span className="shrink-0 rounded border border-[var(--border)] bg-[var(--bg-field)] px-2 py-0.5 text-[11px] text-[var(--text-muted)] tabular-nums">
++                        {capabilities.limits.user_quota_disabled
++                          ? t('workbench.rateLimitedOff')
++                          : fill(t('workbench.rateLimitedRpm'), { rpm: capabilities.limits.effective_rpm ?? 60 })}
++                      </span>
++                    ) : null}
++                  </section>
++
++                  <section className="rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-3.5 py-3">
++                    <div className="flex items-center justify-between gap-2">
++                      <span className="text-[11.5px] text-[var(--text-faint)]">{t('workbench.availablePoints')}</span>
++                      {synced ? <span className="text-[11px] text-[var(--text-faint)]">{fill(t('workbench.syncedAt'), { time: synced })}</span> : null}
++                    </div>
++                    <div className="mt-1 text-[24px] font-semibold tabular-nums tracking-tight text-[var(--text)]">
++                      {formatPoints(available, language)}
++                      <span className="ml-1 text-[12px] font-medium text-[var(--text-muted)]">{t('workbench.pointsUnit')}</span>
++                    </div>
++                    {wallet?.stale ? (
++                      <p className="mt-1.5 text-[11.5px] text-[var(--warn)]">{wallet.message || t('workbench.staleCache')}</p>
++                    ) : null}
++                    {status?.guest ? (
++                      <p className="mt-1.5 text-[11px] text-[var(--text-faint)]">{t('workbench.guestNoGateway')}</p>
++                    ) : null}
++                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-2.5 text-[11px]">
++                      <div>
++                        <div className="text-[var(--text-faint)]">{t('workbench.periodPoints')}</div>
++                        <div className="mt-0.5 font-semibold tabular-nums text-[var(--text)]">
++                          {hasPeriod ? formatPoints(wallet?.period_points_balance, language) : '—'}
++                        </div>
++                        {periodExpires ? <div className="truncate text-[10px] text-[var(--text-muted)]">{fill(t('workbench.until'), { time: periodExpires })}</div> : null}
++                      </div>
++                      <div>
++                        <div className="text-[var(--text-faint)]">{t('workbench.permanentPoints')}</div>
++                        <div className="mt-0.5 font-semibold tabular-nums text-[var(--text)]">
++                          {formatPoints(wallet?.points_balance ?? available, language)}
++                        </div>
++                      </div>
++                      <div>
++                        <div className="text-[var(--text-faint)]">{t('workbench.expertPoints')}</div>
++                        <div className="mt-0.5 font-semibold tabular-nums text-[var(--text)]">
++                          {formatPoints(wallet?.expert_points_balance ?? 0, language)}
++                        </div>
++                      </div>
++                    </div>
++                  </section>
++
++                  <section className="rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-3.5 py-3 space-y-2.5">
++                    <div className="flex items-center justify-between gap-2">
++                      <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--text)]">
++                        <ShieldCheck size={14} className="text-emerald-500" />
++                        <span>{t('workbench.secureTitle')}</span>
++                      </div>
++                      <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
++                        {isFormal ? t('workbench.secureTagFormal') : t('workbench.secureTagInformal')}
++                      </span>
++                    </div>
++
++                    {isFormal ? (
++                      <>
++                        <div className="flex flex-wrap gap-1.5">
++                          {capabilityLights.map((cap) => (
++                            <span
++                              key={cap.key}
++                              className="inline-flex items-center gap-1 rounded border border-[var(--border)] bg-[var(--bg-panel)] px-2 py-0.5 text-[10.5px] text-[var(--text-muted)]"
++                            >
++                              <span
++                                className={`h-1.5 w-1.5 rounded-full ${cap.enabled ? 'bg-emerald-500' : 'bg-zinc-500'}`}
++                              />
++                              {cap.label}
++                            </span>
++                          ))}
++                        </div>
++                        <p className="text-[11px] leading-relaxed text-[var(--text-faint)]">
++                          {t('workbench.secureBodyFormal')}
++                        </p>
++                      </>
++                    ) : (
++                      <p className="text-[11.5px] text-[var(--text-muted)]">
++                        {t('workbench.secureBodyInformal')}
++                      </p>
++                    )}
++                  </section>
++
++                  {onSettings ? (
++                    <button
++                      type="button"
++                      onClick={() => {
++                        setOpen(false);
++                        onSettings('general');
++                      }}
++                      className="flex w-full items-center gap-2.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-3 py-2.5 text-left text-[13px] text-[var(--text)] transition hover:bg-[var(--bg-hover)]"
++                    >
++                      <Settings2 size={15} strokeWidth={1.75} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
++                      <span className="min-w-0 flex-1 font-medium">{t('settings.title')}</span>
++                      <span className="text-[11.5px] text-[var(--text-faint)]">{t('workbench.settingsHint')}</span>
++                    </button>
++                  ) : null}
++                </>
++              ) : null}
++
++              {tab === 'ledger' ? (
++                <div className="flex min-h-0 flex-1 flex-col gap-3">
++                  <div className="flex items-center justify-between gap-2">
++                    <div className="inline-flex rounded-md border border-[var(--border)] bg-[var(--bg-field)] p-0.5 text-[11.5px]">
++                      <button
++                        type="button"
++                        onClick={() => { setLedgerMode('traces'); setLedgerPage(1); }}
++                        className={`rounded px-2.5 py-1 ${ledgerMode === 'traces' ? 'bg-[var(--bg-panel)] font-medium text-[var(--text)]' : 'text-[var(--text-muted)]'}`}
++                      >
++                        {t('workbench.ledgerTraces')}
++                      </button>
++                      <button
++                        type="button"
++                        onClick={() => { setLedgerMode('ledgers'); setLedgerPage(1); }}
++                        className={`rounded px-2.5 py-1 ${ledgerMode === 'ledgers' ? 'bg-[var(--bg-panel)] font-medium text-[var(--text)]' : 'text-[var(--text-muted)]'}`}
++                      >
++                        {t('workbench.ledgerLedgers')}
++                      </button>
++                    </div>
++                    <span className="text-[11px] text-[var(--text-faint)] tabular-nums">
++                      {fill(t('workbench.ledgerTotal'), { n: ledgerData.total ?? 0 })}
++                    </span>
++                  </div>
++
++                  {!isFormal ? (
++                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">{t('workbench.ledgerNeedLogin')}</p>
++                  ) : ledgerBusy ? (
++                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">{t('workbench.ledgerLoading')}</p>
++                  ) : (ledgerData.items?.length ?? 0) === 0 ? (
++                    <p className="py-8 text-center text-[12px] text-[var(--text-muted)]">{t('workbench.ledgerEmpty')}</p>
++                  ) : (
++                    <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
++                      {ledgerData.items!.map((item, idx) => {
++                        const cost = Number(item.charged_points ?? item.points_cost ?? item.delta ?? 0);
++                        const modelLabel = item.resolved_model || item.model_code || item.model || item.service_code || item.reason || t('workbench.platformCall');
++                        const tokens = Number(item.total_tokens ?? ((item.input_tokens ?? 0) + (item.output_tokens ?? 0)));
++                        return (
++                          <div key={String(item.id ?? item.trace_id ?? idx)} className="flex items-center justify-between gap-2 px-3 py-2 text-[12px]">
++                            <div className="min-w-0 flex-1">
++                              <div className="flex items-center gap-1.5 truncate font-medium text-[var(--text)]">
++                                <span className="truncate">{modelLabel}</span>
++                                {item.requested_model === 'auto' && item.resolved_model && item.resolved_model !== 'auto' ? (
++                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">{t('workbench.autoRouted')}</span>
++                                ) : null}
++                                {Number(item.call_count) > 1 ? (
++                                  <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)] tabular-nums">
++                                    {fill(t('workbench.mergedCalls'), { n: item.call_count })}
++                                  </span>
++                                ) : null}
++                              </div>
++                              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10.5px] text-[var(--text-faint)]">
++                                {item.created_at ? <span>{formatSyncedAt(item.created_at, language)}</span> : null}
++                                {tokens > 0 ? <span className="tabular-nums">{tokens.toLocaleString()} Tokens</span> : null}
++                                {item.remark ? <span className="truncate max-w-[180px]">{item.remark}</span> : null}
++                              </div>
++                            </div>
++                            <span className={`shrink-0 font-semibold tabular-nums ${cost < 0 || ledgerMode === 'traces' ? 'text-[var(--text)]' : 'text-emerald-500'}`}>
++                              {fill(t('workbench.pointsDelta'), { signed: ledgerMode === 'traces' ? `-${Math.abs(cost)}` : cost > 0 ? `+${cost}` : cost })}
++                            </span>
++                          </div>
++                        );
++                      })}
++                    </div>
++                  )}
++
++                  {isFormal && (ledgerData.total ?? 0) > 15 ? (
++                    <div className="mt-auto flex items-center justify-between pt-2 text-[11.5px] text-[var(--text-muted)]">
++                      <button
++                        type="button"
++                        disabled={ledgerPage <= 1 || ledgerBusy}
++                        onClick={() => setLedgerPage((p) => Math.max(1, p - 1))}
++                        className="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--bg-hover)] disabled:opacity-40"
++                      >
++                        <ChevronLeft size={12} /> {t('workbench.prevPage')}
++                      </button>
++                      <span className="tabular-nums">{ledgerPage} / {totalPages}</span>
++                      <button
++                        type="button"
++                        disabled={ledgerPage >= totalPages || ledgerBusy}
++                        onClick={() => setLedgerPage((p) => p + 1)}
++                        className="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--bg-hover)] disabled:opacity-40"
++                      >
++                        {t('workbench.nextPage')} <ChevronRight size={12} />
++                      </button>
++                    </div>
++                  ) : null}
++                </div>
++              ) : null}
++
++              {tab === 'pricing' ? (
++                <div className="space-y-3 text-[12px]">
++                  <div className="rounded-md border border-[var(--border)] bg-[var(--bg-field)] p-3 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
++                    <div className="font-medium text-[var(--text)]">{t('workbench.pricingTitle')}</div>
++                    <p className="mt-1">
++                      {pricingData?.auto_vision_routing_enabled !== false
++                        ? t('workbench.pricingBodyVision')
++                        : t('workbench.pricingBodyText')}
++                    </p>
++                  </div>
++
++                  {!isFormal ? (
++                    <p className="py-6 text-center text-[var(--text-muted)]">{t('workbench.pricingNeedLogin')}</p>
++                  ) : pricingBusy ? (
++                    <p className="py-6 text-center text-[var(--text-muted)]">{t('workbench.pricingLoading')}</p>
++                  ) : (
++                    <>
++                      <div>
++                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">{t('workbench.pricingModels')}</div>
++                        <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
++                          {(pricingData?.models ?? []).length === 0 ? (
++                            <div className="px-3 py-3 text-[var(--text-muted)]">{t('workbench.pricingEmptyModels')}</div>
++                          ) : (
++                            pricingData!.models!.map((m, idx) => (
++                              <div key={String(m.model_code || idx)} className="flex items-center justify-between gap-2 px-3 py-2">
++                                <div className="min-w-0">
++                                  <div className="flex items-center gap-1.5 font-medium text-[var(--text)]">
++                                    <span className="truncate">{m.display_name || m.model_code}</span>
++                                    {m.supports_vision ? (
++                                      <span className="rounded bg-[var(--bg-hover)] px-1 text-[10px] font-normal text-[var(--text-muted)]">{t('workbench.visionBadge')}</span>
++                                    ) : null}
++                                  </div>
++                                  <div className="font-mono text-[10.5px] text-[var(--text-faint)]">{m.model_code}</div>
++                                </div>
++                                <div className="shrink-0 text-right text-[11px] tabular-nums text-[var(--text-muted)]">
++                                  {m.fixed_points && m.fixed_points > 0
++                                    ? fill(t('workbench.pointsPerCall'), { n: m.fixed_points })
++                                    : fill(t('workbench.pointsPerTok'), { input: m.points_per_1k_input ?? 0, output: m.points_per_1k_output ?? 0 })}
++                                </div>
++                              </div>
++                            ))
++                          )}
++                        </div>
++                      </div>
++
++                      <div>
++                        <div className="mb-1.5 text-[11.5px] font-medium text-[var(--text-faint)]">{t('workbench.pricingServices')}</div>
++                        <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
++                          {(pricingData?.services ?? []).length === 0 ? (
++                            <div className="px-3 py-3 text-[var(--text-muted)]">{t('workbench.pricingEmptyServices')}</div>
++                          ) : (
++                            pricingData!.services!.map((s, idx) => (
++                              <div key={String(s.service_code || idx)} className="flex items-center justify-between gap-2 px-3 py-2">
++                                <div className="min-w-0">
++                                  <div className="font-medium text-[var(--text)]">{s.display_name || s.service_code}</div>
++                                  <div className="font-mono text-[10.5px] text-[var(--text-faint)]">{s.service_code}</div>
++                                </div>
++                                <div className="shrink-0 text-right text-[11px] tabular-nums text-[var(--text-muted)]">
++                                  {fill(t('workbench.pointsPerUnit'), { n: s.points_per_unit ?? 0, unit: s.unit_label || t('workbench.unitOnce') })}
++                                </div>
++                              </div>
++                            ))
++                          )}
++                        </div>
++                      </div>
++                    </>
++                  )}
++                </div>
++              ) : null}
++            </div>
++
++            <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3">
++              <button
++                type="button"
++                disabled={busy && !status?.dev}
++                onClick={() => { if (status?.dev) goDevHome(); else void logout(); }}
++                className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-[12.5px] text-[var(--text)] transition hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
++              >
++                {status?.dev ? t('workbench.backHome') : busy ? t('workbench.loggingOut') : status?.guest ? t('workbench.leaveGuest') : t('workbench.signOut')}
++              </button>
++              <button
++                type="button"
++                onClick={() => setOpen(false)}
++                className="rounded-md px-3 py-1.5 text-[12.5px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
++              >
++                {t('workbench.close')}
++              </button>
++            </footer>
++          </aside>
++        </div>,
++        document.body,
++      ) : null}
++    </div>
++  );
++}

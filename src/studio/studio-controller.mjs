@@ -1,9 +1,12 @@
 import { filmSkillCatalog, skillListing } from '../native/film-skill-selection.mjs';
 import { createElevationProbe } from '../host/elevation.mjs';
 import { createStudioRuntime } from './studio-runtime.mjs';
+import { createSpokenCreation, spokenCreationResult } from './spoken-creation.mjs';
+import { BRAND_RPC_CHANNELS, createBrandRpc } from './brand-rpc.mjs';
+import { openBrandMemory } from '../host/brand-memory.mjs';
 import { studioSystemCode } from './studio-proxy/upstream.mjs';
 import { createHostComponentDetector } from '../host/host-components.mjs';
-import { blankFilmHtml, finishTemplateCreation, installTemplate, listTemplates } from '../official/official-templates.mjs';
+import { createBlankOfficialProject, finishTemplateCreation, installTemplate, listTemplates } from '../official/official-templates.mjs';
 import {
   balanceCachePatch,
   balanceFromPrefs,
@@ -16,7 +19,7 @@ import { createToolInstaller } from '../tools/tool-installer.mjs';
 import { augmentPath } from '../host/download-sources.mjs';
 import { applyStudioLibraryPatch } from './studio-library-patch.mjs';
 import { readFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
@@ -40,6 +43,9 @@ import { createDshAskAgent } from '../host/dsh-ai.mjs';
 import { reportPresetStatus } from '../host/preset-report.mjs';
 import { createGuideTool } from '../tools/guide-tool.mjs';
 import { createStoryboardTool } from '../tools/storyboard-tool.mjs';
+import { createBrandTool } from '../tools/brand-tool.mjs';
+import { createLocalTemplateStore } from '../official/local-template-store.mjs';
+import { createTemplateRecipeRpc, RECIPE_RPC_CHANNELS } from './template-recipe-rpc.mjs';
 import { templateCatalog, templateDetails } from '../film/template-catalog.mjs';
 
 import { readActiveTemplates, writeActiveTemplates } from '../film/template-prompts.mjs';
@@ -324,8 +330,20 @@ export function createStudioController(ctx, createProxy, {
   // Transcript files: an inline picture is read from a project Studio still lists,
   // and a product is handed to the operating system instead of the browser. Both
   // resolve the project through verifyOfficialProject, so a stale ID opens nothing.
-  const projectFiles = createProjectFiles({ resolveProject: verifyOfficialProject });
   const preferences = createPreferencesStore();
+  const localTemplates = createLocalTemplateStore({ root: join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'no996-openfilm', 'templates') });
+  const recipeRpc = createTemplateRecipeRpc({ store: localTemplates, preferences, verifyProject: verifyOfficialProject,
+    projectParent: proxy => projectParentDir(proxy), createProject: (path, proxy) => proxy.createProject(path) });
+  const projectFiles = createProjectFiles({ resolveProject: verifyOfficialProject });
+  let brandMemory;
+  const brandRpc = createBrandRpc({ verifyProject: verifyOfficialProject, http: () => studioHttp(), memory: () => {
+    if (disposed) throw new Error('Studio disposed');
+    if (!brandMemory) {
+      brandMemory = openBrandMemory(ctx.storageDomain, z);
+      brandMemory.catch(() => { brandMemory = undefined; });
+    }
+    return brandMemory;
+  } });
   void preferences.get().then((p) => {
     if (p?.logRetentionDays) diagLog.setRetentionDays(p.logRetentionDays);
   }).catch(() => {});
@@ -354,19 +372,6 @@ export function createStudioController(ctx, createProxy, {
     return process.platform === 'win32'
       ? join(homedir(), 'Videos', 'OpenFilm', 'Projects')
       : join(homedir(), 'OpenFilm', 'Projects');
-  };
-  const createBlankOfficialProject = async (proxy, ratio, parentDir, setStage) => {
-    const film = blankFilmHtml(ratio);
-    setStage('prepare-directory');
-    await mkdir(parentDir, { recursive: true });
-    const target = join(parentDir, `自定义-${randomBytes(3).toString('hex')}`);
-    await mkdir(target);
-    setStage('write-blank');
-    await writeFile(join(target, 'film.html'), film, { flag: 'wx' });
-    setStage('register');
-    const project = await proxy.createProject(target);
-    if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') throw new Error('Studio returned an invalid project');
-    return { projectId: project.id, path: project.path };
   };
   const finishOnboardingProject = async (templateId, created, presets) => {
     const extra = {};
@@ -935,6 +940,7 @@ export function createStudioController(ctx, createProxy, {
         requiredObjects: Array.isArray(payload?.requiredObjects) ? payload.requiredObjects : [],
       });
     }
+    if (channel === 'client:version') return { version: HOST_VERSION };
     if (channel === 'prefs:get') {
       return { prefs: await preferences.get() };
     }
@@ -959,8 +965,12 @@ export function createStudioController(ctx, createProxy, {
         prompt: '',
         ...custom,
       });
-      return { templates: cards, prefs };
+      const local = await localTemplates.list();
+      return { templates: cards, localTemplates: local, prefs };
     }
+    if (BRAND_RPC_CHANNELS.includes(channel)) return brandRpc(channel, payload);
+    if (RECIPE_RPC_CHANNELS.includes(channel)) return recipeRpc(channel, payload, proxy);
+    if (channel === 'template:create-spoken') return spokenCreationResult(createSpoken, payload, proxy);
     if (channel === 'template:create' || channel === 'project:create-blank') {
       const templateId = channel === 'project:create-blank' ? 'custom' : payload?.templateId;
       const kind = templateId === 'custom' ? 'blank' : 'template';
@@ -978,9 +988,9 @@ export function createStudioController(ctx, createProxy, {
         const parentDir = await projectParentDir(proxy);
         stage = 'prepare-directory';
         const created = chosen ? await installTemplate({
-          root: templatesRoot, id: chosen.id, parentDir, createProject: target => proxy.createProject(target),
+          root: templatesRoot, id: chosen.id, ratio: payload?.ratio, parentDir, createProject: target => proxy.createProject(target),
           titleFor: () => chosen.title, setStage,
-        }) : await createBlankOfficialProject(proxy, presets?.ratio, parentDir, setStage);
+        }) : await createBlankOfficialProject({ ratio: presets?.ratio, parentDir, createProject: target => proxy.createProject(target), setStage });
         // Bookkeeping failures must not hide a project already registered in Studio.
         const finished = await finishTemplateCreation(created, {
           activate: chosen ? () => writeActiveTemplates(created.path, [chosen.id]) : () => {},
@@ -999,7 +1009,10 @@ export function createStudioController(ctx, createProxy, {
           : ['copy', 'write-blank'].includes(stage) ? 'TEMPLATE_COPY_FAILED'
           : stage === 'template-preflight' ? 'TEMPLATE_SOURCE_FAILED' : 'TEMPLATE_PREPARE_FAILED';
         const cause = error?.cause ?? error;
-        const detail = { kind, stage, systemCode: studioSystemCode(cause),
+        const systemCode = studioSystemCode(cause);
+        const accessDenied = ['EACCES', 'EPERM', 'EROFS'].includes(systemCode);
+        const detail = { kind, stage, systemCode, accessDenied,
+          ...(cause instanceof ReferenceError ? { reason: 'Project creation referenced an unavailable variable' } : {}),
           upstreamStatus: Number.isInteger(cause?.upstreamStatus) ? cause.upstreamStatus : null,
           folderMayRemain: uncertain || stage === 'copy' || stage === 'write-blank', registrationUnknown: uncertain };
         const location = 'src/studio/studio-controller.mjs:project-create';
@@ -1227,6 +1240,7 @@ export function createStudioController(ctx, createProxy, {
     // Plan before cutting: the storyboard is the contract the timeline follows, and
     // "from-script" turns a transcript into shots on sentence boundaries.
     createStoryboardTool({ isProjectAgent, projectOf: projectOfAgent }),
+    createBrandTool({ isProjectAgent, projectOf: projectOfAgent, verifyProject: verifyOfficialProject }),
     createGetTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp, prepareVoice: voiceSettings.prepare }),
 
     createClipTool({ isProjectAgent, projectOf: projectOfAgent, http: studioHttp }),
@@ -1244,6 +1258,15 @@ export function createStudioController(ctx, createProxy, {
   // startup. Opening a project in the video panel resolves or creates its
   // conversation, so a missing hint can never block the UI.
   const askAgent = createDshAskAgent({ llm: ctx.llm, agentDefaultModel: ctx.agentDefaultModel });
+  const createSpoken = createSpokenCreation({ ask: askAgent, projectParent: projectParentDir,
+    remember: async (project, ratio) => {
+      const done = await finishTemplateCreation({ projectId: project.id, path: project.path }, {
+        activate: () => writeActiveTemplates(project.path, ['vibe-explainer']),
+        remember: () => finishOnboardingProject('vibe-explainer', { projectId: project.id, path: project.path }, { ratio }),
+      });
+      return done.warnings;
+    },
+  });
 
   // Local transcription. The engine that hears runs on this CPU; the model that
   // polishes product names is the session's. Registered here rather than with the
@@ -1748,6 +1771,7 @@ export function createStudioController(ctx, createProxy, {
     try { diagLog.close(); } catch { /* already closed */ }
     const perm = await permissionsPromise?.catch?.(() => undefined);
     try { await perm?.close?.(); } catch { /* already closed */ }
+    try { await (await brandMemory?.catch(() => undefined))?.close(); } catch { /* already closed */ }
     const chat = await officialStorePromise?.catch(() => undefined);
     try { await chat?.close(); }
     finally { await studioCliGuard.stop(); await runtime.close(); }

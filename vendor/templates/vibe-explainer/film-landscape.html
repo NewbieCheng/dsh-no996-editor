@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <title>Vibe 科普剧场 · 容错率是造出来的</title>
+  <style>
+    /* 本机直开时显示镜头墙；OpenFilm 读取下方 iframe 的 at 与 #t 时间。 */
+    body > #shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+    body:has(> #shots) { margin: 18px; background: #0a0c10; }
+    #shots > iframe { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; border: 0; }
+  </style>
+</head>
+<body>
+  <section id="shots" title="Vibe 科普剧场 · 单镜头连续生长 8 幕">
+    <iframe id="shot-01" title="01 · 痛点破冰 · 大字砸入" src="pages-landscape/shot-01.html#t=0,5" at="0.000"></iframe>
+    <iframe id="shot-02" title="02 · 核心公式 · 杠杆天平" src="pages-landscape/shot-02.html#t=0,5" at="5.000"></iframe>
+    <iframe id="shot-03" title="03 · 物理碰撞 · 单双向门" src="pages-landscape/shot-03.html#t=0,6" at="10.000"></iframe>
+    <iframe id="shot-04" title="04 · 拆解重构 · 大块裂解" src="pages-landscape/shot-04.html#t=0,5.5" at="16.000"></iframe>
+    <iframe id="shot-05" title="05 · 时间跑道 · 扩容反转" src="pages-landscape/shot-05.html#t=0,5.5" at="21.500"></iframe>
+    <iframe id="shot-06" title="06 · 沙盘推演 · 96格收敛" src="pages-landscape/shot-06.html#t=0,5.5" at="27.000"></iframe>
+    <iframe id="shot-07" title="07 · 行动清单 · 打卡波纹" src="pages-landscape/shot-07.html#t=0,5" at="32.500"></iframe>
+    <iframe id="shot-08" title="08 · 金句收束 · 余韵定格" src="pages-landscape/shot-08.html#t=0,4.5" at="37.500"></iframe>
+  </section>
+  <section id="sfx-1" title="拟音轨 1">
+    <audio src="assets/audio/sfx/pop-d250.wav" at="0.400" volume="0.72"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="1.150" volume="0.9"></audio>
+    <audio src="assets/audio/sfx/thud-d350.wav" at="2.400" volume="0.75"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="4.820" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/down-d400.wav" at="6.600" volume="0.68"></audio>
+    <audio src="assets/audio/sfx/up-d500.wav" at="8.000" volume="0.74"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="9.820" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/thud-d350.wav" at="11.400" volume="0.8"></audio>
+    <audio src="assets/audio/sfx/pop-d250.wav" at="13.100" volume="0.72"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="15.820" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/crack-d400.wav" at="17.550" volume="0.88"></audio>
+    <audio src="assets/audio/sfx/down-d400.wav" at="19.100" volume="0.62"></audio>
+    <audio src="assets/audio/sfx/pop-d250.wav" at="20.100" volume="0.75"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="21.320" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/tick-d120.wav" at="22.900" volume="0.6"></audio>
+    <audio src="assets/audio/sfx/tick-d120.wav" at="23.400" volume="0.6"></audio>
+    <audio src="assets/audio/sfx/up-d500.wav" at="24.400" volume="0.8"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="26.820" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/click-d60.wav" at="28.000" volume="0.45"></audio>
+    <audio src="assets/audio/sfx/click-d60.wav" at="28.350" volume="0.45"></audio>
+    <audio src="assets/audio/sfx/click-d60.wav" at="28.700" volume="0.45"></audio>
+    <audio src="assets/audio/sfx/click-d60.wav" at="29.050" volume="0.45"></audio>
+    <audio src="assets/audio/sfx/bell-p784-d1600.wav" at="30.200" volume="0.82"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="32.320" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/bell-p660-d1600.wav" at="33.800" volume="0.72"></audio>
+    <audio src="assets/audio/sfx/bell-p988-d1600.wav" at="35.600" volume="0.78"></audio>
+    <audio src="assets/audio/sfx/whoosh-d550.wav" at="37.320" volume="0.65"></audio>
+    <audio src="assets/audio/sfx/bell-p523-d1600.wav" at="39.200" volume="0.76"></audio>
+  </section>
+  <section id="sfx-2" title="拟音轨 2">
+    <audio src="assets/audio/sfx/hit-d700.wav" at="5.200" volume="0.85"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="10.200" volume="0.84"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="16.200" volume="0.85"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="21.700" volume="0.85"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="27.200" volume="0.82"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="32.700" volume="0.8"></audio>
+    <audio src="assets/audio/sfx/bell-p784-d1600.wav" at="34.700" volume="0.72"></audio>
+    <audio src="assets/audio/sfx/hit-d700.wav" at="37.700" volume="0.9"></audio>
+  </section>
+</body>
+</html>

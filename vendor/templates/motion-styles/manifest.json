@@ -4,5 +4,7 @@
   "mode": "film",
   "title": "动效风格样片",
   "id": "motion-styles",
-  "description": "适合强动效片头与品牌概念片：弹簧、错峰、镜头推拉更有冲击。"
+  "description": "双比例可编辑动效样板：扁平矢量与包豪斯两幕，文字、形状和节奏分别可改。",
+  "layoutVariants": { "defaultRatio": "9:16", "ratios": ["9:16", "16:9"] },
+  "slots": ["标题", "副标题", "几何形状", "节奏"]
 }

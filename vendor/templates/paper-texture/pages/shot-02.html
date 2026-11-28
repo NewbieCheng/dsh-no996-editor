@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=1080, height=1920">
 <title>纸纹讲堂 · 操作步骤</title>
 <link rel="stylesheet" href="../assets/kit.css">
+
 <style>
 :root {
   --kicker-size: 32px;
@@ -18,12 +19,12 @@ body { background: var(--paper); }
 </style>
 </head>
 <body>
-<div class="head">
-  <div class="kicker">做 法</div>
-  <div class="title">三步做<em>完一页</em></div>
+<div class="head" data-element-id="paper-head">
+  <div class="kicker" data-element-id="paper-kicker">做 法</div>
+  <div class="title" data-element-id="paper-headline">三步做<em>完一页</em></div>
 </div>
-<div class="steps"><div class="step"><div class="num">1</div><div class="body"><h3>放素材</h3><p>课件截图、板书照片、图表，一张一页，画面居中。</p></div></div><div class="step"><div class="num">2</div><div class="body"><h3>写逐字稿</h3><p>一页一段口播，控制在 15 秒内，句子短、主语明确。</p></div></div><div class="step"><div class="num">3</div><div class="body"><h3>按句换页</h3><p>讲到关键词就硬切换页，留空时回到纸纹底。</p></div></div></div>
-<div class="capsule">字幕胶囊：三步的顺序不要打乱，先素材、再稿子、最后切页。</div>
+<div class="steps" data-element-id="paper-steps"><div class="step" data-element-id="paper-step-1"><div class="num" data-element-id="paper-step-1-number">1</div><div class="body"><h3 data-element-id="paper-step-1-title">放素材</h3><p data-element-id="paper-step-1-body">课件截图、板书照片、图表，一张一页，画面居中。</p></div></div><div class="step" data-element-id="paper-step-2"><div class="num" data-element-id="paper-step-2-number">2</div><div class="body"><h3 data-element-id="paper-step-2-title">写逐字稿</h3><p data-element-id="paper-step-2-body">一页一段口播，控制在 15 秒内，句子短、主语明确。</p></div></div><div class="step" data-element-id="paper-step-3"><div class="num" data-element-id="paper-step-3-number">3</div><div class="body"><h3 data-element-id="paper-step-3-title">按句换页</h3><p data-element-id="paper-step-3-body">讲到关键词就硬切换页，留空时回到纸纹底。</p></div></div></div>
+<div class="capsule" data-element-id="paper-subtitle">字幕胶囊：三步的顺序不要打乱，先素材、再稿子、最后切页。</div>
 <script>
 // A still page has the same DOM picture at every local time.
   window.film = { width: 1080, height: 1920, duration: 7, ready: document.fonts.ready, frame(_t) {} };

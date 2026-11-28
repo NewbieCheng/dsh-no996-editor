@@ -2,7 +2,7 @@
 id: index
 reader: 所有人（第一次进仓库）
 fact-source: 本目录下的文件清单
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 新增/删除 docs/ 下的顶层文档
 -->
 
@@ -28,6 +28,7 @@ rot-if: 新增/删除 docs/ 下的顶层文档
 |---|---|
 | 开发模式启动/重启 DSH、热更新、调样式、打包；`47821` Origin 分裂同类坑 | [`playbooks/dev-live-guide.md`](playbooks/dev-live-guide.md)（文首「启动 / 重启 DSH」+「开发门户规律」） |
 | 升上游 OpenFilm | [`playbooks/upstream-bump.md`](playbooks/upstream-bump.md) |
+| 打开「视频创作」或在其他 AI 里接入 | [快速上手](playbooks/quick-start.md) |
 | 安装 / 更新 / 发版 | [`playbooks/publish.md`](playbooks/publish.md)（**唯一**正式手册） |
 | 排障 | [`playbooks/incident.md`](playbooks/incident.md)（当前流程）；[`playbooks/incident-history.md`](playbooks/incident-history.md)（历史证据，不作现行步骤） |
 | 剪辑对话、重连、模型和技能 | [现行架构](ARCHITECTURE.md#23-聊天桥实时模式和显式技能)、[状态与待验](STATE.md) |

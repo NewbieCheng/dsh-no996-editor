@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink, open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { finishTemplateCreation, installTemplate, listTemplates } from '../src/official/official-templates.mjs';
+import { createBlankOfficialProject, finishTemplateCreation, installTemplate, listTemplates } from '../src/official/official-templates.mjs';
+import { searchTemplates, templateCatalog } from '../src/film/template-catalog.mjs';
+import { selectBundledTemplateLayout } from '../src/film/template-layouts.mjs';
+import { shotWall } from '../vendor/templates/_kit/render.mjs';
+import { readFilmFile } from 'openfilm/film-doc';
 
 async function fixture(t) {
   const base = await mkdtemp(join(tmpdir(), 'openfilm-template-test-'));
@@ -16,6 +20,20 @@ async function fixture(t) {
   const args = { root, parentDir, id: 'sample', titleFor: () => '中文 film', createProject: async path => ({ id: 'project', path }) };
   return { base, root, source, parentDir, args };
 }
+
+test('blank creation writes a fresh saved film before registering once', async t => {
+  const { base } = await fixture(t);
+  const parentDir = join(base, 'new-library');
+  const stages = [];
+  const created = await createBlankOfficialProject({ ratio: '9:16', parentDir, setStage: stage => stages.push(stage), async createProject(path) {
+    const film = readFilmFile(await readFile(join(path, 'film.html'), 'utf8'));
+    assert.deepEqual(film.doc.stage, { w: 1080, h: 1920 });
+    return { id: 'new-project', path };
+  } });
+  assert.equal(created.projectId, 'new-project');
+  assert.deepEqual(stages, ['prepare-directory', 'write-blank', 'register']);
+  assert.equal((await readdir(parentDir)).length, 1);
+});
 
 test('bookkeeping failures retain the registered project and report fixed warnings', async () => {
   const created = { projectId: 'project1', path: '/safe/new-project' };
@@ -98,6 +116,50 @@ test('rejects project parents inside a template', async t => {
   const { source, args } = await fixture(t);
   args.parentDir = source;
   await assert.rejects(installTemplate(args), { code: 'TEMPLATE_INPUT' });
+});
+
+test('dual layout templates share assets but only install the chosen layout under film.html', async t => {
+  const { args, source, root } = await fixture(t);
+  const layouts = { defaultRatio: '9:16', ratios: ['9:16', '16:9'] };
+  await writeFile(join(source, 'manifest.json'), JSON.stringify({ id: 'sample', title: 'Dual layout', entry: 'film.html', mode: 'film', layoutVariants: layouts }));
+  await mkdir(join(source, 'assets'));
+  await writeFile(join(source, 'assets', 'tokens.css'), 'a{}');
+  const shots = [{ id: 'shot-01', title: 'Layout fixture', duration: 5, start: 0 }];
+  for (const ratio of layouts.ratios) {
+    const layout = selectBundledTemplateLayout(layouts, ratio);
+    await mkdir(join(source, layout.pages));
+    await writeFile(join(source, layout.pages, 'shot-01.html'), `<p>${ratio}</p>`);
+    await writeFile(join(source, layout.entry), shotWall({ title: 'Demo', size: layout.size, shots, pages: layout.pages }));
+  }
+  const [listing] = await listTemplates(root);
+  assert.deepEqual(listing.ratios, layouts.ratios);
+  assert.equal(listing.defaultRatio, '9:16');
+  const lookups = await templateCatalog(root);
+  assert.deepEqual(searchTemplates(lookups, '', 5, { ratio: '16:9' }).map(item => item.id), ['sample']);
+  const portrait = await installTemplate(args);
+  const landscape = await installTemplate({ ...args, ratio: '16:9' });
+  for (const [saved, size, pages] of [[portrait, [1080, 1920], 'pages'], [landscape, [1920, 1080], 'pages-landscape']]) {
+    const result = readFilmFile(await readFile(join(saved.path, 'film.html'), 'utf8'));
+    assert.deepEqual(result.problems, []);
+    assert.deepEqual([result.doc.stage.w, result.doc.stage.h], size);
+    assert.equal(result.doc.tracks[0].clips[0].src, `${pages}/shot-01.html`);
+    assert.deepEqual((await readdir(saved.path)).sort(), ['assets', 'film.html', 'manifest.json', pages].sort());
+    assert.equal(await readFile(join(saved.path, 'assets', 'tokens.css'), 'utf8'), 'a{}');
+  }
+  assert.equal(portrait.ratio, '9:16');
+  assert.equal(landscape.ratio, '16:9');
+});
+
+test('an unknown or unbuilt layout never falls back to a different ratio or registers a project', async t => {
+  const { args, source, parentDir } = await fixture(t);
+  await writeFile(join(source, 'manifest.json'), JSON.stringify({ id: 'sample', layoutVariants: { defaultRatio: '9:16', ratios: ['9:16', '16:9'] } }));
+  await mkdir(join(source, 'pages'));
+  await writeFile(join(source, 'film.html'), 'portrait');
+  args.createProject = () => assert.fail('an invalid layout must not register');
+  for (const ratio of ['16:9', '1:1', null, '../../other', ['9:16']]) {
+    await assert.rejects(installTemplate({ ...args, ratio }), { code: 'TEMPLATE_INPUT' });
+  }
+  assert.deepEqual(await readdir(parentDir), []);
 });
 
 test('listTemplates honors explicit order and featured flag across real templates', async () => {

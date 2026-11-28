@@ -1,0 +1,86 @@
+diff --git a/packages/openfilm/studio/ui/src/shell/top-bar.tsx b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
+index 0a51b5f..c2a5c5f 100644
+--- a/packages/openfilm/studio/ui/src/shell/top-bar.tsx
++++ b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
+@@ -32,6 +32,8 @@ import { useSettings } from '@/components/settings/use-settings';
+ import { SpendAsks } from '@/components/SpendAsks';
+ import { Tooltip } from '@/components/Tooltip';
+ import { UpdateButton, WebUpdateButton } from '@/components/UpdateButton';
++import { WorkbenchAccountControls } from '@/components/WorkbenchAccount';
++import { No996TemplateRecipe } from '@/components/No996TemplateRecipe';
+ import { commandTo, topBarTools } from '@/studio/hub';
+ import type { useProjectFrame } from './ProjectFrame';
+ import { useWiring } from './frame';
+@@ -54,8 +56,9 @@ export function usePageWindows(loaded: ProjectFilm | null) {
+   /* the projects window: closed, open on the projects (true), or on the examples (and one example's page) */
+   const [projectsOpen, setProjectsOpen] = React.useState<boolean | { example?: string }>(false);
+   const [settingsOpen, setSettingsOpen] = useSettings();
++  const [saveTemplateOpen, setSaveTemplateOpen] = React.useState(false);
+   const [desktopOpen, setDesktopOpen] = React.useState(false);
+-  return { title, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, desktopOpen, setDesktopOpen };
++  return { title, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, saveTemplateOpen, setSaveTemplateOpen, desktopOpen, setDesktopOpen };
+ }
+ 
+ /** The top bar, in the page's grid before the workbench's element: drawn once the project was read. */
+@@ -69,7 +72,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+   const t = useT();
+   const bar = useWiring('topBar')?.topBar;
+   const {
+-    projectId, setLoaded, toast, reveal, title, setProjectsOpen, setSettingsOpen, desktopOpen, setDesktopOpen,
++    projectId, setLoaded, toast, reveal, title, setProjectsOpen, setSettingsOpen, saveTemplateOpen, setSaveTemplateOpen, desktopOpen, setDesktopOpen,
+     canvasOpen, setCanvasOpen, surface, showWorkbench, benchPlugins, pickBench, canToggleCanvas, colorOpen,
+     /* the page's panels are being rearranged (shell/layout): the workbench shown stays the one it is meanwhile */
+     layoutEditing,
+@@ -121,7 +124,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+   const projectTitle = <ProjectTitle tab={Boolean(studioHost?.tabs)} name={title} editing={renaming} draft={titleDraft} onDraft={setTitleDraft}
+     onRename={startRename} onCommit={() => void commitTitle()} onCancel={() => setRenaming(false)}
+     facts={{ project: loaded.project, ...(bar ? { film: bar.film } : {}) }}
+-    actions={{ onRename: startRename, onCoverFromFrame: coverFromFrame, onReveal: () => reveal('') }}
++    actions={{ onRename: startRename, onCoverFromFrame: coverFromFrame, onReveal: () => reveal(''), onSaveTemplate: () => setSaveTemplateOpen(true) }}
+     onAll={() => setProjectsOpen(true)} />;
+   /* The desktop's tabs share the left edge; a browser keeps the project title centered. */
+   return (<>
+@@ -137,7 +140,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+       {/* the window's controls over this, then the app menu */}
+       <div aria-hidden className={studioHost?.tabs ? tabStyles.windowSpace : 'shrink-0 self-stretch'} style={{ width: 'var(--titlebar-logo-x)' }} />
+       <div className={studioHost?.tabs ? tabStyles.system : 'pointer-events-auto relative flex min-w-0 items-center'}><AppMenu onSettings={setSettingsOpen} /></div>
+-      {studioHost?.tabs ? <ProjectTabs current={projectTitle} onProjects={() => setProjectsOpen(true)} onRenameCurrent={startRename} onCoverCurrent={coverFromFrame} /> : null}
++      {studioHost?.tabs ? <ProjectTabs current={projectTitle} onProjects={() => setProjectsOpen(true)} onRenameCurrent={startRename} onCoverCurrent={coverFromFrame} onSaveTemplateCurrent={() => setSaveTemplateOpen(true)} /> : null}
+       <div className="pointer-events-auto relative flex min-w-0 items-center gap-1">
+         <UpdateButton />
+         <WebUpdateButton />
+@@ -157,6 +160,8 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+         {history.button}
+         {/* the workbench's own: for the edit its export (the canvas has its own bars) */}
+         {bar?.tools}
++        {/* NO996-UPSTREAM: the workbench account chip (drawer, credits) sits with the bar's other buttons. */}
++        <WorkbenchAccountControls onSettings={setSettingsOpen} />
+         {/* the buttons plugins put on the bar (openfilm/studio topBar) */}
+         <PluginTools />
+         {/* the edit or the canvas, in the panes' place: the one shown, by its name, and a click for the other */}
+@@ -164,7 +169,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+           : canToggleCanvas ? <Tooltip label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} action="work-mode" side="bottom">
+           <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={layoutEditing} onClick={() => setCanvasOpen(!canvasOpen)}
+             className="flex h-[26px] shrink-0 items-center rounded-md bg-[var(--bg-hover)] px-2.5 text-[12.5px] font-medium text-[var(--text)] transition hover:bg-[var(--bg-pressed)]">
+-            {t(canvasOpen ? 'canvas.title' : 'canvas.editTitle')}
++            {t(canvasOpen ? 'canvas.editTitle' : 'canvas.title')}
+           </button>
+         </Tooltip> : null}
+       </div>
+@@ -197,7 +202,7 @@ function PluginTools() {
+ /** The projects window and Settings: over the page, before the library's pane. */
+ export function PageWindows({ frame }: { frame: ReturnType<typeof useProjectFrame> }) {
+   const t = useT();
+-  const { projectId, loaded, failure, toast, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, setCanvasOpen } = frame;
++  const { projectId, loaded, failure, toast, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, saveTemplateOpen, setSaveTemplateOpen, setCanvasOpen, title } = frame;
+   if (!loaded || failure) return null;
+   return (
+     <>
+@@ -213,6 +218,7 @@ export function PageWindows({ frame }: { frame: ReturnType<typeof useProjectFram
+           }, (e: unknown) => toast.showError(e instanceof Error ? e.message : String(e)));
+         }} />
+       <SettingsModal open={settingsOpen !== null} section={settingsOpen ?? undefined} onClose={() => setSettingsOpen(null)} />
++      {saveTemplateOpen ? <No996TemplateRecipe projectId={projectId} projectName={title} onClose={() => setSaveTemplateOpen(false)} /> : null}
+     </>
+   );
+ }

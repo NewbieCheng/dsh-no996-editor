@@ -15,6 +15,7 @@ import { createKitTool } from '../src/tools/kit-tool.mjs';
 import { createRhythmTool } from '../src/tools/rhythm-tool.mjs';
 import { createSfxTool } from '../src/tools/sfx-tool.mjs';
 import { createModeTool } from '../src/tools/mode-tool.mjs';
+import { createBrandTool } from '../src/tools/brand-tool.mjs';
 import { createVisionTools } from '../src/tools/vision-tool.mjs';
 
 /*
@@ -43,6 +44,7 @@ const tools = [
   createRhythmTool(link),
   createSfxTool(link),
   createModeTool(link),
+  createBrandTool(link),
   ...createVisionTools({ ...link, attachments: () => ({}) }),
 ];
 

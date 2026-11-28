@@ -1,8 +1,9 @@
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, readdir, readFile, realpath } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, open, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { filmHtml } from '../../vendor/film-doc.mjs';
+import { installedTemplatePath, readBundledTemplateLayouts, selectBundledTemplateLayout } from '../film/template-layouts.mjs';
 
 const BLANK_STAGES = new Map([['16:9', [1920, 1080]], ['9:16', [1080, 1920]], ['1:1', [1080, 1080]]]);
 
@@ -11,6 +12,19 @@ export function blankFilmHtml(ratio = '16:9') {
   if (!size) throw failure('TEMPLATE_INPUT', 'Invalid canvas ratio');
   const [w, h] = size;
   return filmHtml({ stage: { w, h }, tracks: [] });
+}
+
+export async function createBlankOfficialProject({ ratio, parentDir, createProject, setStage = () => {} }) {
+  const film = blankFilmHtml(ratio);
+  setStage('prepare-directory');
+  await mkdir(parentDir, { recursive: true });
+  const target = await mkdtemp(join(parentDir, '自定义-'));
+  setStage('write-blank');
+  await writeFile(join(target, 'film.html'), film, { flag: 'wx' });
+  setStage('register');
+  const project = await createProject(target);
+  if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') throw new Error('Studio returned an invalid project');
+  return { projectId: project.id, path: project.path };
 }
 
 // Keep discovery, installation and the template-prompt catalog on the same ID contract.
@@ -27,8 +41,11 @@ export async function listTemplates(root) {
   const templates = [];
   for (const entry of entries) {
     if (!entry.isDirectory() || !TEMPLATE_ID.test(entry.name)) continue;
-    let manifest;
-    try { manifest = JSON.parse(await readFile(join(root, entry.name, 'manifest.json'), 'utf8')); } catch { continue; }
+    let manifest, layouts;
+    try {
+      manifest = JSON.parse(await readFile(join(root, entry.name, 'manifest.json'), 'utf8'));
+      layouts = readBundledTemplateLayouts(manifest);
+    } catch { continue; }
     if (!manifest || typeof manifest !== 'object' || manifest.id !== entry.name) continue;
     if (typeof manifest.title !== 'string' || typeof manifest.entry !== 'string' || typeof manifest.mode !== 'string') continue;
     templates.push({
@@ -40,6 +57,7 @@ export async function listTemplates(root) {
       prompt: typeof manifest.prompt === 'string' ? manifest.prompt.slice(0, 600) : '',
       order: typeof manifest.order === 'number' && Number.isFinite(manifest.order) ? manifest.order : 100,
       featured: manifest.featured === true,
+      ...(layouts ? { ratios: layouts.ratios, defaultRatio: layouts.defaultRatio } : {}),
     });
   }
   return templates.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
@@ -65,7 +83,7 @@ const inside = (parent, child) => {
  * No cleanup is attempted: once registration starts even a rejection can mean
  * that Studio committed the project. Errors identify the potentially remaining folder.
  */
-export async function installTemplate({ root, id, parentDir, createProject, titleFor, setStage = () => {} }) {
+export async function installTemplate({ root, id, ratio, parentDir, createProject, titleFor, setStage = () => {} }) {
   if (typeof root !== 'string' || !isAbsolute(root) || typeof parentDir !== 'string' || !isAbsolute(parentDir) ||
       typeof id !== 'string' || !TEMPLATE_ID.test(id) || typeof createProject !== 'function' || typeof titleFor !== 'function') {
     throw failure('TEMPLATE_INPUT', 'Invalid template installation arguments');
@@ -78,6 +96,26 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
   // Reject a symlinked template root as well as a symlinked template itself.
   const rootInfo = await lstat(root);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw failure('TEMPLATE_INPUT', 'Invalid template root');
+  const manifestPath = join(realSource, 'manifest.json');
+  const manifestInfo = await lstat(manifestPath).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  let manifest;
+  if (manifestInfo?.isFile() && manifestInfo.size <= 32_768) {
+    const handle = await open(manifestPath, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    try { manifest = JSON.parse(await handle.readFile('utf8')); }
+    catch { /* a legacy template may not have versioned metadata */ }
+    finally { await handle.close(); }
+  }
+  const layout = selectBundledTemplateLayout(readBundledTemplateLayouts(manifest), ratio);
+  if (layout) {
+    const entry = await lstat(join(realSource, layout.entry)).catch(() => null);
+    const pages = await lstat(join(realSource, layout.pages)).catch(() => null);
+    if (!entry?.isFile() || !pages?.isDirectory() || entry.isSymbolicLink() || pages.isSymbolicLink()) {
+      throw failure('TEMPLATE_INPUT', 'The selected layout is not built');
+    }
+  }
   // Resolve the nearest existing ancestor before mkdir, so even a new parent
   // under a symlink alias of the template cannot modify the source tree.
   setStage('prepare-directory');
@@ -107,6 +145,7 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
   const scan = async dir => {
     for (const name of await readdir(dir)) {
       if (name === '.' || name === '..' || /[\\/:]/u.test(name)) throw failure('TEMPLATE_INPUT', 'Unsafe template path');
+      if (dir === realSource && installedTemplatePath(name, layout) === null) continue;
       const item = join(dir, name);
       const info = await lstat(item);
       if (info.isSymbolicLink()) throw failure('TEMPLATE_INPUT', 'Template contains a symbolic link');
@@ -138,8 +177,10 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
     const copy = async (src, dst) => {
       for (const name of await readdir(src)) {
         if (name === '.' || name === '..' || /[\\/:]/u.test(name)) throw failure('TEMPLATE_INPUT', 'Unsafe template path');
+        const installedName = src === realSource ? installedTemplatePath(name, layout) : name;
+        if (installedName === null) continue;
         const from = join(src, name);
-        const to = join(dst, name);
+        const to = join(dst, installedName);
         const info = await lstat(from);
         if (info.isSymbolicLink()) throw failure('TEMPLATE_INPUT', 'Template contains a symbolic link');
         if (info.isDirectory()) {
@@ -177,7 +218,7 @@ export async function installTemplate({ root, id, parentDir, createProject, titl
     setStage('register');
     const project = await createProject(target);
     if (!project || typeof project.id !== 'string' || typeof project.path !== 'string') throw new Error('Studio returned an invalid project');
-    return { projectId: project.id, path: project.path, files, bytes };
+    return { projectId: project.id, path: project.path, files, bytes, ...(layout ? { ratio: layout.ratio } : {}) };
   } catch (cause) {
     const error = failure(registering ? 'TEMPLATE_REGISTRATION_UNCERTAIN' : (cause?.code || 'TEMPLATE_COPY_FAILED'),
       `${registering ? 'Project registration failed or its result is uncertain' : 'Template copy failed'}; the project directory may remain at ${target}. No files were deleted.`);

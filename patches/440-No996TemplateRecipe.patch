@@ -1,0 +1,89 @@
+diff --git a/packages/openfilm/studio/ui/src/components/No996TemplateRecipe.tsx b/packages/openfilm/studio/ui/src/components/No996TemplateRecipe.tsx
+new file mode 100644
+index 0000000..8e49dc5
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/No996TemplateRecipe.tsx
+@@ -0,0 +1,83 @@
++import React from 'react';
++import { createPortal } from 'react-dom';
++import { Check, X } from 'lucide-react';
++
++type Clip = { id: string; title: string; kind: string; duration: number };
++type Preview = { projectId: string; previewToken: string; canvas: { w: number; h: number }; clips: Clip[]; brand: { name: string; placement: string; hasLogo: boolean } | null };
++const zh = () => document.documentElement.lang.toLowerCase().startsWith('zh');
++const button = 'rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--bg-hover)] disabled:opacity-50';
++const field = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-2.5 py-1.5 text-sm text-[var(--text)]';
++
++async function rpc<T>(channel: string, payload: unknown): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, payload }) });
++  if (!response.ok) throw new Error((await response.text()).split(':')[0] || 'Request failed');
++  return response.json();
++}
++
++export function No996TemplateRecipe({ projectId, projectName, onClose, onSaved }: { projectId: string; projectName: string; onClose: () => void; onSaved?: (id: string) => void }) {
++  const chinese = zh();
++  const [preview, setPreview] = React.useState<Preview>();
++  const [selected, setSelected] = React.useState<Set<string>>(new Set());
++  const [title, setTitle] = React.useState(`${projectName} · 模板`);
++  const [description, setDescription] = React.useState('');
++  const [includeBrand, setIncludeBrand] = React.useState(true);
++  const [bgmClipId, setBgmClipId] = React.useState('');
++  const [busy, setBusy] = React.useState(false);
++  const [error, setError] = React.useState('');
++  const [savedId, setSavedId] = React.useState('');
++  const titleId = React.useId();
++  React.useEffect(() => {
++    let live = true;
++    void rpc<Preview>('template:recipe-preview', { projectId }).then(value => {
++      if (!live) return;
++      setPreview(value);
++      setSelected(new Set(value.clips.filter(clip => clip.kind === 'page').map(clip => clip.id)));
++      setIncludeBrand(Boolean(value.brand));
++    }).catch(() => { if (live) setError(chinese ? '无法读取已保存影片。请先保存剪辑，再重试。' : 'Could not read the saved film. Save the edit and try again.'); });
++    return () => { live = false; };
++  }, [projectId, chinese]);
++  const pages = preview?.clips.filter(clip => clip.kind === 'page') ?? [];
++  const audio = preview?.clips.filter(clip => clip.kind === 'sound') ?? [];
++  async function save(event: React.FormEvent) {
++    event.preventDefault();
++    if (busy || !preview || !selected.size) return;
++    setBusy(true); setError('');
++    try {
++      const result = await rpc<{ id: string }>('template:recipe-save', { projectId, previewToken: preview.previewToken, selected: [...selected], title, description,
++        includeBrand, bgmClipId: bgmClipId || undefined });
++      setSavedId(result.id);
++      onSaved?.(result.id);
++    } catch (failure) {
++      const code = failure instanceof Error ? failure.message : '';
++      setError(code === 'RECIPE_PREVIEW_STALE'
++        ? (chinese ? '影片已变化，请关闭后重新打开预览。' : 'The film changed. Close this dialog and preview again.')
++        : code === 'RECIPE_KIND'
++          ? (chinese ? '选中了 Canvas 或非网页镜头。请先转换成可编辑图层。' : 'A selected scene is Canvas or not a web page. Convert it to editable layers first.')
++          : (chinese ? '保存失败。没有复制整个项目；请检查所选镜头和资源。' : 'Could not save. No project copy was made; check the selected scenes and assets.'));
++    } finally { setBusy(false); }
++  }
++  return createPortal(<div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-[10000] grid place-items-center bg-black/45 p-5" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
++    <section className="max-h-[88vh] w-[min(680px,95vw)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-raised)] p-5 shadow-2xl">
++      <header className="mb-4 flex items-start justify-between gap-4"><div><h2 id={titleId} className="text-lg font-semibold">{chinese ? '另存为本地模板' : 'Save as local template'}</h2>
++        <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{chinese ? '只提取所选镜头结构、占位和直接需要的资源；不是项目副本或备份。' : 'Extracts selected scene structure, placeholders and direct assets only. This is not a project copy or backup.'}</p></div>
++        <button type="button" aria-label={chinese ? '关闭' : 'Close'} disabled={busy} onClick={onClose} className="rounded p-1 hover:bg-[var(--bg-hover)]"><X size={18} /></button></header>
++      {savedId ? <div role="status" className="space-y-3 py-6 text-center"><Check className="mx-auto text-[var(--accent)]" size={30} /><p className="font-medium">{chinese ? '本地模板已保存' : 'Local template saved'}</p><code className="text-xs text-[var(--text-muted)]">{savedId}</code><div><button type="button" className={button} onClick={onClose}>{chinese ? '完成' : 'Done'}</button></div></div>
++        : <form onSubmit={event => void save(event)} className="space-y-4">
++          {!preview ? <p role="status" className="text-sm text-[var(--text-muted)]">{error || (chinese ? '正在读取已保存影片…' : 'Reading the saved film…')}</p> : <>
++            <label className="block space-y-1 text-sm"><span>{chinese ? '模板名称' : 'Template name'}</span><input className={field} required maxLength={80} value={title} onChange={event => setTitle(event.target.value)} /></label>
++            <label className="block space-y-1 text-sm"><span>{chinese ? '说明（可选）' : 'Description (optional)'}</span><textarea className={field} rows={2} maxLength={400} value={description} onChange={event => setDescription(event.target.value)} /></label>
++            <fieldset className="space-y-2"><legend className="mb-1 text-sm font-medium">{chinese ? '选择可复用镜头' : 'Choose reusable scenes'}</legend>
++              <p className="text-xs text-[var(--text-muted)]">{chinese ? `已保存画幅 ${preview.canvas.w} × ${preview.canvas.h}；原口播文字会变成占位。` : `Saved canvas ${preview.canvas.w} × ${preview.canvas.h}; spoken copy becomes placeholders.`}</p>
++              <div className="max-h-44 space-y-1 overflow-y-auto rounded-md border border-[var(--border)] p-2">{pages.map(clip => <label key={clip.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.has(clip.id)} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(clip.id); else next.delete(clip.id); return next; })} /><span className="min-w-0 flex-1 truncate">{clip.title}</span><span className="text-xs text-[var(--text-muted)]">{clip.duration.toFixed(1)}s</span></label>)}</div>
++              {!pages.length ? <p className="text-xs text-[var(--text-muted)]">{chinese ? '没有可提取的网页镜头。' : 'No editable web-page scenes found.'}</p> : null}
++            </fieldset>
++            <label className="block space-y-1 text-sm"><span>{chinese ? '保留配乐与实测拍点' : 'Keep music and measured beats'}</span><select className={field} value={bgmClipId} onChange={event => setBgmClipId(event.target.value)}><option value="">{chinese ? '不保留配乐' : 'Do not keep music'}</option>{audio.map(clip => <option key={clip.id} value={clip.id}>{clip.title} · {clip.duration.toFixed(1)}s</option>)}</select></label>
++            {preview.brand ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeBrand} onChange={event => setIncludeBrand(event.target.checked)} />{chinese ? `保留本片品牌「${preview.brand.name}」与 Logo 位置` : `Keep this film’s brand “${preview.brand.name}” and logo placement`}</label> : null}
++            <div className="rounded-md bg-[var(--bg-field)] p-3 text-xs leading-relaxed text-[var(--text-muted)]">{chinese ? '不会保存：原视频、口播成稿、聊天/历史、缓存、渲染产物。分享 ZIP 是另一个动作，默认移除私人品牌和配乐。' : 'Not saved: source footage, final script, chat/history, caches or renders. Share ZIP is separate and omits private brand and music by default.'}</div>
++            {error ? <p role="alert" className="text-sm text-[var(--text)]">{error}</p> : null}
++          </>}
++          <footer className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={onClose}>{chinese ? '取消' : 'Cancel'}</button><button type="submit" className={button} disabled={busy || !preview || !selected.size || !title.trim()}>{busy ? (chinese ? '正在保存…' : 'Saving…') : (chinese ? '保存本地模板' : 'Save local template')}</button></footer>
++        </form>}
++    </section>
++  </div>, document.body);
++}

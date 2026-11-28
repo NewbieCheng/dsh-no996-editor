@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..d2be15f 100644
+index 26575ee..2ef9357 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -22,15 +22,17 @@ index 26575ee..d2be15f 100644
  import { Popover } from '@/components/Popover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -25,6 +28,7 @@ import { Tooltip } from '@/components/Tooltip';
+@@ -24,7 +27,9 @@ import { LocalAgentQuestionCard } from '@/components/TurnQuestionCard';
+ import { Tooltip } from '@/components/Tooltip';
  import { StickToBottomContext, useStickToBottom, useTailSpacer } from '@/components/useStickToBottom';
  import { PromptEditor, PromptPill, PromptPillHoverContext, PromptPillRevealContext, activatedSkillIds, fileReferenceId, fileReferencePath, promptReferenceToken, resolvePromptReferences, skillReferenceId, skillReferencePackage, splitPromptReferenceText, type MentionProvider, type PromptEditorHandle, type PromptEditorState, type PromptPillHover, type PromptReference } from '@/components/prompt-editor';
++import { No996WhatsNew } from '../../../../packages/openfilm/studio/ui/src/components/No996WhatsNew';
  import { filesFromTransfer, transferHasFiles } from '@/lib/composer-attachments';
 +import { MicRecorderError, ParentCaptureMissing, startMicRecorder, startParentRecorder, type DictationRecorder } from '@/lib/dictation';
  import { PROMPT_PICTURES_MAX, attachedPictures, attachmentBlocker, formatFileSize, turnAttachments, useDesktopAttachments } from '@/lib/desktop-attachments';
  import { attachmentPill, attachmentsInText, attachmentWords, isAttachmentPill, projectFilePath, sentPill } from '@/lib/attachment-pills';
  import { deriveProjectTurns } from '@/lib/project-versions';
-@@ -33,6 +37,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+@@ -33,6 +38,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -38,7 +40,7 @@ index 26575ee..d2be15f 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -43,6 +48,7 @@ import {
+@@ -43,6 +49,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -46,7 +48,7 @@ index 26575ee..d2be15f 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -67,9 +73,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
+@@ -67,9 +74,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
  import { accountModel, accountModelOf, routeWithoutKey } from '@/lib/route-without-key';
  import { keptNote, ProjectFolderContext, readStudioProject } from '@/lib/studio-film';
  import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-transfer';
@@ -54,12 +56,51 @@ index 26575ee..d2be15f 100644
 +import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, optionValue, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
-+import { refreshChatSessions } from '@/lib/chat-store';
++import { readRequestedConversation, refreshChatSessions } from '@/lib/chat-store';
 +import { deleteChatSession } from '@/lib/chat-store';
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -157,6 +165,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -98,6 +107,12 @@ const CONTEXT_NOTICE_SHARE = 0.85;
+ /* between the chat's root (the add-skill dialog) and the project's chat: a skill added, a skill to make */
+ const MAKE_SKILL = 'openfilm:make-skill';
+ 
++/* DSH's explicit conversation selection is separate from the user's last tab. */
++type EditingRequest = { projectId: string; sessionId: string; requestId?: number };
++const editingHost = window as Window & { __no996PendingSession?: EditingRequest; openfilmHost?: { name?: string } };
++const EDITING_REQUEST = 'no996-openfilm:select-session';
++const editingRouteProject = () => /^\/projects\/([\w-]{6,40})\/?$/.exec(location.pathname)?.[1] ?? '';
++
+ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+   initialProject: Project | null;
+   initialSelection: StudioSelection | null;
+@@ -132,6 +147,19 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+ 
+   /* the project's chat record, read from its folder before its conversation shows */
+   const chatReady = useProjectChat(project);
++  const [routeProject, setRouteProject] = React.useState(editingRouteProject);
++  React.useEffect(() => {
++    if (editingHost.openfilmHost?.name !== 'DSH') return undefined;
++    const followRoute = () => setRouteProject(editingRouteProject());
++    window.addEventListener('popstate', followRoute);
++    window.addEventListener(EDITING_REQUEST, followRoute);
++    followRoute();
++    return () => {
++      window.removeEventListener('popstate', followRoute);
++      window.removeEventListener(EDITING_REQUEST, followRoute);
++    };
++  }, []);
++  const projectOnRoute = editingHost.openfilmHost?.name !== 'DSH' || !routeProject || project?.id === routeProject;
+   const ffState = typeof ffmpeg === 'object' && ffmpeg ? ffmpeg : null;
+   /* what Studio and its tools tell, as notices on the composer: each closed stays closed for what it said */
+   const [closed, setClosed] = React.useState<ReadonlySet<string>>(() => new Set());
+@@ -152,15 +180,17 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+   const onProject = Boolean(project) && /^\/projects\//.test(location.pathname);
+   return (
+     <div className={`relative flex h-full flex-col ${assetsOverlay ? '' : 'bg-[var(--bg-app)]'}`}>
++      <No996WhatsNew />
+       {addingSkill ? (
+         <AddSkillDialog onClose={() => setAddingSkill(false)} onAdded={async () => { window.dispatchEvent(new Event(SKILLS_CHANGED)); }}
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -67,52 +108,64 @@ index 26575ee..d2be15f 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +193,77 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+-        {project && chatReady
++        {project && chatReady && projectOnRoute
+           ? <ChatPane key={`${project.id}:${project.path}`} project={project} banners={banners} selection={selection && selection.projectId === project.id ? selection : null} assetsOpen={assetsOpen} assetsOverlay={assetsOverlay} />
+           : (
+             <aside className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-panel)]">
+@@ -183,12 +213,82 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+ 
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
-   const [sessionId, setSessionId] = React.useState<string>(() => {
+-  const [sessionId, setSessionId] = React.useState<string>(() => {
 -    const last = loadLastSession(projectKey);
++  const requestedForProject = () => editingHost.__no996PendingSession?.projectId === project.id ? editingHost.__no996PendingSession : undefined;
++  const [requested, setRequested] = React.useState(requestedForProject);
++  const [completedRequest, setCompletedRequest] = React.useState<EditingRequest>();
++  const [requestError, setRequestError] = React.useState<'missing' | 'archived' | 'unavailable' | null>(null);
++  const [requestAttempt, retryRequest] = React.useReducer((value: number) => value + 1, 0);
++  const [selectedSessionId, setSessionId] = React.useState<string>(() => {
++    if (requestedForProject()) return '';
      const list = loadSessions(projectKey);
-+    const pendingHost = window as unknown as { __no996PendingSession?: { projectId?: string; sessionId?: string } };
-+    const pending = pendingHost.__no996PendingSession;
-+    if (pending && pending.projectId === project.id && pending.sessionId) {
-+      pendingHost.__no996PendingSession = undefined;
-+      if (list.some((s) => s.id === pending.sessionId)) return pending.sessionId;
-+    }
 +    const last = loadLastSession(projectKey);
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
-   React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
-+  /* no996-editor: the sidebar editing area switches conversations inside the same
-+     project folder (and across projects) via a custom window event. */
+-  React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
++  const sessionId = requested ? '' : selectedSessionId;
 +  React.useEffect(() => {
-+    const onSelect = (event: Event) => {
-+      const detail = (event as CustomEvent<{ projectId?: string; sessionId?: string }>).detail;
-+      const targetSessionId = detail?.sessionId;
-+      if (!detail || detail.projectId !== project.id || !targetSessionId) return;
-+      const pendingHost = window as unknown as { __no996PendingSession?: { projectId?: string; sessionId?: string } };
-+      if (pendingHost.__no996PendingSession?.sessionId === targetSessionId) {
-+        pendingHost.__no996PendingSession = undefined;
-+      }
-+      const list = loadSessions(projectKey);
-+      if (list.some((s) => s.id === targetSessionId)) {
-+        setSessionId(targetSessionId);
-+        composerRef.current?.focus();
-+        return;
-+      }
-+      void refreshChatSessions(projectKey).then((changed) => {
-+        if (!changed) return;
-+        const nextList = loadSessions(projectKey);
-+        setSessions(nextList);
-+        if (nextList.some((s) => s.id === targetSessionId)) {
-+          setSessionId(targetSessionId);
-+          composerRef.current?.focus();
-+        }
-+      }).catch(() => {});
++    if (requested) return;
++    if (sessionId) saveLastSession(projectKey, sessionId);
++    const exact = completedRequest?.sessionId === sessionId && editingHost.__no996PendingSession === completedRequest
++      ? completedRequest : undefined;
++    if (exact) editingHost.__no996PendingSession = undefined;
++    window.dispatchEvent(new CustomEvent('no996-openfilm:editing-shown', {
++      detail: { projectId: project.id, sessionId, ...(exact?.requestId ? { requestId: exact.requestId } : {}) },
++    }));
++  }, [project.id, projectKey, sessionId, requested, completedRequest]);
++  React.useEffect(() => {
++    const onSelect = () => {
++      setRequestError(null);
++      setRequested(requestedForProject());
 +    };
-+    window.addEventListener('no996-openfilm:select-session', onSelect);
-+    return () => window.removeEventListener('no996-openfilm:select-session', onSelect);
-+  }, [project.id, projectKey]);
++    window.addEventListener(EDITING_REQUEST, onSelect);
++    // Catch a request sent between the render and listener registration.
++    onSelect();
++    return () => window.removeEventListener(EDITING_REQUEST, onSelect);
++  }, [project.id]);
++  React.useEffect(() => {
++    if (!requested) return undefined;
++    let disposed = false;
++    const stillCurrent = () => !disposed && editingHost.__no996PendingSession === requested && editingRouteProject() === project.id;
++    void readRequestedConversation(projectKey, project.id, requested.sessionId, stillCurrent).then(result => {
++      if (!stillCurrent() || result === 'superseded') return;
++      if (result !== 'ready') { setRequestError(result); return; }
++      setSessions(loadSessions(projectKey));
++      setSessionId(requested.sessionId);
++      setCompletedRequest(requested);
++      setRequested(undefined);
++    }).catch(() => { if (stillCurrent()) setRequestError('unavailable'); });
++    return () => { disposed = true; };
++  }, [project.id, projectKey, requested, requestAttempt]);
 +  /* no996-editor: the sidebar outside this page (and Studio itself) can add or
 +     delete a conversation while this list sits in state. Re-read on a slow tick and
 +     when the window comes back, so both sides agree without a reload. A deleted
@@ -146,7 +199,7 @@ index 26575ee..d2be15f 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +461,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +486,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -155,7 +208,7 @@ index 26575ee..d2be15f 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +489,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +514,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -219,7 +272,7 @@ index 26575ee..d2be15f 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,6 +571,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +596,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -267,7 +320,7 @@ index 26575ee..d2be15f 100644
    /* how full the agent's context is in this conversation: said only once it is nearly full */
    const agentContext = useAgentContext(projectKey, sessionId, agent);
    const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
-@@ -733,7 +904,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -733,7 +929,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      const summary = agentModelSummary(options, prefs);
      /* how hard it thinks, as the menu offers it */
      const effortOption = options?.find((o) => o.category === 'thought_level');
@@ -278,7 +331,24 @@ index 26575ee..d2be15f 100644
      const modelLabel = [summary.model, effort].filter(Boolean).join(' · ');
      const started: Turn = {
        ...makePlaceholder(id, 'video', instruction, { projectId: projectKey, sessionId }),
-@@ -1011,6 +1184,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -900,7 +1098,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   React.useEffect(() => { if (active) setUndoAsk(null); }, [active]);
+ 
+   function submitFollowUp(): void {
+-    if (!followUpFilled) return;
++    if (requested || !sessionId || !followUpFilled) return;
+     /* while a turn runs: into it, for an agent that takes that; else it waits for the turn to end */
+     const steer = active && asset ? canSteer(asset.id) : false;
+     if (active && !steer) { setQueued(sessionId); return; }
+@@ -1002,6 +1200,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   /* each conversation's agent at work whichever is shown: a new one, or another, any time; none while
+      the one shown is new itself (false) */
+   const onNewSession = (): boolean => {
++    if (requested) return false;
+     if (blank && !running.has(sessionId)) { composerRef.current?.focus(); return false; }
+     setSessionId(newSession().id);
+     composerRef.current?.focus();
+@@ -1011,6 +1210,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -292,7 +362,7 @@ index 26575ee..d2be15f 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1041,8 +1221,134 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1041,8 +1247,134 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    };
    const wasName = agentWas === 'byok' ? t('composer.agentOwnKey') : agentWas ? la.roster?.find((a) => a.id === agentWas)?.name ?? AGENT_DEFINITIONS[agentWas]?.name ?? agentWas : '';
  
@@ -427,7 +497,7 @@ index 26575ee..d2be15f 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1381,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1407,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -440,7 +510,7 @@ index 26575ee..d2be15f 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1123,6 +1430,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1123,6 +1456,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                mentions={{ providers: mentionProviders, label: t('mention.menu'), onOpen: loadMentionFiles }}
              />
            </div>
@@ -471,7 +541,7 @@ index 26575ee..d2be15f 100644
            {/* while it works: Stop, or Send once something is written (it goes into the turn, or after it); Esc stops */}
            <Tooltip label={stopping ? t('project.stop') : t('project.sendFollowUp')} shortcut={stopping ? 'Esc' : 'Enter'}>
              <button
-@@ -1136,9 +1467,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1136,9 +1493,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
              </button>
            </Tooltip>
          </div>
@@ -510,7 +580,7 @@ index 26575ee..d2be15f 100644
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1506,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1532,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -521,7 +591,7 @@ index 26575ee..d2be15f 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1517,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1543,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -536,8 +606,32 @@ index 26575ee..d2be15f 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1538,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1181,8 +1562,40 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+     return () => window.removeEventListener('keydown', onKey);
+   }, [active, asset]);
  
++  if (requested) {
++    const zh = locale === 'zh-CN';
++    const text = requestError === 'archived'
++      ? (zh ? '该剪辑会话已归档，请在工作区恢复后再打开。' : 'This editing conversation is archived. Restore it in the workspace first.')
++      : requestError === 'missing'
++        ? (zh ? '未找到指定的剪辑会话，不会切换到其他对话。' : 'The requested editing conversation was not found. No other conversation was selected.')
++        : requestError === 'unavailable'
++          ? (zh ? '暂时无法读取指定会话的历史。' : 'The history of the requested conversation is temporarily unavailable.')
++          : (zh ? '正在接回指定的剪辑会话…' : 'Opening the requested editing conversation…');
++    return (
++      <aside className="flex min-h-0 flex-1 items-center justify-center bg-[var(--bg-panel)] p-4" data-no996-editing-request={requestError || 'loading'}>
++        <div role="status" className="flex flex-col items-center gap-3 text-center text-[13px] text-[var(--text)]">
++          {!requestError && <Loader2 size={16} className="animate-spin text-[var(--text-faint)]" />}
++          <span>{text}</span>
++          {requestError && <button type="button" className="rounded-md border border-[var(--border)] px-3 py-1.5" onClick={() => { setRequestError(null); retryRequest(); }}>
++            {zh ? '重试读取历史' : 'Retry reading history'}
++          </button>}
++        </div>
++      </aside>
++    );
++  }
++
    return (
      <ChatProjectContext.Provider value={projectKey}>
 +      {pageDropping ? (
@@ -553,7 +647,7 @@ index 26575ee..d2be15f 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1565,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1613,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}
@@ -3439,10 +3533,10 @@ index 48d05f4..e635d5b 100644
      /* The agent's question settled (answered / skipped / timed out): write it back to its row, so the conversation
         reads "asked what · answered what". The question's id is not the tool call's callId, so match the latest
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..ea044c3 100644
+index 9134f7a..f873efb 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
-@@ -82,12 +82,60 @@ async function readAgain(project: string): Promise<void> {
+@@ -82,12 +82,79 @@ async function readAgain(project: string): Promise<void> {
    joinKept(record(project), kept);
  }
  
@@ -3477,6 +3571,25 @@ index 9134f7a..ea044c3 100644
 +  chat.last = typeof kept?.last === 'string' && live.has(kept.last) ? kept.last : null;
 +  chat.turns = chat.turns.filter(entry => !removed.has(entry.turn.sessionId ?? ''));
 +  return true;
++}
++
++/** An explicit handoff must verify the exact target, even after the ordinary
++ * opening load timed out and created an empty cache. Never select `last` here. */
++export async function readRequestedConversation(project: string, id: string, sessionId: string, stillCurrent: () => boolean) {
++  const kept = await app.chat.load(project);
++  if (!stillCurrent() || readFor.get(project) !== id) return 'superseded';
++  const matches = (Array.isArray(kept?.sessions) ? kept.sessions : []).filter(entry =>
++    entry && typeof entry === 'object' && (entry as { id?: string }).id === sessionId) as ProjectSessionItem[];
++  if (matches.length !== 1) return 'missing';
++  const [selected] = matches;
++  if (!selected || selected.archived === true) return 'archived';
++  const chat = record(project);
++  const turns = (Array.isArray(kept?.turns) ? kept.turns : []) as SavedTurn[];
++  joinKept(chat, { sessions: [selected], turns: turns.filter(entry => entry?.turn?.sessionId === sessionId) });
++  chat.sessions = chat.sessions.map(row => row.id === sessionId ? selected : row);
++  // If the initial read failed, leave its read-before-write guard in place:
++  // only the target was merged here, not the complete project history.
++  return 'ready';
 +}
 +
  export const chatSessions = (project: string): ProjectSessionItem[] => record(project).sessions;
@@ -7796,6 +7909,512 @@ index bcb7089..ef3bc4d 100644
      </div>
    );
  }
+diff --git a/packages/openfilm/studio/ui/src/components/Launcher.tsx b/packages/openfilm/studio/ui/src/components/Launcher.tsx
+index 4eb6817..f8c8d2d 100644
+--- a/packages/openfilm/studio/ui/src/components/Launcher.tsx
++++ b/packages/openfilm/studio/ui/src/components/Launcher.tsx
+@@ -5,6 +5,7 @@
+  * window buttons beside it: its logo opens the app menu, as a project's does.
+  */
+ import { AppMenu } from './AppMenu';
++import { WorkbenchAccountControls } from './WorkbenchAccount';
+ import { ProjectsPopover } from './ProjectsLibrary';
+ import { SettingsModal } from './settings/SettingsModal';
+ import { ProjectTabs } from './ProjectTabs';
+@@ -21,6 +22,7 @@ export function Launcher({ onOpen }: { onOpen: (projectId: string) => void }) {
+         <div aria-hidden className={tabStyles.windowSpace} style={{ width: 'var(--titlebar-logo-x)' }} />
+         <div className={tabStyles.system}><AppMenu onSettings={setSettings} /></div>
+         <ProjectTabs onProjects={() => {}} />
++        <WorkbenchAccountControls className="ml-auto" onSettings={setSettings} />
+       </div>
+       <ProjectsPopover open currentProjectId="" onOpen={onOpen} onCurrentRemoved={() => {}} />
+       <SettingsModal open={settings !== null} section={settings ?? undefined} onClose={() => setSettings(null)} />
+diff --git a/packages/openfilm/studio/ui/src/components/No996Brand.tsx b/packages/openfilm/studio/ui/src/components/No996Brand.tsx
+new file mode 100644
+index 0000000..952abea
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/No996Brand.tsx
+@@ -0,0 +1,245 @@
++import React from 'react';
++
++type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
++type Position = Corner | 'auto';
++type Display = 'logo' | 'logo-name';
++type Settings = { enabled: boolean; name: string; identity: string; placement: Position; logoBase64: string | null; configured?: boolean; display?: Display };
++type LogoChoice = 'default' | 'upload' | 'none';
++type ProjectBrand = { profileEnabled?: boolean; logoPlaced: boolean; brand: { name: string; placement: Corner; logo: string | null; display?: Display } | null };
++const field = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-2.5 py-1.5 text-sm text-[var(--text)]';
++const button = 'rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold hover:bg-[var(--bg-hover)] disabled:opacity-50';
++const isZh = () => document.documentElement.lang.toLowerCase().startsWith('zh');
++const corners: Array<[Corner, string, string]> = [
++  ['top-left', '左上', 'Top left'], ['top-right', '右上', 'Top right'],
++  ['bottom-left', '左下', 'Bottom left'], ['bottom-right', '右下', 'Bottom right'],
++];
++
++async function request<T>(channel: string, payload: unknown, signal?: AbortSignal): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', { method: 'POST', credentials: 'same-origin',
++    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, payload }), signal });
++  if (!response.ok) throw new Error('Brand settings unavailable');
++  return response.json();
++}
++
++function PositionOptions({ zh, auto }: { zh: boolean; auto?: boolean }) {
++  return <>{auto ? <option value="auto">{zh ? '自动安全区' : 'Automatic safe area'}</option> : null}
++    {corners.map(([value, cn, en]) => <option key={value} value={value}>{zh ? cn : en}</option>)}</>;
++}
++
++async function readLogo(file: File): Promise<string> {
++  const limit = 2 * 1024 * 1024;
++  if (!file.size || file.size > 20 * 1024 * 1024) throw new Error('Image size');
++  const signature = new Uint8Array(await file.slice(0, 12).arrayBuffer());
++  const png = [137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => signature[index] === byte);
++  const jpeg = signature[0] === 255 && signature[1] === 216 && signature[2] === 255;
++  const webp = String.fromCharCode(...signature.slice(0, 4)) === 'RIFF' && String.fromCharCode(...signature.slice(8)) === 'WEBP';
++  if (!png && !jpeg && !webp) throw new Error('Image format');
++  const image = await createImageBitmap(file);
++  try {
++    if (image.width * image.height > 40_000_000) throw new Error('Image dimensions');
++    const encode = (blob: Blob) => new Promise<string>((resolve, reject) => {
++      const reader = new FileReader();
++      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
++      reader.onerror = reader.onabort = reject;
++      reader.readAsDataURL(blob);
++    });
++    if (png && file.size <= limit && Math.max(image.width, image.height) <= 1600) return await encode(file);
++    const canvas = document.createElement('canvas');
++    for (const edge of [1600, 1200, 900, 640, 480]) {
++      const scale = Math.min(1, edge / Math.max(image.width, image.height));
++      canvas.width = Math.max(1, Math.round(image.width * scale));
++      canvas.height = Math.max(1, Math.round(image.height * scale));
++      const context = canvas.getContext('2d');
++      if (!context) throw new Error('Image conversion unavailable');
++      context.drawImage(image, 0, 0, canvas.width, canvas.height);
++      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
++      if (blob && blob.size <= limit) return await encode(blob);
++    }
++    throw new Error('Normalized image size');
++  } finally { image.close(); }
++}
++
++const setupChanged = 'no996:brand-setup-changed';
++export function No996BrandSetupHint() {
++  const zh = isZh();
++  const [show, setShow] = React.useState(false);
++  const [busy, setBusy] = React.useState(false);
++  const [error, setError] = React.useState(false);
++  React.useEffect(() => {
++    const task = new AbortController();
++    const done = () => { task.abort(); setShow(false); };
++    window.addEventListener(setupChanged, done);
++    void request<{ configured: boolean }>('brand:setup-status', {}, task.signal).then(result => {
++      if (!task.signal.aborted) setShow(!result.configured);
++    }).catch(() => {});
++    return () => { task.abort(); window.removeEventListener(setupChanged, done); };
++  }, []);
++  if (!show) return null;
++  return <aside aria-label={zh ? '开工提示' : 'Getting started'} className="mx-5 my-2 flex shrink-0 flex-wrap items-center gap-3 rounded-md border border-[var(--border)] px-3 py-2 text-sm">
++    <span className="font-medium">{zh ? '添加你的品牌 Logo' : 'Add your brand logo'}</span>
++    <span className="min-w-0 flex-1 text-xs text-[var(--text-muted)]">{error ? (zh ? '暂时无法保存，请重试。' : 'Could not save. Try again.') : (zh ? '先预览，再决定放不放进影片。' : 'Preview it before using it in a film.')}</span>
++    <button type="button" className={button} onClick={() => window.dispatchEvent(new CustomEvent('no996:navigate-settings', { detail: { section: 'assets' } }))}>{zh ? '去配置' : 'Set up brand'}</button>
++    <button type="button" className={button} disabled={busy} onClick={() => { setBusy(true); setError(false); void request('brand:setup-dismiss', {}).then(() => window.dispatchEvent(new Event(setupChanged)), () => setError(true)).finally(() => setBusy(false)); }}>{zh ? '暂不设置' : 'Skip for now'}</button>
++  </aside>;
++}
++
++export function No996BrandSettings({ projectId }: { projectId?: string } = {}) {
++  const zh = isZh();
++  const [settings, setSettings] = React.useState<Settings>();
++  const [defaultLogo, setDefaultLogo] = React.useState('');
++  const [choice, setChoice] = React.useState<LogoChoice>('default');
++  const [displayChoice, setDisplayChoice] = React.useState<'auto' | Display>('auto');
++  const [portrait, setPortrait] = React.useState(false);
++  const [dark, setDark] = React.useState(true);
++  const [dragging, setDragging] = React.useState(false);
++  const [retry, setRetry] = React.useState(0);
++  const [savedRevision, setSavedRevision] = React.useState(0);
++  const [busy, setBusy] = React.useState(false);
++  const [notice, setNotice] = React.useState('');
++  React.useEffect(() => {
++    const task = new AbortController();
++    void request<{ settings: Settings; defaultLogoBase64: string }>('brand:settings-get', {}, task.signal).then(({ settings: saved, defaultLogoBase64 }) => {
++      if (task.signal.aborted) return;
++      setDefaultLogo(defaultLogoBase64);
++      setSettings(saved.configured ? saved : { ...saved, enabled: true });
++      setChoice(!saved.configured || saved.logoBase64 === defaultLogoBase64 ? 'default' : saved.logoBase64 ? 'upload' : 'none');
++      setDisplayChoice(saved.configured && saved.name.trim() ? saved.display ?? 'logo-name' : 'auto');
++    }).catch(() => { if (!task.signal.aborted) setNotice(zh ? '无法读取品牌设置，请重试。' : 'Brand settings could not be loaded. Try again.'); });
++    return () => task.abort();
++  }, [zh, retry]);
++  const update = (patch: Partial<Settings>) => { setNotice(''); setSettings(previous => previous ? { ...previous, ...patch } : previous); };
++  async function choose(file: File | undefined) {
++    if (!file || busy) return;
++    setBusy(true);
++    try {
++      const bytes = await readLogo(file);
++      if (!bytes.startsWith('iVBORw0KGgo')) throw new Error('Not a PNG');
++      update({ logoBase64: bytes });
++      setChoice('upload');
++    }
++    catch { setNotice(zh ? '请使用 20 MB 以内、可正常打开的 PNG、JPG 或 WebP。' : 'Choose a valid PNG, JPEG or WebP up to 20 MiB.'); }
++    finally { setBusy(false); }
++  }
++  async function save(skip = false) {
++    if (busy || !settings || (!skip && choice === 'upload' && (!settings.logoBase64 || settings.logoBase64 === defaultLogo))) return;
++    setBusy(true);
++    try {
++      const result = await request<{ settings: Settings }>('brand:settings-save', {
++        enabled: !skip && settings.enabled, name: skip ? '' : settings.name, identity: skip ? '' : settings.identity,
++        placement: skip ? 'auto' : settings.placement,
++        ...(skip ? {} : { display: displayChoice === 'auto' ? (settings.name.trim() ? 'logo-name' : 'logo') : displayChoice }),
++        logoBase64: !skip && choice === 'upload' ? settings.logoBase64 : null, useDefaultLogo: !skip && choice === 'default',
++      });
++      setSettings(result.settings);
++      setSavedRevision(value => value + 1);
++      window.dispatchEvent(new Event(setupChanged));
++      if (skip) setChoice('none');
++      setNotice(skip ? (zh ? '已跳过，随时可回来配置。' : 'Skipped. You can set up your brand here any time.')
++        : (zh ? '品牌默认值已保存，不会改动已有影片。' : 'Brand defaults saved. Existing films are unchanged.'));
++    } catch { setNotice(zh ? '品牌设置未保存，请重试。若仍失败，请查看诊断日志。' : 'Brand settings were not saved. Try again or check diagnostics.'); }
++    finally { setBusy(false); }
++  }
++  if (!settings) return <div className="flex items-center gap-2 py-2"><p role="status" className="text-xs text-[var(--text-muted)]">{notice || (zh ? '正在读取品牌设置…' : 'Loading brand settings…')}</p>{notice ? <button type="button" className={button} onClick={() => { setNotice(''); setRetry(value => value + 1); }}>{zh ? '重试' : 'Retry'}</button> : null}</div>;
++  const uploaded = settings.logoBase64 && settings.logoBase64 !== defaultLogo ? settings.logoBase64 : null;
++  const preview = choice === 'default' ? defaultLogo : choice === 'upload' ? uploaded : null;
++  const display = displayChoice === 'auto' ? (settings.name.trim() ? 'logo-name' : 'logo') : displayChoice;
++  const corner = settings.placement === 'auto' ? (portrait ? 'top-left' : 'bottom-right') : settings.placement;
++  const toggle = (cn: string, en: string, active: boolean, change: () => void) => <button type="button" aria-pressed={active} onClick={change} className={`${button} ${active ? 'bg-[var(--bg-hover)] text-[var(--text)]' : 'text-[var(--text-muted)]'}`}>{zh ? cn : en}</button>;
++  return <><form aria-label={zh ? '品牌默认值' : 'Brand defaults'} onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-5 pb-5 text-sm">
++    <header><h3 className="text-lg font-semibold tracking-tight">{zh ? '品牌' : 'Brand'}</h3><p className="mt-1 text-sm text-[var(--text-muted)]">{zh ? '保存在本机。只在你选择「用于本片」时应用。' : 'Saved on this device. Only applied when you choose “Use for this film”.'}</p></header>
++    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,255px),1fr))] items-start gap-x-7 gap-y-5">
++      <section aria-label={zh ? '品牌素材' : 'Brand assets'} className="min-w-0 space-y-4">
++        <label className="block space-y-1"><span className="font-medium">{zh ? '品牌／创作者名称' : 'Brand or creator name'}</span><input className={field} maxLength={80} disabled={busy} value={settings.name} onChange={event => update({ name: event.target.value })} /></label>
++        <div className={`rounded-lg border border-dashed p-3 ${dragging ? 'border-[var(--accent)] bg-[var(--bg-hover)]' : 'border-[var(--border-strong)]'}`} onDragOver={event => { if (!event.dataTransfer.types.includes('Files')) return; event.preventDefault(); event.stopPropagation(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { if (!event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); setDragging(false); void choose(event.dataTransfer.files[0]); }}>
++          <label className={`${button} inline-flex cursor-pointer focus-within:outline focus-within:outline-2`}><span>{zh ? '上传或拖入 Logo' : 'Upload or drop a logo'}</span><input type="file" className="sr-only" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" disabled={busy} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ''; }} /></label>
++          <p className="mt-2 text-xs text-[var(--text-muted)]">{zh ? 'PNG、JPG、WebP，最大 20 MB。保持比例，在本机压缩。' : 'PNG, JPEG or WebP, up to 20 MiB. Keeps proportions and compresses locally.'}</p>
++        </div>
++        <label className="block space-y-1"><span>{zh ? 'Logo 来源' : 'Logo source'}</span><select className={field} value={choice} disabled={busy} onChange={event => { setNotice(''); setChoice(event.target.value as LogoChoice); }}><option value="default">{zh ? '不加班工作台默认图标' : 'Default No996 logo'}</option><option value="upload">{zh ? '我的 Logo' : 'My upload'}</option><option value="none">{zh ? '不使用 Logo' : 'No logo'}</option></select></label>
++        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={zh ? '展示方式' : 'Display mode'}>
++          {toggle('Logo＋名称', 'Logo + name', display === 'logo-name', () => setDisplayChoice('logo-name'))}
++          {toggle('单 Logo', 'Logo only', display === 'logo', () => setDisplayChoice('logo'))}
++        </div>
++        <details className="border-t border-[var(--border)] pt-2"><summary className="cursor-pointer text-xs text-[var(--text-muted)]">{zh ? '更多选项' : 'More options'}</summary><div className="mt-3 space-y-3">
++          <label className="block space-y-1"><span>{zh ? '写作身份（不显示在影片里）' : 'Writing identity (not shown in the film)'}</span><textarea className={field} maxLength={600} rows={2} disabled={busy} value={settings.identity} onChange={event => update({ identity: event.target.value })} /></label>
++          <label className="flex items-center gap-2"><input type="checkbox" checked={settings.enabled} disabled={busy} onChange={event => update({ enabled: event.target.checked })} />{zh ? '启用品牌默认值' : 'Enable brand defaults'}</label>
++        </div></details>
++      </section>
++      <section aria-label={zh ? '影片实时预览' : 'Live film preview'} className="min-w-0 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-field)] p-3">
++        <h4 className="font-semibold">{zh ? '影片预览' : 'Film preview'}</h4>
++        <div className="flex flex-wrap gap-1">{toggle('横屏', 'Landscape', !portrait, () => setPortrait(false))}{toggle('竖屏', 'Portrait', portrait, () => setPortrait(true))}{toggle('深底', 'Dark', dark, () => setDark(true))}{toggle('浅底', 'Light', !dark, () => setDark(false))}</div>
++        <div data-brand-preview={portrait ? '9:16' : '16:9'} className="relative mx-auto w-full overflow-hidden rounded-md" style={{ aspectRatio: portrait ? '9 / 16' : '16 / 9', maxWidth: portrait ? '168px' : undefined, containerType: 'inline-size', background: dark ? '#182333' : '#e7e8eb' }}>
++          <div aria-hidden className={`absolute rounded-sm border border-dashed ${dark ? 'border-white/25' : 'border-black/25'}`} style={{ inset: '7.2%' }} />
++          <div data-brand-corner={corner} className="absolute flex max-w-[72%] items-center gap-[1.6cqw] rounded-sm" style={{ [corner.startsWith('bottom') ? 'bottom' : 'top']: '7.2%', [corner.endsWith('right') ? 'right' : 'left']: '7.2%', color: dark ? '#fff' : '#19202a' }}>
++            {preview ? <img src={`data:image/png;base64,${preview}`} alt={zh ? 'Logo 预览' : 'Logo preview'} className="block h-auto w-auto max-w-[26cqw] shrink-0 object-contain" style={{ maxHeight: display === 'logo-name' ? '7cqw' : '9.5cqw' }} /> : null}
++            {display === 'logo-name' && settings.name.trim() ? <span className="min-w-0 font-semibold" style={{ fontSize: '4.1cqw', lineHeight: 1.16, overflowWrap: 'break-word', wordBreak: 'keep-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{settings.name.trim()}</span> : null}
++          </div>
++        </div>
++        <label className="block space-y-1"><span>{zh ? '默认位置' : 'Default position'}</span><select className={field} value={settings.placement} disabled={busy} onChange={event => update({ placement: event.target.value as Position })}><PositionOptions zh={zh} auto /></select></label>
++        <p className="text-xs text-[var(--text-muted)]">{settings.placement === 'auto' ? (zh ? '虚线标示安全区。预览显示默认角位。' : 'The dotted line marks the safe area. Preview shows the fallback corner.') : (zh ? '影片应用品牌时，优先使用你选定的角位。' : 'Films use the corner you selected.')}</p>
++      </section>
++    </div>
++    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-3"><p role="status" className="mr-auto text-xs text-[var(--text-muted)]">{notice}</p><button type="submit" className={`${button} bg-[var(--bg-hover)]`} disabled={busy || (choice === 'upload' && !uploaded)}>{zh ? '保存品牌' : 'Save brand'}</button></div>
++  </form>{projectId && settings.configured ? <section className="border-t border-[var(--border)] pb-4 pt-4"><ProjectBrandSettings key={projectId} projectId={projectId} savedRevision={savedRevision} /></section> : null}</>;
++}
++
++function ProjectBrandSettings({ projectId, savedRevision }: { projectId: string; savedRevision: number }) {
++  const zh = isZh();
++  const [open, setOpen] = React.useState(false);
++  const [view, setView] = React.useState<ProjectBrand>();
++  const [notice, setNotice] = React.useState('');
++  const [busy, setBusy] = React.useState(false);
++  const panelId = React.useId();
++  React.useEffect(() => {
++    if (!open) return;
++    const task = new AbortController();
++    void request<ProjectBrand>('brand:project-get', { projectId }, task.signal).then(value => {
++      if (!task.signal.aborted) setView(value);
++    }).catch(() => { if (!task.signal.aborted) setNotice(zh ? '无法读取本片品牌。' : 'Project brand could not be loaded.'); });
++    return () => task.abort();
++  }, [open, projectId, savedRevision, zh]);
++
++  async function apply(mode: 'snapshot' | 'off' | 'placement', placement?: Corner) {
++    if (busy) return;
++    setBusy(true); setNotice('');
++    try {
++      const next = await request<ProjectBrand>('brand:project-set', { projectId, mode, ...(placement ? { placement } : {}) });
++      setView(previous => ({ ...next, profileEnabled: previous?.profileEnabled }));
++      setNotice(zh ? '本片品牌设置已保存。' : 'Project brand settings saved.');
++    } catch { setNotice(zh ? '无法保存本片品牌，请确认项目已保存。' : 'Could not save the project brand. Check that the film is saved.'); }
++    finally { setBusy(false); }
++  }
++  async function editLogo(action: 'apply' | 'remove') {
++    if (busy) return;
++    setBusy(true); setNotice('');
++    try {
++      const result = await request<{ logoPlaced: boolean; errorCode?: string }>('brand:project-logo', { projectId, action });
++      if (result.errorCode) throw new Error(result.errorCode);
++      setView(previous => previous ? { ...previous, logoPlaced: result.logoPlaced } : previous);
++      setNotice(action === 'apply' ? (zh ? 'Logo 已放入时间轴，可独立编辑。' : 'Logo is on the timeline. You can edit it separately.') : (zh ? '已从时间轴移除 Logo。' : 'Logo removed from the timeline.'));
++    } catch (error) {
++      const message = error instanceof Error ? error.message : '';
++      setNotice(message === 'BRAND_LOGO_NEEDS_PICTURE' ? (zh ? '请先在时间轴上放一个有时长的画面。' : 'Add a visual clip with a known duration first.')
++        : message === 'BRAND_LOGO_LOCKED' ? (zh ? 'Logo 轨道已锁定，解锁后再试。' : 'Unlock the logo track and try again.')
++        : (zh ? '没有改动时间轴。请保存当前剪辑后重试。' : 'Timeline unchanged. Save the current edit and try again.'));
++    } finally { setBusy(false); }
++  }
++  return <div className="py-2">
++    <button type="button" className={button} aria-expanded={open} aria-controls={panelId}
++      onClick={() => { setOpen(!open); setNotice(''); }}>{zh ? '管理本片品牌' : 'Manage this film’s brand'}</button>
++    {open ? <section id={panelId} aria-label={zh ? '本片品牌' : 'Project brand'} className="mt-2 space-y-2 overflow-y-auto text-sm">
++      <p className="text-xs text-[var(--text-muted)]">{view?.brand ? (view.brand.name || (zh ? '本片使用品牌' : 'Brand enabled for this film')) : (zh ? '未给这部影片应用品牌。' : 'No brand applied to this film.')}</p>
++      <div className="flex flex-wrap items-center gap-2">
++        {view?.profileEnabled ? <button type="button" className={button} disabled={busy} onClick={() => void apply('snapshot')}>{view.brand ? (zh ? '更新本片品牌' : 'Update project brand') : (zh ? '用于本片' : 'Use for this film')}</button> : null}
++        {view?.brand ? <button type="button" className={button} disabled={busy} onClick={() => void apply('off')}>{zh ? '停用本片品牌记忆' : 'Disable brand memory for this film'}</button> : null}
++      </div>
++      {view?.brand ? <label className="flex items-center gap-2 text-xs"><span>{zh ? '本片 Logo 位置' : 'Project logo position'}</span>
++        <select className="rounded border border-[var(--border)] bg-[var(--bg-field)] px-2 py-1" value={view.brand.placement} disabled={busy} onChange={event => void apply('placement', event.target.value as Corner)}><PositionOptions zh={zh} /></select>
++      </label> : null}
++      {view?.brand?.logo || (view?.brand?.display === 'logo-name' && view.brand.name) || view?.logoPlaced ? <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-2">
++        {view.brand?.logo || (view.brand?.display === 'logo-name' && view.brand.name) ? <button type="button" className={button} disabled={busy} onClick={() => void editLogo('apply')}>{view.logoPlaced ? (zh ? '更新影片中的 Logo' : 'Update logo on timeline') : (zh ? '把 Logo 放入影片' : 'Place logo on timeline')}</button> : null}
++        {view.logoPlaced ? <button type="button" className={button} disabled={busy} onClick={() => void editLogo('remove')}>{zh ? '从影片移除 Logo' : 'Remove logo from timeline'}</button> : null}
++      </div> : null}
++      {notice ? <p role="status" className="text-xs text-[var(--text-muted)]">{notice}</p> : null}
++    </section> : null}
++  </div>;
++}
+diff --git a/packages/openfilm/studio/ui/src/components/No996TemplateLibrary.tsx b/packages/openfilm/studio/ui/src/components/No996TemplateLibrary.tsx
+new file mode 100644
+index 0000000..e814360
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/No996TemplateLibrary.tsx
+@@ -0,0 +1,85 @@
++import React from 'react';
++import { Download, FolderOpen, RefreshCw, Trash2, Upload } from 'lucide-react';
++
++type LocalTemplate = { id: string; title: string; description: string; canvas: { w: number; h: number; ratio: string }; scenes: number; assets: number; hasBgm: boolean; hasBrand: boolean };
++type Market = { url: string; refreshedAt: string; items: Array<{ id: string; title: string; description: string; url: string; sha256: string }> };
++const button = 'rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium hover:bg-[var(--bg-hover)] disabled:opacity-50';
++const field = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-2.5 py-1.5 text-sm text-[var(--text)]';
++const chinese = () => document.documentElement.lang.toLowerCase().startsWith('zh');
++
++async function rpc<T>(channel: string, payload: unknown = {}): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, payload }) });
++  if (!response.ok) throw new Error((await response.text()).split(':')[0] || 'Request failed');
++  return response.json();
++}
++const readFile = file => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? ''); reader.onerror = reader.onabort = reject; reader.readAsDataURL(file); });
++
++export function No996TemplateLibrary({ onCreate }: { onCreate: (projectId: string) => void }) {
++  const zh = chinese();
++  const [open, setOpen] = React.useState(false);
++  const [templates, setTemplates] = React.useState<LocalTemplate[]>([]);
++  const [market, setMarket] = React.useState<Market>();
++  const [url, setUrl] = React.useState('');
++  const [busy, setBusy] = React.useState('');
++  const [notice, setNotice] = React.useState('');
++  const [share, setShare] = React.useState<LocalTemplate>();
++  const [includeBrand, setIncludeBrand] = React.useState(false);
++  const [includeBgm, setIncludeBgm] = React.useState(false);
++  const refresh = React.useCallback(async () => {
++    setBusy('list');
++    try { setTemplates((await rpc<{ templates: LocalTemplate[] }>('template:local-list')).templates); }
++    catch { setNotice(zh ? '无法读取本地模板库。' : 'Could not read the local template library.'); }
++    finally { setBusy(''); }
++  }, [zh]);
++  React.useEffect(() => { if (open) void refresh(); }, [open, refresh]);
++  async function action(id: string, task: () => Promise<unknown>) {
++    if (busy) return;
++    setBusy(id); setNotice('');
++    try { await task(); }
++    catch (failure) {
++      const code = failure instanceof Error ? failure.message : '';
++      setNotice(code === 'RECIPE_EXPORT_TOO_LARGE' ? (zh ? '分享包超过 6 MB。请关闭私人配乐或减少资源。' : 'The share ZIP exceeds 6 MiB. Omit private music or reduce assets.')
++        : code === 'RECIPE_MARKET_HASH' ? (zh ? '市场包校验失败，没有安装。' : 'Market package hash mismatch; nothing was installed.')
++        : (zh ? '操作失败。请检查文件、地址或网络后重试。' : 'Action failed. Check the file, address or network and try again.'));
++    } finally { setBusy(''); }
++  }
++  async function importFile(file?: File) {
++    if (!file) return;
++    if (file.size > 6 * 1024 * 1024) { setNotice(zh ? '导入包不能超过 6 MB。' : 'Import ZIP must be at most 6 MiB.'); return; }
++    await action('import', async () => { await rpc('template:local-import', { zipBase64: await readFile(file) }); await refresh(); });
++  }
++  async function exportTemplate() {
++    if (!share) return;
++    await action(`export-${share.id}`, async () => {
++      const result = await rpc<{ zipBase64: string; fileName: string }>('template:local-export', { id: share.id, includeBrand, includeBgm });
++      const bytes = Uint8Array.from(atob(result.zipBase64), value => value.charCodeAt(0));
++      const link = document.createElement('a');
++      link.href = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }));
++      link.download = result.fileName;
++      link.click();
++      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
++      setShare(undefined);
++    });
++  }
++  async function loadMarket() {
++    await action('market-get', async () => { const result = await rpc<{ market: Market }>('template:market-get'); setMarket(result.market); setUrl(result.market.url); });
++  }
++  return <section className="mt-4 border-t border-[var(--border)] pt-4" aria-label={zh ? '本地模板库' : 'Local template library'}>
++    <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); if (!open) void loadMarket(); }} className="flex w-full items-center justify-between text-left text-sm font-semibold"><span>{zh ? '本地模板与分享' : 'Local templates & sharing'}</span><span className="text-xs text-[var(--text-muted)]">{open ? '−' : '+'}</span></button>
++    {open ? <div className="mt-3 space-y-3">
++      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '本地模板只含配方与必要资源，不是项目副本。导入只接受数据配方；分享默认移除私人品牌和配乐。' : 'Local templates contain recipes and required assets, not project copies. Imports accept data recipes only; sharing omits private brand and music by default.'}</p>
++      <div className="flex flex-wrap gap-2"><label className={`${button} inline-flex cursor-pointer items-center gap-1`}><Upload size={13} />{zh ? '导入配方 ZIP' : 'Import recipe ZIP'}<input className="hidden" type="file" accept=".zip,application/zip" disabled={Boolean(busy)} onChange={event => { void importFile(event.target.files?.[0]); event.target.value = ''; }} /></label><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void refresh()}><RefreshCw size={13} />{zh ? '刷新本地库' : 'Refresh library'}</button></div>
++      {notice ? <p role="status" className="text-xs text-[var(--text-muted)]">{notice}</p> : null}
++      <div className="space-y-2">{templates.map(item => <article key={item.id} className="rounded-md border border-[var(--border)] p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="truncate text-sm font-semibold">{item.title}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">{item.canvas.w} × {item.canvas.h} · {item.scenes} {zh ? '镜' : 'scenes'} · {item.assets} {zh ? '资源' : 'assets'}</p></div><button type="button" aria-label={zh ? `删除 ${item.title}` : `Delete ${item.title}`} disabled={Boolean(busy)} onClick={() => void action(`delete-${item.id}`, async () => { await rpc('template:local-delete', { id: item.id }); await refresh(); })}><Trash2 size={14} /></button></div>
++        {item.description ? <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{item.description}</p> : null}
++        <div className="mt-2 flex flex-wrap gap-2"><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void action(`create-${item.id}`, async () => { const result = await rpc<{ projectId: string }>('template:local-create', { id: item.id, ratio: item.canvas.ratio }); onCreate(result.projectId); })}><FolderOpen size={13} />{zh ? '用此配方创建' : 'Create from recipe'}</button><button type="button" className={button} disabled={Boolean(busy)} onClick={() => { setShare(item); setIncludeBrand(false); setIncludeBgm(false); }}><Download size={13} />{zh ? '导出分享 ZIP' : 'Export share ZIP'}</button></div>
++      </article>)}</div>
++      {share ? <div className="space-y-2 rounded-md bg-[var(--bg-field)] p-3 text-xs"><p className="font-medium">{zh ? `分享「${share.title}」` : `Share “${share.title}”`}</p><label className="flex gap-2"><input type="checkbox" disabled={!share.hasBrand} checked={includeBrand} onChange={event => setIncludeBrand(event.target.checked)} />{zh ? '包含本片品牌与 Logo（确认可分发）' : 'Include project brand and logo (confirm redistribution rights)'}</label><label className="flex gap-2"><input type="checkbox" disabled={!share.hasBgm} checked={includeBgm} onChange={event => setIncludeBgm(event.target.checked)} />{zh ? '包含配乐与拍点（确认可分发）' : 'Include music and beats (confirm redistribution rights)'}</label><div className="flex gap-2"><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void exportTemplate()}>{zh ? '下载 ZIP' : 'Download ZIP'}</button><button type="button" className={button} onClick={() => setShare(undefined)}>{zh ? '取消' : 'Cancel'}</button></div></div> : null}
++      <details className="rounded-md border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-medium">{zh ? '模板市场（可选）' : 'Template market (optional)'}</summary><div className="mt-3 space-y-2"><p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '地址留空即关闭。刷新只下载索引；安装时校验 SHA-256，且只读取配方数据，不执行 HTML/JS。' : 'Leave blank to disable. Refresh downloads only the index; install verifies SHA-256 and reads recipe data without executing HTML/JS.'}</p><input className={field} value={url} onChange={event => setUrl(event.target.value)} placeholder="https://example.test/no996-index.json" inputMode="url" /><div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void action('market-set', async () => { const result = await rpc<{ market: Market }>('template:market-set', { url: url.trim() }); setMarket(result.market); })}>{zh ? '保存地址' : 'Save address'}</button><button type="button" className={button} disabled={Boolean(busy) || !market?.url} onClick={() => void action('market-refresh', async () => { const result = await rpc<{ market: Market }>('template:market-refresh'); setMarket(result.market); })}>{zh ? '刷新索引' : 'Refresh index'}</button></div>
++        {market?.refreshedAt ? <p className="text-xs text-[var(--text-muted)]">{zh ? '最近刷新' : 'Last refreshed'}: {new Date(market.refreshedAt).toLocaleString()}</p> : null}
++        {market?.items.map(item => <div key={item.id} className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs"><div className="min-w-0"><b className="block truncate">{item.title}</b><span className="text-[var(--text-muted)]">{item.description}</span></div><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void action(`market-${item.id}`, async () => { await rpc('template:market-install', { id: item.id }); await refresh(); })}>{zh ? '安装到本地' : 'Install locally'}</button></div>)}
++      </div></details>
++      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '教程：项目标题菜单 → 另存为本地模板 → 选镜头 → 保存；需要给别人时，再单独导出分享 ZIP。' : 'Tutorial: Project title menu → Save as local template → choose scenes → save. Export a separate share ZIP when needed.'}</p>
++    </div> : null}
++  </section>;
++}
+diff --git a/packages/openfilm/studio/ui/src/components/No996TemplateRecipe.tsx b/packages/openfilm/studio/ui/src/components/No996TemplateRecipe.tsx
+new file mode 100644
+index 0000000..8e49dc5
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/No996TemplateRecipe.tsx
+@@ -0,0 +1,83 @@
++import React from 'react';
++import { createPortal } from 'react-dom';
++import { Check, X } from 'lucide-react';
++
++type Clip = { id: string; title: string; kind: string; duration: number };
++type Preview = { projectId: string; previewToken: string; canvas: { w: number; h: number }; clips: Clip[]; brand: { name: string; placement: string; hasLogo: boolean } | null };
++const zh = () => document.documentElement.lang.toLowerCase().startsWith('zh');
++const button = 'rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--bg-hover)] disabled:opacity-50';
++const field = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-2.5 py-1.5 text-sm text-[var(--text)]';
++
++async function rpc<T>(channel: string, payload: unknown): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, payload }) });
++  if (!response.ok) throw new Error((await response.text()).split(':')[0] || 'Request failed');
++  return response.json();
++}
++
++export function No996TemplateRecipe({ projectId, projectName, onClose, onSaved }: { projectId: string; projectName: string; onClose: () => void; onSaved?: (id: string) => void }) {
++  const chinese = zh();
++  const [preview, setPreview] = React.useState<Preview>();
++  const [selected, setSelected] = React.useState<Set<string>>(new Set());
++  const [title, setTitle] = React.useState(`${projectName} · 模板`);
++  const [description, setDescription] = React.useState('');
++  const [includeBrand, setIncludeBrand] = React.useState(true);
++  const [bgmClipId, setBgmClipId] = React.useState('');
++  const [busy, setBusy] = React.useState(false);
++  const [error, setError] = React.useState('');
++  const [savedId, setSavedId] = React.useState('');
++  const titleId = React.useId();
++  React.useEffect(() => {
++    let live = true;
++    void rpc<Preview>('template:recipe-preview', { projectId }).then(value => {
++      if (!live) return;
++      setPreview(value);
++      setSelected(new Set(value.clips.filter(clip => clip.kind === 'page').map(clip => clip.id)));
++      setIncludeBrand(Boolean(value.brand));
++    }).catch(() => { if (live) setError(chinese ? '无法读取已保存影片。请先保存剪辑，再重试。' : 'Could not read the saved film. Save the edit and try again.'); });
++    return () => { live = false; };
++  }, [projectId, chinese]);
++  const pages = preview?.clips.filter(clip => clip.kind === 'page') ?? [];
++  const audio = preview?.clips.filter(clip => clip.kind === 'sound') ?? [];
++  async function save(event: React.FormEvent) {
++    event.preventDefault();
++    if (busy || !preview || !selected.size) return;
++    setBusy(true); setError('');
++    try {
++      const result = await rpc<{ id: string }>('template:recipe-save', { projectId, previewToken: preview.previewToken, selected: [...selected], title, description,
++        includeBrand, bgmClipId: bgmClipId || undefined });
++      setSavedId(result.id);
++      onSaved?.(result.id);
++    } catch (failure) {
++      const code = failure instanceof Error ? failure.message : '';
++      setError(code === 'RECIPE_PREVIEW_STALE'
++        ? (chinese ? '影片已变化，请关闭后重新打开预览。' : 'The film changed. Close this dialog and preview again.')
++        : code === 'RECIPE_KIND'
++          ? (chinese ? '选中了 Canvas 或非网页镜头。请先转换成可编辑图层。' : 'A selected scene is Canvas or not a web page. Convert it to editable layers first.')
++          : (chinese ? '保存失败。没有复制整个项目；请检查所选镜头和资源。' : 'Could not save. No project copy was made; check the selected scenes and assets.'));
++    } finally { setBusy(false); }
++  }
++  return createPortal(<div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-[10000] grid place-items-center bg-black/45 p-5" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
++    <section className="max-h-[88vh] w-[min(680px,95vw)] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-raised)] p-5 shadow-2xl">
++      <header className="mb-4 flex items-start justify-between gap-4"><div><h2 id={titleId} className="text-lg font-semibold">{chinese ? '另存为本地模板' : 'Save as local template'}</h2>
++        <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{chinese ? '只提取所选镜头结构、占位和直接需要的资源；不是项目副本或备份。' : 'Extracts selected scene structure, placeholders and direct assets only. This is not a project copy or backup.'}</p></div>
++        <button type="button" aria-label={chinese ? '关闭' : 'Close'} disabled={busy} onClick={onClose} className="rounded p-1 hover:bg-[var(--bg-hover)]"><X size={18} /></button></header>
++      {savedId ? <div role="status" className="space-y-3 py-6 text-center"><Check className="mx-auto text-[var(--accent)]" size={30} /><p className="font-medium">{chinese ? '本地模板已保存' : 'Local template saved'}</p><code className="text-xs text-[var(--text-muted)]">{savedId}</code><div><button type="button" className={button} onClick={onClose}>{chinese ? '完成' : 'Done'}</button></div></div>
++        : <form onSubmit={event => void save(event)} className="space-y-4">
++          {!preview ? <p role="status" className="text-sm text-[var(--text-muted)]">{error || (chinese ? '正在读取已保存影片…' : 'Reading the saved film…')}</p> : <>
++            <label className="block space-y-1 text-sm"><span>{chinese ? '模板名称' : 'Template name'}</span><input className={field} required maxLength={80} value={title} onChange={event => setTitle(event.target.value)} /></label>
++            <label className="block space-y-1 text-sm"><span>{chinese ? '说明（可选）' : 'Description (optional)'}</span><textarea className={field} rows={2} maxLength={400} value={description} onChange={event => setDescription(event.target.value)} /></label>
++            <fieldset className="space-y-2"><legend className="mb-1 text-sm font-medium">{chinese ? '选择可复用镜头' : 'Choose reusable scenes'}</legend>
++              <p className="text-xs text-[var(--text-muted)]">{chinese ? `已保存画幅 ${preview.canvas.w} × ${preview.canvas.h}；原口播文字会变成占位。` : `Saved canvas ${preview.canvas.w} × ${preview.canvas.h}; spoken copy becomes placeholders.`}</p>
++              <div className="max-h-44 space-y-1 overflow-y-auto rounded-md border border-[var(--border)] p-2">{pages.map(clip => <label key={clip.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.has(clip.id)} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(clip.id); else next.delete(clip.id); return next; })} /><span className="min-w-0 flex-1 truncate">{clip.title}</span><span className="text-xs text-[var(--text-muted)]">{clip.duration.toFixed(1)}s</span></label>)}</div>
++              {!pages.length ? <p className="text-xs text-[var(--text-muted)]">{chinese ? '没有可提取的网页镜头。' : 'No editable web-page scenes found.'}</p> : null}
++            </fieldset>
++            <label className="block space-y-1 text-sm"><span>{chinese ? '保留配乐与实测拍点' : 'Keep music and measured beats'}</span><select className={field} value={bgmClipId} onChange={event => setBgmClipId(event.target.value)}><option value="">{chinese ? '不保留配乐' : 'Do not keep music'}</option>{audio.map(clip => <option key={clip.id} value={clip.id}>{clip.title} · {clip.duration.toFixed(1)}s</option>)}</select></label>
++            {preview.brand ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeBrand} onChange={event => setIncludeBrand(event.target.checked)} />{chinese ? `保留本片品牌「${preview.brand.name}」与 Logo 位置` : `Keep this film’s brand “${preview.brand.name}” and logo placement`}</label> : null}
++            <div className="rounded-md bg-[var(--bg-field)] p-3 text-xs leading-relaxed text-[var(--text-muted)]">{chinese ? '不会保存：原视频、口播成稿、聊天/历史、缓存、渲染产物。分享 ZIP 是另一个动作，默认移除私人品牌和配乐。' : 'Not saved: source footage, final script, chat/history, caches or renders. Share ZIP is separate and omits private brand and music by default.'}</div>
++            {error ? <p role="alert" className="text-sm text-[var(--text)]">{error}</p> : null}
++          </>}
++          <footer className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={onClose}>{chinese ? '取消' : 'Cancel'}</button><button type="submit" className={button} disabled={busy || !preview || !selected.size || !title.trim()}>{busy ? (chinese ? '正在保存…' : 'Saving…') : (chinese ? '保存本地模板' : 'Save local template')}</button></footer>
++        </form>}
++    </section>
++  </div>, document.body);
++}
+diff --git a/packages/openfilm/studio/ui/src/components/No996WhatsNew.tsx b/packages/openfilm/studio/ui/src/components/No996WhatsNew.tsx
+new file mode 100644
+index 0000000..91f7201
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/No996WhatsNew.tsx
+@@ -0,0 +1,49 @@
++import React from 'react';
++import { createPortal } from 'react-dom';
++import { ArrowRight, Sparkles, X } from 'lucide-react';
++
++const COPY = {
++  zh: { title: '0.22.0 · 从一支片，到一套创作系统', intro: '这次把续聊、双比例模板、口播拆解和品牌记忆连成了一条流程。', notes: ['刷新或断线后，回到原对话和原影片，不重发。', '四套示例都有竖屏／横屏独立布局，文字和图解继续可改。', 'Vibe 支持口播分镜、配乐开关与实测卡点。', '项目标题菜单可把选中镜头存成本地模板；分享包默认不带私人品牌和配乐。'], done: '开始创作' },
++  en: { title: '0.22.0 · A complete creation flow', intro: 'Resume, dual-canvas templates, script planning and brand memory now work together.', notes: ['Refresh or reconnect returns to the exact conversation and film without resending.', 'All four templates have independent portrait and landscape layouts with editable text and diagrams.', 'Vibe adds script breakdown, music choices and measured beat accents.', 'Save selected scenes as local templates from the project title menu; share ZIPs omit private brand and music by default.'], done: 'Start creating' },
++};
++
++async function rpc<T>(channel: string, payload: unknown): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, payload }) });
++  if (!response.ok) throw new Error('Update introduction unavailable');
++  return response.json();
++}
++
++export function No996WhatsNew() {
++  const [version, setVersion] = React.useState('');
++  const [open, setOpen] = React.useState(false);
++  const [busy, setBusy] = React.useState(false);
++  const language = document.documentElement.lang.toLowerCase().startsWith('zh') ? 'zh' : 'en';
++  const copy = COPY[language];
++  React.useEffect(() => {
++    let live = true;
++    void Promise.all([rpc<{ version: string }>('client:version', {}), rpc<{ prefs: { no996UpdateVersion?: string } }>('prefs:get', {})]).then(([current, prefs]) => {
++      if (live && current.version && prefs.prefs.no996UpdateVersion !== current.version) { setVersion(current.version); setOpen(true); }
++    }).catch(() => { /* An update intro must never block the editor. */ });
++    return () => { live = false; };
++  }, []);
++  const close = React.useCallback(async () => {
++    if (busy || !version) return;
++    setBusy(true);
++    try { await rpc('prefs:set', { no996UpdateVersion: version }); setOpen(false); }
++    catch { setBusy(false); }
++  }, [busy, version]);
++  React.useEffect(() => {
++    if (!open) return undefined;
++    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); void close(); } };
++    window.addEventListener('keydown', key, true);
++    return () => window.removeEventListener('keydown', key, true);
++  }, [open, close]);
++  if (!open) return null;
++  return createPortal(<div className="fixed inset-0 z-[10200] grid place-items-center bg-black/50 p-5 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="no996-update-title">
++    <section className="max-h-[90vh] w-[min(620px,95vw)] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-raised)] p-6 shadow-2xl">
++      <header className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-xs font-semibold text-[var(--text-muted)]"><Sparkles size={14} />No996 Editor {version}</p><h2 id="no996-update-title" className="mt-2 text-xl font-semibold">{copy.title}</h2><p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">{copy.intro}</p></div><button type="button" aria-label={language === 'zh' ? '关闭更新介绍' : 'Close update introduction'} disabled={busy} onClick={() => void close()} className="rounded p-1 hover:bg-[var(--bg-hover)]"><X size={18} /></button></header>
++      <ul className="my-5 space-y-3">{copy.notes.map(note => <li key={note} className="flex gap-3 text-sm leading-relaxed"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />{note}</li>)}</ul>
++      <button type="button" disabled={busy} onClick={() => void close()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--text)] disabled:opacity-50">{busy ? (language === 'zh' ? '正在保存…' : 'Saving…') : copy.done}<ArrowRight size={15} /></button>
++    </section>
++  </div>, document.body);
++}
 diff --git a/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx b/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx
 index bd3b623..7919a9c 100644
 --- a/packages/openfilm/studio/ui/src/components/PluginsWindow.tsx
@@ -7860,6 +8479,69 @@ index bd3b623..7919a9c 100644
          </>
        )}>
        <PluginsPane line={line} query={query} projectId={projectId} opened={page} onOpen={showPluginsPage}
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectCard.tsx b/packages/openfilm/studio/ui/src/components/ProjectCard.tsx
+index 9931883..6d0ea99 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectCard.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectCard.tsx
+@@ -9,7 +9,7 @@
+  * Rename stays in the card's actions; All projects opens the complete project library.
+  */
+ import React from 'react';
+-import { ArrowUpRight, ChevronDown, Clapperboard, FolderOpen, Image as ImageIcon, LayoutGrid, Pencil, X } from 'lucide-react';
++import { ArrowUpRight, ChevronDown, Clapperboard, FolderOpen, Image as ImageIcon, LayoutGrid, LibraryBig, Pencil, X } from 'lucide-react';
+ import { api, type Project } from '@/api';
+ import { useT } from '@/i18n';
+ import { formatDuration } from '@/lib/export-jobs';
+@@ -56,6 +56,7 @@ export interface ProjectActions {
+   onRename?: () => void;
+   onCoverFromFrame?: () => void;
+   onReveal?: () => void;
++  onSaveTemplate?: () => void;
+ }
+ 
+ export function ProjectCard({ name, facts, actions = {}, onAll, trigger, disabled = false }: {
+@@ -149,6 +150,7 @@ export function ProjectCard({ name, facts, actions = {}, onAll, trigger, disable
+               {actions.onRename ? <button type="button" className={menu.action} onClick={() => go(actions.onRename!)}><Pencil size={12} /><span>{t('projectMenu.rename')}</span></button> : null}
+               {actions.onCoverFromFrame ? <button type="button" className={menu.action} title={t('switcher.cover')} aria-label={t('switcher.cover')} onClick={() => go(actions.onCoverFromFrame!)}><ImageIcon size={12} /><span>{t('switcher.coverShort')}</span></button> : null}
+               {actions.onReveal ? <button type="button" className={menu.action} onClick={() => go(actions.onReveal!)}><FolderOpen size={12} /><span>{t('switcher.reveal')}</span></button> : null}
++              {actions.onSaveTemplate ? <button type="button" className={menu.action} onClick={() => go(actions.onSaveTemplate!)}><LibraryBig size={12} /><span>{document.documentElement.lang.toLowerCase().startsWith('zh') ? '另存为本地模板' : 'Save as local template'}</span></button> : null}
+             </div>
+           </>
+         ) : null}
+diff --git a/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx b/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx
+index fde12f6..42620a2 100644
+--- a/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx
++++ b/packages/openfilm/studio/ui/src/components/ProjectTabs.tsx
+@@ -1,6 +1,6 @@
+ /** The desktop's projects as a continuous tab strip. Only a tab has a context menu; the empty title bar stays quiet. */
+ import React from 'react';
+-import { Clapperboard, FolderOpen, Image, Pencil, Plus, X } from 'lucide-react';
++import { Clapperboard, FolderOpen, Image, LibraryBig, Pencil, Plus, X } from 'lucide-react';
+ import { api, ApiError } from '@/api';
+ import { useT } from '@/i18n';
+ import { studioHost, type HostTab } from '@/lib/host';
+@@ -9,11 +9,12 @@ import { useHostTabs } from './ProjectCard';
+ import { Toast, useToast } from './Toast';
+ import styles from './ProjectTabs.module.css';
+ 
+-export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurrent }: {
++export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurrent, onSaveTemplateCurrent }: {
+   current?: React.ReactNode;
+   onProjects: () => void;
+   onRenameCurrent?: () => void;
+   onCoverCurrent?: () => void;
++  onSaveTemplateCurrent?: () => void;
+ }) {
+   const t = useT();
+   const host = studioHost?.tabs;
+@@ -51,6 +52,7 @@ export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurre
+     { id: 'rename', icon: <Pencil size={14} />, label: t('projectMenu.rename'), onSelect: () => beginRename(target) },
+     { id: 'cover', icon: <Image size={14} />, label: t('switcher.cover'), disabled: target.id !== self || !onCoverCurrent, hint: t('projectTabs.coverCurrent'), onSelect: onCoverCurrent },
+     { id: 'reveal', icon: <FolderOpen size={14} />, label: t('switcher.reveal'), onSelect: () => { void api.revealProject(target.projectId).catch(() => toast.showError(t('projectTabs.revealFailed'))); } },
++    { id: 'save-template', icon: <LibraryBig size={14} />, label: document.documentElement.lang.toLowerCase().startsWith('zh') ? '另存为本地模板' : 'Save as local template', disabled: target.id !== self || !onSaveTemplateCurrent, onSelect: onSaveTemplateCurrent },
+   ] : [];
+ 
+   if (!host) return null;
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectView.tsx b/packages/openfilm/studio/ui/src/components/ProjectView.tsx
 index cdae14b..ceec233 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectView.tsx
@@ -7932,14 +8614,40 @@ index cdae14b..ceec233 100644
                  ) : null}
                  <div ref={setLibraryPreviewBar} data-library-preview-bar="" className="peer empty:hidden" />
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
-index 7b8de03..145c631 100644
+index 7b8de03..12afeba 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
 +++ b/packages/openfilm/studio/ui/src/components/ProjectsLibrary.tsx
-@@ -240,6 +240,88 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
+@@ -18,6 +18,8 @@
+ import React from 'react';
+ import { createPortal } from 'react-dom';
+ import { Loader2, X } from 'lucide-react';
++import { No996TemplateLibrary } from './No996TemplateLibrary';
++import { No996BrandSetupHint } from './No996Brand';
+ import { api, ApiError, LIBRARY_EVENT } from '@/api';
+ import { recycleRefusalOf, recycleRefusalWords, type RecycleRefusal } from '@/lib/recycle';
+ import { useT } from '@/i18n';
+@@ -240,6 +242,197 @@ export type LauncherView = 'projects' | 'examples' | 'recycle';
  const COVER_WAIT_MS = 4000;
  
  
-+type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string; featured?: boolean };
++type CreationRatio = '9:16' | '16:9';
++const creationRatios = ['9:16', '16:9'] as const;
++type No996Template = { id: string; title: string; description?: string; productTitle?: string; productBlurb?: string; featured?: boolean; ratios?: CreationRatio[]; defaultRatio?: CreationRatio };
++
++function CreateRatioButton({ ratio, primary = false, blank = false, zh, busy, onCreate }: {
++  ratio: CreationRatio; primary?: boolean; blank?: boolean; zh: boolean; busy: boolean; onCreate: () => void;
++}) {
++  const portrait = ratio === '9:16';
++  const title = zh ? (portrait ? '竖屏创建' : '横屏创建') : (portrait ? 'Create portrait' : 'Create landscape');
++  const label = blank ? `${title} · ${zh ? '空白' : 'Blank'}` : title;
++  return <button type="button" disabled={busy} aria-label={label} data-no996-create-ratio={ratio} onClick={onCreate}
++    className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-pressed)] disabled:opacity-50 ${primary ? 'border-[var(--text-muted)] bg-[var(--bg-hover)]' : 'border-[var(--border)] hover:bg-[var(--bg-hover)]'}`}>
++    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
++      <rect x={portrait ? 4.5 : 2} y={portrait ? 2 : 4.5} width={portrait ? 7 : 12} height={portrait ? 12 : 7} rx="1.25" />
++    </svg>
++    {label}
++  </button>;
++}
 +
 +function No996TemplateIcon({ id }: { id: string }) {
 +  const common = { width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -7976,8 +8684,95 @@ index 7b8de03..145c631 100644
 +  );
 +}
 +
++type SpokenInput = { requestId: string; copy: string; ratio: CreationRatio; music: 'default' | 'upload' | 'none'; audioBase64?: string };
++const spokenFormControl = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-3 py-2 text-sm text-[var(--text)]';
++
++function spokenError(code: string, zh: boolean) {
++  const messages: Record<string, [string, string]> = {
++    SPOKEN_MODEL_FAILED: ['模型未完成拆解。检查 DSH 默认文本模型后重试。', 'The model did not finish. Check the default text model in DSH and try again.'],
++    SPOKEN_BLUEPRINT_INPUT: ['未能拆出有效分镜。请缩短文案或补充分句标点。', 'No valid storyboard was produced. Try a shorter script or add sentence punctuation.'],
++    SPOKEN_BGM_UNAVAILABLE: ['默认配乐暂不可用。可上传音乐或关闭配乐。', 'Default music is unavailable. Upload a track or turn music off.'],
++    SPOKEN_BGM_INPUT: ['请选择不超过 6 MB 的 MP3、WAV、FLAC 或 OGG。', 'Choose an MP3, WAV, FLAC or OGG file up to 6 MiB.'],
++    SPOKEN_BGM_DECODE_FAILED: ['无法读取音乐。请换一个音频文件。', 'The audio could not be read. Try another file.'],
++    SPOKEN_CREATION_BUSY: ['建片繁忙，请稍后重试。', 'Creation is busy. Try again shortly.'],
++    SPOKEN_CREATION_FAILED: ['未能写入新草稿。检查项目目录和磁盘空间。', 'The draft could not be written. Check the project directory and disk space.'],
++  };
++  return messages[code]?.[zh ? 0 : 1] ?? (zh ? '无法确认创建结果。请先在「我的项目」检查，避免重复创建。' : 'Creation could not be confirmed. Check My Projects before creating again.');
++}
++
++function SpokenForm({ zh, busy, onClose, onCreate }: { zh: boolean; busy: boolean; onClose: () => void; onCreate: (input: SpokenInput) => Promise<void> }) {
++  const [copy, setCopy] = React.useState('');
++  const [ratio, setRatio] = React.useState<CreationRatio>('9:16');
++  const [music, setMusic] = React.useState<SpokenInput['music']>('default');
++  const [audio, setAudio] = React.useState<File | null>(null);
++  const [pending, setPending] = React.useState(false);
++  const [error, setError] = React.useState('');
++  const submitting = React.useRef(false);
++  const blocked = error === 'uncertain';
++  const locked = busy || pending;
++  const copyId = React.useId();
++  async function submit(event: React.FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++    if (locked || blocked || submitting.current || !copy.trim()) return;
++    submitting.current = true;
++    setPending(true);
++    setError('');
++    try {
++      const payload: SpokenInput = { requestId: crypto.randomUUID(), copy: copy.trim(), ratio, music };
++      if (music === 'upload') {
++        if (!audio || audio.size < 1 || audio.size > 6 * 1024 * 1024) throw new Error('SPOKEN_BGM_INPUT');
++        try {
++          payload.audioBase64 = await new Promise<string>((resolve, reject) => {
++            const reader = new FileReader();
++            reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
++            reader.onerror = reader.onabort = () => reject(new Error('SPOKEN_BGM_INPUT'));
++            reader.readAsDataURL(audio);
++          });
++        } catch { throw new Error('SPOKEN_BGM_INPUT'); }
++      }
++      await onCreate(payload);
++    } catch (failure) {
++      const code = failure instanceof Error ? failure.message : '';
++      setError(['SPOKEN_MODEL_FAILED', 'SPOKEN_BLUEPRINT_INPUT', 'SPOKEN_BGM_UNAVAILABLE', 'SPOKEN_BGM_INPUT', 'SPOKEN_BGM_DECODE_FAILED', 'SPOKEN_CREATION_BUSY', 'SPOKEN_CREATION_FAILED'].includes(code) ? code : 'uncertain');
++    } finally {
++      submitting.current = false;
++      setPending(false);
++    }
++  }
++  return <form onSubmit={event => void submit(event)} aria-label={zh ? '用口播文案创建 Vibe 草稿' : 'Create Vibe from a script'} className="mt-3 space-y-3 rounded-lg border border-[var(--border)] p-4">
++    <label className="block text-sm font-semibold" htmlFor={copyId}>{zh ? '口播文案' : 'Spoken script'}</label>
++    <textarea id={copyId} autoFocus maxLength={8000} required rows={5} disabled={locked} value={copy} onChange={event => setCopy(event.target.value)}
++      placeholder={zh ? '粘贴你打算说的内容。' : 'Paste what you plan to say.'} className={`${spokenFormControl} resize-y`} />
++    <div className="grid gap-3 sm:grid-cols-2">
++      <label className="space-y-1 text-sm"><span>{zh ? '画幅' : 'Canvas'}</span>
++        <select className={spokenFormControl} disabled={locked} value={ratio} onChange={event => setRatio(event.target.value as CreationRatio)}>
++          <option value="9:16">{zh ? '竖屏 9:16' : 'Portrait 9:16'}</option><option value="16:9">{zh ? '横屏 16:9' : 'Landscape 16:9'}</option>
++        </select>
++      </label>
++      <label className="space-y-1 text-sm"><span>{zh ? '背景音乐' : 'Background music'}</span>
++        <select className={spokenFormControl} disabled={locked} value={music} onChange={event => setMusic(event.target.value as SpokenInput['music'])}>
++          <option value="default">{zh ? '默认：We Never' : 'Default: We Never'}</option><option value="upload">{zh ? '上传音乐' : 'Upload music'}</option><option value="none">{zh ? '关闭配乐' : 'No music'}</option>
++        </select>
++      </label>
++    </div>
++    {music === 'upload' ? <label className="block space-y-1 text-sm"><span>{zh ? '选择音频（最大 6 MB）' : 'Choose audio (up to 6 MiB)'}</span>
++      <input className={spokenFormControl} type="file" required disabled={locked} accept=".mp3,.wav,.flac,.ogg" onChange={event => setAudio(event.target.files?.[0] ?? null)} />
++    </label> : null}
++    <p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '文案会交给 DSH 默认文本模型拆分。纯文稿为估时字幕，不会合成口播声音。' : 'Your script is sent to the default DSH text model. Subtitle timing is estimated; no voiceover is generated.'}</p>
++    {error ? <p role="alert" className="text-sm text-[var(--text)]">{spokenError(error, zh)}</p> : null}
++    <div className="flex flex-wrap justify-end gap-2">
++      <button type="button" disabled={locked} onClick={onClose} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm">{zh ? '取消' : 'Cancel'}</button>
++      <button type="submit" disabled={locked || blocked || !copy.trim()} className="rounded-md border border-[var(--text-muted)] bg-[var(--bg-hover)] px-3 py-2 text-sm font-semibold disabled:opacity-50">{locked ? (zh ? '正在拆分并创建…' : 'Preparing draft…') : (zh ? '创建可编辑草稿' : 'Create editable draft')}</button>
++    </div>
++  </form>;
++}
++
 +/** NO996-UPSTREAM: keep product templates inside the upstream examples gallery. */
-+function No996Templates({ onCopy, onBlank, busy }: { onCopy: (id: string) => void; onBlank: () => void; busy: boolean }) {
++function No996Templates({ onCreate, onBlank, onSpoken, onLocalCreate, busy }: {
++  onCreate: (id: string, ratio?: CreationRatio) => void; onBlank: (ratio: CreationRatio) => void;
++  onSpoken: (input: SpokenInput) => Promise<void>; onLocalCreate: (projectId: string) => void; busy: boolean;
++}) {
++  const [spoken, setSpoken] = React.useState(false);
 +  const [cards, setCards] = React.useState<No996Template[]>([]);
 +  const [failed, setFailed] = React.useState(false);
 +  const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
@@ -7996,8 +8791,8 @@ index 7b8de03..145c631 100644
 +  }, []);
 +  return (
 +    <section className="px-6 pb-4" aria-label={zh ? 'No996 模板' : 'No996 templates'}>
-+      <div className="mb-3 flex items-center justify-end gap-3">
-+        <button type="button" disabled={busy} onClick={onBlank} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '空白开工' : 'Start blank'}</button>
++      <div className="mb-3 ml-auto flex w-fit max-w-full flex-wrap items-center gap-2" role="group" aria-label={zh ? '新建空白项目' : 'Create blank project'}>
++        {creationRatios.map(ratio => <CreateRatioButton key={ratio} ratio={ratio} primary={ratio === '9:16'} blank zh={zh} busy={busy} onCreate={() => onBlank(ratio)} />)}
 +      </div>
 +      {failed ? <p role="status" className="text-sm text-[var(--text-muted)]">{zh ? '模板暂不可用，仍可浏览示例或新建空白项目。' : 'Templates are unavailable; browse examples or start blank.'}</p> : null}
 +      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -8012,11 +8807,16 @@ index 7b8de03..145c631 100644
 +            {card.featured ? <span className="shrink-0 rounded-full bg-[rgba(255,194,75,0.16)] px-2 py-0.5 text-[10px] font-medium text-[#e2a32e]">{zh ? '首推' : 'Featured'}</span> : null}
 +          </div>
 +          <p className="flex-1 text-xs leading-relaxed text-[var(--text-muted)]">{card.productBlurb || card.description}</p>
-+          <div className="mt-1 flex justify-end">
-+            <button type="button" disabled={busy} onClick={() => onCopy(card.id)} className="self-end rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '复制开工' : 'Copy and start'}</button>
++          <div className="mt-1 flex flex-wrap justify-end gap-2">
++            {Array.isArray(card.ratios) && creationRatios.some(ratio => card.ratios?.includes(ratio))
++              ? creationRatios.filter(ratio => card.ratios?.includes(ratio)).map(ratio => <CreateRatioButton key={ratio} ratio={ratio} primary={ratio === card.defaultRatio} zh={zh} busy={busy} onCreate={() => onCreate(card.id, ratio)} />)
++              : <button type="button" disabled={busy} onClick={() => onCreate(card.id)} className="rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--text)] hover:bg-[var(--bg-hover)] disabled:opacity-50">{zh ? '按示例创建' : 'Create from example'}</button>}
 +          </div>
++          {card.id === 'vibe-explainer' ? <button type="button" aria-expanded={spoken} disabled={busy} onClick={() => setSpoken(!spoken)} className="mt-1 rounded-md border border-[var(--border)] px-2 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--bg-hover)]">{zh ? '用口播文案创建' : 'Create from a script'}</button> : null}
 +        </article>)}
 +      </div>
++      {spoken ? <SpokenForm zh={zh} busy={busy} onClose={() => setSpoken(false)} onCreate={onSpoken} /> : null}
++      <No996TemplateLibrary onCreate={onLocalCreate} />
 +    </section>
 +  );
 +}
@@ -8024,7 +8824,7 @@ index 7b8de03..145c631 100644
  export function ProjectsPopover({
    open,
    currentProjectId,
-@@ -272,6 +354,9 @@ export function ProjectsPopover({
+@@ -272,6 +465,9 @@ export function ProjectsPopover({
    const cover = useProjectCover(lib.coverChanged, React.useCallback(() => flash(t('projects.coverFailed')), [flash, t]));
    /* each time it opens: the projects (the examples are a project tab away), or the examples when asked for */
    const [view, setView] = React.useState<LauncherView>('projects');
@@ -8034,7 +8834,7 @@ index 7b8de03..145c631 100644
    React.useLayoutEffect(() => {
      if (!open) return;
      const previous = document.activeElement as HTMLElement | null;
-@@ -282,7 +367,11 @@ export function ProjectsPopover({
+@@ -282,7 +478,11 @@ export function ProjectsPopover({
    const navigateProjects = (folderId: string | null = null) => { setProjectNavigation(old => ({ folderId, seq: old.seq + 1 })); setView('projects'); };
    React.useLayoutEffect(() => {
      if (!open) return;
@@ -8047,17 +8847,22 @@ index 7b8de03..145c631 100644
      navigateProjects(null);
    }, [open, Boolean(examples), examples?.example]);
    React.useEffect(() => { try { localStorage.setItem(RESOURCE_VIEW_KEY, display); } catch { /* private window */ } }, [display]);
-@@ -374,6 +463,36 @@ export function ProjectsPopover({
+@@ -374,6 +574,67 @@ export function ProjectsPopover({
      }
    }
  
-+  async function copyNo996Template(templateId: string) {
-+    if (busy) return;
++  const creatingNo996 = React.useRef(false);
++  async function createNo996Project(templateId: string | null, ratio?: CreationRatio) {
++    if (busy || creatingNo996.current) return;
++    creatingNo996.current = true;
 +    setBusy('creating');
 +    try {
 +      const response = await fetch('/__dsh/official-rpc', {
 +        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
-+        body: JSON.stringify({ channel: 'template:create', payload: { templateId } }),
++        body: JSON.stringify({
++          channel: templateId ? 'template:create' : 'project:create-blank',
++          payload: { ...(templateId ? { templateId } : {}), ...(ratio ? { ratio } : {}) },
++        }),
 +      });
 +      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 +      const result = await response.json() as { projectId?: string; error?: string; warnings?: string[] };
@@ -8078,22 +8883,48 @@ index 7b8de03..145c631 100644
 +      lib.flash(document.documentElement.lang.toLowerCase().startsWith('zh')
 +        ? '无法确认创建结果，请先到「我的项目」检查，再决定是否重试。'
 +        : 'Creation could not be confirmed. Check My Projects before trying again.');
++    } finally {
++      creatingNo996.current = false;
++    }
++  }
++
++  async function createSpokenProject(payload: SpokenInput) {
++    if (busy || creatingNo996.current) throw new Error('SPOKEN_CREATION_BUSY');
++    creatingNo996.current = true;
++    setBusy('creating');
++    try {
++      const response = await fetch('/__dsh/official-rpc', {
++        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ channel: 'template:create-spoken', payload }),
++      });
++      if (!response.ok) throw new Error(/^([A-Z_]+)/.exec((await response.text()).slice(0, 80))?.[1] ?? 'uncertain');
++      const result = await response.json() as { projectId?: string; warnings?: string[]; errorCode?: string };
++      if (result.errorCode) throw new Error(result.errorCode);
++      if (!result.projectId || !/^[A-Za-z0-9_-]{6,40}$/.test(result.projectId)) throw new Error('uncertain');
++      if (result.warnings?.length) lib.flash(document.documentElement.lang.toLowerCase().startsWith('zh')
++        ? '草稿已创建，但未能记录模板说明或最近偏好。' : 'The draft was created; template guidance or preferences could not be recorded.');
++      go(result.projectId, 'creating');
++    } catch (error) {
++      setBusy(null);
++      throw error;
++    } finally {
++      creatingNo996.current = false;
 +    }
 +  }
 +
    async function duplicateProject(project: LibraryProject) {
      if (busy) return;
      setBusy('duplicating');
-@@ -481,6 +600,8 @@ export function ProjectsPopover({
+@@ -481,6 +742,8 @@ export function ProjectsPopover({
        key={examples?.example ?? ''}
        heading={null}
        embedded
 +      surface={examplesPane}
-+      supplement={<No996Templates busy={busy !== null} onBlank={() => { if (!busy) void newProject(null); }} onCopy={(id) => void copyNo996Template(id)} />}
++      supplement={<No996Templates busy={busy !== null} onBlank={ratio => void createNo996Project(null, ratio)} onCreate={(id, ratio) => void createNo996Project(id, ratio)} onSpoken={createSpokenProject} onLocalCreate={id => go(id, 'creating')} />}
        {...(examples?.example ? { initial: examples.example } : {})}
        onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
        /* over a film: the example pointed at in its chat, for the agent to follow (as the Community does) */
-@@ -521,7 +642,11 @@ export function ProjectsPopover({
+@@ -521,7 +784,11 @@ export function ProjectsPopover({
            <div className={resourceStyles.resourceFrame}>
              <ProjectsSidebar
                place={view === 'recycle' ? 'projects' : view}
@@ -8106,7 +8937,7 @@ index 7b8de03..145c631 100644
                onStart={(workbench) => void newProject(null, workbench)}
                starting={busy !== null}
              />
-@@ -531,7 +656,27 @@ export function ProjectsPopover({
+@@ -531,11 +798,32 @@ export function ProjectsPopover({
              <>
                {/* the place's name and the way out of the window */}
                <header className={sideStyles.pageHead}>
@@ -8135,6 +8966,11 @@ index 7b8de03..145c631 100644
                  <span className={sideStyles.pageTools}>
                    {onClose ? <button type="button" className={sideStyles.pageClose} aria-label={t('project.close')} onClick={onClose}><X size={17} /></button> : null}
                  </span>
+               </header>
++              {view === 'projects' ? <No996BrandSetupHint /> : null}
+               {view === 'examples' ? gallery : null}
+               {lib.loaded ? (
+             <ProjectCoverContext.Provider value={cover.actions}>
 diff --git a/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx b/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx
 index 4d98c5d..381df8c 100644
 --- a/packages/openfilm/studio/ui/src/components/ProjectsSidebar.tsx
@@ -8387,10 +9223,10 @@ index e54deab..a26795f 100644
        if (!live) return;
 diff --git a/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
 new file mode 100644
-index 0000000..513efe0
+index 0000000..5689ab6
 --- /dev/null
 +++ b/packages/openfilm/studio/ui/src/components/WorkbenchAccount.tsx
-@@ -0,0 +1,830 @@
+@@ -0,0 +1,819 @@
 +/**
 + * Workbench account chip + User Center drawer (~480px) for No996.
 + * Copy goes through studio i18n (`workbench.*`); Host only sends stable status flags / English fallbacks.
@@ -8403,7 +9239,6 @@ index 0000000..513efe0
 +  ChevronRight,
 +  Receipt,
 +  RefreshCw,
-+  Settings2,
 +  ShieldCheck,
 +  Sparkles,
 +  UserCheck,
@@ -8815,12 +9650,12 @@ index 0000000..513efe0
 +          type="button"
 +          aria-haspopup="dialog"
 +          aria-expanded={open}
-+          aria-label={fill(t('workbench.accountAria'), { name })}
++          aria-label={`${language === 'zh-CN' ? '我的工作台' : 'My workbench'} · ${name}`}
 +          title={typeof available === 'number' ? fill(t('workbench.accountPointsTitle'), { name, points: formatPoints(available, language) }) : name}
 +          onClick={() => setOpen(true)}
 +          className="flex h-[26px] max-w-[11rem] min-w-0 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-2 text-[12px] text-[var(--text)] transition hover:bg-[var(--bg-hover)]"
 +        >
-+          <span className="min-w-0 truncate">{name}</span>
++          <span className="min-w-0 truncate">{language === 'zh-CN' ? '我的工作台' : 'My workbench'}</span>
 +          {typeof available === 'number' ? (
 +            <span className="shrink-0 tabular-nums text-[11px] text-[var(--text-muted)]">{formatPoints(available)}</span>
 +          ) : null}
@@ -8897,6 +9732,10 @@ index 0000000..513efe0
 +              </button>
 +            </header>
 +
++            {onSettings ? <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-4 py-2 text-xs">
++              <span className="font-semibold text-[var(--text)]">{language === 'zh-CN' ? '账号与余额' : 'Account & balance'}</span>
++              {(['assets', 'general'] as const).map(section => <button key={section} type="button" onClick={() => { setOpen(false); onSettings(section); }} className="rounded px-2 py-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]">{section === 'assets' ? (language === 'zh-CN' ? '全局资产' : 'Global assets') : (language === 'zh-CN' ? '创作偏好' : 'Preferences')}</button>)}
++            </div> : null}
 +            <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-2 text-[12px]" aria-label={t('workbench.tabsAria')}>
 +              {(
 +                [
@@ -9020,20 +9859,6 @@ index 0000000..513efe0
 +                    )}
 +                  </section>
 +
-+                  {onSettings ? (
-+                    <button
-+                      type="button"
-+                      onClick={() => {
-+                        setOpen(false);
-+                        onSettings('general');
-+                      }}
-+                      className="flex w-full items-center gap-2.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-field)] px-3 py-2.5 text-left text-[13px] text-[var(--text)] transition hover:bg-[var(--bg-hover)]"
-+                    >
-+                      <Settings2 size={15} strokeWidth={1.75} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
-+                      <span className="min-w-0 flex-1 font-medium">{t('settings.title')}</span>
-+                      <span className="text-[11.5px] text-[var(--text-faint)]">{t('workbench.settingsHint')}</span>
-+                    </button>
-+                  ) : null}
 +                </>
 +              ) : null}
 +
@@ -10159,10 +10984,10 @@ index 2bc2346..58bbeb1 100644
    );
  }
 diff --git a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
-index 1e72831..cee81ce 100644
+index 1e72831..b56fbff 100644
 --- a/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
 +++ b/packages/openfilm/studio/ui/src/components/settings/SettingsModal.tsx
-@@ -3,50 +3,49 @@
+@@ -3,50 +3,50 @@
   * right as a page of titled groups. General (the account, the theme and the language), Agents (in an app with a chat: the agents
   * it can use), Services (which model makes each kind of media, and the services connected for it), the keyboard
   * shortcuts, Advanced and Developer; the search finds a section by any phrase on it. At the
@@ -10191,21 +11016,21 @@ index 1e72831..cee81ce 100644
 +import { SettingsGroup, SettingsItem, SettingsPage, SettingsSegmented, SettingsSwitch } from './ui';
  import { useThemeMode, type ThemeMode } from './theme';
 -import { AccountGroup } from './AccountGroup';
-+import { WorkbenchAccountSummary } from '../WorkbenchAccount';
 +import { PRODUCT_NAME, PRODUCT_NAME_ZH } from '../../../../../../shared/src/no996-brand';
  import { StorageGroup, StorageEntry } from './StorageGroup';
  import { LargeDialog, LargeDialogGroup, LargeDialogPage, LargeDialogPlace, LargeDialogSearch } from '../LargeDialog';
  import { LibraryCategoriesGroup } from './LibraryCategoriesGroup';
++import { No996BrandSettings } from '../No996Brand';
  
 -export type SettingsSection = 'general' | 'agents' | 'models' | 'developer' | 'shortcuts' | 'advanced';
-+export type SettingsSection = 'general' | 'agents' | 'models' | 'extensions' | 'developer' | 'shortcuts' | 'advanced';
++export type SettingsSection = 'general' | 'assets' | 'agents' | 'models' | 'extensions' | 'developer' | 'shortcuts' | 'advanced';
  
  /* the nav, in groups: what OpenFilm does, then help (Agents only inside an app with a chat: lib/host.ts `agents`;
     Advanced for what is already set for the best experience; Developer always, for its diagnostics). Read as it is
     shown: the app may give Studio its host after this module has run (a build split into several files) */
  const navNow = (): Array<{ group: 'settings' | 'help'; sections: SettingsSection[] }> => [
 -  { group: 'settings', sections: ['general', ...(studioHost?.agents ? ['agents' as const] : []), 'models'] },
-+  { group: 'settings', sections: ['general', ...(studioHost?.agents ? ['agents' as const] : []), 'models', 'extensions'] },
++  { group: 'settings', sections: ['general', 'assets', ...(studioHost?.agents ? ['agents' as const] : []), 'models', 'extensions'] },
    { group: 'help', sections: ['shortcuts', 'advanced', 'developer'] },
  ];
  
@@ -10220,21 +11045,44 @@ index 1e72831..cee81ce 100644
  
  const SECTION_ICON: Record<SettingsSection, React.ReactNode> = {
    general: <Settings2 size={18} strokeWidth={1.75} />,
++  assets: <Boxes size={18} strokeWidth={1.75} />,
    agents: <Bot size={18} strokeWidth={1.75} />,
    models: <Boxes size={18} strokeWidth={1.75} />,
 +  extensions: <Blocks size={18} strokeWidth={1.75} />,
    developer: <SquareTerminal size={18} strokeWidth={1.75} />,
    shortcuts: <Keyboard size={18} strokeWidth={1.75} />,
    advanced: <SlidersHorizontal size={18} strokeWidth={1.75} />,
-@@ -58,6 +57,7 @@ const SECTION_WORDS: Record<SettingsSection, string | string[]> = {
-   general: ['settings.account', 'settings.appearance'],
+@@ -55,9 +55,11 @@ const SECTION_ICON: Record<SettingsSection, React.ReactNode> = {
+ /** what a search through each section reads: its name and every phrase it shows (Notifications only where it shows:
+     inside an app that offers them, lib/host.ts `notifications`) */
+ const SECTION_WORDS: Record<SettingsSection, string | string[]> = {
+-  general: ['settings.account', 'settings.appearance'],
++  general: ['settings.appearance'],
++  assets: [],
    agents: 'settings.agents',
    models: ['settings.models', 'settings.providers'],
 +  extensions: ['settings.sections.extensions', 'settings.local'],
    developer: ['settings.developer', 'settings.report'],
    shortcuts: 'settings.shortcuts',
    advanced: ['settings.advanced', ...(studioHost?.notifications ? ['settings.notifications'] : []), 'settings.versions', 'settings.playback', 'settings.libraryCategories'],
-@@ -82,6 +82,17 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+@@ -68,12 +70,15 @@ export interface SettingsModalProps {
+   onClose: () => void;
+   /** Where it opens (General when not given). */
+   section?: SettingsSection;
++  projectId?: string;
+ }
+ 
+ /** Opens on General each time, or on the section asked for. */
+-export function SettingsModal({ open, onClose, section: opening }: SettingsModalProps) {
++export function SettingsModal({ open, onClose, section: opening, projectId }: SettingsModalProps) {
+   const t = useT();
+   const language = useLanguage();
++  const zh = language === 'zh-CN';
++  const label = (id: SettingsSection) => id === 'assets' ? (zh ? '全局资产' : 'Global assets') : id === 'general' ? (zh ? '创作偏好' : 'Preferences') : t(`settings.sections.${id}`);
+   const [section, setSectionNow] = React.useState<SettingsSection>('general');
+   /* a page under General (Storage), opened from its row; any other section shown leaves it */
+   const [sub, setSub] = React.useState<'storage' | null>(null);
+@@ -82,10 +87,21 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
    const search = React.useRef<HTMLInputElement>(null);
  
    React.useEffect(() => { if (open) { setSectionNow(opening ?? 'general'); setSub(null); setQuery(''); } }, [open, opening]);
@@ -10252,7 +11100,19 @@ index 1e72831..cee81ce 100644
  
    /* the sections a search finds: by their names and by every phrase on them */
    const words = React.useMemo(() => Object.fromEntries((Object.keys(SECTION_WORDS) as SettingsSection[]).map((id) => [
-@@ -110,11 +121,6 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+-    id, [t(`settings.sections.${id}`), ...[SECTION_WORDS[id]].flat().flatMap((under) => phrasesUnder(under, language))].join('\n').toLowerCase(),
++    id, [label(id), ...(id === 'assets' ? ['品牌 Logo brand'] : []), ...[SECTION_WORDS[id]].flat().flatMap((under) => phrasesUnder(under, language))].join('\n').toLowerCase(),
+   ])) as Record<SettingsSection, string>, [t, language]);
+   const needle = query.trim().toLowerCase();
+   const nav = navNow().map((group) => ({ ...group, sections: group.sections.filter((id) => !needle || words[id].includes(needle)) }))
+@@ -104,17 +120,12 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+             <LargeDialogGroup key={group.group} title={t(group.group === 'help' ? 'settings.groups.help' : 'settings.title')}>
+               {group.sections.map((id) => (
+                 <LargeDialogPlace key={id} active={showing === id} onClick={() => setSection(id)} icon={SECTION_ICON[id]}>
+-                  {t(`settings.sections.${id}`)}
++                  {label(id)}
+                 </LargeDialogPlace>
+               ))}
              </LargeDialogGroup>
            ))}
            {found.length === 0 ? <p className="px-2.5 pt-4 text-[14px] text-[var(--text-faint)]">{t('settings.noResults')}</p> : null}
@@ -10264,26 +11124,29 @@ index 1e72831..cee81ce 100644
          </>
        )}>
        {/* one column in the middle of whatever room the window gives */}
-@@ -133,6 +139,7 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+@@ -129,10 +140,12 @@ export function SettingsModal({ open, onClose, section: opening }: SettingsModal
+             <span className="text-[var(--text-faint)]">/</span>
+             {t('settings.storage.group')}
+           </span>
+-        ) : showing ? t(`settings.sections.${showing}`) : undefined}>
++        ) : showing ? label(showing) : undefined}>
          {showing === 'general' && (sub === 'storage' ? <StorageGroup titled={false} /> : <GeneralSection onStorage={() => setSub('storage')} />)}
++        {showing === 'assets' && <No996BrandSettings key={projectId ?? 'launcher'} projectId={projectId} />}
          {showing === 'agents' && <AgentsSection />}
          {showing === 'models' && <ModelsSection />}
 +        {showing === 'extensions' && <ExtensionsSection />}
          {showing === 'developer' && <DeveloperSection />}
          {showing === 'shortcuts' && <ShortcutsSection />}
          {showing === 'advanced' && <AdvancedSection />}
-@@ -148,7 +155,9 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
+@@ -148,7 +161,6 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
  
    return (
      <SettingsPage>
 -      <AccountGroup />
-+      <SettingsGroup title={t('settings.account.group')}>
-+        <div className="py-3"><WorkbenchAccountSummary surface="settings" /></div>
-+      </SettingsGroup>
        <SettingsGroup title={t('settings.appearance.group')}>
          <SettingsItem
            title={t('settings.appearance.theme')}
-@@ -187,11 +196,28 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
+@@ -187,11 +199,28 @@ function GeneralSection({ onStorage }: { onStorage: () => void }) {
        <SettingsGroup title={t('settings.storage.group')}>
          <StorageEntry onOpen={onStorage} />
        </SettingsGroup>
@@ -10313,7 +11176,7 @@ index 1e72831..cee81ce 100644
  /** In the app: the system's notification of a chat's turn done, stopped or waiting, while its window is not in front. */
  function NotificationsGroup() {
    const t = useT();
-@@ -302,66 +328,6 @@ function AdvancedSection() {
+@@ -302,66 +331,6 @@ function AdvancedSection() {
    );
  }
  
@@ -10380,7 +11243,7 @@ index 1e72831..cee81ce 100644
  /** This release's notes again (components/WhatsNew). */
  function WhatsNewLink() {
    const t = useT();
-@@ -373,79 +339,6 @@ function WhatsNewLink() {
+@@ -373,79 +342,6 @@ function WhatsNewLink() {
    );
  }
  
@@ -12232,18 +13095,57 @@ index 385cdb2..c2eef87 100644
    };
  }
 diff --git a/packages/openfilm/studio/ui/src/shell/top-bar.tsx b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
-index 0a51b5f..04e8fcd 100644
+index 0a51b5f..270e99f 100644
 --- a/packages/openfilm/studio/ui/src/shell/top-bar.tsx
 +++ b/packages/openfilm/studio/ui/src/shell/top-bar.tsx
-@@ -32,6 +32,7 @@ import { useSettings } from '@/components/settings/use-settings';
+@@ -32,6 +32,8 @@ import { useSettings } from '@/components/settings/use-settings';
  import { SpendAsks } from '@/components/SpendAsks';
  import { Tooltip } from '@/components/Tooltip';
  import { UpdateButton, WebUpdateButton } from '@/components/UpdateButton';
 +import { WorkbenchAccountControls } from '@/components/WorkbenchAccount';
++import { No996TemplateRecipe } from '@/components/No996TemplateRecipe';
  import { commandTo, topBarTools } from '@/studio/hub';
  import type { useProjectFrame } from './ProjectFrame';
  import { useWiring } from './frame';
-@@ -157,6 +158,8 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+@@ -54,8 +56,9 @@ export function usePageWindows(loaded: ProjectFilm | null) {
+   /* the projects window: closed, open on the projects (true), or on the examples (and one example's page) */
+   const [projectsOpen, setProjectsOpen] = React.useState<boolean | { example?: string }>(false);
+   const [settingsOpen, setSettingsOpen] = useSettings();
++  const [saveTemplateOpen, setSaveTemplateOpen] = React.useState(false);
+   const [desktopOpen, setDesktopOpen] = React.useState(false);
+-  return { title, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, desktopOpen, setDesktopOpen };
++  return { title, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, saveTemplateOpen, setSaveTemplateOpen, desktopOpen, setDesktopOpen };
+ }
+ 
+ /** The top bar, in the page's grid before the workbench's element: drawn once the project was read. */
+@@ -69,7 +72,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+   const t = useT();
+   const bar = useWiring('topBar')?.topBar;
+   const {
+-    projectId, setLoaded, toast, reveal, title, setProjectsOpen, setSettingsOpen, desktopOpen, setDesktopOpen,
++    projectId, setLoaded, toast, reveal, title, setProjectsOpen, setSettingsOpen, saveTemplateOpen, setSaveTemplateOpen, desktopOpen, setDesktopOpen,
+     canvasOpen, setCanvasOpen, surface, showWorkbench, benchPlugins, pickBench, canToggleCanvas, colorOpen,
+     /* the page's panels are being rearranged (shell/layout): the workbench shown stays the one it is meanwhile */
+     layoutEditing,
+@@ -121,7 +124,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+   const projectTitle = <ProjectTitle tab={Boolean(studioHost?.tabs)} name={title} editing={renaming} draft={titleDraft} onDraft={setTitleDraft}
+     onRename={startRename} onCommit={() => void commitTitle()} onCancel={() => setRenaming(false)}
+     facts={{ project: loaded.project, ...(bar ? { film: bar.film } : {}) }}
+-    actions={{ onRename: startRename, onCoverFromFrame: coverFromFrame, onReveal: () => reveal('') }}
++    actions={{ onRename: startRename, onCoverFromFrame: coverFromFrame, onReveal: () => reveal(''), onSaveTemplate: () => setSaveTemplateOpen(true) }}
+     onAll={() => setProjectsOpen(true)} />;
+   /* The desktop's tabs share the left edge; a browser keeps the project title centered. */
+   return (<>
+@@ -137,7 +140,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+       {/* the window's controls over this, then the app menu */}
+       <div aria-hidden className={studioHost?.tabs ? tabStyles.windowSpace : 'shrink-0 self-stretch'} style={{ width: 'var(--titlebar-logo-x)' }} />
+       <div className={studioHost?.tabs ? tabStyles.system : 'pointer-events-auto relative flex min-w-0 items-center'}><AppMenu onSettings={setSettingsOpen} /></div>
+-      {studioHost?.tabs ? <ProjectTabs current={projectTitle} onProjects={() => setProjectsOpen(true)} onRenameCurrent={startRename} onCoverCurrent={coverFromFrame} /> : null}
++      {studioHost?.tabs ? <ProjectTabs current={projectTitle} onProjects={() => setProjectsOpen(true)} onRenameCurrent={startRename} onCoverCurrent={coverFromFrame} onSaveTemplateCurrent={() => setSaveTemplateOpen(true)} /> : null}
+       <div className="pointer-events-auto relative flex min-w-0 items-center gap-1">
+         <UpdateButton />
+         <WebUpdateButton />
+@@ -157,6 +160,8 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
          {history.button}
          {/* the workbench's own: for the edit its export (the canvas has its own bars) */}
          {bar?.tools}
@@ -12252,7 +13154,7 @@ index 0a51b5f..04e8fcd 100644
          {/* the buttons plugins put on the bar (openfilm/studio topBar) */}
          <PluginTools />
          {/* the edit or the canvas, in the panes' place: the one shown, by its name, and a click for the other */}
-@@ -164,7 +167,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
+@@ -164,7 +169,7 @@ function Bar({ frame, loaded }: { frame: ReturnType<typeof useProjectFrame>; loa
            : canToggleCanvas ? <Tooltip label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} action="work-mode" side="bottom">
            <button type="button" aria-label={t(canvasOpen ? 'canvas.toEdit' : 'canvas.toCanvas')} data-work-mode={canvasOpen ? 'canvas' : 'edit'} disabled={layoutEditing} onClick={() => setCanvasOpen(!canvasOpen)}
              className="flex h-[26px] shrink-0 items-center rounded-md bg-[var(--bg-hover)] px-2.5 text-[12.5px] font-medium text-[var(--text)] transition hover:bg-[var(--bg-pressed)]">
@@ -12261,6 +13163,25 @@ index 0a51b5f..04e8fcd 100644
            </button>
          </Tooltip> : null}
        </div>
+@@ -197,7 +202,7 @@ function PluginTools() {
+ /** The projects window and Settings: over the page, before the library's pane. */
+ export function PageWindows({ frame }: { frame: ReturnType<typeof useProjectFrame> }) {
+   const t = useT();
+-  const { projectId, loaded, failure, toast, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, setCanvasOpen } = frame;
++  const { projectId, loaded, failure, toast, projectsOpen, setProjectsOpen, settingsOpen, setSettingsOpen, saveTemplateOpen, setSaveTemplateOpen, setCanvasOpen, title } = frame;
+   if (!loaded || failure) return null;
+   return (
+     <>
+@@ -212,7 +217,8 @@ export function PageWindows({ frame }: { frame: ReturnType<typeof useProjectFram
+             toast.show(t('canvas.exampleCopied').replace('{folder}', `assets/examples/${example.id}/`));
+           }, (e: unknown) => toast.showError(e instanceof Error ? e.message : String(e)));
+         }} />
+-      <SettingsModal open={settingsOpen !== null} section={settingsOpen ?? undefined} onClose={() => setSettingsOpen(null)} />
++      <SettingsModal projectId={projectId} open={settingsOpen !== null} section={settingsOpen ?? undefined} onClose={() => setSettingsOpen(null)} />
++      {saveTemplateOpen ? <No996TemplateRecipe projectId={projectId} projectName={title} onClose={() => setSaveTemplateOpen(false)} /> : null}
+     </>
+   );
+ }
 diff --git a/packages/shared/src/contract.ts b/packages/shared/src/contract.ts
 index 340ad66..0750abb 100644
 --- a/packages/shared/src/contract.ts

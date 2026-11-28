@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/chat/src/App.tsx b/apps/desktop/chat/src/App.tsx
-index 26575ee..d2be15f 100644
+index 26575ee..2ef9357 100644
 --- a/apps/desktop/chat/src/App.tsx
 +++ b/apps/desktop/chat/src/App.tsx
 @@ -6,7 +6,7 @@
@@ -22,15 +22,17 @@ index 26575ee..d2be15f 100644
  import { Popover } from '@/components/Popover';
  import { AddSkillDialog, type PickedSkill } from '@/components/AddSkill';
  import { SKILLS_CHANGED } from 'openfilm/studio-ui/lib/project-sources.ts';
-@@ -25,6 +28,7 @@ import { Tooltip } from '@/components/Tooltip';
+@@ -24,7 +27,9 @@ import { LocalAgentQuestionCard } from '@/components/TurnQuestionCard';
+ import { Tooltip } from '@/components/Tooltip';
  import { StickToBottomContext, useStickToBottom, useTailSpacer } from '@/components/useStickToBottom';
  import { PromptEditor, PromptPill, PromptPillHoverContext, PromptPillRevealContext, activatedSkillIds, fileReferenceId, fileReferencePath, promptReferenceToken, resolvePromptReferences, skillReferenceId, skillReferencePackage, splitPromptReferenceText, type MentionProvider, type PromptEditorHandle, type PromptEditorState, type PromptPillHover, type PromptReference } from '@/components/prompt-editor';
++import { No996WhatsNew } from '../../../../packages/openfilm/studio/ui/src/components/No996WhatsNew';
  import { filesFromTransfer, transferHasFiles } from '@/lib/composer-attachments';
 +import { MicRecorderError, ParentCaptureMissing, startMicRecorder, startParentRecorder, type DictationRecorder } from '@/lib/dictation';
  import { PROMPT_PICTURES_MAX, attachedPictures, attachmentBlocker, formatFileSize, turnAttachments, useDesktopAttachments } from '@/lib/desktop-attachments';
  import { attachmentPill, attachmentsInText, attachmentWords, isAttachmentPill, projectFilePath, sentPill } from '@/lib/attachment-pills';
  import { deriveProjectTurns } from '@/lib/project-versions';
-@@ -33,6 +37,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
+@@ -33,6 +38,7 @@ import { isEmptyBackgroundTurn } from '@/lib/unprompted';
  import {
    answerLocalAgentPermission,
    answerLocalAgentQuestion,
@@ -38,7 +40,7 @@ index 26575ee..d2be15f 100644
    cancelLocalAgentTurn,
    canSteer,
    createLocalAgentTurn,
-@@ -43,6 +48,7 @@ import {
+@@ -43,6 +49,7 @@ import {
    onUnpromptedTurn,
    recoverLocalAgentTurns,
    registerRunningLocalTurn,
@@ -46,7 +48,7 @@ index 26575ee..d2be15f 100644
    runLocalAgentTurn,
    runningLocalTurns,
    recoverLoggedTurns,
-@@ -67,9 +73,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
+@@ -67,9 +74,11 @@ import { accountName, accountTrouble } from '@/lib/account-trouble';
  import { accountModel, accountModelOf, routeWithoutKey } from '@/lib/route-without-key';
  import { keptNote, ProjectFolderContext, readStudioProject } from '@/lib/studio-film';
  import { studioRefsFromTransfer, transferHasStudioRefs } from '@/lib/studio-transfer';
@@ -54,12 +56,51 @@ index 26575ee..d2be15f 100644
 +import { agentModelSummary, agentOptions, currentAgent, effectivePrefs, offeredOption, optionValue, useLocalAgents } from '@/state/local-agent-store';
  import { useLiveActivityFromStore } from '@/lib/live-activity';
  import { loadLastSession, loadSessions, newSession, saveLastSession, saveSessions } from '@/lib/local-sessions';
-+import { refreshChatSessions } from '@/lib/chat-store';
++import { readRequestedConversation, refreshChatSessions } from '@/lib/chat-store';
 +import { deleteChatSession } from '@/lib/chat-store';
  import type { ProjectSessionItem } from '@/lib/project-sessions';
  import { conversationAgent, conversationPrefs, keptPrefs } from '@/lib/conversation-agent';
  import { AGENT_DEFINITIONS, isAgentId } from '../../src/agent-definitions.mjs';
-@@ -157,6 +165,7 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+@@ -98,6 +107,12 @@ const CONTEXT_NOTICE_SHARE = 0.85;
+ /* between the chat's root (the add-skill dialog) and the project's chat: a skill added, a skill to make */
+ const MAKE_SKILL = 'openfilm:make-skill';
+ 
++/* DSH's explicit conversation selection is separate from the user's last tab. */
++type EditingRequest = { projectId: string; sessionId: string; requestId?: number };
++const editingHost = window as Window & { __no996PendingSession?: EditingRequest; openfilmHost?: { name?: string } };
++const EDITING_REQUEST = 'no996-openfilm:select-session';
++const editingRouteProject = () => /^\/projects\/([\w-]{6,40})\/?$/.exec(location.pathname)?.[1] ?? '';
++
+ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+   initialProject: Project | null;
+   initialSelection: StudioSelection | null;
+@@ -132,6 +147,19 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+ 
+   /* the project's chat record, read from its folder before its conversation shows */
+   const chatReady = useProjectChat(project);
++  const [routeProject, setRouteProject] = React.useState(editingRouteProject);
++  React.useEffect(() => {
++    if (editingHost.openfilmHost?.name !== 'DSH') return undefined;
++    const followRoute = () => setRouteProject(editingRouteProject());
++    window.addEventListener('popstate', followRoute);
++    window.addEventListener(EDITING_REQUEST, followRoute);
++    followRoute();
++    return () => {
++      window.removeEventListener('popstate', followRoute);
++      window.removeEventListener(EDITING_REQUEST, followRoute);
++    };
++  }, []);
++  const projectOnRoute = editingHost.openfilmHost?.name !== 'DSH' || !routeProject || project?.id === routeProject;
+   const ffState = typeof ffmpeg === 'object' && ffmpeg ? ffmpeg : null;
+   /* what Studio and its tools tell, as notices on the composer: each closed stays closed for what it said */
+   const [closed, setClosed] = React.useState<ReadonlySet<string>>(() => new Set());
+@@ -152,15 +180,17 @@ export function App({ initialProject, initialSelection, initialFfmpeg }: {
+   const onProject = Boolean(project) && /^\/projects\//.test(location.pathname);
+   return (
+     <div className={`relative flex h-full flex-col ${assetsOverlay ? '' : 'bg-[var(--bg-app)]'}`}>
++      <No996WhatsNew />
+       {addingSkill ? (
+         <AddSkillDialog onClose={() => setAddingSkill(false)} onAdded={async () => { window.dispatchEvent(new Event(SKILLS_CHANGED)); }}
            onPick={onProject ? (skill) => app.useSkill?.(skill) : undefined}
            onMake={onProject ? () => window.dispatchEvent(new Event(MAKE_SKILL)) : undefined} />
        ) : null}
@@ -67,52 +108,64 @@ index 26575ee..d2be15f 100644
        {/* shell.css owns the single line below the window's top bar. The seam on the right is the resize handle. */}
        <Divider />
        <div className="flex min-h-0 flex-1 flex-col">
-@@ -184,11 +193,77 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+-        {project && chatReady
++        {project && chatReady && projectOnRoute
+           ? <ChatPane key={`${project.id}:${project.path}`} project={project} banners={banners} selection={selection && selection.projectId === project.id ? selection : null} assetsOpen={assetsOpen} assetsOverlay={assetsOverlay} />
+           : (
+             <aside className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-panel)]">
+@@ -183,12 +213,82 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+ 
    /* ── sessions ── */
    const [sessions, setSessions] = React.useState<ProjectSessionItem[]>(() => loadSessions(projectKey));
-   const [sessionId, setSessionId] = React.useState<string>(() => {
+-  const [sessionId, setSessionId] = React.useState<string>(() => {
 -    const last = loadLastSession(projectKey);
++  const requestedForProject = () => editingHost.__no996PendingSession?.projectId === project.id ? editingHost.__no996PendingSession : undefined;
++  const [requested, setRequested] = React.useState(requestedForProject);
++  const [completedRequest, setCompletedRequest] = React.useState<EditingRequest>();
++  const [requestError, setRequestError] = React.useState<'missing' | 'archived' | 'unavailable' | null>(null);
++  const [requestAttempt, retryRequest] = React.useReducer((value: number) => value + 1, 0);
++  const [selectedSessionId, setSessionId] = React.useState<string>(() => {
++    if (requestedForProject()) return '';
      const list = loadSessions(projectKey);
-+    const pendingHost = window as unknown as { __no996PendingSession?: { projectId?: string; sessionId?: string } };
-+    const pending = pendingHost.__no996PendingSession;
-+    if (pending && pending.projectId === project.id && pending.sessionId) {
-+      pendingHost.__no996PendingSession = undefined;
-+      if (list.some((s) => s.id === pending.sessionId)) return pending.sessionId;
-+    }
 +    const last = loadLastSession(projectKey);
      return last && list.some((s) => s.id === last) ? last : list[0]?.id ?? newSession().id;
    });
-   React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
-+  /* no996-editor: the sidebar editing area switches conversations inside the same
-+     project folder (and across projects) via a custom window event. */
+-  React.useEffect(() => { saveLastSession(projectKey, sessionId); }, [projectKey, sessionId]);
++  const sessionId = requested ? '' : selectedSessionId;
 +  React.useEffect(() => {
-+    const onSelect = (event: Event) => {
-+      const detail = (event as CustomEvent<{ projectId?: string; sessionId?: string }>).detail;
-+      const targetSessionId = detail?.sessionId;
-+      if (!detail || detail.projectId !== project.id || !targetSessionId) return;
-+      const pendingHost = window as unknown as { __no996PendingSession?: { projectId?: string; sessionId?: string } };
-+      if (pendingHost.__no996PendingSession?.sessionId === targetSessionId) {
-+        pendingHost.__no996PendingSession = undefined;
-+      }
-+      const list = loadSessions(projectKey);
-+      if (list.some((s) => s.id === targetSessionId)) {
-+        setSessionId(targetSessionId);
-+        composerRef.current?.focus();
-+        return;
-+      }
-+      void refreshChatSessions(projectKey).then((changed) => {
-+        if (!changed) return;
-+        const nextList = loadSessions(projectKey);
-+        setSessions(nextList);
-+        if (nextList.some((s) => s.id === targetSessionId)) {
-+          setSessionId(targetSessionId);
-+          composerRef.current?.focus();
-+        }
-+      }).catch(() => {});
++    if (requested) return;
++    if (sessionId) saveLastSession(projectKey, sessionId);
++    const exact = completedRequest?.sessionId === sessionId && editingHost.__no996PendingSession === completedRequest
++      ? completedRequest : undefined;
++    if (exact) editingHost.__no996PendingSession = undefined;
++    window.dispatchEvent(new CustomEvent('no996-openfilm:editing-shown', {
++      detail: { projectId: project.id, sessionId, ...(exact?.requestId ? { requestId: exact.requestId } : {}) },
++    }));
++  }, [project.id, projectKey, sessionId, requested, completedRequest]);
++  React.useEffect(() => {
++    const onSelect = () => {
++      setRequestError(null);
++      setRequested(requestedForProject());
 +    };
-+    window.addEventListener('no996-openfilm:select-session', onSelect);
-+    return () => window.removeEventListener('no996-openfilm:select-session', onSelect);
-+  }, [project.id, projectKey]);
++    window.addEventListener(EDITING_REQUEST, onSelect);
++    // Catch a request sent between the render and listener registration.
++    onSelect();
++    return () => window.removeEventListener(EDITING_REQUEST, onSelect);
++  }, [project.id]);
++  React.useEffect(() => {
++    if (!requested) return undefined;
++    let disposed = false;
++    const stillCurrent = () => !disposed && editingHost.__no996PendingSession === requested && editingRouteProject() === project.id;
++    void readRequestedConversation(projectKey, project.id, requested.sessionId, stillCurrent).then(result => {
++      if (!stillCurrent() || result === 'superseded') return;
++      if (result !== 'ready') { setRequestError(result); return; }
++      setSessions(loadSessions(projectKey));
++      setSessionId(requested.sessionId);
++      setCompletedRequest(requested);
++      setRequested(undefined);
++    }).catch(() => { if (stillCurrent()) setRequestError('unavailable'); });
++    return () => { disposed = true; };
++  }, [project.id, projectKey, requested, requestAttempt]);
 +  /* no996-editor: the sidebar outside this page (and Studio itself) can add or
 +     delete a conversation while this list sits in state. Re-read on a slow tick and
 +     when the window comes back, so both sides agree without a reload. A deleted
@@ -146,7 +199,7 @@ index 26575ee..d2be15f 100644
    const touchSession = React.useCallback((id: string, patch: (s: ProjectSessionItem) => Partial<ProjectSessionItem>) => {
      setSessions((list) => {
        const now = new Date().toISOString();
-@@ -386,6 +461,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -386,6 +486,8 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    /* Skills and references open as typing `/` and `@` does, where the caret is */
    const typeTrigger = (char: '/' | '@') => { composerRef.current?.focus(); composerRef.current?.insertText(char); };
    const [dropping, setDropping] = React.useState(false);
@@ -155,7 +208,7 @@ index 26575ee..d2be15f 100644
    /** files of the project pointed at with @ (their pills turn back into their paths when sent) */
    const [fileRefs, setFileRefs] = React.useState<PromptReference[]>([]);
    const followUpFilled = followUp.trim().length > 0;
-@@ -412,10 +489,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -412,10 +514,63 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    }, [attachmentOf]);
    const opensPill = React.useCallback((pill: PromptReference) => isAttachmentPill(pill.id), []);
    /** what the card takes from a drag: files from the disk, Studio's things */
@@ -219,7 +272,7 @@ index 26575ee..d2be15f 100644
  
    /* ── the @ menu: this moment in Studio, and the project's files (asked for when the menu opens) ── */
    const [mentionFiles, setMentionFiles] = React.useState<Array<{ path: string; kind: string; size: number }>>([]);
-@@ -441,6 +571,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -441,6 +596,47 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      });
      return pills;
    }, []);
@@ -267,7 +320,7 @@ index 26575ee..d2be15f 100644
    /* how full the agent's context is in this conversation: said only once it is nearly full */
    const agentContext = useAgentContext(projectKey, sessionId, agent);
    const [contextNoticeOff, setContextNoticeOff] = React.useState<string | null>(null);
-@@ -733,7 +904,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -733,7 +929,9 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
      const summary = agentModelSummary(options, prefs);
      /* how hard it thinks, as the menu offers it */
      const effortOption = options?.find((o) => o.category === 'thought_level');
@@ -278,7 +331,24 @@ index 26575ee..d2be15f 100644
      const modelLabel = [summary.model, effort].filter(Boolean).join(' · ');
      const started: Turn = {
        ...makePlaceholder(id, 'video', instruction, { projectId: projectKey, sessionId }),
-@@ -1011,6 +1184,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -900,7 +1098,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   React.useEffect(() => { if (active) setUndoAsk(null); }, [active]);
+ 
+   function submitFollowUp(): void {
+-    if (!followUpFilled) return;
++    if (requested || !sessionId || !followUpFilled) return;
+     /* while a turn runs: into it, for an agent that takes that; else it waits for the turn to end */
+     const steer = active && asset ? canSteer(asset.id) : false;
+     if (active && !steer) { setQueued(sessionId); return; }
+@@ -1002,6 +1200,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+   /* each conversation's agent at work whichever is shown: a new one, or another, any time; none while
+      the one shown is new itself (false) */
+   const onNewSession = (): boolean => {
++    if (requested) return false;
+     if (blank && !running.has(sessionId)) { composerRef.current?.focus(); return false; }
+     setSessionId(newSession().id);
+     composerRef.current?.focus();
+@@ -1011,6 +1210,13 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    const onSelectSession = (id: string) => { setSessionId(id); composerRef.current?.focus(); };
    const onRenameSession = (id: string, title: string) => editSession(id, { title });
    const onPinSession = (id: string, pinned: boolean) => editSession(id, { pinned });
@@ -292,7 +362,7 @@ index 26575ee..d2be15f 100644
    /* the conversation shown, archived: a new one in its place */
    const onArchiveSession = (id: string, archived: boolean) => {
      if (archived && running.has(id)) return;
-@@ -1041,8 +1221,134 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1041,8 +1247,134 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
    };
    const wasName = agentWas === 'byok' ? t('composer.agentOwnKey') : agentWas ? la.roster?.find((a) => a.id === agentWas)?.name ?? AGENT_DEFINITIONS[agentWas]?.name ?? agentWas : '';
  
@@ -427,7 +497,7 @@ index 26575ee..d2be15f 100644
        <div
          /* a file from the disk dropped on the card is brought along, a pill where it was let go (on the words) or at
             the cursor; Studio's things dropped on it become pills too */
-@@ -1075,9 +1381,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1075,9 +1407,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            attachFiles(filesFromTransfer(event.dataTransfer), { x: event.clientX, y: event.clientY });
          }}
          data-prompt-shell=""
@@ -440,7 +510,7 @@ index 26575ee..d2be15f 100644
        >
          {openedFile ? <AttachmentPreview item={openedFile} onClose={() => setOpenedFile(null)} /> : null}
          <div className="flex items-end gap-1.5 py-2.5 pl-2 pr-2">
-@@ -1123,6 +1430,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1123,6 +1456,30 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                mentions={{ providers: mentionProviders, label: t('mention.menu'), onOpen: loadMentionFiles }}
              />
            </div>
@@ -471,7 +541,7 @@ index 26575ee..d2be15f 100644
            {/* while it works: Stop, or Send once something is written (it goes into the turn, or after it); Esc stops */}
            <Tooltip label={stopping ? t('project.stop') : t('project.sendFollowUp')} shortcut={stopping ? 'Esc' : 'Enter'}>
              <button
-@@ -1136,9 +1467,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1136,9 +1493,38 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
              </button>
            </Tooltip>
          </div>
@@ -510,7 +580,7 @@ index 26575ee..d2be15f 100644
            placement="top"
            align="start"
            agent={agent}
-@@ -1146,7 +1506,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1146,7 +1532,10 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            onPick={(id) => keepOnSession(() => ({ agent: id }))}
            onPref={(id, configId, value) => keepOnSession((s) => ({ agentPrefs: { ...s.agentPrefs, [id]: { ...s.agentPrefs?.[id], [configId]: value } } }))}
          />
@@ -521,7 +591,7 @@ index 26575ee..d2be15f 100644
          <input
            ref={attachInputRef}
            type="file"
-@@ -1154,14 +1517,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1154,14 +1543,6 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
            hidden
            onChange={(event) => { attachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }}
          />
@@ -536,8 +606,32 @@ index 26575ee..d2be15f 100644
          <Tooltip label={t('project.assets')}>
            <button type="button" onClick={() => app.setAssetsOpen(!assetsOpen)} aria-pressed={assetsOpen} className="openfilm-composer-tool" aria-label={t('project.assets')}>
              <LibraryBig size={16} strokeWidth={1.75} />
-@@ -1183,6 +1538,16 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1181,8 +1562,40 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+     return () => window.removeEventListener('keydown', onKey);
+   }, [active, asset]);
  
++  if (requested) {
++    const zh = locale === 'zh-CN';
++    const text = requestError === 'archived'
++      ? (zh ? '该剪辑会话已归档，请在工作区恢复后再打开。' : 'This editing conversation is archived. Restore it in the workspace first.')
++      : requestError === 'missing'
++        ? (zh ? '未找到指定的剪辑会话，不会切换到其他对话。' : 'The requested editing conversation was not found. No other conversation was selected.')
++        : requestError === 'unavailable'
++          ? (zh ? '暂时无法读取指定会话的历史。' : 'The history of the requested conversation is temporarily unavailable.')
++          : (zh ? '正在接回指定的剪辑会话…' : 'Opening the requested editing conversation…');
++    return (
++      <aside className="flex min-h-0 flex-1 items-center justify-center bg-[var(--bg-panel)] p-4" data-no996-editing-request={requestError || 'loading'}>
++        <div role="status" className="flex flex-col items-center gap-3 text-center text-[13px] text-[var(--text)]">
++          {!requestError && <Loader2 size={16} className="animate-spin text-[var(--text-faint)]" />}
++          <span>{text}</span>
++          {requestError && <button type="button" className="rounded-md border border-[var(--border)] px-3 py-1.5" onClick={() => { setRequestError(null); retryRequest(); }}>
++            {zh ? '重试读取历史' : 'Retry reading history'}
++          </button>}
++        </div>
++      </aside>
++    );
++  }
++
    return (
      <ChatProjectContext.Provider value={projectKey}>
 +      {pageDropping ? (
@@ -553,7 +647,7 @@ index 26575ee..d2be15f 100644
        <PromptPillHoverContext.Provider value={pillHover.hover}>
          <WaitingContext.Provider value={Boolean(localTurn?.state.question || localTurn?.state.permission || spendAsk)}>
            <StickToBottomContext.Provider value={thread}>
-@@ -1200,6 +1565,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
+@@ -1200,6 +1613,7 @@ function ChatPane({ project, banners, selection, assetsOpen, assetsOverlay }: {
                    onRenameSession={onRenameSession}
                    onPinSession={onPinSession}
                    onArchiveSession={onArchiveSession}

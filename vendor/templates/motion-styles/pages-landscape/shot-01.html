@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>01 · 扁平矢量</title>
+<link rel="stylesheet" href="../assets/motion-scene.css">
+<script src="../assets/motion.js"></script>
+</head>
+<body>
+<main class="motion-study flat landscape"><p data-element-id="motion-flat-kicker" class="label">FLAT VECTOR / 01</p>
+    <h1 data-element-id="motion-flat-headline" class="headline">一点成城</h1>
+    <p data-element-id="motion-flat-deck" class="deck">让一个想法，长成一座城市。</p>
+    <div class="flat-city" data-element-id="motion-flat-city">
+      <svg viewBox="0 0 760 600" aria-hidden="true">
+        <circle data-flat-sun cx="590" cy="122" r="76" fill="#ffc62b"/>
+        <path d="M0 512h760" stroke="#fff6e9" stroke-width="12"/>
+        <g fill="#ff5a4e"><rect x="64" y="304" width="132" height="208" rx="8"/><rect x="226" y="216" width="154" height="296" rx="8"/><rect x="566" y="266" width="130" height="246" rx="8"/></g>
+        <g fill="#4d4dff"><rect x="410" y="132" width="126" height="380" rx="8"/><rect x="590" y="356" width="116" height="156" rx="8"/></g>
+        <g fill="#fff6e9"><rect x="94" y="340" width="26" height="34"/><rect x="140" y="340" width="26" height="34"/><rect x="258" y="258" width="28" height="38"/><rect x="314" y="258" width="28" height="38"/><rect x="442" y="182" width="28" height="38"/><rect x="442" y="252" width="28" height="38"/></g>
+        <path data-flat-road d="M28 548C214 454 462 460 726 396" fill="none" stroke="#2ee6a8" stroke-width="18" stroke-linecap="round"/>
+      </svg>
+      <span data-element-id="motion-flat-caption">IDEA → FORM</span>
+    </div></main>
+<script>
+(function () {
+    const M = window.Motion;
+    const duration = 10;
+    const number = document.querySelector('[data-element-id="motion-bauhaus-number"]');
+    function draw(value) {
+      const t = Math.max(0, Math.min(duration, Number(value) || 0));
+      const p = M.cubicOut(M.seg(t, 0.05, 0.62));
+      const title = document.querySelector('.headline');
+      title.style.clipPath = 'inset(0 ' + ((1 - p) * 100) + '% 0 0)';
+      title.style.transform = 'translateY(' + ((1 - p) * 24) + 'px)';
+      
+      const sun = document.querySelector('[data-flat-sun]');
+      const road = document.querySelector('[data-flat-road]');
+      sun.style.transformOrigin = '590px 122px';
+      sun.style.transform = 'scale(' + (0.3 + 0.7 * M.backOut(M.seg(t, 0.2, 0.65))) + ')';
+      road.style.strokeDasharray = '900';
+      road.style.strokeDashoffset = String(900 * (1 - M.cubicOut(M.seg(t, 0.7, 1.1))));
+      
+    }
+    window.film = { width: 1920, height: 1080, duration,
+      ready: Promise.resolve(document.fonts?.ready).then(function () { draw(0); return true; }),
+      frame: draw };
+  })();
+</script>
+</body>
+</html>

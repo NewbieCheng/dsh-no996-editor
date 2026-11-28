@@ -48,6 +48,12 @@ test('the native examples gallery contains the product templates, not a second p
   assert.match(patch, /onStart=\{\(example\)/);
 });
 
+test('the 0.22.0 introduction is a versioned component, not a page injection', () => {
+  assert.match(bundle, /no996UpdateVersion/);
+  assert.match(bundle, /0\.22\.0 · 从一支片，到一套创作系统/);
+  assert.doesNotMatch(injection, /no996UpdateVersion|0\.22\.0 · 从一支片/);
+});
+
 test('the login gate is a component, not a page script', () => {
   // The gate used to be a 643-line DOM injection that appended itself to
   // documentElement. It is LoginGate.tsx now (same copy, same stylesheet); only the

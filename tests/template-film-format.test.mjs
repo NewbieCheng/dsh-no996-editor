@@ -9,9 +9,13 @@ import { readFilmFile, parseFilm, filmHtml, clipSpan } from 'openfilm/film-doc';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../vendor/templates');
 const cases = [
   { name: 'vibe-explainer', stage: [1080, 1920], lengths: [5, 5, 6, 5.5, 5.5, 5.5, 5, 4.5], duration: 42, hasAudio: true },
+  { name: 'vibe-explainer', entry: 'film-landscape.html', pages: 'pages-landscape', stage: [1920, 1080], lengths: [5, 5, 6, 5.5, 5.5, 5.5, 5, 4.5], duration: 42, hasAudio: true },
   { name: 'paper-texture', stage: [1080, 1920], lengths: [6, 7], duration: 13 },
-  { name: 'sketchnote', stage: [1920, 1080], lengths: [2.756, 2.744, 3.383, 3.679, 3.859, 1.472, 2.051], duration: 19.944 },
-  { name: 'motion-styles', stage: [1920, 1080], lengths: [10, 8], duration: 18 },
+  { name: 'paper-texture', entry: 'film-landscape.html', pages: 'pages-landscape', stage: [1920, 1080], lengths: [6, 7], duration: 13 },
+  { name: 'sketchnote', stage: [1080, 1920], lengths: [2.756, 2.744, 3.383, 3.679, 3.859, 1.472, 2.051], duration: 19.944 },
+  { name: 'sketchnote', entry: 'film-landscape.html', pages: 'pages-landscape', stage: [1920, 1080], lengths: [2.756, 2.744, 3.383, 3.679, 3.859, 1.472, 2.051], duration: 19.944 },
+  { name: 'motion-styles', stage: [1080, 1920], lengths: [10, 8], duration: 18 },
+  { name: 'motion-styles', entry: 'film-landscape.html', pages: 'pages-landscape', stage: [1920, 1080], lengths: [10, 8], duration: 18 },
 ];
 
 test('paper still pages expose the OpenFilm frame contract', async () => {
@@ -30,10 +34,10 @@ test('paper still pages expose the OpenFilm frame contract', async () => {
   }
 });
 
-for (const { name, stage, lengths, duration, hasAudio } of cases) {
-  test(`${name}: official film parser, format and referenced clips`, async () => {
+for (const { name, entry = 'film.html', pages = 'pages', stage, lengths, duration, hasAudio } of cases) {
+  test(`${name}/${entry}: official film parser, format and referenced clips`, async () => {
     const dir = resolve(root, name);
-    const source = await readFile(resolve(dir, 'film.html'), 'utf8');
+    const source = await readFile(resolve(dir, entry), 'utf8');
     const result = readFilmFile(source);
     assert.deepEqual(result.problems, []);
     assert.ok(result.doc);
@@ -53,7 +57,7 @@ for (const { name, stage, lengths, duration, hasAudio } of cases) {
     let endMs = 0;
     for (const [i, clip] of clips.entries()) {
       assert.equal(clip.id, `shot-${String(i + 1).padStart(2, '0')}`);
-      assert.equal(clip.src, `pages/${clip.id}.html`);
+      assert.equal(clip.src, `${pages}/${clip.id}.html`);
       assert.equal(Math.round(clip.at * 1000), endMs, `${clip.id} start`);
       const span = clipSpan(clip);
       assert.equal(span.from, 0);

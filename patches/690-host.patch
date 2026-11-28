@@ -1,0 +1,13 @@
+diff --git a/packages/openfilm/studio/ui/src/lib/host.ts b/packages/openfilm/studio/ui/src/lib/host.ts
+index 77b1ea5..c59b56d 100644
+--- a/packages/openfilm/studio/ui/src/lib/host.ts
++++ b/packages/openfilm/studio/ui/src/lib/host.ts
+@@ -470,7 +470,7 @@ export type StudioCommand =
+   | { type: 'select-clip'; id?: string | null; loc?: string | null; seek?: boolean }
+   | { type: 'seek'; time: number }
+   | { type: 'show-range'; start: number; end: number }
+-  | { type: 'show-box'; time: number; box: StageBox }
++  | { type: 'show-box'; time: number; box: StageBox; clipId?: string | null; loc?: string | null }
+   | { type: 'show-track'; track: number }
+   | { type: 'show-file'; path: string }
+   /* a node of the canvas: the canvas opened, the node selected and in view */

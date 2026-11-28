@@ -154,6 +154,15 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     return { data, rebound };
   }
 
+  // Routing is read-only, even if the next normal load will rebind a renamed
+  // directory. Do not sort or return conversation history to the router.
+  function listSessions(projectId) {
+    return run(projectId, async (key, path) => {
+      const { data } = await readRecord(key, projectId, path);
+      return { sessions: data.sessions };
+    });
+  }
+
   function load(projectId) {
     return run(projectId, async (key, path) => {
       const { data, rebound } = await readRecord(key, projectId, path);
@@ -259,5 +268,5 @@ export async function openOfficialChatStore(ctx, { z, requireVerifiedProject } =
     }
     return closePromise;
   }
-  return Object.freeze({ load, saveSessions, saveTurn, deleteConversations, remove, close });
+  return Object.freeze({ listSessions, load, saveSessions, saveTurn, deleteConversations, remove, close });
 }

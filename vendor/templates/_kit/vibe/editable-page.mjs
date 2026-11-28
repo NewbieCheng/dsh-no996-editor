@@ -1,0 +1,140 @@
+import { escapeHtml, page } from '../render.mjs';
+import { vibeSceneCopy } from './scene-copy.mjs';
+import { vibeDiagram } from './scene-visuals.mjs';
+
+const text = value => escapeHtml(typeof value === 'string' ? value : '');
+const layer = (tag, id, cls, value) => `<${tag} class="${cls}" data-element-id="vibe-${id}">${text(value)}</${tag}>`;
+
+// The text and visuals are distinct editable layers. Insets are expressed
+// against the native stage, not a rotated portrait composition.
+export function renderVibeScene(shot, size) {
+  return renderScene(shot, size, vibeSceneCopy(shot));
+}
+
+const spokenRoles = {
+  hook: ['提问', 'line'], point: ['观点', 'balance'], evidence: ['依据', 'matrix'],
+  turn: ['转折', 'doors'], payoff: ['答案', 'closing'], action: ['行动', 'runway'],
+};
+
+export function renderSpokenVibeScene(scene, size, cues, accentMs, startMs, endMs) {
+  const [kicker, motif] = spokenRoles[scene.role];
+  return renderScene({ title: scene.headline, chapter: kicker, duration: (endMs - startMs) / 1000 }, size,
+    { kicker, heading: scene.headline, motif, label: '', captions: cues, accentMs, startMs, spoken: true });
+}
+
+function captionMarkup(cue) {
+  if (typeof cue === 'string') return text(cue);
+  const start = cue.emphasis ? cue.text.indexOf(cue.emphasis) : -1;
+  if (start < 0) return text(cue.text);
+  return `${text(cue.text.slice(0, start))}<strong>${text(cue.emphasis)}</strong>${text(cue.text.slice(start + cue.emphasis.length))}`;
+}
+
+function renderScene(shot, size, value) {
+  const [width, height] = size;
+  const orientation = width > height ? 'landscape' : 'portrait';
+  const count = [...(value.heading || '')].length;
+  const titleClass = count > 20 ? ' vibe-heading--compact' : count > 7 ? ' vibe-heading--medium' : count > 5 ? ' vibe-heading--long' : '';
+  const visual = value.motif
+    ? `${vibeDiagram(value.motif)}<div class="vibe-labels">${layer('span', 'callout', 'vibe-label', value.label)}${value.secondaryLabel ? layer('span', 'callout-secondary', 'vibe-label-alt', value.secondaryLabel) : ''}</div>`
+    : `<div class="vibe-list">${value.items.map((item, index) => `<div class="vibe-item" data-item="${index}"><span aria-hidden="true">0${index + 1}</span><div>${layer('div', `item-${index + 1}-title`, 'vibe-item-title', item?.title)}${layer('p', `item-${index + 1}-detail`, 'vibe-item-detail', item?.sub)}</div></div>`).join('')}</div>`;
+  return page({ title: shot.title, size, style: CSS, body: `
+  <main class="vibe-page ${orientation}">
+    <header class="vibe-header">
+      <span data-element-id="vibe-series">VIBE / 科普剧场</span>
+      ${layer('span', 'chapter', '', shot.chapter)}
+    </header>
+    <div class="vibe-copy">
+      ${layer('div', 'question', 'vibe-question', value.kicker)}
+      <h1 class="vibe-heading${titleClass}" data-element-id="vibe-headline"><span data-reveal>${text(value.heading)}</span></h1>
+      ${layer('p', 'deck', 'vibe-deck', value.deck)}
+    </div>
+    <div class="vibe-visual">${visual}</div>
+    <div class="vibe-caption" aria-label="字幕">
+      ${value.captions.filter(Boolean).map((line, index) => `<p data-caption="${index}" data-element-id="${typeof line === 'string' ? `vibe-subtitle${index ? '-' + (index + 1) : ''}` : `vibe-${text(line.id)}`}"${typeof line === 'string' ? '' : ` data-from="${line.fromMs - value.startMs}" data-to="${line.toMs - value.startMs}"`}><span>${captionMarkup(line)}</span></p>`).join('')}
+    </div>
+  </main>`, script: `
+  (function () {
+    const duration = ${Number(shot.duration)};
+    const title = document.querySelector('[data-reveal]');
+    const trace = document.querySelector('[data-pivot]');
+    const ping = document.querySelector('[data-pulse]');
+    const lines = Array.from(document.querySelectorAll('[data-caption]'));
+    const accent = ${Number.isFinite(value.accentMs) ? (value.accentMs - value.startMs) / 1000 : 'null'};
+    const items = Array.from(document.querySelectorAll('[data-item]'));
+    function draw(value) {
+      const t = Math.min(duration, Math.max(0, Number(value) || 0));
+      const ease = window.Motion.cubicOut;
+      const progress = ease(Math.min(1, t / 0.62));
+      title.style.clipPath = 'inset(0 ' + ((1 - progress) * 100) + '% 0 0)';
+      if (trace && ping) {
+        const reveal = ease(Math.max(0, Math.min(1, (t - 0.16) / 0.64)));
+        trace.style.opacity = String(0.56 + 0.44 * reveal);
+        trace.setAttribute('transform', 'translate(0 ' + (1 - reveal) * 18 + ')');
+        const energy = accent === null ? ${value.spoken ? '0' : '(1 - Math.cos(t * 3.6)) / 2'} : t < accent ? 0 : Math.max(0, 1 - (t - accent) / 0.28);
+        ping.setAttribute('r', String(17 + 12 * energy));
+        ping.style.opacity = String(0.18 + 0.44 * energy);
+      }
+      items.forEach((item, i) => {
+        const reveal = ease(Math.max(0, Math.min(1, (t - 0.24 - i * 0.18) / 0.48)));
+        item.style.opacity = String(reveal);
+        item.style.transform = 'translateY(' + (1 - reveal) * 20 + 'px)';
+      });
+      const slot = duration / Math.max(lines.length, 1);
+      lines.forEach((line, i) => {
+        const timed = line.dataset?.from !== undefined;
+        const start = timed ? Number(line.dataset.from) / 1000 : i * slot;
+        const end = timed ? Number(line.dataset.to) / 1000 : start + slot;
+        const age = t - start;
+        const active = age >= 0 && (t < end || (!timed && i === lines.length - 1));
+        line.style.visibility = active ? 'visible' : 'hidden';
+        if (active) {
+          const p = ease(Math.min(1, age / 0.19));
+          line.style.opacity = String(p);
+          line.firstElementChild.style.transform = 'translateY(' + (1 - p) * 13 + 'px)';
+        } else {
+          line.style.opacity = '0';
+          line.firstElementChild.style.transform = 'translateY(13px)';
+        }
+      });
+    }
+    window.film = { width: ${width}, height: ${height}, duration,
+      ready: Promise.resolve(document.fonts?.ready).then(() => { draw(0); return true; }),
+      frame: function (t) { draw(t); },
+    };
+  })();`, styles: [],
+  }).replace('<body>\n', '<body>\n<script src="../assets/motion.js"></script>\n');
+}
+
+const CSS = `
+*{box-sizing:border-box}html,body,main{margin:0;width:100%;height:100%;overflow:hidden}
+body{color:#f3f6f4;background:#08121c;font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif}
+.vibe-page{position:relative;background:radial-gradient(ellipse at 82% 45%,#162c3b 0%,#08121c 67%);isolation:isolate}
+.vibe-header{position:absolute;display:flex;justify-content:space-between;inset:6% 8% auto;gap:20px;padding-bottom:20px;border-bottom:2px solid #324a59;color:#b6c7d2;font-size:30px;font-weight:700;letter-spacing:.12em}
+.vibe-copy{position:absolute;inset:17% 8% auto;min-width:0}
+.vibe-question{color:#fbd46c;font-size:42px;font-weight:700;line-height:1.25;letter-spacing:.04em}
+.vibe-heading{margin:35px 0 25px;font-size:clamp(90px,14vw,162px);font-weight:900;line-height:1.13;letter-spacing:-.035em;overflow-wrap:anywhere}
+.vibe-heading.vibe-heading--long{font-size:clamp(88px,11vw,125px)}
+.vibe-heading.vibe-heading--medium{font-size:clamp(70px,8.4vw,98px)}
+.vibe-heading.vibe-heading--compact{font-size:clamp(44px,5vw,58px)}
+.vibe-heading span{display:inline-block;text-wrap:balance}
+.vibe-deck{margin:0;color:#cbd8dc;font-size:42px;line-height:1.35;overflow-wrap:anywhere}
+.vibe-visual{position:absolute;inset:46% 9% auto;height:32%;min-width:0}
+.vibe-diagram,.vibe-diagram svg{display:block;width:100%;height:100%}
+.vibe-labels{position:absolute;bottom:0;left:5%;right:5%;display:flex;justify-content:space-between;gap:16px;font-size:30px;line-height:1.2;font-weight:700}
+.vibe-label{color:#fbd46c}.vibe-label-alt{color:#a9becb;text-align:right}
+.vibe-list{display:grid;height:100%;align-content:space-evenly;gap:12px}
+.vibe-item{display:grid;align-items:center;grid-template-columns:auto 1fr;gap:25px;padding:21px;background:#0b1924;border:2px solid #324a59;border-radius:14px;font-size:30px;color:#fbd46c}
+.vibe-item-title{color:#f3f6f4;font-size:36px;font-weight:800;line-height:1.2}.vibe-item-detail{margin:8px 0 0;font-size:27px;color:#cbd8dc}
+.vibe-caption{position:absolute;inset:auto 10% 11%;display:grid;text-align:center;white-space:nowrap;font-size:44px;font-weight:800;line-height:1.32;color:#f3f6f4}
+.vibe-caption p{margin:0;grid-area:1/1;overflow:hidden}
+.vibe-caption span{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;border-left:5px solid #fbd46c;background:#0b1924;padding:14px 25px}
+.vibe-caption strong{color:#fbd46c;font-weight:inherit}
+.landscape .vibe-header{inset:8% 7% auto}
+.landscape .vibe-copy{inset:27% 53% auto 7%}
+.landscape .vibe-heading{font-size:clamp(112px,9vw,170px)}
+.landscape .vibe-heading.vibe-heading--long{font-size:clamp(88px,6.2vw,125px)}
+.landscape .vibe-question,.landscape .vibe-deck{font-size:38px}
+.landscape .vibe-visual{inset:20% 6% auto 49%;height:61%}
+.landscape .vibe-labels{left:12%;right:10%;bottom:4%}
+.landscape .vibe-caption{bottom:8%}
+`;

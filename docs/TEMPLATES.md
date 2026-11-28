@@ -2,13 +2,13 @@
 id: templates
 reader: 做模板的人
 fact-source: vendor/templates/**、scripts/templates-build.mjs
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 模板结构、_kit、构建流程或提示词注入链路变化
 -->
 
 # 模板与素材库
 
-四个随插件发布的模板：首推 **`vibe-explainer`**（Vibe 科普剧场，含 Canvas 2D 物理隐喻与确定性拟音轨），以及 `paper-texture`（纸纹讲堂）、
+四个随插件发布的模板：首推 **`vibe-explainer`**（Vibe 科普剧场，可编辑矢量图解与拟音轨），以及 `paper-texture`（纸纹讲堂）、
 `sketchnote`（手绘笔记）、`motion-styles`（动效风格样片）。前三个是**数据 + 素材单元/场景**
 经 `scripts/templates-build.mjs` 生成的产物（支持 `sfxCues` 合成 `.wav` 与双轨无重叠 `<audio>`）；`motion-styles` 是**整片样片**的直接封装
 （见文末「动效风格样片」）。原 `replica-film`（产品名「知识大赏」）已移除。
@@ -18,7 +18,7 @@ vendor/templates/
 ├── _kit/                     ← 素材库（源）
 │   ├── catalog.json          ← 机器可读目录：每个单元的槽位、说明、样式文件
 │   ├── render.mjs            ← 组装器：槽位填充、重复块、单元样式与音轨合并
-│   ├── motion/motion.js      ← 闭式物理缓动与摇晃/砸入/扫光/接力原语
+│   ├── motion/motion.js      ← no996-motion-runtime 生成的静态兼容副本
 │   ├── vibe/{vibe-canvas.js,vibe-overlay.js,page.mjs} ← Vibe 原创隐喻画布 + 口播避脸浮层
 │   ├── paper/{tokens.css,units/*,page.mjs}
 │   └── sketch/page.mjs
@@ -29,6 +29,13 @@ vendor/templates/
 │   ├── pages/shot-01.html    ← 产物（提交进仓库）
 │   └── assets/kit.css        ← 由 _kit 合并出的样式（产物）
 ```
+
+## 可复用包（源码唯一实现）
+
+- `packages/no996-scene-kit`：`page` / `shotWall`、转义文本层、定时字幕层、安全区与角落实例，以及普通 `<script>` 可用的 `No996Scene` 帧运行时。
+- `packages/no996-motion-runtime`：44 个闭式动效函数，提供 ESM 与静态浏览器脚本；各模板的 `vendor/templates/<模板>/assets/motion.js` 是它生成的兼容副本，不再单独维护第二份实现。
+
+改包源码后运行 `npm run packages:build`，再运行 `npm run templates:build`。`npm run check` 会同时检查包产物与模板产物是否过期。两个包随源码仓和主插件发布包携带，**当前尚未作为独立 npm 包发布**；外部 AI 的独立 CLI/Skill 入口仍以公开仓库 README 为准。
 
 ## 为什么要有构建步骤
 
@@ -45,10 +52,10 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 
 | 模板 | 模型 | 可编辑的东西 |
 |---|---|---|
-| `vibe-explainer` | **单镜头连续生长剧场（首推标杆）**：共享 `globalT` 世界舞台 + 2.5D 景别运镜 + 6 大生长转场 + 内置《We Never》实测拍点与拟音轨 | `shots/*.json`（文案/色板/时长）+ `stage.js` + `template.json`（`builtinRhythm` / `sfxCues`） |
-| `paper-texture` | **静态页 + 避脸浮层**：主页面按需叠加 `VibeOverlay` 透明高亮卡片 | `shots/*.json` 的 `copy`（文案）与 `vars`（字号/位置） |
-| `sketchnote` | **一场戏多窗口**：七个镜头是同一张纸面的七个时间窗 | `vendor/templates/sketchnote/assets/notebook-config.js`（内容）+ `shots/*.json`（窗口） |
-| `motion-styles` | **整片样片直封**：一个镜头 = 一支上游 10 秒样片 | `shots/*.json` 的 `style`（样片 slug）与 `duration`；画面改 `vendor/motion/styles/demos/<slug>/index.html` |
+| `vibe-explainer` | **双比例可编辑图解**：竖屏上下分层、横屏图文并排，静态 DOM/SVG + 按时间驱动的动作与独立拟音轨 | `shots/*.json`、`_kit/vibe/scene-copy.mjs`（文案），`_kit/vibe/editable-page.mjs`、`_kit/vibe/scene-visuals.mjs`（布局与图解），`template.json`（拟音） |
+| `paper-texture` | **双比例静态讲义**：竖屏上下讲授，横屏课件／人物并排、步骤三栏 | `shots/*.json`、`_kit/paper/page.mjs` 与可复用单元 |
+| `sketchnote` | **双比例七幕纸面**：竖屏单页推进，横屏左右摊页；DOM/SVG 可编辑 | `shots/*.json`、`_kit/sketch/content.mjs`、`_kit/sketch/page.mjs`、`vendor/templates/sketchnote/assets/sketch.css` |
+| `motion-styles` | **双比例动效样板**：扁平矢量与包豪斯两幕，文字与几何分层 | `shots/*.json`、`_kit/motionstyle/page.mjs`、`vendor/templates/motion-styles/assets/motion-scene.css`；原上游样片仅作风格参考 |
 
 `sketchnote` 的 `notebook.js` 按**绝对时间**绘制整场戏，页面只声明 `START` /
 `DURATION`。窗口写错时画面看着正常、内容却错位，所以有一个测试专门校验七个
@@ -137,6 +144,8 @@ OpenFilm 把页面当**静态 HTML** 渲染：没有打包器、没有模块加�
 ### 新增模板不用改系统提示词
 
 包内完整模板在 `vendor/templates/<id>/`；其 `manifest.json` 包含 `id`、`title`、`entry`、`mode`，目录名要与 ID 一致。建议提供 `description`、`version`、`tags`、`ratios`（如 `["9:16"]`）、`slots` 和 `dependencies`；`prompt.md` 可选，详情只读取有限长度。
+
+内置模板若提供经过验证的多比例布局，在 `manifest.json` 声明 `"layoutVariants": { "defaultRatio": "9:16", "ratios": ["9:16", "16:9"] }`。构建器对每个比例独立调用渲染器，默认版仍为 `film.html` + `pages/`，非默认版使用 `film-landscape.html` + `pages-landscape/` 或对应的 `portrait` 名称。共用素材在 `assets/`，不要让备用布局依赖另一个版式的镜头页面。创建时 Host 只安装被选中的页面和公共素材，将其影片入口落成项目的 `film.html`；指定的比例不存在则拒绝，不根据标签猜测、不裁剪另一版代替。外部参考的 `ratios` 仅是检索元数据，不授予安装或执行能力。
 
 从可信渠道解包的外部模板可放在 `~/.openfilm/Templates/<id>/`，由同一工具以 `external:<id>` 发现。当前外部包**只支持检索、读取参考**，不自动下载、预览或复制 HTML/JS 到项目；这些能力需要独立的校验与隔离。OpenFilm 自带多轨素材模板仍通过 `openfilm/` ID 查阅和复用。
 

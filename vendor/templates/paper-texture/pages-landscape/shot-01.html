@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>纸纹讲堂 · 标题页</title>
+<link rel="stylesheet" href="../assets/kit.css">
+
+<style>
+:root {
+  --kicker-size: 34px;
+  --kicker-tracking: .32em;
+  --title-size: 92px;
+  --title-gap: 20px;
+  --title-line: 1.12;
+  --em-pad: 6px;
+  --capsule-bottom: 120px;
+}
+body { background: radial-gradient(120% 80% at 50% 0%, #ece2d3 0%, var(--paper) 55%, #d9cbb8 100%); position: relative; }
+
+html, body { width: 1920px; height: 1080px; }
+.paper-page { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+.landscape .head { top: 64px; left: 84px; right: 84px; }
+.landscape .kicker { font-size: 28px; }
+.landscape .title { margin-top: 14px; font-size: 70px; line-height: 1.08; }
+.landscape .stage { top: 250px; left: 84px; right: 704px; height: 590px; }
+.landscape .slide b { font-size: 44px; }
+.landscape .presenter { top: 250px; right: 84px; bottom: auto; width: 540px; height: 404px; font-size: 30px; }
+.landscape .nameplate { left: auto; right: 84px; bottom: 158px; writing-mode: horizontal-tb; width: 540px; text-align: center; font-size: 30px; padding: 18px; }
+.landscape .capsule { left: 84px; right: 84px; bottom: 54px; font-size: 32px; padding: 22px 40px; }
+.landscape .steps { top: 250px; left: 84px; right: 84px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.landscape .step { min-width: 0; height: 590px; flex-direction: column; gap: 26px; padding: 38px 32px; }
+.landscape .num { width: 78px; height: 78px; font-size: 38px; }
+.landscape .body h3 { font-size: 44px; }
+.landscape .body p { font-size: 28px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<main class="paper-page landscape">
+<div class="grain"></div>
+<div class="head" data-element-id="paper-head">
+  <div class="kicker" data-element-id="paper-kicker">纸 纹 讲 堂</div>
+  <div class="title" data-element-id="paper-headline">一页纸，讲<em>清一件事</em></div>
+</div>
+<div class="stage" data-element-id="paper-courseware"><div class="slide"><b data-element-id="paper-slide-title">你的课件标题</b><span data-element-id="paper-slide-hint">把 PPT / 截图放进这里的通栏区域</span></div></div>
+<div class="nameplate" data-element-id="paper-nameplate">讲者 · 你的名字</div>
+<div class="presenter" data-element-id="paper-presenter">人物窗口</div>
+<div class="capsule" data-element-id="paper-subtitle">字幕胶囊：一句话说清这一页要讲什么。</div>
+</main>
+<script>
+// A still page has the same DOM picture at every local time.
+  window.film = { width: 1920, height: 1080, duration: 6, ready: document.fonts.ready, frame(_t) {} };
+</script>
+</body>
+</html>

@@ -3,5 +3,11 @@
   "title": "扁平矢量 · 一点成城",
   "pageTitle": "01 · 扁平矢量",
   "duration": 10,
-  "style": "01-flat-vector"
+  "style": "01-flat-vector",
+  "copy": {
+    "kicker": "FLAT VECTOR / 01",
+    "headline": "一点成城",
+    "deck": "让一个想法，长成一座城市。",
+    "caption": "IDEA → FORM"
+  }
 }

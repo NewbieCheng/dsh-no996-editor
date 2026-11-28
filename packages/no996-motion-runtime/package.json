@@ -1,0 +1,16 @@
+{
+  "name": "@newbiecheng/no996-motion-runtime",
+  "version": "0.1.0",
+  "description": "Deterministic closed-form motion primitives for frame(t) films, with ESM and static browser builds.",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NewbieCheng/dsh-no996-editor.git",
+    "directory": "packages/no996-motion-runtime"
+  },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "exports": { ".": "./src/index.mjs", "./browser": "./browser/no996-motion.js" },
+  "files": ["src", "browser", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+  "keywords": ["no996", "openfilm", "motion", "deterministic", "animation", "frame"]
+}

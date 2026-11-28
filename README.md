@@ -18,6 +18,8 @@
 
 ## 安装与更新
 
+**只想马上开工，或在其他 AI 里接入？** 看[快速上手](docs/playbooks/quick-start.md)。
+
 新包名：`@newbiecheng/dsh-no996-editor`（[npm 包页](https://www.npmjs.com/package/@newbiecheng/dsh-no996-editor)，以官方源可查询到正式版本为准）。旧包 `@newbiecheng/no996-editor` 不再维护。npm 不会跨包名自动更新：安装新包前，请先停用旧包，避免两个插件同时运行。
 
 ### 方法一：界面安装（推荐，对照下图 3 步）

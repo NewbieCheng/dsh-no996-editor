@@ -2,7 +2,7 @@
 id: injection-registry
 reader: 改界面的人、reviewer
 fact-source: assets/shell-ui.js、assets/shell-login.js、assets/theme/*.css、src/ui/sidebar-editing.mjs
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 新增/撤掉任何一处没走源码的改动
 -->
 
@@ -31,7 +31,8 @@ rot-if: 新增/撤掉任何一处没走源码的改动
 | 顶栏账号条 | 右侧显示 No996 账号（余额抽屉、登录态），与 0.4.0 新顶栏的其它按钮并排 | `shell/top-bar.tsx` 源码补丁 |
 | 语音抽屉（Voices） | 隐藏服务商分组，默认展示精选音色；保留底层音色数据 | `LibraryDrawer.tsx` 源码补丁 |
 | 顶栏菜单 | 隐藏社区与外链菜单项 | `AppMenu.tsx` 源码补丁 |
-| 更新提示 | 不自动弹出上游更新说明；不写用户 `seenVersion` 偏好 | `WhatsNew.tsx` 源码补丁 |
+| 更新提示 | 不自动弹出上游更新说明；不写用户 `seenVersion` 偏好。No996 自己的 0.22.0 介绍按 Host 版本单独显示一次 | `WhatsNew.tsx` 与 `No996WhatsNew.tsx` 源码补丁；已读版本存 Host 偏好 |
+| 品牌与本地模板 | 品牌设置、Logo 图层操作、配方预览/库/分享均在上游 React 源码，不在 `shell-ui.js` 注入。品牌只在「全局资产」一处，右上角「我的工作台」同时给出账号与资产/偏好入口 | `No996Brand.tsx`、`No996TemplateRecipe.tsx`、`No996TemplateLibrary.tsx`、`SettingsModal.tsx`、`WorkbenchAccount.tsx`、`Launcher.tsx` 补丁 |
 | DSH 侧栏「工作区」 | 隐藏原生标题 `span` 替换为「工作区 / 剪辑区」两态开关；在「工作区」视图下隐藏剪辑专属文件夹（`Projects`/`OpenFilm`）与 `hiddenSessionIds` 会话行 | `src/ui/sidebar-editing.mjs` |
 
 ## 1.1 已经不在注入里的（别再加回来）

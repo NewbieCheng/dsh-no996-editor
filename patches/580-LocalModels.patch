@@ -1,0 +1,153 @@
+diff --git a/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx b/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx
+index d52a20d..72b6705 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx
++++ b/packages/openfilm/studio/ui/src/components/settings/LocalModels.tsx
+@@ -10,6 +10,8 @@ import React from 'react';
+ import { ArrowLeft, Captions, ChevronRight, Cpu, ExternalLink, Scissors } from 'lucide-react';
+ import { useT } from '@/i18n';
+ import { LOCAL_KINDS, sizeText, type LocalKind, type LocalModel, type LocalModelsHook } from '@/lib/local-models';
++import { formatSizeMb, getNativeBridge, useModelCatalog, type CatalogModelItem } from '@/lib/no996-native-models';
++import { ConfirmDialog } from '../ConfirmDialog';
+ import { Card } from './ProvidersSection';
+ import { SettingsButton, SettingsSwitch, settingsError } from './ui';
+ 
+@@ -56,10 +58,25 @@ function Status({ model }: { model: LocalModel }) {
+ export function LocalModelsDialog({ hook, onClose }: { hook: LocalModelsHook; onClose: () => void }) {
+   const t = useT();
+   const [opened, setOpened] = React.useState<string | null>(null);
++  const [sourceFilter, setSourceFilter] = React.useState<'all' | 'managed_download' | 'openfilm_library'>('all');
++  const [confirmTarget, setConfirmTarget] = React.useState<CatalogModelItem | null>(null);
++  const { catalog, busy: catalogBusy, error: catalogError, runAction } = useModelCatalog();
++  const nativeModelsApi = getNativeBridge()?.models;
+   const models = hook.models ?? [];
+   const page = models.find((m) => m.id === opened);
+   if (page) return <Card label={page.name} onClose={onClose}><ModelPage model={page} hook={hook} onBack={() => setOpened(null)} /></Card>;
+   const installed = models.filter((m) => m.installed).length;
++  const catalogItems = (catalog?.items ?? []).filter((item) => {
++    if (sourceFilter === 'all') return true;
++    if (sourceFilter === 'openfilm_library') {
++      return item.sourceKind === 'openfilm_library' || item.sourceKind === 'external_shared';
++    }
++    return item.sourceKind === 'managed_download' || item.sourceKind === 'bundled';
++  });
++  const groupLabel = (cat: CatalogModelItem['category']) => (
++    cat === 'asr' ? '语音识别（本地）' : (cat === 'cutout' || cat === 'face') ? '本地视觉与抠像' : '运行时与其他缓存'
++  );
++  const capabilityGroups = [...new Set(catalogItems.map((i) => groupLabel(i.category)))];
+   return (
+     <Card label={t('settings.local.name')} onClose={onClose}>
+       <div className="flex items-start gap-4 pr-8">
+@@ -97,6 +114,113 @@ export function LocalModelsDialog({ hook, onClose }: { hook: LocalModelsHook; on
+         );
+       })}
+       {hook.problem ? <p className={settingsError}>{hook.problem}</p> : null}
++      {catalog ? (
++        <section className="mt-7 border-t border-[var(--border)] pt-5">
++          <div className="flex flex-wrap items-center justify-between gap-2">
++            <div>
++              <h3 className="text-[14px] font-semibold text-[var(--text)]">统一本地模型与扩展组件账本</h3>
++              <p className="text-[12px] text-[var(--text-faint)]">
++                实际占用 {formatSizeMb(catalog.totals.modelsBytes)} · 卸载可释放 {formatSizeMb(catalog.totals.reclaimableBytes)}
++              </p>
++            </div>
++            <div className="flex items-center gap-1 rounded-lg bg-[var(--bg-field)] p-0.5 text-[12px]">
++              {([
++                ['all', '全部'],
++                ['managed_download', '工作台管理'],
++                ['openfilm_library', 'OpenFilm 缓存'],
++              ] as const).map(([key, label]) => (
++                <button
++                  key={key}
++                  type="button"
++                  onClick={() => setSourceFilter(key)}
++                  className={`rounded-md px-2 py-1 transition ${
++                    sourceFilter === key ? 'bg-[var(--bg-raised)] font-medium text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
++                  }`}
++                >
++                  {label}
++                </button>
++              ))}
++            </div>
++          </div>
++          {catalog.partialStats ? (
++            <p className="mt-2 text-[12px] text-[var(--warn,var(--text-muted))]">
++              部分模型目录权限受限，统计为可读目录合计（跳过 {catalog.scanWarnings.length} 处）。
++            </p>
++          ) : null}
++          {capabilityGroups.map((groupName) => (
++            <div key={groupName} className="mt-4">
++              <h4 className="mb-1.5 text-[12px] font-medium text-[var(--text-faint)]">{groupName}</h4>
++              <div className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
++                {catalogItems.filter((item) => groupLabel(item.category) === groupName).map((item) => (
++                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[12.5px]">
++                    <div className="min-w-0 flex-1">
++                      <div className="flex flex-wrap items-center gap-1.5">
++                        <span className="font-medium text-[var(--text)]">{item.label}</span>
++                        <span className="rounded bg-[var(--bg-field)] px-1.5 py-0.5 text-[11px] text-[var(--text-muted)]">{item.sourceLabel}</span>
++                        <span className="text-[11.5px] text-[var(--text-faint)]">
++                          {item.enabledState === 'bundled'
++                            ? '随核心提供'
++                            : item.installState === 'installed'
++                              ? '已安装'
++                              : item.installState === 'downloading'
++                                ? '下载中'
++                                : item.installState === 'corrupt'
++                                  ? '校验失败'
++                                  : item.installState === 'incomplete'
++                                    ? '存在残留碎片'
++                                    : '未安装'}
++                        </span>
++                      </div>
++                      <div className="mt-0.5 truncate text-[11.5px] text-[var(--text-faint)]" title={item.dir}>
++                        声明 {formatSizeMb(item.declaredBytes)} · 实际占用 {formatSizeMb(item.bytesOnDisk)}
++                        {item.reclaimableBytes > 0 ? ` · 可释放 ${formatSizeMb(item.reclaimableBytes)}` : ''}
++                        {item.dir ? ` · ${item.dir}` : ''}
++                      </div>
++                    </div>
++                    {nativeModelsApi ? (
++                      <div className="flex shrink-0 items-center gap-1.5">
++                        {item.visionPack?.reusableLocal && item.installState !== 'installed' ? (
++                          <SettingsButton disabled={catalogBusy} onClick={() => void runAction(() => nativeModelsApi.preMigrate())}>
++                            一键复用
++                          </SettingsButton>
++                        ) : null}
++                        {item.canDelete ? (
++                          <SettingsButton disabled={catalogBusy} onClick={() => setConfirmTarget(item)}>
++                            卸载
++                          </SettingsButton>
++                        ) : null}
++                        {item.canCleanResiduals ? (
++                          <SettingsButton disabled={catalogBusy} onClick={() => void runAction(() => nativeModelsApi.remove(item.id, { cleanResidualsOnly: true }))}>
++                            清理残留
++                          </SettingsButton>
++                        ) : null}
++                      </div>
++                    ) : null}
++                  </div>
++                ))}
++              </div>
++            </div>
++          ))}
++          {catalogError ? <p role="alert" className={`${settingsError} mt-2`}>{catalogError}</p> : null}
++          <ConfirmDialog
++            open={Boolean(confirmTarget)}
++            title={confirmTarget ? `卸载 ${confirmTarget.label}？` : ''}
++            message={
++              confirmTarget
++                ? `将从 ${confirmTarget.dir} 删除并释放约 ${formatSizeMb(confirmTarget.reclaimableBytes)} 空间。若正在被导出或转写任务使用，系统会拒绝卸载。`
++                : ''
++            }
++            confirmLabel="确认卸载"
++            cancelLabel="取消"
++            onConfirm={() => {
++              const target = confirmTarget;
++              setConfirmTarget(null);
++              if (target && nativeModelsApi) void runAction(() => nativeModelsApi.remove(target.id));
++            }}
++            onCancel={() => setConfirmTarget(null)}
++          />
++        </section>
++      ) : null}
+     </Card>
+   );
+ }

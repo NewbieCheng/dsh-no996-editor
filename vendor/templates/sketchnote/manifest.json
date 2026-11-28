@@ -1,8 +1,10 @@
 {
   "entry": "film.html",
-  "prompt": "按 sketchnote 手绘笔记模板做一部影片：保留手绘笔迹与纸张质感，替换成我要的内容。",
+  "prompt": "按 sketchnote 制作可编辑手绘笔记：竖屏用标题与卡片上下推进，横屏用左右摊页；保留纸张、点阵、便签和手绘箭头，所有讲解文字与步骤都能单独修改。",
   "mode": "film",
   "title": "手绘笔记",
   "id": "sketchnote",
-  "description": "纸笔手绘笔记风格，含字体与绘图工具脚本"
+  "description": "双比例可编辑手绘笔记：竖屏单页推进、横屏左右摊页，含七个时间窗。",
+  "layoutVariants": { "defaultRatio": "9:16", "ratios": ["9:16", "16:9"] },
+  "slots": ["标题", "讲解", "步骤", "便签", "总结"]
 }

@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/chat/src/lib/chat-store.ts b/apps/desktop/chat/src/lib/chat-store.ts
-index 9134f7a..ea044c3 100644
+index 9134f7a..f873efb 100644
 --- a/apps/desktop/chat/src/lib/chat-store.ts
 +++ b/apps/desktop/chat/src/lib/chat-store.ts
-@@ -82,12 +82,60 @@ async function readAgain(project: string): Promise<void> {
+@@ -82,12 +82,79 @@ async function readAgain(project: string): Promise<void> {
    joinKept(record(project), kept);
  }
  
@@ -37,6 +37,25 @@ index 9134f7a..ea044c3 100644
 +  chat.last = typeof kept?.last === 'string' && live.has(kept.last) ? kept.last : null;
 +  chat.turns = chat.turns.filter(entry => !removed.has(entry.turn.sessionId ?? ''));
 +  return true;
++}
++
++/** An explicit handoff must verify the exact target, even after the ordinary
++ * opening load timed out and created an empty cache. Never select `last` here. */
++export async function readRequestedConversation(project: string, id: string, sessionId: string, stillCurrent: () => boolean) {
++  const kept = await app.chat.load(project);
++  if (!stillCurrent() || readFor.get(project) !== id) return 'superseded';
++  const matches = (Array.isArray(kept?.sessions) ? kept.sessions : []).filter(entry =>
++    entry && typeof entry === 'object' && (entry as { id?: string }).id === sessionId) as ProjectSessionItem[];
++  if (matches.length !== 1) return 'missing';
++  const [selected] = matches;
++  if (!selected || selected.archived === true) return 'archived';
++  const chat = record(project);
++  const turns = (Array.isArray(kept?.turns) ? kept.turns : []) as SavedTurn[];
++  joinKept(chat, { sessions: [selected], turns: turns.filter(entry => entry?.turn?.sessionId === sessionId) });
++  chat.sessions = chat.sessions.map(row => row.id === sessionId ? selected : row);
++  // If the initial read failed, leave its read-before-write guard in place:
++  // only the target was merged here, not the complete project history.
++  return 'ready';
 +}
 +
  export const chatSessions = (project: string): ProjectSessionItem[] => record(project).sessions;

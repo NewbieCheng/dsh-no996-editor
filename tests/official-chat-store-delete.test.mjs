@@ -136,6 +136,15 @@ for (const first of ['turn', 'sessions', 'load']) {
   });
 }
 
+test('routing lookup returns only session rows without rebinding a renamed folder on disk', async t => {
+  const { store, record, writes, setCurrentPath, before, after } = await projectFixture(t);
+  await rename(before, after);
+  setCurrentPath(after);
+  assert.deepEqual(await store.listSessions('proj123'), { sessions: [{ id: 's1' }, { id: 's2' }] });
+  assert.equal(record().path, before);
+  assert.equal(writes(), 0);
+});
+
 test('a copied ID while the old directory exists cannot claim the chat', async t => {
   const { store, record, writes, setCurrentPath, before, after, make } = await projectFixture(t);
   await make(after);

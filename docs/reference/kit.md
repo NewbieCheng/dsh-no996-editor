@@ -15,9 +15,9 @@ rot-if: 单元/模板/风格/镜头卡增删（重新生成即可）
 
 | 模板 | 单元族 | 画布 | 镜头数 | 标题 |
 |---|---|---|---|---|
-| `motion-styles` | motionstyle | 1920×1080 | 2 | 动效风格样片 |
+| `motion-styles` | motionstyle | 1080×1920 | 2 | 动效风格样片 |
 | `paper-texture` | paper | 1080×1920 | 2 | 纸纹讲堂 |
-| `sketchnote` | sketch | 1920×1080 | 7 | 点阵手账 · 费曼学习法 |
+| `sketchnote` | sketch | 1080×1920 | 7 | 点阵手账 · 费曼学习法 |
 | `vibe-explainer` | vibe | 1080×1920 | 8 | Vibe 科普剧场 · 容错率是造出来的 |
 
 ## 2. 单元（8 个，paper 8）

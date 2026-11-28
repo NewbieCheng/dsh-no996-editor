@@ -1,0 +1,150 @@
+diff --git a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+index 92f4cf2..9f032c5 100644
+--- a/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
++++ b/packages/openfilm/studio/ui/src/components/library/LibraryDrawer.tsx
+@@ -14,7 +14,7 @@
+  */
+ import { onRevealInLibrary, takeRevealed, type Revealed } from '@/lib/library-reveal';
+ import React from 'react';
+-import { AudioLines, BookmarkPlus, ChevronDown, ChevronsLeft, ChevronsRight, CircleHelp, FolderOpen, FolderPlus, Link2, Package, Pencil, Plus, Search, Star, Trash2, Upload, X } from 'lucide-react';
++import { AudioLines, BookmarkPlus, ChevronDown, ChevronsLeft, ChevronsRight, FolderOpen, FolderPlus, Link2, Package, Pencil, Plus, Search, Star, Trash2, X } from 'lucide-react';
+ import { useLanguage, useT } from '@/i18n';
+ import { studioHost } from '@/lib/host';
+ import { copyFromLibrary, inOrder, packKey, saveToEntry, shelfActions, useLibraryPlaces } from '@/lib/library-places';
+@@ -24,8 +24,6 @@ import {
+   BUILT_IN, TEXT_COMPONENT, askHere, toggleFavorite, builtInItem, prepareLibraryItem, isLibraryItemReady, libraryDragItem, libraryUrl, mayNeedFetch, nameOf, posterUrl, prepareTemplatePreview, previewUrl, setAdded, templateExamplePath, templatePreviewUrl,
+   inLibrary, makerName, savePack, useLibraryAdded, useLibraryFavorites, useLibraryHere, useLibraryIndex, type HereState, type LibraryCategory, type LibraryItem,
+ } from '@/lib/library';
+-import { openPlugins } from '@/lib/plugins-window';
+-import { COMMUNITY_ICON as Community, FEATURE_KINDS } from '../feature-kinds';
+ import { ConfirmDialog } from '../ConfirmDialog';
+ import { ContextMenu, type ContextMenuItem } from '../ContextMenu';
+ import { clearResourceDrag, dragPicture, peekResourceDrag, RESOURCE_DRAG_TYPE, setResourceDragData, type ResourceKind } from '@/lib/resource-drag';
+@@ -65,7 +63,6 @@ const RECORD = 'record';
+ const kindsOf = (cat: Category): readonly ResourceKind[] | null =>
+   cat === 'media' ? null : cat === 'music' || cat === 'sound' ? ['audio'] : cat === 'sticker' ? ['image'] : ['mg'];
+ /** Where the Community says how to make a thing of the library and send it in. */
+-const MAKING_GUIDE = 'https://github.com/openfilm/community/tree/main/assets#readme';
+ 
+ /** A line of the side bar: a new line of words, this project, the person's text looks, one of their folders, a pack. */
+ type Line = { key: string; kind: 'new' | 'project' | 'presets' | 'folder' | 'pack'; name: string; group?: string; link?: MediaLink; official?: boolean };
+@@ -389,7 +386,6 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     ...[...new Set((index?.items ?? []).filter((it) => it.cat === cat && it.by && it.group && inLibrary(it, added)).map((it) => it.group))]
+       .filter((id) => !listed.some((g) => g.id === id)).map((id) => ({ id, name: id }))];
+   /* a kind the Community has: more of it found there, and a thing's page there (its preview, its pack) */
+-  const inCommunity = (FEATURE_KINDS as readonly string[]).includes(cat);
+   const [menu, setMenu] = React.useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+   /* the side bar's own: a line's menu (or the "+" one), a folder being renamed, one being made */
+   const [railMenu, setRailMenu] = React.useState<{ x: number; y: number; flipTo?: number; items: ContextMenuItem[] } | null>(null);
+@@ -405,11 +401,9 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     /* a media file of the Community's: kept as a file of the person's own too (a copy, theirs to change) */
+     const keep = item.kind === 'file' ? saveToEntry(folders, { id: 'save', label: t('saved.add'), many: t('saved.addTo'), icon: <BookmarkPlus size={14} />,
+       pick: (into) => keepInMine(`${BUILT_IN}/${item.id}`, into, nameOf(item.name, lang)) }) : [];
+-    const details = inCommunity ? [{ id: 'details', label: t('assetDrawer.seeDetails'),
+-      onSelect: () => openPlugins({ line: `kind:${cat as LibraryCategory}`, page: `asset:${item.id}` }) }] : [];
+-    if (!keep.length && !details.length) return;
++    if (!keep.length) return;
+     e.preventDefault();
+-    setMenu({ x: e.clientX, y: e.clientY, items: [...keep, ...details] });
++    setMenu({ x: e.clientX, y: e.clientY, items: keep });
+   };
+   /* a thing of the library copied into one of the person's folders, said once it is there */
+   const keepInMine = (from: string, into: string, name?: string) => {
+@@ -459,7 +453,6 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     (line) => line.key, order);
+   /* the packs of a category, under its namespaces: OpenFilm's own (官方), those got from the Community (社区) */
+   const officialPacks = cat === 'text' ? [] : packsShown.filter((p) => p.official);
+-  const communityPacks = packsShown.filter((p) => !p.official);
+   const [folded, setFolded] = React.useState<Record<string, boolean>>(readFolded);
+   const fold = (id: string) => setFolded((was) => { const next = { ...was, [`${cat}:${id}`]: !was[`${cat}:${id}`] }; keepFolded(next); return next; });
+   const lines = [...head, ...movable];
+@@ -543,15 +536,11 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+     : officialPacks.map(ofLine);
+   const spaces: RailNode[] = [
+     ...(officialChildren.length ? [{ ...railPick(OFFICIAL_ALL), key: 'openfilm', name: t('assetDrawer.railOfficial'), children: officialChildren }] : []),
+-    { ...railPick(COMMUNITY_ALL), key: 'community', name: t('assetDrawer.railCommunity'), children: communityPacks.map(ofLine) },
+   ];
+   const nodes: RailNode[] = cat === 'voice' ? [
+     { ...railPick(STARRED), name: t('assetDrawer.favorites') },
+     { key: 'mine', name: t('assetDrawer.railMine'), on: inMine && !q, onPick: () => pickGroup(MY_VOICES) },
+-    { key: 'services', name: t('assetDrawer.railServices'), children: [
+-      { ...railPick(''), name: t('assetDrawer.all') },
+-      ...(voices?.providers ?? []).map((s) => ({ ...railPick(s.id), name: providerName(s, lang) })),
+-    ] },
++    /* NO996-UPSTREAM: the voice services list is hidden; the provider data stays intact. */
+   ] : cat === 'cover' ? [
+     { ...railPick(''), name: t('covers.allLooks') },
+     ...(covers?.looks?.categories ?? []).map((c) => ({ ...railPick(c.id), name: nameOf(c.name, lang) })),
+@@ -597,11 +586,9 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+   const lineMenu = (line: Line): ContextMenuItem[] => line.kind === 'folder' ? [
+     { id: 'rename', label: t('assets.rename'), icon: <Pencil size={14} />, onSelect: () => setRenaming(line.key) },
+     { id: 'reveal', label: t('projects.revealFolder'), icon: <FolderOpen size={14} />, onSelect: () => savedActions.reveal(line.key, Boolean(line.link)) },
+-    { id: 'publish', label: t('assetDrawer.contribute'), icon: <Upload size={14} />, onSelect: () => openPlugins({ line: 'publish' }) },
+     { id: 'delete', label: t(line.link ? 'resourceCenter.removeLink' : 'assets.delete'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setGone(line) },
+   ] : line.kind === 'pack' ? [
+     /* the Community's packs only: OpenFilm's own are not in the Community (they are its 官方) */
+-    ...(inCommunity && !line.official ? [{ id: 'community', label: t('assetDrawer.seeInCommunity'), icon: <Community size={14} />, onSelect: () => openPlugins({ line: `kind:${cat as LibraryCategory}` }) }] : []),
+     /* a pack of the Community's media: its files kept as a folder of the person's own too */
+     ...(cat === 'media' && !line.official && line.group ? [{ id: 'save', label: t('assetDrawer.saveToMine'), icon: <BookmarkPlus size={14} />,
+       onSelect: () => { const id = line.group!; void savePack(id, lang).then((path) => { refreshSaved(); setNotice(t('saved.added').replace('{n}', '1').replace('{place}', path.split('/').at(-1) ?? '')); },
+@@ -629,29 +616,17 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+   });
+   /* where "Upload files…" puts them: the folder or the project shown, else the project */
+   const uploadInto = ownShown ? current.key : 'project';
+-  const kindName = categoryName(cat);
+-  /* the media's "+ Add": folders made or linked, more from the Community, how to make media and contributing them (a
+-     folder's own upload is in its pane) */
++  /* The media's "+ Add" creates or links folders; a folder's upload is in its pane. */
+   const addMenu = (): ContextMenuItem[] => [
+     { id: 'folder', label: t('assets.newFolder'), icon: <FolderPlus size={14} />, onSelect: () => setMaking(true) },
+     { id: 'link', label: t('assetDrawer.linkFolder'), note: t('resourceCenter.networkHint'), icon: <Link2 size={14} />, onSelect: () => void linkFolder() },
+-    { id: 'community', label: t('assetDrawer.getMore'), icon: <Community size={14} />, onSelect: () => openPlugins(inCommunity ? { line: `kind:${cat as LibraryCategory}` } : {}) },
+-    { id: 'how', label: t('assetDrawer.howToMake').replace('{kind}', kindName), icon: <CircleHelp size={14} />, onSelect: () => { window.open(MAKING_GUIDE, '_blank', 'noreferrer'); } },
+-    { id: 'publish', label: t('assetDrawer.contribute'), icon: <Upload size={14} />, onSelect: () => openPlugins({ line: 'publish' }) },
+   ];
+   /* OpenFilm's own packs taken out of this category: the menu that puts them back */
+   const hiddenBack = (): ContextMenuItem[] => hidden.some((key) => packs.some((p) => p.key === key && p.official))
+     ? [{ id: 'hidden', label: t('assetDrawer.removedPacks'), icon: <Package size={14} />,
+       submenu: packs.filter((p) => p.official && hidden.includes(p.key)).map((p) => ({ id: p.key, label: p.name, onSelect: () => void shelfActions.hide(p.key, false) })) }]
+     : [];
+-  /* "+ Add" of a category's side bar: more of it from the Community, how to make it, sending one, and OpenFilm's packs
+-     taken out, put back */
+-  const kindMenu = (): ContextMenuItem[] => [
+-    { id: 'community', label: t('assetDrawer.getMore'), icon: <Community size={14} />, onSelect: () => openPlugins(inCommunity ? { line: `kind:${cat as LibraryCategory}` } : {}) },
+-    { id: 'how', label: t('assetDrawer.howToMake').replace('{kind}', kindName), icon: <CircleHelp size={14} />, onSelect: () => { window.open(MAKING_GUIDE, '_blank', 'noreferrer'); } },
+-    { id: 'publish', label: t('assetDrawer.contribute'), icon: <Upload size={14} />, onSelect: () => openPlugins({ line: 'publish' }) },
+-    ...hiddenBack(),
+-  ];
++  const kindMenu = hiddenBack();
+   /* one of the person's folders (or a pack) in the media's side bar: renamed in place, held and moved, dropped on */
+   const mineLine = (line: Line, i: number, look: 'box' | 'child') => renaming === line.key ? (
+     <RailName key={line.key} value={line.name} onDone={(name) => { setRenaming(null); renameFolder(line, name); }} onCancel={() => setRenaming(null)} />
+@@ -843,14 +818,14 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+             {/* at the side bar's foot: adding to the library (files, a folder, a linked one, more from the Community) */}
+             <input ref={uploadRef} type="file" multiple className="hidden" onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) onUpload(files, uploadInto); }} />
+             {/* a category's: more of it from the Community; the media's: "+ Add", said beside its sign */}
+-            {sectioned ? (
++            {sectioned ? (kindMenu.length ? (
+               <button type="button" data-rail-add=""
+-                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setRailMenu({ x: r.left, y: r.bottom, flipTo: r.top - 4, items: kindMenu() }); }}
++                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setRailMenu({ x: r.left, y: r.bottom, flipTo: r.top - 4, items: kindMenu }); }}
+                 className="mt-auto flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-[12px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]">
+                 <Plus size={14} aria-hidden className="shrink-0" />
+                 <span className="truncate">{t('assetDrawer.addMenu')}</span>
+               </button>
+-            ) : ownLines ? null : (
++            ) : null) : ownLines ? null : (
+               <button type="button" data-rail-add=""
+                 onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setRailMenu({ x: r.left, y: r.bottom, flipTo: r.top - 4, items: addMenu() }); }}
+                 className="mt-auto flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-[12px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent)]">
+@@ -911,9 +886,7 @@ export function LibraryDrawer({ media, mediaScope, onMediaScope, onUpload, onKee
+                 ) : !items.length && !mineItems.length ? (
+                   q ? <Empty icon="search" text={t('assetDrawer.nothing').replace('{q}', query.trim())} />
+                     : group === STARRED ? <Empty icon="star" text={t('assetDrawer.noFavorites')} />
+-                    /* nothing got from the Community yet: the way to get some, its kind's page there */
+-                    : group === COMMUNITY_ALL ? <Empty icon="community" text={t('assetDrawer.communityNone').replace('{kind}', kindName)}
+-                        action={t('assetDrawer.getMore')} block onAction={() => openPlugins(inCommunity ? { line: `kind:${cat as LibraryCategory}` } : {})} />
++
+                     : cat === 'music' ? <Empty icon="music" text={t('assetDrawer.musicSoon')} action={askMusic ? t('assetDrawer.musicMake') : undefined}
+                         onAction={() => askMusic?.({ text: t('assetDrawer.musicAsk'), refs: [] })} />
+                         : null

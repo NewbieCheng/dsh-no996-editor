@@ -1,0 +1,18 @@
+diff --git a/packages/openfilm/studio/ui/src/components/settings/use-settings.ts b/packages/openfilm/studio/ui/src/components/settings/use-settings.ts
+index 59a6cb9..ec0dc93 100644
+--- a/packages/openfilm/studio/ui/src/components/settings/use-settings.ts
++++ b/packages/openfilm/studio/ui/src/components/settings/use-settings.ts
+@@ -6,5 +6,13 @@ import type { SettingsSection } from './SettingsModal';
+ export function useSettings() {
+   const [section, setSection] = React.useState<SettingsSection | null>(null);
+   React.useEffect(() => studioHost?.settings?.onOpen(() => setSection('general')), []);
++  React.useEffect(() => {
++    const onNavigate = (event: Event) => {
++      const detail = (event as CustomEvent<{ section?: SettingsSection }>).detail;
++      if (detail?.section) setSection(detail.section);
++    };
++    window.addEventListener('no996:navigate-settings', onNavigate);
++    return () => window.removeEventListener('no996:navigate-settings', onNavigate);
++  }, []);
+   return [section, setSection] as const;
+ }

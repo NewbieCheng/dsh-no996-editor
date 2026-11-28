@@ -64,27 +64,22 @@ export function createStudioPanel(React) {
     // Ask the official shell to show one project (and optionally select a conversation).
     // The injected bridge owns the history call and session selection event; this side
     // only has to reach a frame that is really loaded.
-    const postNavigate = (target, sessionId) => {
-      const projectId = typeof target === 'string' ? target : target?.projectId;
-      const sid = typeof sessionId === 'string' ? sessionId : (typeof target === 'object' ? target?.sessionId : undefined);
+    const postNavigate = target => {
       const frame = iframeRef.current;
-      if (!frame || !frame.contentWindow || !readyRef.current || typeof projectId !== 'string') return false;
-      let origin = '*';
-      try { origin = new URL(urlRef.current).origin; } catch { /* keep the wildcard */ }
+      if (!target || !frame?.contentWindow || !readyRef.current || !urlRef.current) return false;
       try {
         frame.contentWindow.postMessage({
-          type: 'no996-openfilm:navigate',
-          version: 1,
-          projectId,
-          ...(typeof sid === 'string' && sid ? { sessionId: sid } : {}),
-        }, origin);
+          type: 'no996-openfilm:navigate', version: 1,
+          projectId: target.projectId, requestId: target.requestId,
+          ...(target.sessionId ? { sessionId: target.sessionId } : {}),
+        }, new URL(urlRef.current).origin);
         return true;
       } catch { return false; }
     };
 
     React.useEffect(() => {
       const off = areaBus.subscribe(event => {
-        if (event.type === 'navigate') postNavigate(event.projectId, event.sessionId);
+        if (event.type === 'navigate') postNavigate(event);
       });
       return off;
     }, []);
@@ -170,6 +165,13 @@ export function createStudioPanel(React) {
       };
       watchNavigationRef.current = watchNavigation;
       watchNavigation();
+      const rememberProject = id => {
+        setProjectId(id);
+        try {
+          if (id) localStorage.setItem('no996.openfilm.lastProject', id);
+          else localStorage.removeItem('no996.openfilm.lastProject');
+        } catch { /* private mode */ }
+      };
       const receive = event => {
         if (event.origin !== editorOrigin || event.source !== iframeRef.current?.contentWindow) return;
         const data = event.data;
@@ -191,11 +193,9 @@ export function createStudioPanel(React) {
             readyRef.current = true;
             setSilent(false);
             clearTimeout(timer);
-            // The frame can act on a navigation request now; a click made while the
-            // panel was still booting is flushed here instead of being dropped.
-            areaBus.reportReady();
-            const pending = typeof areaBus.takePendingTarget === 'function' ? areaBus.takePendingTarget() : areaBus.takePending();
-            if (pending) postNavigate(pending);
+            // Delivery may have been interrupted. Repost until either the
+            // matching target was shown or a newer request supersedes it.
+            postNavigate(areaBus.pendingTarget());
           }
         }
         if (data && typeof data === 'object' && data.type === 'no996-openfilm:restart' && data.version === 1) {
@@ -209,24 +209,16 @@ export function createStudioPanel(React) {
         }
         // Login/logout are handled inside the official shell overlay. Keep the
         // iframe up so logout only reopens the compact gate, never tears Studio down.
-        if (data && typeof data === 'object' && data.type === 'no996-openfilm:archive' && data.version === 1 && typeof data.projectId === 'string') {
-          // The Studio shell reports the archive state over the same channel it
-          // uses for the project, so this works on the desktop scheme too (where
-          // the relative Host /api route is unreachable).
+        if (data?.type === 'no996-openfilm:archive' && data.version === 1 && typeof data.projectId === 'string' &&
+            data.projectId === (areaBus.pendingTarget()?.projectId ?? areaBus.snapshot().projectId)) {
           setArchive({ available: data.available !== false, archived: data.archived === true });
         }
-        if (data && typeof data === 'object' && data.type === 'no996-openfilm:project' && data.version === 1 && typeof data.projectId === 'string') {
-          // The project area draws the same projects and follows the one on screen.
-          areaBus.reportProject(/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId) ? data.projectId : null);
-          try {
-            if (/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)) {
-              localStorage.setItem('no996.openfilm.lastProject', data.projectId);
-              setProjectId(data.projectId);
-            } else {
-              localStorage.removeItem('no996.openfilm.lastProject');
-              setProjectId(null);
-            }
-          } catch { /* private mode */ }
+        if (data?.type === 'no996-openfilm:navigation-result' && data.version === 1) {
+          if (areaBus.acknowledge(data) && data.status === 'ready') rememberProject(data.projectId);
+        }
+        if (data?.type === 'no996-openfilm:project' && data.version === 1) {
+          if (data.projectId !== null && (typeof data.projectId !== 'string' || !/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId))) return;
+          if (areaBus.reportProject(data.projectId)) rememberProject(data.projectId);
         }
       };
       window.addEventListener('message', receive);

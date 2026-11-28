@@ -3,6 +3,8 @@ import { createNo996SettingsSection, injectSettingsCss } from '../ui/settings-se
 import appIconSvg from '../../icon.svg';
 import { createActivationStore } from './panel-keepalive.mjs';
 import { installWorkspaceSwitch } from '../ui/sidebar-editing.mjs';
+import { createWorkspaceEditingAction } from '../ui/workspace-editing-action.mjs';
+import { areaBus } from '../host/area-bus.mjs';
 import { brandSvgMarkup, installSidebarBrand } from '../ui/sidebar-brand.mjs';
 import { installHostPathBridge } from '../host/host-paths.mjs';
 import { installDragProbe } from './drag-probe.mjs';
@@ -18,6 +20,8 @@ window.__ModuleLoader__.load({
     const en = {
       panel: 'Video studio',
       envTitle: 'Editing environment',
+      editingTargetOpen: 'Continue in Video studio', editingTargetRetry: 'Retry editing conversation',
+      editingTargetOpening: 'Locating conversation…', editingTargetArchived: 'Restore this conversation before editing',
       studioLoading: 'Starting OpenFilm Studio…',
       studioFailed: 'Unable to open Video Creation',
       studioFailureHint: 'The editing workspace did not start or could not be reached. Try again first.',
@@ -35,6 +39,8 @@ window.__ModuleLoader__.load({
     const zh = {
       panel: '视频创作',
       envTitle: '剪辑环境',
+      editingTargetOpen: '在剪辑区续聊', editingTargetRetry: '重试定位剪辑会话',
+      editingTargetOpening: '正在定位会话…', editingTargetArchived: '恢复会话后可在剪辑区续聊',
       studioLoading: '正在启动 OpenFilm 工作台…',
       studioFailed: '暂时无法打开视频创作',
       studioFailureHint: '剪辑工作台未能启动或连接，请先重试。',
@@ -177,6 +183,14 @@ window.__ModuleLoader__.load({
         // when DSH already owns them — that must never wipe 视频创作.
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL, locale: NS }, PanelSeat));
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: PANEL, order: 21, locale: NS, label: () => t('panel') }, PanelIcon));
+        const layout = ctx.get('layout');
+        if (layout) {
+          const WorkspaceEditingAction = createWorkspaceEditingAction(React, { t, layout, navigate: areaBus.navigate });
+          ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
+            name: 'conversation.session.header.actions', id: 'no996-editing-resume', order: 0, locale: NS,
+            label: () => t('editingTargetOpen'),
+          }, WorkspaceEditingAction));
+        }
         // One surface in two seats (same as dsh-agy-link / dsh-codex-subscription):
         // a real Settings section (one additive list slot — no shipped UI is
         // replaced; the row icon comes from the bundle `icon` field), and the

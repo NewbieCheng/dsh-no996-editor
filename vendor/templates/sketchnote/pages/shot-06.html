@@ -1,35 +1,41 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>06 · 回到第二步</title>
-  <link rel="stylesheet" href="../assets/fonts.css">
-  <link rel="stylesheet" href="../assets/page.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080, height=1920">
+<title>06 · 回到第二步</title>
+<link rel="stylesheet" href="../assets/sketch.css">
+<script src="../assets/motion.js"></script>
 </head>
 <body>
-  <canvas id="paper" width="1920" height="1080" aria-label="回到第二步"></canvas>
-  <script src="../assets/notebook-config.js"></script>
-  <script src="../assets/drawing-tools.js"></script>
-  <script src="../assets/notebook.js"></script>
-  <script src="../assets/preview.js"></script>
-  <script>
-    const START = 16.421;
-    const DURATION = 1.472;
-    const notebook = createNotebook(document.querySelector('#paper'), NOTEBOOK);
 
-    // The page's local time maps to the same shared paper and camera as every other shot.
-    window.film = {
-      width: 1920,
-      height: 1080,
-      duration: DURATION,
-      ready: notebook.ready,
-      frame(t) {
-        const local = Math.max(0, Math.min(DURATION, t));
-        notebook.draw(toSourceTime(START + local));
-      },
-    };
-    previewShot(window.film);
-  </script>
+  <main class="sketch-page portrait">
+    <header class="sketch-header"><span data-element-id="sketch-series" class="series">费曼笔记</span><span data-element-id="sketch-page-label">No.07 · 学习方法</span></header>
+    <div class="sketch-progress" aria-label="学习步骤"><span data-step="1" class="done">1</span><span data-step="2" class="done">2</span><span data-step="3" class="done">3</span><span data-step="4" class="done">4</span></div>
+    
+    <div class="sketch-copy"><p data-element-id="sketch-kicker" class="eyebrow">发现盲区之后</p>
+      <h1 data-element-id="sketch-headline" class="display">回到②，再讲一遍</h1>
+      <p data-element-id="sketch-deck" class="deck">把卡住的地方重新讲一遍，直到不再依赖术语。</p></div>
+    <div class="sketch-loop" data-element-id="sketch-loop-diagram"><svg viewBox="0 0 620 400" aria-hidden="true"><path d="M135 245C55 64 426 20 501 173c62 127-180 221-320 98-59-52-58-136 2-181"/><path d="M173 84l13 54-56 9"/></svg><b>② → ③ → ②</b></div>
+    <footer class="sketch-footer"><span data-element-id="sketch-footer">简化＋打比方</span></footer>
+  </main>
+<script>
+(function () {
+    const duration = 1.472;
+    const title = document.querySelector('[data-reveal]') || document.querySelector('.display');
+    const card = document.querySelector('[data-element-id="sketch-step-card"], [data-element-id="sketch-title-diagram"], [data-element-id="sketch-summary"], [data-element-id="sketch-loop-diagram"]');
+    const arrow = document.querySelector('.sketch-arrow path');
+    function draw(value) {
+      const t = Math.max(0, Math.min(duration, Number(value) || 0));
+      const p = window.Motion.cubicOut(Math.min(1, t / 0.48));
+      if (title) { title.style.clipPath = 'inset(0 ' + ((1 - p) * 100) + '% 0 0)'; }
+      if (card) { card.style.opacity = String(p); card.style.transform = 'translateY(' + ((1 - p) * 22) + 'px)'; }
+      if (arrow) { arrow.style.opacity = String(p); arrow.style.strokeDashoffset = String(420 * (1 - p)); }
+    }
+    window.film = { width: 1080, height: 1920, duration,
+      ready: Promise.resolve(document.fonts?.ready).then(function () { draw(0); return true; }),
+      frame: draw };
+  })();
+</script>
 </body>
 </html>

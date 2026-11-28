@@ -87,8 +87,9 @@ test('构建产物：模板 motion.js 与源一致，页面按顺序加载', () 
 test('motion-styles：模板页暴露影片契约，镜头墙引用正确', () => {
   const page = read('vendor/templates/motion-styles/pages/shot-01.html');
   assert.match(page, /window\.film = \{/);
-  assert.match(page, /frame: function \(t\)/);
-  assert.match(page, /window\.__ready === true/);
+  assert.match(page, /frame: draw/);
+  assert.match(page, /data-element-id="motion-flat-headline"/);
+  assert.doesNotMatch(page, /fillText|createElement\('canvas'\)/);
   const wall = read('vendor/templates/motion-styles/film.html');
   assert.match(wall, /src="pages\/shot-01\.html#t=0,10"/);
   assert.match(wall, /at="0\.000"/);
@@ -96,7 +97,8 @@ test('motion-styles：模板页暴露影片契约，镜头墙引用正确', () =
   assert.match(wall, /at="10\.000"/);
   const authored = read('vendor/templates/motion-styles/pages/shot-02.html');
   assert.match(authored, /src="\.\.\/assets\/motion\.js"/);
-  assert.match(authored, /frame: function \(t\) \{ return draw\(t\); \}/);
+  assert.match(authored, /frame: draw/);
+  assert.match(authored, /data-element-id="motion-bauhaus-headline"/);
   // 模板必须自包含：页面里不能出现 /assets 或 /node_modules 这类绝对外链。
   assert.equal(/(?:src|href)="\/(?!\/)/.test(page), false, 'no absolute asset refs');
 });

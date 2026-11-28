@@ -2,6 +2,7 @@
 import { lstat, open, readdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
+import { readBundledTemplateLayouts } from './template-layouts.mjs';
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const RATIO = /^\d{1,4}:\d{1,4}$/;
@@ -30,6 +31,9 @@ async function readTemplate(root, id, source, detail) {
   let manifest;
   try { manifest = JSON.parse(await readBounded(join(folder, 'manifest.json'), 32_768)); } catch { return undefined; }
   if (!manifest || manifest.id !== id || !short(manifest.title, 60)) return undefined;
+  let layouts;
+  try { layouts = source === 'bundled' ? readBundledTemplateLayouts(manifest) : null; }
+  catch { return undefined; }
   const template = {
     id: source === 'external' ? `external:${id}` : id,
     source,
@@ -39,7 +43,8 @@ async function readTemplate(root, id, source, detail) {
     order: Number.isFinite(manifest.order) ? manifest.order : 100,
     featured: manifest.featured === true,
     tags: strings(manifest.tags, 8, 32),
-    ratios: strings(manifest.ratios, 8, 12).filter(value => RATIO.test(value) && value.split(':').every(Number)),
+    ratios: layouts?.ratios ?? strings(manifest.ratios, 8, 12).filter(value => RATIO.test(value) && value.split(':').every(Number)),
+    ...(layouts ? { defaultRatio: layouts.defaultRatio } : {}),
     slots: strings(manifest.slots, 12, 48),
     dependencies: strings(manifest.dependencies, 12, 60),
     version: short(manifest.version, 40),

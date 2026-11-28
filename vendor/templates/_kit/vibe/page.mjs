@@ -13,8 +13,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { escapeHtml } from '../render.mjs';
+import { renderVibeScene } from './editable-page.mjs';
 
 export function render(shot, _catalog, options = {}) {
+  if (options.layout) return renderVibeScene(shot, options.layout.size);
   const templateDir = options.templateDir;
   if (!templateDir) throw new Error('vibe page renderer requires templateDir');
   const stageScript = options.continuousStage || shot.continuousStage || '';

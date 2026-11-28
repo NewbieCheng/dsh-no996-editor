@@ -10,6 +10,9 @@ import { shellUiInjection, shellUiVersion } from '../ui/shell-extras.mjs';
 import { theme, themeSurfaceFor } from '../ui/theme.mjs';
 import { replaceTitle } from '../ui/brand.mjs';
 import { createPluginSurfaceProxy } from './studio-proxy/plugin-surface.mjs';
+import { installStudioNavigation } from './studio-navigation.mjs';
+import { BRAND_SETTINGS_CHANNELS } from './brand-rpc.mjs';
+import { RECIPE_RPC_CHANNELS } from './template-recipe-rpc.mjs';
 import { MAX_FRAME, WS_GUID, frames, wsFrame } from './studio-proxy/websocket.mjs';
 import {
   RESPONSE_HEADERS,
@@ -45,7 +48,7 @@ const AGENT_HINTS = Object.freeze({
   OFFICIAL_AGENT_OWNERSHIP: '找不到这个会话',
   OFFICIAL_AGENT_DEPENDENCY: '宿主缺少依赖能力',
   TEMPLATE_UNAVAILABLE: '创建服务未就绪，请重新打开视频创作',
-  TEMPLATE_PREPARE_FAILED: '无法准备项目目录，请检查存储权限和可用空间，再查看诊断日志',
+  TEMPLATE_PREPARE_FAILED: '无法准备项目目录，请查看诊断日志确认原因',
   TEMPLATE_COPY_FAILED: '项目文件写入失败，请查看诊断日志；不会自动重试',
   TEMPLATE_SOURCE_FAILED: '无法读取模板文件，请查看诊断日志',
   TEMPLATE_INPUT: '模板或画布选项无效，请重新选择',
@@ -279,10 +282,14 @@ export async function startStudioProxy({ upstream, authenticateBrowser, webOrigi
       'addEventListener("unhandledrejection",function(e){var r=e.reason;var m=(r&&r.message)||String(r);var s=(r&&r.stack)||"";var at=String(s).split("\\n").filter(function(l){return l.indexOf("at ")>=0}).slice(0,4).join(" | ");show("[Promise] "+m+(at?"\\n"+at:""),{layer:"ui",code:"UNHANDLED_REJECTION",location:at.slice(0,180),detail:{message:m,stack:String(s).slice(0,1200)}});});' +
       'var ce=console.error;console.error=function(){try{for(var i=0;i<arguments.length;i++){var a=arguments[i];if(a instanceof Error){show("[React] "+(a.message||a.name),{layer:"ui",code:"REACT_ERROR",detail:{message:a.message||a.name,stack:String(a.stack||"").slice(0,1200)}});break;}}}catch(e){}return ce.apply(console,arguments);};' +
       'var ES=globalThis.EventSource;if(typeof ES==="function"){globalThis.EventSource=function(u,o){var es=new ES(u,o);try{if(String(u).indexOf("/__dsh/")===0){es.addEventListener("error",function(){pushBuf({id:"sse-"+Date.now().toString(36),ts:new Date().toISOString(),level:"warn",layer:"sse",code:"SSE_ERROR",channel:String(u).slice(0,120),summary:"SSE 连接异常或重连",detail:{readyState:es.readyState}});reportToHost(buf[buf.length-1]);});}}catch(e){}return es;};globalThis.EventSource.prototype=ES.prototype;}' +
+      // Individual missing clips are handled by the editor. A burst of probes must
+      // not open the global failure banner or crowd out unrelated diagnostics.
+      'var missingMediaProjects=new Set(),missingMediaWindow=Date.now();' +
+      'function noteMissingMedia(s,r,o,traceId){if(r.status!==404||(o&&o.method&&String(o.method).toUpperCase()!=="GET"))return false;var m=/^[/]api[/]projects[/]([A-Za-z0-9_-]{6,40})[/]media[?](.*)$/.exec(s);if(!m||new URLSearchParams(m[2]).get("what")!=="probe")return false;var now=Date.now();if(now-missingMediaWindow>=60000){missingMediaProjects.clear();missingMediaWindow=now;}if(missingMediaProjects.size<20&&!missingMediaProjects.has(m[1])){missingMediaProjects.add(m[1]);globalThis.__no996DiagWarn("项目存在未找到的媒体素材，请检查素材是否已导入或被移动",{layer:"studio-upstream",code:"MEDIA_PROBE_MISSING",channel:"project:media-probe",traceId:traceId,detail:{projectId:m[1]}});}return true;}' +
       'var f=rawFetch;if(f)globalThis.fetch=function(u,o){var started=Date.now();var s=String(u);if(s.indexOf("/__dsh/client-diag")===0)return f.apply(this,arguments);' +
       'var tid="ui-"+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3);' +
       'try{if((s.indexOf("/__dsh/")===0||s.indexOf("/api/")===0)){var nextO=o?Object.assign({},o):{};var h=new Headers(nextO.headers||{});if(!h.has("x-no996-trace-id"))h.set("x-no996-trace-id",tid);else tid=h.get("x-no996-trace-id")||tid;nextO.headers=h;arguments[1]=nextO;o=nextO;}}catch(e){}' +
-      'return f.apply(this,arguments).then(function(r){try{var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(e){}var optional=/^(agent:(thinking|models|permission|trace)|chat:(archive-state|log))$/.test(ch);if(optional)return r;var rt=r.headers.get("x-no996-trace-id")||tid;if(r.status>=500||(r.status===404&&s.indexOf("/api/projects")>=0)){var base="[HTTP "+r.status+"] "+s.slice(0,180);r.clone().text().then(function(t){var why="";try{var j=JSON.parse(t);if(j&&typeof j.error==="string"&&j.error)why=" - "+j.error.slice(0,240);}catch(e){why=t?(" - "+String(t).slice(0,240)):"";}show(base+why,{layer:s.indexOf("/__dsh/")===0?"rpc":"studio-upstream",traceId:rt,code:"HTTP_"+r.status,channel:ch||s.slice(0,120),httpStatus:r.status,detail:{url:s.slice(0,180),durationMs:Date.now()-started,responsePreview:String(t||"").slice(0,400)}});}).catch(function(){show(base,{layer:s.indexOf("/__dsh/")===0?"rpc":"studio-upstream",traceId:rt,code:"HTTP_"+r.status,channel:ch||s.slice(0,120),httpStatus:r.status});});}}catch(e){}return r;},function(e){try{var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(_){}show("[网络] "+s.slice(0,180)+" "+((e&&e.message)||e),{layer:"ui",traceId:tid,code:"NETWORK_ERROR",channel:ch||s.slice(0,120),detail:{url:s.slice(0,180),durationMs:Date.now()-started,message:String((e&&e.message)||e).slice(0,300)}});}catch(_){}throw e;});};' +
+      'return f.apply(this,arguments).then(function(r){try{var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(e){}var optional=/^(agent:(thinking|models|permission|trace)|chat:(archive-state|log))$/.test(ch);if(optional)return r;var rt=r.headers.get("x-no996-trace-id")||tid;if(noteMissingMedia(s,r,o,rt))return r;if(r.status>=500||(r.status===404&&s.indexOf("/api/projects")>=0)){var base="[HTTP "+r.status+"] "+s.slice(0,180);r.clone().text().then(function(t){var why="";try{var j=JSON.parse(t);if(j&&typeof j.error==="string"&&j.error)why=" - "+j.error.slice(0,240);}catch(e){why=t?(" - "+String(t).slice(0,240)):"";}show(base+why,{layer:s.indexOf("/__dsh/")===0?"rpc":"studio-upstream",traceId:rt,code:"HTTP_"+r.status,channel:ch||s.slice(0,120),httpStatus:r.status,detail:{url:s.slice(0,180),durationMs:Date.now()-started,responsePreview:String(t||"").slice(0,400)}});}).catch(function(){show(base,{layer:s.indexOf("/__dsh/")===0?"rpc":"studio-upstream",traceId:rt,code:"HTTP_"+r.status,channel:ch||s.slice(0,120),httpStatus:r.status});});}}catch(e){}return r;},function(e){if(o&&o.signal&&o.signal.aborted)throw e;try{var ch="";try{ch=String(((JSON.parse((o&&o.body)||"{}")||{}).channel)||"");}catch(_){}show("[网络] "+s.slice(0,180)+" "+((e&&e.message)||e),{layer:"ui",traceId:tid,code:"NETWORK_ERROR",channel:ch||s.slice(0,120),detail:{url:s.slice(0,180),durationMs:Date.now()-started,message:String((e&&e.message)||e).slice(0,300)}});}catch(_){}throw e;});};' +
       'setTimeout(function(){try{parent.postMessage({type:"no996-openfilm:boot",version:1,hasNative:!!globalThis.openfilmNative,rendered:!!(document.getElementById("root")||{}).firstElementChild},' + "'*'" + ')}catch(e){}},1500);' +
       'setTimeout(function(){var r=document.getElementById("root");if(r&&!r.firstElementChild)show("界面 10 秒后仍未渲染（#root 为空）",{layer:"ui",code:"BOOT_RENDER_TIMEOUT",location:"studio-proxy:#root"});},10000);' +
       '})()</script>' : '';
@@ -389,20 +396,6 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
         .then(function(r){answer(r.ok)})
         .catch(function(){answer(false)});
     }
-    if(data&&typeof data==='object'&&!Array.isArray(data)&&data.type==='no996-openfilm:navigate'&&data.version===1&&typeof data.projectId==='string'&&/^[A-Za-z0-9_-]{6,40}$/.test(data.projectId)){
-      const target='/projects/'+data.projectId;
-      const sessionId=typeof data.sessionId==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(data.sessionId)?data.sessionId:'';
-      if(sessionId){
-        globalThis.__no996PendingSession={projectId:data.projectId,sessionId:sessionId};
-        try{dispatchEvent(new CustomEvent('no996-openfilm:select-session',{detail:{projectId:data.projectId,sessionId:sessionId}}))}catch(_){}
-      }
-      if(location.pathname!==target&&location.pathname!==target+'/'){
-        try{
-          history.pushState({},'',target);
-          dispatchEvent(new PopStateEvent('popstate',{state:{}}));
-        }catch(e){try{location.assign(target)}catch(_){}}
-      }
-    }
     if(data&&typeof data==='object'&&data.type==='no996-openfilm:layout'&&data.version===1){
       const h=globalThis.openfilmHost;
       if(h&&h.panel){
@@ -411,6 +404,7 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
       }
     }
   });
+  (${installStudioNavigation.toString()})({win:window,parentOrigin,targetOrigin,desktop:${desktop},reportProject:report});
   report(true);
 })();
 </script>${officialShell && officialPage ? shellUiInjection() : ''}${theme.injection(themeSurfaceFor(url.pathname, officialShell))}${styleLab}${devHead}`;
@@ -789,8 +783,11 @@ if(!localStorage.getItem('openfilm.workspace.current.v2')){
         pendingPayload = value.payload;
         // Auth is Host-held session state for this editor window — no project scope.
         const needsProject = value.channel !== 'template:list' && value.channel !== 'template:create'
-          && value.channel !== 'project:create-blank'
+          && value.channel !== 'template:create-spoken' && value.channel !== 'project:create-blank'
+          && value.channel !== 'client:version'
           && value.channel !== 'prefs:get' && value.channel !== 'prefs:set'
+          && !BRAND_SETTINGS_CHANNELS.includes(value.channel)
+          && !(RECIPE_RPC_CHANNELS.includes(value.channel) && !['template:recipe-preview', 'template:recipe-save'].includes(value.channel))
           && value.channel !== 'environment:check' && value.channel !== 'environment:fallback-prompt'
           && value.channel !== 'client:log'
           && value.channel !== 'diag:list' && value.channel !== 'diag:export' && value.channel !== 'diag:clear' && value.channel !== 'diag:prefs'

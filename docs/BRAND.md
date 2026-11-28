@@ -2,7 +2,7 @@
 id: brand
 reader: 产品 / 设计 / 维护者
 fact-source: brand/brand.json、assets/theme/*.css
-checked: 0.19.11
+checked: 0.22.0
 rot-if: 品牌字段、法务要求或替换流程变化
 -->
 
@@ -61,6 +61,20 @@ rot-if: 品牌字段、法务要求或替换流程变化
 图标：`icon.svg` 与 `assets/logo-symbol-*.svg` 是资源文件，替换时保持文件名不变，避免同时改构建配置。
 
 ---
+
+## 3.1 用户品牌记忆（0.22.0）
+
+`brand/brand.json` 仍是**产品自身**的品牌事实；用户给影片设置的 Logo／名称／写作身份是另一层数据，存在 DSH `storageDomain` 的 `no996_brand_memory`，不写回产品品牌文件。
+
+- 唯一入口：工作台「设置 → 全局资产 → 品牌」。账号与余额在右上角「我的工作台」里，与本机全局资产分开；游客也能配置本机品牌，登录不会改变它。
+- 左编辑右预览：名称、上传或拖入 Logo、展示方式（Logo＋名称／单 Logo）、默认位置；右侧按横竖屏和深浅底即时预览，虚线是安全区。窄窗口自动改上下排列。
+- 上传接受 PNG／JPG／WebP（≤20 MB），在浏览器内按原比例缩放压缩成 PNG（≤2 MB）；横长 Logo 不会被裁成方形。不压缩成正方形，也不上传到任何服务器。
+- 首次在项目页显示一次「添加你的品牌 Logo」提示，可去配置或暂不设置；两种情况都不再重复出现。聊天框没有品牌入口。
+- 影片显式选用时，把 Logo、名称、写作身份、位置快照到项目 `.film/brand.json`，Logo 存为 `assets/brand/<sha256>.png`；`Logo＋名称` 另生成本地页面 `assets/brand/lockup-<sha256>.html`，其中 Logo 与名称是两个独立可编辑元素。以后改全局设置不会改变旧影片。
+- 位置优先级：本片位置 > profile 默认位置 > 竖屏左上／横屏右下；`自动` 记为 `placementMode: auto`，手动选角后固定。
+- 画面只读取名称、位置和素材引用；写作身份只通过 `no996_brand`（`purpose: narration|on-screen-copy`）按需读取。`purpose: placement` 只返回品牌素材引用与位置规则，供用户明确要求摆放时参考，不返回写作身份。
+- 分享配方默认移除品牌和 Logo；应用自己写入的品牌成片镜头不会被当作可复用模板镜头提取。
+
 
 ## 4. brand:check 检查什么
 

@@ -1,0 +1,91 @@
+diff --git a/packages/openfilm/studio/ui/src/components/No996TemplateLibrary.tsx b/packages/openfilm/studio/ui/src/components/No996TemplateLibrary.tsx
+new file mode 100644
+index 0000000..e814360
+--- /dev/null
++++ b/packages/openfilm/studio/ui/src/components/No996TemplateLibrary.tsx
+@@ -0,0 +1,85 @@
++import React from 'react';
++import { Download, FolderOpen, RefreshCw, Trash2, Upload } from 'lucide-react';
++
++type LocalTemplate = { id: string; title: string; description: string; canvas: { w: number; h: number; ratio: string }; scenes: number; assets: number; hasBgm: boolean; hasBrand: boolean };
++type Market = { url: string; refreshedAt: string; items: Array<{ id: string; title: string; description: string; url: string; sha256: string }> };
++const button = 'rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium hover:bg-[var(--bg-hover)] disabled:opacity-50';
++const field = 'w-full rounded-md border border-[var(--border)] bg-[var(--bg-field)] px-2.5 py-1.5 text-sm text-[var(--text)]';
++const chinese = () => document.documentElement.lang.toLowerCase().startsWith('zh');
++
++async function rpc<T>(channel: string, payload: unknown = {}): Promise<T> {
++  const response = await fetch('/__dsh/official-rpc', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ channel, payload }) });
++  if (!response.ok) throw new Error((await response.text()).split(':')[0] || 'Request failed');
++  return response.json();
++}
++const readFile = file => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? ''); reader.onerror = reader.onabort = reject; reader.readAsDataURL(file); });
++
++export function No996TemplateLibrary({ onCreate }: { onCreate: (projectId: string) => void }) {
++  const zh = chinese();
++  const [open, setOpen] = React.useState(false);
++  const [templates, setTemplates] = React.useState<LocalTemplate[]>([]);
++  const [market, setMarket] = React.useState<Market>();
++  const [url, setUrl] = React.useState('');
++  const [busy, setBusy] = React.useState('');
++  const [notice, setNotice] = React.useState('');
++  const [share, setShare] = React.useState<LocalTemplate>();
++  const [includeBrand, setIncludeBrand] = React.useState(false);
++  const [includeBgm, setIncludeBgm] = React.useState(false);
++  const refresh = React.useCallback(async () => {
++    setBusy('list');
++    try { setTemplates((await rpc<{ templates: LocalTemplate[] }>('template:local-list')).templates); }
++    catch { setNotice(zh ? '无法读取本地模板库。' : 'Could not read the local template library.'); }
++    finally { setBusy(''); }
++  }, [zh]);
++  React.useEffect(() => { if (open) void refresh(); }, [open, refresh]);
++  async function action(id: string, task: () => Promise<unknown>) {
++    if (busy) return;
++    setBusy(id); setNotice('');
++    try { await task(); }
++    catch (failure) {
++      const code = failure instanceof Error ? failure.message : '';
++      setNotice(code === 'RECIPE_EXPORT_TOO_LARGE' ? (zh ? '分享包超过 6 MB。请关闭私人配乐或减少资源。' : 'The share ZIP exceeds 6 MiB. Omit private music or reduce assets.')
++        : code === 'RECIPE_MARKET_HASH' ? (zh ? '市场包校验失败，没有安装。' : 'Market package hash mismatch; nothing was installed.')
++        : (zh ? '操作失败。请检查文件、地址或网络后重试。' : 'Action failed. Check the file, address or network and try again.'));
++    } finally { setBusy(''); }
++  }
++  async function importFile(file?: File) {
++    if (!file) return;
++    if (file.size > 6 * 1024 * 1024) { setNotice(zh ? '导入包不能超过 6 MB。' : 'Import ZIP must be at most 6 MiB.'); return; }
++    await action('import', async () => { await rpc('template:local-import', { zipBase64: await readFile(file) }); await refresh(); });
++  }
++  async function exportTemplate() {
++    if (!share) return;
++    await action(`export-${share.id}`, async () => {
++      const result = await rpc<{ zipBase64: string; fileName: string }>('template:local-export', { id: share.id, includeBrand, includeBgm });
++      const bytes = Uint8Array.from(atob(result.zipBase64), value => value.charCodeAt(0));
++      const link = document.createElement('a');
++      link.href = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }));
++      link.download = result.fileName;
++      link.click();
++      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
++      setShare(undefined);
++    });
++  }
++  async function loadMarket() {
++    await action('market-get', async () => { const result = await rpc<{ market: Market }>('template:market-get'); setMarket(result.market); setUrl(result.market.url); });
++  }
++  return <section className="mt-4 border-t border-[var(--border)] pt-4" aria-label={zh ? '本地模板库' : 'Local template library'}>
++    <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); if (!open) void loadMarket(); }} className="flex w-full items-center justify-between text-left text-sm font-semibold"><span>{zh ? '本地模板与分享' : 'Local templates & sharing'}</span><span className="text-xs text-[var(--text-muted)]">{open ? '−' : '+'}</span></button>
++    {open ? <div className="mt-3 space-y-3">
++      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '本地模板只含配方与必要资源，不是项目副本。导入只接受数据配方；分享默认移除私人品牌和配乐。' : 'Local templates contain recipes and required assets, not project copies. Imports accept data recipes only; sharing omits private brand and music by default.'}</p>
++      <div className="flex flex-wrap gap-2"><label className={`${button} inline-flex cursor-pointer items-center gap-1`}><Upload size={13} />{zh ? '导入配方 ZIP' : 'Import recipe ZIP'}<input className="hidden" type="file" accept=".zip,application/zip" disabled={Boolean(busy)} onChange={event => { void importFile(event.target.files?.[0]); event.target.value = ''; }} /></label><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void refresh()}><RefreshCw size={13} />{zh ? '刷新本地库' : 'Refresh library'}</button></div>
++      {notice ? <p role="status" className="text-xs text-[var(--text-muted)]">{notice}</p> : null}
++      <div className="space-y-2">{templates.map(item => <article key={item.id} className="rounded-md border border-[var(--border)] p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="truncate text-sm font-semibold">{item.title}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">{item.canvas.w} × {item.canvas.h} · {item.scenes} {zh ? '镜' : 'scenes'} · {item.assets} {zh ? '资源' : 'assets'}</p></div><button type="button" aria-label={zh ? `删除 ${item.title}` : `Delete ${item.title}`} disabled={Boolean(busy)} onClick={() => void action(`delete-${item.id}`, async () => { await rpc('template:local-delete', { id: item.id }); await refresh(); })}><Trash2 size={14} /></button></div>
++        {item.description ? <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{item.description}</p> : null}
++        <div className="mt-2 flex flex-wrap gap-2"><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void action(`create-${item.id}`, async () => { const result = await rpc<{ projectId: string }>('template:local-create', { id: item.id, ratio: item.canvas.ratio }); onCreate(result.projectId); })}><FolderOpen size={13} />{zh ? '用此配方创建' : 'Create from recipe'}</button><button type="button" className={button} disabled={Boolean(busy)} onClick={() => { setShare(item); setIncludeBrand(false); setIncludeBgm(false); }}><Download size={13} />{zh ? '导出分享 ZIP' : 'Export share ZIP'}</button></div>
++      </article>)}</div>
++      {share ? <div className="space-y-2 rounded-md bg-[var(--bg-field)] p-3 text-xs"><p className="font-medium">{zh ? `分享「${share.title}」` : `Share “${share.title}”`}</p><label className="flex gap-2"><input type="checkbox" disabled={!share.hasBrand} checked={includeBrand} onChange={event => setIncludeBrand(event.target.checked)} />{zh ? '包含本片品牌与 Logo（确认可分发）' : 'Include project brand and logo (confirm redistribution rights)'}</label><label className="flex gap-2"><input type="checkbox" disabled={!share.hasBgm} checked={includeBgm} onChange={event => setIncludeBgm(event.target.checked)} />{zh ? '包含配乐与拍点（确认可分发）' : 'Include music and beats (confirm redistribution rights)'}</label><div className="flex gap-2"><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void exportTemplate()}>{zh ? '下载 ZIP' : 'Download ZIP'}</button><button type="button" className={button} onClick={() => setShare(undefined)}>{zh ? '取消' : 'Cancel'}</button></div></div> : null}
++      <details className="rounded-md border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-medium">{zh ? '模板市场（可选）' : 'Template market (optional)'}</summary><div className="mt-3 space-y-2"><p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '地址留空即关闭。刷新只下载索引；安装时校验 SHA-256，且只读取配方数据，不执行 HTML/JS。' : 'Leave blank to disable. Refresh downloads only the index; install verifies SHA-256 and reads recipe data without executing HTML/JS.'}</p><input className={field} value={url} onChange={event => setUrl(event.target.value)} placeholder="https://example.test/no996-index.json" inputMode="url" /><div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void action('market-set', async () => { const result = await rpc<{ market: Market }>('template:market-set', { url: url.trim() }); setMarket(result.market); })}>{zh ? '保存地址' : 'Save address'}</button><button type="button" className={button} disabled={Boolean(busy) || !market?.url} onClick={() => void action('market-refresh', async () => { const result = await rpc<{ market: Market }>('template:market-refresh'); setMarket(result.market); })}>{zh ? '刷新索引' : 'Refresh index'}</button></div>
++        {market?.refreshedAt ? <p className="text-xs text-[var(--text-muted)]">{zh ? '最近刷新' : 'Last refreshed'}: {new Date(market.refreshedAt).toLocaleString()}</p> : null}
++        {market?.items.map(item => <div key={item.id} className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs"><div className="min-w-0"><b className="block truncate">{item.title}</b><span className="text-[var(--text-muted)]">{item.description}</span></div><button type="button" className={button} disabled={Boolean(busy)} onClick={() => void action(`market-${item.id}`, async () => { await rpc('template:market-install', { id: item.id }); await refresh(); })}>{zh ? '安装到本地' : 'Install locally'}</button></div>)}
++      </div></details>
++      <p className="text-xs leading-relaxed text-[var(--text-muted)]">{zh ? '教程：项目标题菜单 → 另存为本地模板 → 选镜头 → 保存；需要给别人时，再单独导出分享 ZIP。' : 'Tutorial: Project title menu → Save as local template → choose scenes → save. Export a separate share ZIP when needed.'}</p>
++    </div> : null}
++  </section>;
++}

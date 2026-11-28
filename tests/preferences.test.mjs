@@ -25,6 +25,8 @@ test('preferences default, persist, and sanitize', async () => {
     asrChoice: 'unset',
     searchSource: 'dsh',
     visionUpgradeNoticeDismissed: '',
+    templateMarket: { url: '', refreshedAt: '', items: [] },
+    no996UpdateVersion: '',
   });
   const saved = await store.set({
     onboardingCompleted: true,
@@ -48,6 +50,10 @@ test('preferences default, persist, and sanitize', async () => {
   assert.deepEqual(await again.get(), saved);
   await assert.rejects(() => store.set({ defaultTemplateId: '../evil' }), /无效模板/);
   await assert.rejects(() => store.set({ cachedAvailablePoints: -1 }), /无效积分缓存/);
+  await store.set({ no996UpdateVersion: '0.22.0' });
+  assert.equal((await createPreferencesStore({ home }).get()).no996UpdateVersion, '0.22.0');
+  await store.set({ templateMarket: { url: 'https://user:secret@market.test/index.json', items: [] } });
+  assert.equal((await store.get()).templateMarket.url, '');
 });
 
 test('balance cache helpers match 清流 available = permanent + period', async () => {

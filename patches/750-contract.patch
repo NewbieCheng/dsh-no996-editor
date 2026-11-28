@@ -1,0 +1,56 @@
+diff --git a/packages/shared/src/contract.ts b/packages/shared/src/contract.ts
+index 340ad66..0750abb 100644
+--- a/packages/shared/src/contract.ts
++++ b/packages/shared/src/contract.ts
+@@ -190,14 +190,30 @@ export const publicGenerationEventSchema = z.discriminatedUnion('type', [
+     done: z.boolean().optional(),
+     text: z.string().max(TRANSCRIPT_TEXT_MAX),
+   }),
+-  /** The model is thinking (no text); `done: true` ends it. Not kept in the history. */
++  /**
++   * The model is thinking; `done: true` ends it.
++   *
++   * `text` carries the reasoning itself when the agent sends it (an agent on the user's machine, or a
++   * bridging agent that reports its reasoning), so the panel can show a "thought for 6s" block that
++   * opens to it. Without text it only drives the status line underneath.
++   */
+   z.object({
+     type: z.literal('agent-thinking'),
++    turnNo: z.number().int().nonnegative().optional(),
++    partId: z.string().optional(),
+     done: z.boolean().optional(),
++    text: z.string().max(TRANSCRIPT_TEXT_MAX).optional(),
+   }),
+-  /** One thing the agent did: a closed-set action and a short visible text (search words, a description). */
++  /**
++   * One thing the agent did: a closed-set action and a short visible text (search words, a description).
++   *
++   * 	ool is the real tool name (openfilm_frame, web_search, ead). The closed act says what it
++   * meant for the film; the name says what actually ran — a bridging agent knows both, and a person
++   * reading a transcript wants both.
++   */
+   z.object({
+     type: z.literal('agent-act'),
++    tool: z.string().max(80).optional(),
+     callId: z.string(),
+     turnNo: z.number().int().nonnegative(),
+     act: z.enum(AGENT_ACTS),
+@@ -288,3 +304,18 @@ export function mergeStreamText(cur: string, next: string): string {
+   if (cur.includes(next)) return cur;
+   return cur + next;
+ }
++
++/**
++ * Picks between two versions of the same growing text (a live snapshot and the row it belongs to).
++ *
++ * A snapshot may be behind the row (deltas arrived while it was in flight) or ahead of it (a normal
++ * extension). What it must never do is get appended: {@link mergeStreamText} falls back to `cur + next`
++ * when neither string is a prefix of the other, which turns one out-of-order snapshot into a visibly
++ * duplicated paragraph. Both values describe the same attempt, so the longer one is always right.
++ */
++export function preferLonger(cur: string, next: string): string {
++  if (!cur) return next;
++  if (next.startsWith(cur)) return next;
++  if (cur.startsWith(next)) return cur;
++  return cur.length >= next.length ? cur : next;
++}
